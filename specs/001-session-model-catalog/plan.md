@@ -246,3 +246,8 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q130 | implement T090b | 換 token 用 httpx 而非 google-auth-oauthlib 的 `fetch_token`(後者走 requests,MockTransport 攔不到)。(a)授權網址用真 `InstalledAppFlow`、換 token 用 httpx、授權檔用 `Credentials.to_json()`;(b)改用 `fetch_token` 加假本機端點 | — | (a);CLI 讀檔由 US1-OA-06 實跑驗證(kevin-twin 代為決定) |
 | Q131 | implement T093b | 合約有、testplan 沒有案例的 OAuth 行為(本文非 JSON、200 缺 `access_token`/`expires_in`、轉接層去空白、缺 `scope`)。(a)本迭代不補,列入完成報告的未覆蓋;(b)補案例 | — | (a)(kevin-twin 代為決定) |
 | Q132 | implement T090b | 授權檔 expiry 用系統時間而非注入的 Clock,目前沒有測試看它。(a)記錄,不處理;(b)改用 Clock | — | (a)(kevin-twin 代為決定) |
+| Q133 | implement T056b | `src/cgb/domain/colab_output.py` 未建立(派工限制禁止動 domain/,由 E2 負責),解析全部放在 `colab_cli.py`。(a)維持;(b)之後搬到 domain | — | (a)(kevin-twin 代為決定) |
+| Q134 | implement T076 | **合約有、testplan 沒有案例而未實作的 E5 失敗規則**:new/exec/stop/usage/version 的子行程時限、stderr 判定的 `COLAB_UNREACHABLE`/`COLAB_TIMEOUT`、sessions/new/exec/stop 的 `AUTH_REQUIRED`、`COLAB_ALLOCATION_REFUSED`、`COLAB_ACCELERATOR_REJECTED`、非 0 結束的 `COLAB_FAILED`、new 缺 `Session READY.` 的 `COLAB_BAD_RESPONSE`、exec 的 `COLAB_NOT_FOUND`/`ok:false`/無結果行。(a)補 testplan 案例與 tasks 後照 TDD 實作;(b)直接照合約補程式;(c)列為未覆蓋 | T077 與跨端點驗收的實跑 | (a);逾時缺失會讓實跑卡住扣點,必須在實跑前補上(E9 的 Q131 維持不補)(kevin-twin 代為決定) |
+| Q135 | implement T063b | gpu 不在 GpuType 時丟 `ValueError`(合約無輸入錯誤代碼)。(a)維持;(b)另定代碼 | — | (a)(kevin-twin 代為決定) |
+| Q136 | implement T076 | 重構時 `_run` 統一處理找不到執行檔、`start_ollama` 連續兩次斷線改回 `COLAB_UNREACHABLE`,改動了沒有測試的路徑(與合約一致)。(a)接受;(b)撤回 | — | (a);由 Q134 補的案例覆蓋(kevin-twin 代為決定) |
+| Q137 | implement T066b | `start_ollama.py`、`probe_resources.py` 遠端腳本本節沒有測試實際執行。(a)由 US2-CLI-01 與實跑 US1-CLI-21 驗證;(b)另補 | — | (a)(kevin-twin 代為決定) |

@@ -409,167 +409,167 @@
 
 ### E5 Colab CLI(google-colab-cli,外部程式)
 
-- [ ] T056a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-01 的測試(各呼叫一次),執行確認它因為「不檢查版本,改版後的輸出照舊規則解析出錯的值」這類實作而失敗
+- [X] T056a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-01 的測試(各呼叫一次),執行確認它因為「不檢查版本,改版後的輸出照舊規則解析出錯的值」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./version.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T056b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T056a)
+- [X] T056b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T056a)
   - 🧪 `testplan.md` § US1-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./version.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T057a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-02 的測試(呼叫),執行確認它因為「找不到執行檔時拋未處理的 `FileNotFoundError` 讓後端啟動失敗」這類實作而失敗
+- [X] T057a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-02 的測試(呼叫),執行確認它因為「找不到執行檔時拋未處理的 `FileNotFoundError` 讓後端啟動失敗」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./version.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T057b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T057a)
+- [X] T057b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T057a)
   - 🧪 `testplan.md` § US1-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./version.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T058a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-03 的測試(呼叫),執行確認它因為「把 `[colab] ` 提示行或空行當成資料而解析失敗」這類實作而失敗
+- [X] T058a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-03 的測試(呼叫),執行確認它因為「把 `[colab] ` 提示行或空行當成資料而解析失敗」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-03
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./sessions.get`
   - 📎 `spec.md` § FR-003、FR-005
-- [ ] T058b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T058a)
+- [X] T058b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T058a)
   - 🧪 `testplan.md` § US1-CLI-03
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./sessions.get`
   - 📎 `spec.md` § FR-003、FR-005
-- [ ] T059a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-04 的測試(呼叫),執行確認它因為「把「沒有執行環境」當成格式不符而回 `COLAB_BAD_RESPONSE`」這類實作而失敗
+- [X] T059a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-04 的測試(呼叫),執行確認它因為「把「沒有執行環境」當成格式不符而回 `COLAB_BAD_RESPONSE`」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-04
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./sessions.get`
   - 📎 `spec.md` § FR-003
-- [ ] T059b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T059a)
+- [X] T059b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T059a)
   - 🧪 `testplan.md` § US1-CLI-04
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./sessions.get`
   - 📎 `spec.md` § FR-003
-- [ ] T060a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-05 的測試(呼叫),執行確認它因為「比對不到的行直接略過,使改版後所有執行環境「消失」、被判成收回」這類實作而失敗
+- [X] T060a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-05 的測試(呼叫),執行確認它因為「比對不到的行直接略過,使改版後所有執行環境「消失」、被判成收回」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./sessions.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T060b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T060a)
+- [X] T060b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T060a)
   - 🧪 `testplan.md` § US1-CLI-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./sessions.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T061a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-06 的測試(以 `name=cgb-test-0001, gpu=T4, high_mem=false` 呼叫;再以 `high_mem=true` 呼叫一次),執行確認它因為「stdin 繼承後端的,CLI 等授權碼時整個開啟卡住」這類實作而失敗;另把 `create_session` 實際傳出的兩組 argv 交給真的 `colab` 0.7.5 解讀(Setup 的 T001 已裝進開發環境):`HOME` 指到空的暫存資料夾、其 `.config/colab-cli/settings.json` 為 `{"enable_update_check": false}`、stdin 接 `/dev/null`、不帶授權檔,斷言 stderr 沒有參數錯誤(`No such option`、`Usage:`、`Invalid value`),只出現未登入或要授權的訊息(不連網、不會配置執行環境;外部程式端點要有讓真的工具解讀參數的測試)
+- [X] T061a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-06 的測試(以 `name=cgb-test-0001, gpu=T4, high_mem=false` 呼叫;再以 `high_mem=true` 呼叫一次),執行確認它因為「stdin 繼承後端的,CLI 等授權碼時整個開啟卡住」這類實作而失敗;另把 `create_session` 實際傳出的兩組 argv 交給真的 `colab` 0.7.5 解讀(Setup 的 T001 已裝進開發環境):`HOME` 指到空的暫存資料夾、其 `.config/colab-cli/settings.json` 為 `{"enable_update_check": false}`、stdin 接 `/dev/null`、不帶授權檔,斷言 stderr 沒有參數錯誤(`No such option`、`Usage:`、`Invalid value`),只出現未登入或要授權的訊息(不連網、不會配置執行環境;外部程式端點要有讓真的工具解讀參數的測試)
   - 🧪 `testplan.md` § US1-CLI-06
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./new.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、FR-009
-- [ ] T061b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T061a)
+- [X] T061b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T061a)
   - 🧪 `testplan.md` § US1-CLI-06
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./new.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、FR-009
-- [ ] T062a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-07 的測試(呼叫),執行確認它因為「看到 `Session READY.` 或 exit 0 就當成功」這類實作而失敗
+- [X] T062a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-07 的測試(呼叫),執行確認它因為「看到 `Session READY.` 或 exit 0 就當成功」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-07
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./new.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、FR-007
-- [ ] T062b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T062a)
+- [X] T062b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T062a)
   - 🧪 `testplan.md` § US1-CLI-07
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./new.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、FR-007
-- [ ] T063a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-08 的測試(以 `gpu="t4"` 與 `gpu="TPU"` 各呼叫一次),執行確認它因為「把不在 `GpuType` 的字串放進命令列(CLI 會當成 A100)」這類實作而失敗
+- [X] T063a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-08 的測試(以 `gpu="t4"` 與 `gpu="TPU"` 各呼叫一次),執行確認它因為「把不在 `GpuType` 的字串放進命令列(CLI 會當成 A100)」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-08
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./new.post`
   - 📎 `spec.md` § FR-009
-- [ ] T063b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T063a)
+- [X] T063b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T063a)
   - 🧪 `testplan.md` § US1-CLI-08
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./new.post`
   - 📎 `spec.md` § FR-009
-- [ ] T064a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-09 的測試(以 `gpu=L4, high_mem=true` 呼叫),執行確認它因為「把這行 stderr 當成失敗」這類實作而失敗
+- [X] T064a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-09 的測試(以 `gpu=L4, high_mem=true` 呼叫),執行確認它因為「把這行 stderr 當成失敗」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./new.post`
   - 📎 `spec.md` § FR-009
-- [ ] T064b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T064a)
+- [X] T064b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T064a)
   - 🧪 `testplan.md` § US1-CLI-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./new.post`
   - 📎 `spec.md` § FR-009
-- [ ] T065a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-10 的測試(呼叫),執行確認它因為「stdin 沒接 `/dev/null`,CLI 永遠等授權碼」這類實作而失敗
+- [X] T065a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-10 的測試(呼叫),執行確認它因為「stdin 沒接 `/dev/null`,CLI 永遠等授權碼」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-10
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T065b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T065a)
+- [X] T065b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T065a)
   - 🧪 `testplan.md` § US1-CLI-10
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T066a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-11 的測試(呼叫),執行確認它因為「解析第一行而不是最後一個 `CGB-RESULT` 行」這類實作而失敗
+- [X] T066a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-11 的測試(呼叫),執行確認它因為「解析第一行而不是最後一個 `CGB-RESULT` 行」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-11
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`
   - 📎 `spec.md` § FR-001
-- [ ] T066b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T066a)
+- [X] T066b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T066a)
   - 🧪 `testplan.md` § US1-CLI-11
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`
   - 📎 `spec.md` § FR-001
-- [ ] T067a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-12 的測試(呼叫),執行確認它因為「第一次就判開啟失敗(research.md R1 實測會偶發)」這類實作而失敗
+- [X] T067a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-12 的測試(呼叫),執行確認它因為「第一次就判開啟失敗(research.md R1 實測會偶發)」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-12
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`
   - 📎 `spec.md` § FR-001
-- [ ] T067b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T067a)
+- [X] T067b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T067a)
   - 🧪 `testplan.md` § US1-CLI-12
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`
   - 📎 `spec.md` § FR-001
-- [ ] T068a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-13 的測試(呼叫),執行確認它因為「無限重試」這類實作而失敗
+- [X] T068a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-13 的測試(呼叫),執行確認它因為「無限重試」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-13
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/probe-resources.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T068b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/probe_resources.py` 只寫讓 US1-CLI-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T068a)
+- [X] T068b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/probe_resources.py` 只寫讓 US1-CLI-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T068a)
   - 🧪 `testplan.md` § US1-CLI-13
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/probe-resources.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T069a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-14 的測試(呼叫),執行確認它因為「信 exit 0 當成功」這類實作而失敗
+- [X] T069a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-14 的測試(呼叫),執行確認它因為「信 exit 0 當成功」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-14
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、FR-007
-- [ ] T069b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T069a)
+- [X] T069b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T069a)
   - 🧪 `testplan.md` § US1-CLI-14
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、FR-007
-- [ ] T070a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-15 的測試(呼叫),執行確認它因為「看到 `not found` 就回錯誤(結束應該是冪等的)」這類實作而失敗
+- [X] T070a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-15 的測試(呼叫),執行確認它因為「看到 `not found` 就回錯誤(結束應該是冪等的)」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-15
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./stop.post`
   - 📎 `spec.md` § FR-002、FR-007
-- [ ] T070b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T070a)
+- [X] T070b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T070a)
   - 🧪 `testplan.md` § US1-CLI-15
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./stop.post`
   - 📎 `spec.md` § FR-002、FR-007
-- [ ] T071a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-16 的測試(呼叫),執行確認它因為「信 `Session terminated.` 或 exit 0 就回成功(research.md R1:stop 的 exit code 不反映結果)」這類實作而失敗
+- [X] T071a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-16 的測試(呼叫),執行確認它因為「信 `Session terminated.` 或 exit 0 就回成功(research.md R1:stop 的 exit code 不反映結果)」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-16
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./stop.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-007、SC-003
-- [ ] T071b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T071a)
+- [X] T071b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T071a)
   - 🧪 `testplan.md` § US1-CLI-16
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./stop.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-007、SC-003
-- [ ] T072a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-17 的測試(呼叫),執行確認它因為「第一次回讀還在就直接回 `COLAB_STOP_UNCONFIRMED`,沒有再試一次」這類實作而失敗
+- [X] T072a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-17 的測試(呼叫),執行確認它因為「第一次回讀還在就直接回 `COLAB_STOP_UNCONFIRMED`,沒有再試一次」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-17
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./stop.post`
   - 📎 `spec.md` § FR-007
-- [ ] T072b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T072a)
+- [X] T072b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T072a)
   - 🧪 `testplan.md` § US1-CLI-17
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./stop.post`
   - 📎 `spec.md` § FR-007
-- [ ] T073a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-18 的測試(呼叫),執行確認它因為「遮蔽寫錯,endpoint 原樣進入錯誤訊息與日誌」這類實作而失敗
+- [X] T073a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-18 的測試(呼叫),執行確認它因為「遮蔽寫錯,endpoint 原樣進入錯誤訊息與日誌」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./stop.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-007、NFR-010
-- [ ] T073b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T073a)
+- [X] T073b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T073a)
   - 🧪 `testplan.md` § US1-CLI-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./stop.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-007、NFR-010
-- [ ] T074a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-19 的測試(各呼叫一次),執行確認它因為「讀不到用量就當成未登入,把使用者趕去重新登入」這類實作而失敗
+- [X] T074a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-19 的測試(各呼叫一次),執行確認它因為「讀不到用量就當成未登入,把使用者趕去重新登入」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-19
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T074b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T074a)
+- [X] T074b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T074a)
   - 🧪 `testplan.md` § US1-CLI-19
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T075a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-20 的測試(呼叫),執行確認它因為「逾時後沒殺子行程或沒 `wait`,留下殭屍」這類實作而失敗
+- [X] T075a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-20 的測試(呼叫),執行確認它因為「逾時後沒殺子行程或沒 `wait`,留下殭屍」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-20
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./sessions.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T075b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T075a)
+- [X] T075b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US1-CLI-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T075a)
   - 🧪 `testplan.md` § US1-CLI-20
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./sessions.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T076 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T056b~T075b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/adapters/scripts/`、`src/cgb/domain/colab_output.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T075b)
+- [X] T076 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T056b~T075b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/adapters/scripts/`、`src/cgb/domain/colab_output.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T075b)
   - 🧪 `testplan.md` § US1-CLI-01~US1-CLI-20
   - 📎 `testplan.md` § 2.2
 - [ ] T077 [US1] 📏 量測:撰寫 `tests/realrun/test_us1_cli_21.py`(`-m realrun`),照 US1-CLI-21 量測。假如:主機上真的 google-colab-cli 0.7.5(不經假執行檔);`<暫存目錄>` 已有照 P9 複製來的 token.json。當:依序執行 `version`、`usage`、`sessions`、`new -s cgb-test-<時間>-adapter --gpu T4`、`sessions`、`exec -f` 啟動 Ollama 腳本、`exec -f` 讀資源腳本、`stop -s cgb-test-<時間>-none`(不存在的名稱)、(US2-RO-03、US1-TUN-10 跑完後)`stop -s cgb-test-<時間>-adapter`、`sessions`;每行輸出用轉接層的同一組 regex 解析。記下的數字與門檻:則1:`version` 的 stdout 是 `Version: 0.7.5`;則2:`usage` 三行都符合 `x-stdout` 的三個 regex;則3:兩次 `sessions` 的每一行都符合 `x-stdout` 的 regex 或以 `[colab] ` 開頭;則4:`new` 的 stdout 有 `[colab] Session READY.`,接著的 `sessions` 列出這個名稱、硬體 T4;則5:兩次 `exec` 的 stdout 最後一個 `CGB-RESULT` 行可解析,`ok` 為 true、`vramTotalBytes` 大於 0;則6:`stop` 不存在的名稱印 `not found` 且 exit code 為 0(替身照這個行為寫);則7:`stop` 之後 60 秒內 `sessions` 不再列出這個名稱(SC-003);則8:`tests/fixtures/bin/colab` 劇本裡每一種輸出,和這次錄到的對應輸出,解析出的欄位名稱相同。副作用與護欄:P1~P9;執行環境 1 台 T4,開到關約 11 分鐘(含 US2-RO-03 與 US1-TUN-10 各約 3 分鐘),整台約 0.21 compute units;子行程帶 `HOME=<暫存目錄>/home`;不呼叫本系統後端;記下 `Connection was lost` 出現的次數(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(regex 比對與 60 秒門檻);樣本:一次實跑(未用於調整替身以外的規則)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
