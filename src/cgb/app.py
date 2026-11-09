@@ -121,8 +121,13 @@ def create_app(
         model_library=model_library,
         google_oauth=google_oauth,
     )
+    ui = _empty_app("colab-gpu-bridge UI", state)
+    # 延後匯入:cgb.api 往下依賴 services 與 db,app.py 只負責組裝
+    from cgb.api import install as install_ui_api
+
+    install_ui_api(ui)
     return AppPair(
-        ui=_empty_app("colab-gpu-bridge UI", state),
+        ui=ui,
         ollama=_empty_app("colab-gpu-bridge Ollama 相容端點", state),
         state=state,
     )

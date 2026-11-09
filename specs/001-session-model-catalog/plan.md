@@ -267,3 +267,9 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q151 | implement T095 | 〔任務 T095b〕exec 重跑後的輸出沒有再判一次 `COLAB_NOT_FOUND`(第二次輸出 not found/lost 時落到 `COLAB_BAD_RESPONSE`)。(a)補案例;(b)維持,列為未覆蓋 | — | (b);不會造成卡住或扣點,列入完成報告的未覆蓋(kevin-twin 代為決定) |
 | Q152 | implement T097 | 〔任務 T097b〕`probe_resources` 成功時仍回 `{}`,由 US3-CLI-01/02 補。(a)照計畫由故事 3 補;(b)現在補 | — | (a);E2 不得依賴其回傳值(kevin-twin 代為決定) |
 | Q153 | implement T078 | 〔任務 T078b〕實作途中桌機曾留下一個假 colab 分出的 `sleep` 子行程,根因未明;測試檔加了每個測試結束時清除子行程的 fixture。主 agent 連跑逾時測試 20 次,本 pytest 結束時皆無持續殘留(唯一一次的計數出現在本 pytest 結束 2 秒後,來自同時執行的 E2 全套測試)。(a)接受,實跑階段再以 ps 確認;(b)另外排查 | — | (a)(kevin-twin 代為決定) |
+| Q154 | implement T032 | 〔任務 T032a/b、T045a/b〕US1-API-18、US1-API-31 要斷言 SSE 事件,但 SSE 在 T052b 才建立,兩組任務排在它之前。(a)T052b 之後補做;(b)讓它們改 events 相關檔;(c)改成輪詢 | — | (a)(kevin-twin 代為決定) |
+| Q155 | implement T015 | 多個 🟢 要靠描述沒列的檔才做得出 ⚙ 元素(app.py 掛載、`GET /api/auth`、restart 路由、download_jobs 表、session_transitions 表、lifespan 接線、listeners 掛點等,E2 回報已逐一列出)。(a)追認;(b)補進 tasks 描述 | — | (a)(kevin-twin 代為決定) |
+| Q156 | implement T053 | US1-API-39 的 verifying 步驟要多一個閘門(`remote_ollama.get_version`)才看得到。(a)追認;(b)testplan 改四個閘門 | — | (a)(kevin-twin 代為決定) |
+| Q157 | implement T039 | `unmanagedRuntimes` 在 `state: none` 時也附上(合約說 none 時其他欄位都沒有,但 US1-API-25 要看得到)。(a)放寬合約描述;(b)另設欄位 | — | (a);合約說明於下次 api-plan 修訂時一併放寬(kevin-twin 代為決定) |
+| Q158 | implement T015 | 工作階段名稱 `<前綴><yyyymmdd>-<hhmmss>-<4 碼十六進位>`,同秒開兩次 1/65536 撞名。(a)維持;(b)加長亂數 | — | (a);FR-006 一次只有一個工作階段,同秒連開已被 409 擋下(kevin-twin 代為決定) |
+| Q159 | implement T055 | **替身擋住了呼叫端與真 adapter 的參數不一致**:`health_monitor.py` 重連呼叫 `open_tunnel(session_name=)`,真 `Tunnel.open_tunnel` 必填 `key_path`、`local_port`,實跑必丟 TypeError;另 `recovery.py` 釋放遺留失敗時沒有警告(FR-007)。(a)testplan 補全域案例「每個替身方法簽章與真 adapter 相同」與跨端點案例「recovery 釋放失敗要警告」,照 TDD 修;(b)直接修兩處;(c)留給實跑 | — | (a)(kevin-twin 代為決定) |

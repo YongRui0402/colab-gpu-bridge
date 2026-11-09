@@ -83,139 +83,139 @@
 
 ### E2 後端 UI API(FastAPI REST 與 SSE)
 
-- [ ] T015a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-01 的測試(送 `POST /api/session {runtimeType:{gpu:"T4",highMem:false}}`,再依序放行三個步驟),執行確認它因為「等開啟流程跑完才回應」這類實作而失敗
+- [X] T015a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-01 的測試(送 `POST /api/session {runtimeType:{gpu:"T4",highMem:false}}`,再依序放行三個步驟),執行確認它因為「等開啟流程跑完才回應」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`;`contracts/store.dbml` § `Table sessions`
   - 📎 `spec.md` § FR-001、FR-003
-- [ ] T015b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/__init__.py`、`src/cgb/db/schema.py`、`src/cgb/db/connection.py`、`src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;同一個任務在 `src/cgb/api/__init__.py` 把 UI API 的路由掛進 Setup 建好的 `create_app`,在 `src/cgb/db/schema.py` 建出 `sessions` 表(本任務是 `src/cgb/db/schema.py` 的建立者,E4 節的任務依賴它)(依賴 T015a)
+- [X] T015b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/__init__.py`、`src/cgb/db/schema.py`、`src/cgb/db/connection.py`、`src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;同一個任務在 `src/cgb/api/__init__.py` 把 UI API 的路由掛進 Setup 建好的 `create_app`,在 `src/cgb/db/schema.py` 建出 `sessions` 表(本任務是 `src/cgb/db/schema.py` 的建立者,E4 節的任務依賴它)(依賴 T015a)
   - 🧪 `testplan.md` § US1-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`;`contracts/store.dbml` § `Table sessions`
   - 📎 `spec.md` § FR-001、FR-003
-- [ ] T016a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-02 的測試(送 `POST /api/session {runtimeType:{gpu:"L4",highMem:true}}`),執行確認它因為「開啟時忽略使用者選的類型,一律用 T4」這類實作而失敗
+- [X] T016a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-02 的測試(送 `POST /api/session {runtimeType:{gpu:"L4",highMem:true}}`),執行確認它因為「開啟時忽略使用者選的類型,一律用 T4」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`
   - 📎 `spec.md` § FR-009
-- [ ] T016b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T016a)
+- [X] T016b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T016a)
   - 🧪 `testplan.md` § US1-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`
   - 📎 `spec.md` § FR-009
-- [ ] T017a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-03 的測試(分別送 `gpu` 為 `"t4"`、`"TPU"`、`"V100"`,以及 `highMem` 為 `"yes"` 的開啟),執行確認它因為「把使用者字串直接放進 `--gpu`(CLI 會把認不得的名稱當成 A100,扣更多點數)」這類實作而失敗
+- [X] T017a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-03 的測試(分別送 `gpu` 為 `"t4"`、`"TPU"`、`"V100"`,以及 `highMem` 為 `"yes"` 的開啟),執行確認它因為「把使用者字串直接放進 `--gpu`(CLI 會把認不得的名稱當成 A100,扣更多點數)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-009
-- [ ] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/errors.py`、`src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;錯誤代碼與繁體中文訊息的對照表建在 `src/cgb/domain/errors.py`(本故事 E2 第一個斷言 `code` 的案例)(依賴 T017a)
+- [X] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/errors.py`、`src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;錯誤代碼與繁體中文訊息的對照表建在 `src/cgb/domain/errors.py`(本故事 E2 第一個斷言 `code` 的案例)(依賴 T017a)
   - 🧪 `testplan.md` § US1-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-009
-- [ ] T018a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-04 的測試(同時送兩個 `POST /api/session`(`asyncio.gather`)),執行確認它因為「先查「有沒有工作階段」再寫入,兩個請求都通過檢查而各開一台」這類實作而失敗
+- [X] T018a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-04 的測試(同時送兩個 `POST /api/session`(`asyncio.gather`)),執行確認它因為「先查「有沒有工作階段」再寫入,兩個請求都通過檢查而各開一台」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、邊界情況
-- [ ] T018b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T018a)
+- [X] T018b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T018a)
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、邊界情況
-- [ ] T019a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-05 的測試(各送一次 `POST /api/session`),執行確認它因為「只擋 `opening`,`ready` 時照樣再開」這類實作而失敗
+- [X] T019a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-05 的測試(各送一次 `POST /api/session`),執行確認它因為「只擋 `opening`,`ready` 時照樣再開」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006
-- [ ] T019b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T019a)
+- [X] T019b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T019a)
   - 🧪 `testplan.md` § US1-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006
-- [ ] T020a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-06 的測試(送 `POST /api/session`),執行確認它因為「不先確認授權就開,等 `colab new` 卡在等授權碼或失敗才回報」這類實作而失敗
+- [X] T020a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-06 的測試(送 `POST /api/session`),執行確認它因為「不先確認授權就開,等 `colab new` 卡在等授權碼或失敗才回報」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./auth.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T020b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T020a)
+- [X] T020b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T020a)
   - 🧪 `testplan.md` § US1-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./auth.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T021a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-07 的測試(送 `DELETE /api/session`,再放行 `stop_session`),執行確認它因為「只關通道沒有呼叫 `stop_session`(執行環境繼續扣點)」這類實作而失敗
+- [X] T021a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-07 的測試(送 `DELETE /api/session`,再放行 `stop_session`),執行確認它因為「只關通道沒有呼叫 `stop_session`(執行環境繼續扣點)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.delete`
   - 📎 `spec.md` § FR-002、FR-003
-- [ ] T021b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T021a)
+- [X] T021b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T021a)
   - 🧪 `testplan.md` § US1-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.delete`
   - 📎 `spec.md` § FR-002、FR-003
-- [ ] T022a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-08 的測試(送 `DELETE /api/session`;等狀態穩定後再送一次 `DELETE /api/session`,這次 `stop_session` 回成功),執行確認它因為「釋放失敗時照樣標成乾淨的已結束、沒有警告」這類實作而失敗
+- [X] T022a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-08 的測試(送 `DELETE /api/session`;等狀態穩定後再送一次 `DELETE /api/session`,這次 `stop_session` 回成功),執行確認它因為「釋放失敗時照樣標成乾淨的已結束、沒有警告」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.delete`
   - 📎 `spec.md` § FR-007
-- [ ] T022b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T022a)
+- [X] T022b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T022a)
   - 🧪 `testplan.md` § US1-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.delete`
   - 📎 `spec.md` § FR-007
-- [ ] T023a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-09 的測試(各送一次 `DELETE /api/session`),執行確認它因為「沒有工作階段時仍呼叫 `colab stop`,或回 202 讓 UI 顯示「結束中」」這類實作而失敗
+- [X] T023a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-09 的測試(各送一次 `DELETE /api/session`),執行確認它因為「沒有工作階段時仍呼叫 `colab stop`,或回 202 讓 UI 顯示「結束中」」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.delete`、`components.schemas.Error`
   - 📎 `spec.md` § FR-002
-- [ ] T023b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T023a)
+- [X] T023b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T023a)
   - 🧪 `testplan.md` § US1-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.delete`、`components.schemas.Error`
   - 📎 `spec.md` § FR-002
-- [ ] T024a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-10 的測試(送 `POST /api/session`),執行確認它因為「開啟失敗時沒附原因」這類實作而失敗
+- [X] T024a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-10 的測試(送 `POST /api/session`),執行確認它因為「開啟失敗時沒附原因」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-003、FR-007
-- [ ] T024b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T024a)
+- [X] T024b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T024a)
   - 🧪 `testplan.md` § US1-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-003、FR-007
-- [ ] T025a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-11 的測試(送 `POST /api/session`),執行確認它因為「`start_ollama` 失敗就直接標失敗,沒有釋放已配置好的執行環境」這類實作而失敗
+- [X] T025a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-11 的測試(送 `POST /api/session`),執行確認它因為「`start_ollama` 失敗就直接標失敗,沒有釋放已配置好的執行環境」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-007
-- [ ] T025b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T025a)
+- [X] T025b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T025a)
   - 🧪 `testplan.md` § US1-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-007
-- [ ] T026a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-12 的測試(送 `POST /api/session`),執行確認它因為「只有各步驟自己的時限(`start_ollama` 300 秒),沒有開啟流程的總時限」這類實作而失敗
+- [X] T026a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-12 的測試(送 `POST /api/session`),執行確認它因為「只有各步驟自己的時限(`start_ollama` 300 秒),沒有開啟流程的總時限」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-007、SC-001
-- [ ] T026b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T026a)
+- [X] T026b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T026a)
   - 🧪 `testplan.md` § US1-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-007、SC-001
-- [ ] T027a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-13 的測試(送 `DELETE /api/session`,之後才放行 `create_session`),執行確認它因為「中途取消 `colab new`(伺服器已配置、本機卻沒記下名稱,留下 `[?]` 的遺留)」這類實作而失敗
+- [X] T027a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-13 的測試(送 `DELETE /api/session`,之後才放行 `create_session`),執行確認它因為「中途取消 `colab new`(伺服器已配置、本機卻沒記下名稱,留下 `[?]` 的遺留)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.delete`
   - 📎 `spec.md` § 邊界情況、FR-007
-- [ ] T027b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T027a)
+- [X] T027b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T027a)
   - 🧪 `testplan.md` § US1-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.delete`
   - 📎 `spec.md` § 邊界情況、FR-007
-- [ ] T028a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-14 的測試(送 `POST /api/session`),執行確認它因為「沒比對開啟前後的 `unnamed` 清單,把逾時當成乾淨的失敗」這類實作而失敗
+- [X] T028a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-14 的測試(送 `POST /api/session`),執行確認它因為「沒比對開啟前後的 `unnamed` 清單,把逾時當成乾淨的失敗」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-007
-- [ ] T028b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T028a)
+- [X] T028b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T028a)
   - 🧪 `testplan.md` § US1-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-007
-- [ ] T029a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-15 的測試(送 `POST /api/session`),執行確認它因為「不先確認名稱在列就建立通道(`colab ssh --proxy-mode` 找不到名稱會自己開一台新的,Q64)」這類實作而失敗
+- [X] T029a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-15 的測試(送 `POST /api/session`),執行確認它因為「不先確認名稱在列就建立通道(`colab ssh --proxy-mode` 找不到名稱會自己開一台新的,Q64)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-001、FR-006;`plan.md` § 待決問題 Q64
-- [ ] T029b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T029a)
+- [X] T029b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T029a)
   - 🧪 `testplan.md` § US1-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-001、FR-006;`plan.md` § 待決問題 Q64
-- [ ] T030a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-16 的測試(送 `POST /api/session`),執行確認它因為「收到 `TUNNEL_NOT_FOUND` 只標失敗,沒有結束意外開出的那台(扣點、違反只有一個工作階段)」這類實作而失敗
+- [X] T030a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-16 的測試(送 `POST /api/session`),執行確認它因為「收到 `TUNNEL_NOT_FOUND` 只標失敗,沒有結束意外開出的那台(扣點、違反只有一個工作階段)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-006、FR-007
-- [ ] T030b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T030a)
+- [X] T030b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T030a)
   - 🧪 `testplan.md` § US1-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-006、FR-007
-- [ ] T031a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-17 的測試(`FakeTunnel.check_health` 開始回 `TUNNEL_UNREACHABLE`,同時 `list_sessions` 不再列出 `cgb-test-0001`),執行確認它因為「健康檢查失敗後只是一直重連到時限才失聯(沒有查 `colab sessions`)」這類實作而失敗
+- [X] T031a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-17 的測試(`FakeTunnel.check_health` 開始回 `TUNNEL_UNREACHABLE`,同時 `list_sessions` 不再列出 `cgb-test-0001`),執行確認它因為「健康檢查失敗後只是一直重連到時限才失聯(沒有查 `colab sessions`)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-17
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`
   - 📎 `spec.md` § FR-003、FR-004
-- [ ] T031b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
+- [X] T031b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
   - 🧪 `testplan.md` § US1-API-17
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`
   - 📎 `spec.md` § FR-003、FR-004
@@ -227,99 +227,99 @@
   - 🧪 `testplan.md` § US1-API-18
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}/reconnect.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-004
-- [ ] T033a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-19 的測試(讓重連跑到時限),執行確認它因為「每輪沒先 `close_tunnel`,新連線撞上 `TUNNEL_ALREADY_CONNECTED`」這類實作而失敗
+- [X] T033a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-19 的測試(讓重連跑到時限),執行確認它因為「每輪沒先 `close_tunnel`,新連線撞上 `TUNNEL_ALREADY_CONNECTED`」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-19
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004
-- [ ] T033b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T033a)
+- [X] T033b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T033a)
   - 🧪 `testplan.md` § US1-API-19
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004
-- [ ] T034a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-20 的測試(讓重連進行),執行確認它因為「`colab sessions` 本身失敗(例如家裡網路斷了)就當成執行環境不在,誤判被收回」這類實作而失敗
+- [X] T034a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-20 的測試(讓重連進行),執行確認它因為「`colab sessions` 本身失敗(例如家裡網路斷了)就當成執行環境不在,誤判被收回」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-20
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004
-- [ ] T034b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T034a)
+- [X] T034b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T034a)
   - 🧪 `testplan.md` § US1-API-20
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004
-- [ ] T035a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-21 的測試(讓重連跑到時限),執行確認它因為「時限到只改狀態,沒有釋放執行環境」這類實作而失敗
+- [X] T035a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-21 的測試(讓重連跑到時限),執行確認它因為「時限到只改狀態,沒有釋放執行環境」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-21
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004
-- [ ] T035b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-21 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T035a)
+- [X] T035b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-21 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T035a)
   - 🧪 `testplan.md` § US1-API-21
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004
-- [ ] T036a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-22 的測試(讓重連跑到時限),執行確認它因為「重連逾時後釋放失敗卻沒有警告」這類實作而失敗
+- [X] T036a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-22 的測試(讓重連跑到時限),執行確認它因為「重連逾時後釋放失敗卻沒有警告」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-22
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004、FR-007
-- [ ] T036b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T036a)
+- [X] T036b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T036a)
   - 🧪 `testplan.md` § US1-API-22
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004、FR-007
-- [ ] T037a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US1-API-23 的測試(關掉 app,以同一個 SQLite 檔與同一份替身狀態建立新的 app),執行確認它因為「重啟後把工作階段當成不存在、回 `none` 或另開一台」這類實作而失敗
+- [X] T037a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US1-API-23 的測試(關掉 app,以同一個 SQLite 檔與同一份替身狀態建立新的 app),執行確認它因為「重啟後把工作階段當成不存在、回 `none` 或另開一台」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-005
-- [ ] T037b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T037a)
+- [X] T037b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T037a)
   - 🧪 `testplan.md` § US1-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-005
-- [ ] T038a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US1-API-24 的測試(重建 app),執行確認它因為「重啟後照資料庫標成就緒,沒有確認執行環境還在」這類實作而失敗
+- [X] T038a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US1-API-24 的測試(重建 app),執行確認它因為「重啟後照資料庫標成就緒,沒有確認執行環境還在」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-005
-- [ ] T038b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-24 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T038a)
+- [X] T038b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-24 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T038a)
   - 🧪 `testplan.md` § US1-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-005
-- [ ] T039a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US1-API-25 的測試(重建 app,送 `GET /api/session`),執行確認它因為「把不是本系統開的執行環境接手或關掉」這類實作而失敗
+- [X] T039a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US1-API-25 的測試(重建 app,送 `GET /api/session`),執行確認它因為「把不是本系統開的執行環境接手或關掉」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § 邊界情況
-- [ ] T039b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-25 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T039a)
+- [X] T039b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-25 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T039a)
   - 🧪 `testplan.md` § US1-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § 邊界情況
-- [ ] T040a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US1-API-26 的測試(重建 app),執行確認它因為「只看 `cgb-` 前綴就結束(會關到別的實例開的執行環境,Q100)」這類實作而失敗
+- [X] T040a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US1-API-26 的測試(重建 app),執行確認它因為「只看 `cgb-` 前綴就結束(會關到別的實例開的執行環境,Q100)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-007;`plan.md` § 待決問題 Q100、Q122
-- [ ] T040b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-26 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T040a)
+- [X] T040b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-26 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T040a)
   - 🧪 `testplan.md` § US1-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-007;`plan.md` § 待決問題 Q100、Q122
-- [ ] T041a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_switch.py` 寫 US1-API-27 的測試(送 `POST /api/session/restart {runtimeType:{gpu:"L4",highMem:false}}`,讓流程跑完),執行確認它因為「先開新的再關舊的(同時兩台)」這類實作而失敗
+- [X] T041a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_switch.py` 寫 US1-API-27 的測試(送 `POST /api/session/restart {runtimeType:{gpu:"L4",highMem:false}}`,讓流程跑完),執行確認它因為「先開新的再關舊的(同時兩台)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`、`paths./sessions.get`、`paths./downloads.get`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-010
-- [ ] T041b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US1-API-27 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;FR-010 重新下載要的 `download_jobs` 表(`origin`、`preloadOnComplete`)與最小的 `GET /api/downloads` 在這裡建立,故事 3 的任務接著擴充(依賴 T041a)
+- [X] T041b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US1-API-27 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;FR-010 重新下載要的 `download_jobs` 表(`origin`、`preloadOnComplete`)與最小的 `GET /api/downloads` 在這裡建立,故事 3 的任務接著擴充(依賴 T041a)
   - 🧪 `testplan.md` § US1-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`、`paths./sessions.get`、`paths./downloads.get`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-010
-- [ ] T042a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_switch.py` 寫 US1-API-28 的測試(送 `POST /api/session/restart {runtimeType:{gpu:"L4",highMem:false}}`),執行確認它因為「新類型開不起來時回頭沿用舊的,或舊的沒關」這類實作而失敗
+- [X] T042a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_switch.py` 寫 US1-API-28 的測試(送 `POST /api/session/restart {runtimeType:{gpu:"L4",highMem:false}}`),執行確認它因為「新類型開不起來時回頭沿用舊的,或舊的沒關」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`、`paths./downloads.get`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-010
-- [ ] T042b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US1-API-28 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T042a)
+- [X] T042b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US1-API-28 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T042a)
   - 🧪 `testplan.md` § US1-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`、`paths./downloads.get`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-010
-- [ ] T043a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_switch.py` 寫 US1-API-29 的測試(送 `POST /api/session/restart {runtimeType:{gpu:"L4",highMem:false}}`),執行確認它因為「沒有工作階段時把 restart 當成開啟」這類實作而失敗
+- [X] T043a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_switch.py` 寫 US1-API-29 的測試(送 `POST /api/session/restart {runtimeType:{gpu:"L4",highMem:false}}`),執行確認它因為「沒有工作階段時把 restart 當成開啟」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-010
-- [ ] T043b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US1-API-29 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
+- [X] T043b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US1-API-29 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
   - 🧪 `testplan.md` § US1-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-010
-- [ ] T044a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auth.py` 寫 US1-API-30 的測試(送兩次 `POST /api/auth/authorizations`,再以第一次的 `flowId` 送授權碼),執行確認它因為「多次取得連結都共用同一組 `state` 與 `code_verifier`」這類實作而失敗
+- [X] T044a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auth.py` 寫 US1-API-30 的測試(送兩次 `POST /api/auth/authorizations`,再以第一次的 `flowId` 送授權碼),執行確認它因為「多次取得連結都共用同一組 `state` 與 `code_verifier`」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-30
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T044b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/auth.py`、`src/cgb/services/auth.py` 只寫讓 US1-API-30 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
+- [X] T044b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/auth.py`、`src/cgb/services/auth.py` 只寫讓 US1-API-30 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
   - 🧪 `testplan.md` § US1-API-30
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
@@ -331,79 +331,79 @@
   - 🧪 `testplan.md` § US1-API-31
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendAuthUpdated`
   - 📎 `spec.md` § FR-008
-- [ ] T046a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auth.py` 寫 US1-API-32 的測試(送錯的授權碼,再以同一個 `flowId` 送正確的),執行確認它因為「換 token 失敗就讓流程代號失效,使用者只能重新取得連結」這類實作而失敗
+- [X] T046a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auth.py` 寫 US1-API-32 的測試(送錯的授權碼,再以同一個 `flowId` 送正確的),執行確認它因為「換 token 失敗就讓流程代號失效,使用者只能重新取得連結」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-32
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T046b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/auth.py`、`src/cgb/services/auth.py` 只寫讓 US1-API-32 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T046a)
+- [X] T046b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/auth.py`、`src/cgb/services/auth.py` 只寫讓 US1-API-32 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T046a)
   - 🧪 `testplan.md` § US1-API-32
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T047a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auth.py` 寫 US1-API-33 的測試(重建 app 後以原本的 `flowId` 送授權碼),執行確認它因為「把 `code_verifier` 寫進檔案或資料庫(違反 Q17)」這類實作而失敗
+- [X] T047a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auth.py` 寫 US1-API-33 的測試(重建 app 後以原本的 `flowId` 送授權碼),執行確認它因為「把 `code_verifier` 寫進檔案或資料庫(違反 Q17)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-33
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008;`plan.md` § 待決問題 Q17
-- [ ] T047b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/auth.py`、`src/cgb/services/auth.py` 只寫讓 US1-API-33 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T047a)
+- [X] T047b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/auth.py`、`src/cgb/services/auth.py` 只寫讓 US1-API-33 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T047a)
   - 🧪 `testplan.md` § US1-API-33
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008;`plan.md` § 待決問題 Q17
-- [ ] T048a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-34 的測試(送 `POST /api/session`),執行確認它因為「授權過期被當成工作階段失聯」這類實作而失敗
+- [X] T048a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-34 的測試(送 `POST /api/session`),執行確認它因為「授權過期被當成工作階段失聯」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-34
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./auth.get`
   - 📎 `spec.md` § 邊界情況、FR-008
-- [ ] T048b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-34 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T048a)
+- [X] T048b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-34 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T048a)
   - 🧪 `testplan.md` § US1-API-34
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./auth.get`
   - 📎 `spec.md` § 邊界情況、FR-008
-- [ ] T049a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_history.py` 寫 US1-API-35 的測試(送 `GET /api/sessions`),執行確認它因為「只列已結束的」這類實作而失敗
+- [X] T049a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_history.py` 寫 US1-API-35 的測試(送 `GET /api/sessions`),執行確認它因為「只列已結束的」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-35
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions.get`;`contracts/store.dbml` § `Table session_transitions`
   - 📎 `spec.md` § FR-028
-- [ ] T049b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/history.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-35 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`session_transitions` 表在這裡建立(E4 節的 US1-DB-02 依賴它)(依賴 T049a)
+- [X] T049b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/history.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-35 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`session_transitions` 表在這裡建立(E4 節的 US1-DB-02 依賴它)(依賴 T049a)
   - 🧪 `testplan.md` § US1-API-35
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions.get`;`contracts/store.dbml` § `Table session_transitions`
   - 📎 `spec.md` § FR-028
-- [ ] T050a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_history.py` 寫 US1-API-36 的測試(送 `GET /api/sessions/cgb-test-0001`),執行確認它因為「開啟中的每一步沒有各記一筆」這類實作而失敗
+- [X] T050a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_history.py` 寫 US1-API-36 的測試(送 `GET /api/sessions/cgb-test-0001`),執行確認它因為「開啟中的每一步沒有各記一筆」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-36
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`;`contracts/store.dbml` § `Table session_transitions`
   - 📎 `spec.md` § FR-028、FR-003
-- [ ] T050b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/history.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-36 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T050a)
+- [X] T050b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/history.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-36 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T050a)
   - 🧪 `testplan.md` § US1-API-36
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`;`contracts/store.dbml` § `Table session_transitions`
   - 📎 `spec.md` § FR-028、FR-003
-- [ ] T051a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-37 的測試(等 1.1 秒(至少 5 次健康檢查),不送任何 Ollama 相容端點的請求),執行確認它因為「健康檢查經過 Ollama 相容端點送 `/api/version`,每 15 秒重設閒置計時,工作階段永遠不會閒置結束(Q89)」這類實作而失敗
+- [X] T051a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-37 的測試(等 1.1 秒(至少 5 次健康檢查),不送任何 Ollama 相容端點的請求),執行確認它因為「健康檢查經過 Ollama 相容端點送 `/api/version`,每 15 秒重設閒置計時,工作階段永遠不會閒置結束(Q89)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-37
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q89
-- [ ] T051b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-37 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T051a)
+- [X] T051b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-37 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T051a)
   - 🧪 `testplan.md` § US1-API-37
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q89
-- [ ] T052a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_events.py` 寫 US1-API-38 的測試(開一條 `/api/events`),執行確認它因為「連上時不送快照,UI 要等下一次變化才知道狀態」這類實作而失敗
+- [X] T052a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_events.py` 寫 US1-API-38 的測試(開一條 `/api/events`),執行確認它因為「連上時不送快照,UI 要等下一次變化才知道狀態」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-38
   - ⚙ `contracts/ui.openapi.yaml` § `paths./events.get`、`paths./session.delete`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-003
-- [ ] T052b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/events.py`、`src/cgb/services/event_bus.py` 只寫讓 US1-API-38 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T052a)
+- [X] T052b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/events.py`、`src/cgb/services/event_bus.py` 只寫讓 US1-API-38 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T052a)
   - 🧪 `testplan.md` § US1-API-38
   - ⚙ `contracts/ui.openapi.yaml` § `paths./events.get`、`paths./session.delete`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-003
-- [ ] T053a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-39 的測試(送開啟,每放行一步就送一次 `GET /api/session`),執行確認它因為「開啟中只回 `opening`、不更新 `step`」這類實作而失敗
+- [X] T053a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-39 的測試(送開啟,每放行一步就送一次 `GET /api/session`),執行確認它因為「開啟中只回 `opening`、不更新 `step`」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-39
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`
   - 📎 `spec.md` § NFR-001
-- [ ] T053b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-39 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T053a)
+- [X] T053b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-39 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T053a)
   - 🧪 `testplan.md` § US1-API-39
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`
   - 📎 `spec.md` § NFR-001
-- [ ] T054a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-40 的測試(開啟失敗後,讀 `GET /api/session`、`GET /api/sessions` 與 SSE 收到的每一則事件),執行確認它因為「把轉接層的原始錯誤或 endpoint 放進 `message` 給 UI」這類實作而失敗
+- [X] T054a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_session.py` 寫 US1-API-40 的測試(開啟失敗後,讀 `GET /api/session`、`GET /api/sessions` 與 SSE 收到的每一則事件),執行確認它因為「把轉接層的原始錯誤或 endpoint 放進 `message` 給 UI」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-40
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./events.get`、`paths./session.get`、`paths./sessions.get`
   - 📎 `spec.md` § NFR-010、FR-007
-- [ ] T054b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-40 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T054a)
+- [X] T054b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US1-API-40 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T054a)
   - 🧪 `testplan.md` § US1-API-40
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./events.get`、`paths./session.get`、`paths./sessions.get`
   - 📎 `spec.md` § NFR-010、FR-007
-- [ ] T055 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T015b~T054b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`、`src/cgb/repos/`、`src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T054b)
+- [X] T055 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T015b~T054b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`、`src/cgb/repos/`、`src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T054b)
   - 🧪 `testplan.md` § US1-API-01~US1-API-40
   - 📎 `testplan.md` § 2.1
 
