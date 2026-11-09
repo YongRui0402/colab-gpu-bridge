@@ -4,9 +4,9 @@
 
 ## 判定
 
-**最新一輪:第 1 輪(2026-11-10)— ⛔ 不能進 `/implement`**
+**最新一輪:第 2 輪(2026-11-10)— ✅ 可以進 `/implement`**
 
-還沒解決的 CRITICAL 1 個(A1)、HIGH 4 個(A2、A3、A4、A5);另有 4 個 LOW(A6–A9)不擋實作,建議一併修掉。
+第 1 輪的 CRITICAL(A1)與 HIGH(A2–A5)都已修正,沒有未解決的 CRITICAL 或 HIGH;剩 1 個 MEDIUM(A10)與 1 個 LOW(A7),不擋實作,建議實作前順手修掉。
 
 ## 檢查範圍
 
@@ -80,3 +80,52 @@
 6. `/testplan` E1 列補上 usage.html 並改掉「三個故事」,US1-API-26 的假如補上 `cgb-other-9` 的硬體、則3 改為以筆數與硬體斷言(A9)
 7. `/tasks` 把 T061a 的「外部程序」改為「外部程式」(A1),並依第 1、4、5、6 步改過的錨點與案例重新核對 T040、T104、T231 等任務
 8. 重跑 `/analyze`
+
+---
+
+## 第 2 輪(2026-11-10)
+
+### 前置檢查
+
+| 腳本 | 結果 |
+|---|---|
+| `specify/scripts/check_spec.py` | ✅ 通過 |
+| `system-analysis/scripts/check_plan.py` | ✅ 通過 |
+| `tasks/scripts/check_tasks.py` | ✅ 通過(同第 1 輪,preflight 不帶 `--testplan`) |
+
+### 上一輪的問題
+
+| ID | 狀態 | 依據 |
+|---|---|---|
+| A1 | ✅ 已修正 | `plan.md` § 待決問題 Q115 與 `tasks.md` § T061a 都改成「外部程式」;全 package 已找不到「程序」(testplan G-06 的禁用詞清單除外) |
+| A2 | ✅ 已修正 | `research.md` § R8 改為「推論與查詢路徑白名單、白名單外回 404」,§ R1 的遠端初始化補上 `OLLAMA_ORIGINS=*`(plan.md Q20);`techstack.md` § 自寫取代套件改為白名單;research 補了 2026-11-10 的修訂紀錄 |
+| A3 | ✅ 已修正 | `ui.openapi.yaml` § `paths./usage.get` 與 `components.schemas.Usage` 改成 Q119 的語意(讀到過就回最後快照與 `stale`,`unknown` 只用在從沒讀到過),新增 `lastFailedAt`(Q123);`ui-events.asyncapi.yaml` § `operations.sendUsageUpdated` 同步;`spec.md` 使用者故事 4 驗收情境 5 改為「從來沒讀到過」,與 testplan US4-API-03、US4-API-18 一致 |
+| A4 | ✅ 已修正 | `prototype/index.html` § `[data-state="release-failed"]` 拿掉「系統每分鐘會再試一次」,改為「請按『再試一次釋放』」,與 `ui.openapi.yaml` § `paths./session.delete` 的手動再試一致 |
+| A5 | ✅ 已修正 | `spec.md` § FR-007 改寫為「資料庫記錄過的必須釋放;資料庫不認得、CLI 記得的不得自動關閉、必須警告」,釐清紀錄補上 A5 與 Q123 兩題,與 `colab-cli.openapi.yaml` § `paths./sessions.get`、`store.dbml` § `Table sessions` 一致 |
+| A6 | ✅ 已修正 | `research.md` § R3 改為「符合 SC-002(修訂後)的斷線 1 分鐘內顯示重連中」,§ R8 改為「1 秒內回 503(SC-007)」 |
+| A7 | ❌ 仍存在 | `research.md` § R9 已改為「6 頁加狀態總覽」,但 `techstack.md` § 一覽的前端列仍寫「工作階段面板、模型目錄、下載佇列、設定、紀錄」五塊,research 修訂紀錄卻寫「techstack.md 未提頁數,不必改」;不用框架的決策不受影響,仍是 LOW |
+| A8 | ✅ 已修正 | `remote-ollama.openapi.yaml` 各操作的 `x-timeout` 與說明改寫為 Q2–Q6、Q22 已決定的值,`keep_alive: -1` 寫明是 Q4 的決定 |
+| A9 | ✅ 已修正 | `testplan.md` § 1. 待測端點的 E1 列補上 `prototype/usage.html`、改為「四個故事」;US1-API-26 則3 改為「恰有 1 筆、`hardware` 與 `[cgb-other-9]` 那台相同、`detectedAt` 不為 null」,不再要求名稱 |
+| 重連時限 | ✅ 已澄清 | `spec.md` § 假設改為「重連時限固定 5 分鐘(不可設定)」,釐清紀錄補上這一題,與 plan.md Q67 一致 |
+| SC-007 | ✅ 已澄清 | `spec.md` § 假設改為「後經 analyze 第 1 輪由 kevin-twin 代為確認」,拿掉「不合用可以推翻」 |
+
+### 新問題
+
+| ID | 類別 | 嚴重度 | 位置 | 摘要 | 回哪一步 |
+|---|---|---|---|---|---|
+| A10 | 遺漏 | MEDIUM | `contracts/ui.openapi.yaml` § `components.schemas.Usage`;`plan.md` § 待決問題 Q123;`testplan.md` § US4-API-18;`tasks.md` § T231a | 修 A3 時依 Q123 在 `Usage` 新增 `lastFailedAt`,並規定讀過之後失敗時 `reasonCode`、`message`、`lastFailedAt` 說明最近一次失敗、下一次成功時回到 null;US4-API-18 的則只斷言 `stale`、`balance`、`readAt`,沒有任何案例斷言這三個欄位(US4-API-03 只測從沒讀到過的 `reasonCode`),T231a 的 ⚙ 也只到 `paths./usage.get`。漏做 `lastFailedAt` 或成功後沒清掉,測試照樣全綠;原型過期畫面要顯示「之後三次都讀不到(原因)」也靠這幾個欄位。不確定算不算「驗收情境測不到」,NFR-008 的過期標示本身仍有案例測到,取 MEDIUM | `/testplan` |
+
+### 追溯缺口
+
+只列有缺口的需求;其餘需求從規格檔到任務都接得上。
+
+| 需求 | 規格檔元素 | 任務 | 缺口 |
+|---|---|---|---|
+| NFR-008 過期時說明讀取失敗(Q119、Q123) | `ui.openapi.yaml` § `components.schemas.Usage` 的 `reasonCode`、`message`、`lastFailedAt` | 無(T231a、T231b 沒有斷言這三個欄位) | A10 |
+
+### 修正順序
+
+1. `/technical-research` 把 `techstack.md` § 一覽前端列的畫面清單對齊 R9 與原型,並更正修訂紀錄的「不必改」(A7)
+2. `/testplan` 在 US4-API-18 補斷言:失敗後 `reasonCode`、`message`、`lastFailedAt` 不為 null,下一次讀取成功後回到 null(A10)
+3. `/tasks` 依第 2 步改過的 US4-API-18 更新 T231a、T231b 的描述與 ⚙(補 `components.schemas.Usage`)
+4. 重跑 `/analyze`

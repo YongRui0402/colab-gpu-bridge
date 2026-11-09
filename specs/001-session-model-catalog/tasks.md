@@ -1954,12 +1954,12 @@
   - 📎 `spec.md` § 邊界情況、FR-024
 - [ ] T231a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-18 的測試(時鐘從 T 推進到 T+20 分鐘,記下每次 `get_usage` 被呼叫的時間;在 T+14 分 59 秒與 T+15 分 01 秒各送一次 `GET /api/usage`),執行確認它因為「只在 UI 打開時才讀用量」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-18
-  - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/store.dbml` § `Table usage_snapshots`
-  - 📎 `spec.md` § NFR-008;`plan.md` § 待決問題 Q119
+  - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `components.schemas.Usage`;`contracts/store.dbml` § `Table usage_snapshots`
+  - 📎 `spec.md` § NFR-008;`plan.md` § 待決問題 Q119、Q123
 - [ ] T231b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T231a)
   - 🧪 `testplan.md` § US4-API-18
-  - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/store.dbml` § `Table usage_snapshots`
-  - 📎 `spec.md` § NFR-008;`plan.md` § 待決問題 Q119
+  - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `components.schemas.Usage`;`contracts/store.dbml` § `Table usage_snapshots`
+  - 📎 `spec.md` § NFR-008;`plan.md` § 待決問題 Q119、Q123
 - [ ] T232 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T214b~T231b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`、`src/cgb/repos/`、`src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T231b)
   - 🧪 `testplan.md` § US4-API-01~US4-API-18
   - 📎 `testplan.md` § 5.1

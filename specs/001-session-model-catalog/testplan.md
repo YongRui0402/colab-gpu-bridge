@@ -580,7 +580,7 @@
 
 | ID | 品質屬性 | 驗證方式 | 受測操作 | 假如 | 當 | 則 | 要抓的錯 | 需求 | 副作用與護欄 | 判定者與樣本 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| US4-API-18 | 資訊新鮮度 | 🔴🟢 行為測試 | 排程 › 讀用量 → `/api/usage` › 查詢 | `get_usage` 第一次成功(`readAt` 為 T),之後一直回 `COLAB_UNREACHABLE`;注入的時鐘 | 時鐘從 T 推進到 T+20 分鐘,記下每次 `get_usage` 被呼叫的時間;在 T+14 分 59 秒與 T+15 分 01 秒各送一次 `GET /api/usage` | 則1:相鄰兩次 `get_usage` 的間隔都不超過 5 分鐘<br>則2:T+14 分 59 秒的 `stale` 為 false<br>則3:T+15 分 01 秒的 `stale` 為 true<br>則4:T+15 分 01 秒的 `balance` 仍是第一次讀到的值,`readAt` 仍是 T(Q119 先採用) | 只在 UI 打開時才讀用量;或讀取失敗就把舊快照清掉,過期標示永遠不會出現 | NFR-008 | — | — |
+| US4-API-18 | 資訊新鮮度 | 🔴🟢 行為測試 | 排程 › 讀用量 → `/api/usage` › 查詢 | `get_usage` 第一次成功(`readAt` 為 T),之後一直回 `COLAB_UNREACHABLE`;注入的時鐘 | 時鐘從 T 推進到 T+20 分鐘,記下每次 `get_usage` 被呼叫的時間;在 T+14 分 59 秒與 T+15 分 01 秒各送一次 `GET /api/usage`;之後讓 `get_usage` 恢復成功,T+20 分 30 秒再送一次 `GET /api/usage` | 則1:相鄰兩次 `get_usage` 的間隔都不超過 5 分鐘<br>則2:T+14 分 59 秒的 `stale` 為 false<br>則3:T+15 分 01 秒的 `stale` 為 true<br>則4:T+15 分 01 秒的 `balance` 仍是第一次讀到的值,`readAt` 仍是 T(Q119 先採用)<br>則5:T+15 分 01 秒的 `reasonCode` 為 `COLAB_UNREACHABLE`,`lastFailedAt` 不為 null(Q123)<br>則6:T+20 分 30 秒(恢復成功之後)的 `reasonCode`、`message`、`lastFailedAt` 都是 null,`stale` 為 false(Q123) | 只在 UI 打開時才讀用量;或讀取失敗就把舊快照清掉,過期標示永遠不會出現;或讀取失敗時沒寫入失敗原因與時間,使用者看不出為什麼過期;或恢復成功後沒清掉失敗說明,一直顯示讀取失敗 | NFR-008 | — | — |
 
 ### 5.2 E3 Ollama 相容端點(FastAPI 轉送)
 
