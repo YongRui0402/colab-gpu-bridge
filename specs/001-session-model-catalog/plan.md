@@ -208,3 +208,17 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q92 | S11 | 綁定位址。(a)預設 `0.0.0.0`,不對外網靠路由器不轉發,可用 `CGB_BIND_ADDR` 限縮;Docker 發布的 port 不經 ufw(先採用);(b)`CGB_BIND_ADDR` 必填 | — | (a)(kevin-twin 代為決定) |
 | Q93 | S11 | 單一行程 `python -m cgb` 跑兩個 uvicorn,環境變數 `CGB_LISTEN_HOST`、`CGB_UI_PORT`、`CGB_OLLAMA_PORT`、`CGB_TUNNEL_LOCAL_PORT`(先採用);(b)兩個行程 | — | (a)(kevin-twin 代為決定) |
 | Q94 | S11 | 為放行 `healthcheck.py` 在 S10 的 `Dockerfile.dockerignore` 加一行。(a)維持(先採用);(b)改成 compose 內單行 python | — | (a)(kevin-twin 代為決定) |
+| Q95 | tasks | 〔testplan 提出〕測試縮短時限、固定名稱。(a)`create_app` 參數注入時鐘、時限與名稱前綴,實跑前綴 `cgb-test-`(先採用);(b)環境變數;(c)真時間 | — | (a)(kevin-twin 代為決定) |
+| Q96 | tasks | 〔testplan 提出〕替身形式:E2/E3 注入 5 個 Fake 類別;E5/E6 用假執行檔 `tests/fixtures/bin/colab`、`ssh`;E7 假 HTTP 伺服器;E8/E9 `httpx.MockTransport`;方法名為 operationId 的 snake_case(先採用) | — | 照先採用(kevin-twin 代為決定) |
+| Q97 | tasks | 〔testplan 提出〕SSE 與逐段傳回 ASGI transport 看不出來(判斷)。(a)測試行程內起 uvicorn(先採用);(b)改輪詢 | — | (a)(kevin-twin 代為決定) |
+| Q98 | tasks | 〔testplan 提出〕E4 公開接縫。(a)只測 `db` 建立的 schema,以 sqlite3 直接下 SQL(先採用);(b)另定 repos 介面 | — | (a)(kevin-twin 代為決定) |
+| Q99 | tasks | 〔testplan 提出〕跨端點驗收的後端。(a)測試行程內起 uvicorn(UI 8781、Ollama 11437),替身由測試操控(先採用);(b)起容器 | — | (a)(kevin-twin 代為決定) |
+| Q100 | tasks | 〔testplan 提出〕**與 spec 矛盾**:遺留判定。(a')以本系統資料庫 sessions 表的名稱為準,S8 listSessions 說明跟著改;(b')看 `cgb-` 前綴(正式與測試實例會互關)。(a') 在資料庫遺失時使 FR-007「發現遺留必須釋放」不成立。重連流程由 services 組成 | S8 | (a');資料庫不認得、CLI 記得的執行環境一律在 UI 警告(對應 FR-007 後半句)(kevin-twin 代為決定) |
+| Q101 | tasks | 〔testplan 提出〕實跑的授權來源。(a)由 US1-OA-06 在暫存目錄登入(需使用者);(b)複製桌機既有 `token.json` 到暫存目錄,只比對 sha256 | — | (b);US1-OA-06 與 G-01 需本人,延後到使用者回來(kevin-twin 代為決定) |
+| Q102 | tasks | 〔testplan 提出〕FR-010 實跑換哪種類型。(a)T4 換 T4 高 RAM(先採用);(b)T4 換 L4 | — | (a)(kevin-twin 代為決定) |
+| Q103 | tasks | 〔testplan 提出〕實跑時模擬收回與斷線。(a)收回用 `colab stop`、斷線用 SIGKILL 殺 ssh(先採用);(b)等真的回收 | — | (a)(kevin-twin 代為決定) |
+| Q104 | tasks | 〔testplan 提出〕NFR-003 實跑確認。(a)`colab exec -f listen_check.py` 唯讀查監聽位址,加 `docker port` 與主機直連 11435(先採用);(b)只看命令列 | — | (a)(kevin-twin 代為決定) |
+| Q105 | tasks | 〔testplan 提出〕NFR-011 檢查用的詞表。(a)語言.md Rule 1 對照詞(先採用);(b)簡繁轉換套件 | — | (a)(kevin-twin 代為決定) |
+| Q106 | tasks | 〔testplan 提出〕`store.dbml` 的 `sessions.reason_code` 說明缺 `AUTH_REQUIRED`(與 Q61 不一致)。(a)補改 dbml 說明(先採用);(b)維持 | S7 | (a)(kevin-twin 代為決定) |
+| Q107 | tasks | 〔testplan 提出〕預估下載時間的 MB 與取整。(a)MB 以 10^6 位元組計,案例斷言落在捨去與進位之間(先採用);(b)無條件進位 | — | (a)(kevin-twin 代為決定) |
+| Q108 | tasks | 〔testplan 提出〕19 個實跑案例照第 1 節護欄 P1–P9 執行(上限 2 compute units、60 分鐘、前綴 `cgb-test-`、桌機 UI 8780/Ollama 11436、暫存資料夾)。(a)照護欄執行;(b)不跑 | — | (a);需本人的 US1-OA-06、G-01 延後(kevin-twin 代為決定) |
