@@ -43,7 +43,11 @@ info:
     (7)CLI 每天第一次執行時可能在 stdout 印出「有新版本」的提示(每行以 `[colab] ` 開頭或是空行);
     解析時以 `[colab] ` 開頭的行與空行都不當成資料。
 
-    (8)Google Drive 不在範圍內(research.md R4),不使用 `colab drivemount`;SSH 通道(`colab ssh --proxy-mode`)屬 S9。
+    (8)子行程的啟動與逾時(Q138):每個 `colab` 子行程都以新的 process group 啟動;各操作 `x-timeout` 寫的「子行程時限」到了,
+    或規則裡寫的「超過子行程時限被終止」,一律指對整個 process group 先送 SIGTERM,等 5 秒仍未結束再送 SIGKILL,
+    並等待回收子行程,不得留下它分出的任何子行程(例如 `colab exec` 的連線)。
+
+    (9)Google Drive 不在範圍內(research.md R4),不使用 `colab drivemount`;SSH 通道(`colab ssh --proxy-mode`)屬 S9。
     CLI 的授權檔與 session 狀態檔(`~/.config/colab-cli/`)必須持久化,本系統才認得自己開的執行環境(research.md R10),位置由 S10 決定。
 servers:
   - url: /
@@ -304,7 +308,7 @@ paths:
             - code: COLAB_NOT_FOUND
               when: >-
                 stdout 含 `[colab] Session '<名稱>' not found.`(本機沒有這個名稱,或伺服器上已經沒有),
-                或含 `appears to be lost (404/401)`(執行環境已被收回);這時不重試
+                或 stdout、stderr 任一含 `appears to be lost (404/401)`(執行環境已被收回,Q140);這時不重試
             - code: AUTH_REQUIRED
               when: >-
                 stderr 含 `To authorize colab-cli, visit this URL`,或含 `: Unauthorized`
@@ -394,7 +398,9 @@ paths:
       x-requirements: [FR-002, FR-007, SC-003]
       x-callers: 本系統後端(結束工作階段、閒置自動結束、變更類型、開啟失敗與失聯後的清理)
       x-argv: COLAB_CLI_REQUEST_TIMEOUT=60 colab stop -s <name> </dev/null
-      x-timeout: 子行程 60 秒;每次回讀的 `listSessions` 另計 60 秒
+      x-timeout: >-
+        子行程 60 秒;每次回讀的 `listSessions` 另計 60 秒。`colab stop` 本身逾時時照共用約定 8 終止整個 process group,
+        之後照常回讀、以回讀結果為準(Q139),不直接回 `COLAB_TIMEOUT`
       x-retry: 回讀仍看得到名稱時,`colab stop` 與回讀各再做一次
       x-stdout: >-
         本機有這個名稱時依序是 `[colab] Stopping session '<名稱>'...` 與 `[colab] Session terminated.`;
@@ -433,7 +439,9 @@ paths:
             - code: COLAB_UNREACHABLE
               when: 回讀的 `listSessions` 歸成 `COLAB_UNREACHABLE`(`colab stop` 本身的連線錯誤不直接回報,一律以回讀為準)
             - code: COLAB_TIMEOUT
-              when: 回讀的 `listSessions` 歸成 `COLAB_TIMEOUT`
+              when: >-
+                回讀的 `listSessions` 歸成 `COLAB_TIMEOUT`;`colab stop` 本身逾時被終止時不回這個代碼,
+                終止後照常回讀,以回讀結果為準(Q139)
             - code: COLAB_FAILED
               when: 回讀的 `listSessions` 歸成 `COLAB_FAILED`
             - code: COLAB_BAD_RESPONSE
