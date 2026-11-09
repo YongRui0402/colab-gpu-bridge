@@ -42,9 +42,28 @@ class SessionLifecycle:
         # 進行中的轉送等著的「工作階段被結束」事件(名稱 → 事件);repo 一有變更就檢查
         self._ended_events: dict[str, asyncio.Event] = {}
         repo.listeners.append(self._signal_ended)
+        # 使用者結束工作階段時呼叫(下載佇列中斷正在下載的那一筆)
+        self.end_listeners: list[Any] = []
+        # 工作階段變成就緒時呼叫,收到轉發位址(開啟、重啟接回、重連都算;下載佇列自動繼續)
+        self.ready_listeners: list[Any] = []
+        self._was_ready = False
+        repo.listeners.append(self._notify_ready)
 
     def current(self) -> dict[str, Any]:
         return session_payload(self._repo.latest(), self._repo.unmanaged_runtimes)
+
+    def ready_base_url(self) -> str | None:
+        """工作階段就緒時的轉發位址;開啟中、重連中、結束後都是 None(不去連轉發位址)。"""
+        if self.current()["state"] != "ready":
+            return None
+        return self.base_url
+
+    def require_ready_base_url(self) -> str:
+        """同 `ready_base_url`,沒有就緒的工作階段時回 503 `NO_READY_SESSION`。"""
+        base_url = self.ready_base_url()
+        if base_url is None:
+            raise ApiError(503, "NO_READY_SESSION")
+        return base_url
 
     def forward_target(self) -> ForwardTarget | None:
         """Ollama 相容端點此刻該轉送到的地方;沒有可轉送的工作階段時是 None(FR-013)。"""
@@ -62,6 +81,13 @@ class SessionLifecycle:
         )
         self.base_url = opened["baseUrl"]
         return opened
+
+    def _notify_ready(self) -> None:
+        ready = self.ready_base_url() is not None
+        if ready and not self._was_ready:
+            for listener in list(self.ready_listeners):
+                listener(self.base_url)
+        self._was_ready = ready
 
     def _signal_ended(self) -> None:
         for name in list(self._ended_events):
@@ -216,6 +242,8 @@ class SessionLifecycle:
             raise ApiError(409, "NO_ACTIVE_SESSION")
         name = latest["name"]
         self._repo.update(name, state="ending", active_slot=None, step=None)
+        for listener in list(self.end_listeners):
+            listener()
         self.spawn(self._run_end(name))
         return self.current()
 

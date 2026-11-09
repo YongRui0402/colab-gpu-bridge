@@ -77,3 +77,42 @@ def test_重新開啟資料庫後仍是_WAL_且狀態變化紀錄都還在(tmp_p
     reopened.close()
     assert journal_mode == "wal"
     assert rows == transitions
+
+
+def _insert_job(conn: sqlite3.Connection, model: str, pending_model: str | None, queue_position: int, state: str) -> None:
+    conn.execute(
+        "INSERT INTO download_jobs (model, pending_model, queue_position, size_bytes, state, added_at)"
+        " VALUES (?, ?, ?, 0, ?, '2026-11-09T09:00:00Z')",
+        (model, pending_model, queue_position, state),
+    )
+
+
+# ---------------------------------------------------------------- US3-DB-01
+
+
+def test_同一個模型不會同時排兩次_完成過的可以再下載_精選清單名稱不重複(tmp_path: Path) -> None:
+    # Arrange:已有一筆 pending_model='qwen2.5:7b'、queue_position=1
+    conn = connect(tmp_path / "cgb.sqlite3")
+    create_schema(conn)
+    _insert_job(conn, "qwen2.5:7b", "qwen2.5:7b", 1, "queued")
+
+    # Act & Assert:則1 重複的 pending_model 寫不進去
+    with pytest.raises(sqlite3.IntegrityError):
+        _insert_job(conn, "qwen2.5:7b", "qwen2.5:7b", 2, "queued")
+
+    # Act & Assert:則2 重複的 queue_position 寫不進去
+    with pytest.raises(sqlite3.IntegrityError):
+        _insert_job(conn, "qwen2.5:0.5b", "qwen2.5:0.5b", 1, "queued")
+
+    # Act & Assert:則3 兩筆 pending_model 為 null 的已完成項目都寫得進去
+    try:
+        _insert_job(conn, "qwen2.5:7b", None, 3, "completed")
+        _insert_job(conn, "qwen2.5:7b", None, 4, "completed")
+    except sqlite3.IntegrityError as exc:
+        pytest.fail(f"pending_model 為 null 的已完成項目應寫得進去:{exc}")
+
+    # Act & Assert:則4 curated_models 第二筆同名的寫不進去
+    conn.execute("INSERT INTO curated_models (name) VALUES ('qwen2.5:latest')")
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("INSERT INTO curated_models (name) VALUES ('qwen2.5:latest')")
+    conn.close()

@@ -8,17 +8,20 @@ from dataclasses import dataclass
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from cgb.api import auth, downloads, events, history, models, session
+from cgb.api import auth, curated, downloads, events, history, library, models, session
 from cgb.db.connection import connect
 from cgb.db.schema import create_schema
 from cgb.domain.errors import ApiError
 from cgb.domain.session_state import iso
+from cgb.repos.curated import CuratedRepo
 from cgb.repos.downloads import DownloadsRepo
 from cgb.repos.sessions import SessionsRepo
 from cgb.services.auth import AuthService
+from cgb.services.catalog import Catalog
 from cgb.services.downloads import DownloadsService
 from cgb.services.event_bus import EventBus
 from cgb.services.health_monitor import HealthMonitor
+from cgb.services.library import Library
 from cgb.services.recovery import Recovery
 from cgb.services.runtime_switch import RuntimeSwitch
 from cgb.services.session_lifecycle import SessionLifecycle
@@ -36,6 +39,9 @@ class Services:
     sessions_repo: SessionsRepo
     events: EventBus
     monitor: HealthMonitor
+    catalog: Catalog
+    library: Library
+    curated: CuratedRepo
 
 
 def install(app: FastAPI) -> None:
@@ -49,7 +55,9 @@ def install(app: FastAPI) -> None:
         repo = SessionsRepo(conn, now=lambda: iso(state.clock.now()))
         auth_service = AuthService(state)
         lifecycle = SessionLifecycle(state, repo, auth_service, key_path)
-        downloads_service = DownloadsService(state, DownloadsRepo(conn))
+        events = EventBus()
+        downloads_service = DownloadsService(state, DownloadsRepo(conn), lifecycle, events)
+        downloads_service.requeue_interrupted()
         monitor = HealthMonitor(state, repo, lifecycle)
         app.state.services = Services(
             auth=auth_service,
@@ -57,8 +65,11 @@ def install(app: FastAPI) -> None:
             downloads=downloads_service,
             switch=RuntimeSwitch(state, repo, lifecycle, downloads_service),
             sessions_repo=repo,
-            events=EventBus(),
+            events=events,
             monitor=monitor,
+            catalog=Catalog(state, lifecycle, events),
+            library=Library(state, lifecycle),
+            curated=CuratedRepo(conn),
         )
         repo.listeners.append(lambda: app.state.services.events.session_updated(lifecycle.current()))
         auth_service.listeners.append(lambda status: app.state.services.events.auth_updated(status))
@@ -85,4 +96,6 @@ def install(app: FastAPI) -> None:
     app.include_router(history.router, prefix="/api")
     app.include_router(downloads.router, prefix="/api")
     app.include_router(models.router, prefix="/api")
+    app.include_router(library.router, prefix="/api")
+    app.include_router(curated.router, prefix="/api")
     app.include_router(events.router, prefix="/api")

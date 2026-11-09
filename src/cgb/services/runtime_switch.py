@@ -1,6 +1,7 @@
 """變更執行階段類型並重開(FR-010;contracts/ui.openapi.yaml § restartSession)。
 
-先結束原本的執行環境,再以新類型開新的(同一時間不會有兩台);原本已載入的模型加進下載佇列,新的就緒後重新下載並預先載入。
+先結束原本的執行環境,再以新類型開新的(同一時間不會有兩台);原本已載入的模型加進下載佇列,
+新的就緒後佇列自動繼續,重新下載並預先載入。
 """
 
 from typing import Any
@@ -42,6 +43,5 @@ class RuntimeSwitch:
         await self._state.colab.stop_session(name=old)
         self._repo.update(old, state="ended", ended_at=iso(self._state.clock.now()))
         self._repo.update(new, step="allocating")
+        # 新的就緒後,佇列(含要重新下載的模型)由 DownloadsService.resume 自動繼續
         await self._lifecycle.start_open(new, runtime_type)
-        if self._repo.get(new)["state"] == "ready" and self._lifecycle.base_url is not None:
-            await self._downloads.run_queue(self._lifecycle.base_url)

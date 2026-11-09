@@ -10,6 +10,9 @@ from typing import Any
 import httpx
 
 from cgb.app import AppPair
+from fakes import Gate
+from integration.test_api_downloads import downloadable, queue, states, wait_queue
+from integration.test_api_models import QWEN_7B, QWEN_SMALL
 from integration.test_api_session import ColabWorld, get_session, open_ready, wait_until
 
 
@@ -118,3 +121,33 @@ async def test_重啟時只釋放資料庫認得且已結束的那台_資料庫�
     runtimes = session.get("unmanagedRuntimes") or []
     assert [r.get("hardware") for r in runtimes] == ["L4"]
     assert runtimes[0].get("detectedAt") is not None
+
+
+# ---------------------------------------------------------------- US3-API-25
+
+
+async def test_重啟時下載中的那筆回到排隊中_接回後重新下載且順序不變(make_app: Callable[..., AppPair], fakes: Any) -> None:
+    # Arrange:qwen2.5:7b 下載中(pull 停在閘門前),qwen2.5:0.5b 排在它後面
+    downloadable(fakes)
+    hold = Gate()
+    fakes.remote_ollama.pull_model.side_effect(lambda *a, **k: [{"status": "pulling manifest"}, hold, {"status": "success"}])
+    async with running(make_app()) as client:
+        await open_ready(client)
+        await client.post("/api/downloads", json={"models": [QWEN_7B, QWEN_SMALL]})
+        before = await wait_queue(client, lambda q: states(q)[:1] == [(QWEN_7B, "downloading")])
+    hold.release()
+    fakes.remote_ollama.pull_model.reset_calls()
+    reattach = fakes.tunnel.open_tunnel.gate()
+
+    # Act
+    async with running(make_app()) as client:
+        after_restart = await queue(client)
+        reattach.release()
+        await wait_until(client, lambda s: s.get("state") == "ready")
+        resumed = await wait_queue(client, lambda q: [s for _, s in states(q)] == ["completed", "completed"])
+
+    # Assert
+    assert states(after_restart)[:1] == [(QWEN_7B, "queued")]
+    pulled = [call.kwargs.get("model") for call in fakes.remote_ollama.pull_model.calls]
+    assert pulled[:1] == [QWEN_7B]
+    assert [job["id"] for job in resumed["jobs"]] == [job["id"] for job in before["jobs"]]

@@ -1554,223 +1554,223 @@
 
 ### E2 後端 UI API(FastAPI REST 與 SSE)
 
-- [ ] T185a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-01 的測試(送 `GET /api/models`),執行確認它因為「只讀 tags 沒讀 ps,全部顯示未載入」這類實作而失敗
+- [X] T185a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-01 的測試(送 `GET /api/models`),執行確認它因為「只讀 tags 沒讀 ps,全部顯示未載入」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`
   - 📎 `spec.md` § FR-014
-- [ ] T185b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T185a)
+- [X] T185b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T185a)
   - 🧪 `testplan.md` § US3-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`
   - 📎 `spec.md` § FR-014
-- [ ] T186a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-02 的測試(送 `GET /api/models`),執行確認它因為「重連中仍去連轉發位址,等逾時回 504」這類實作而失敗
+- [X] T186a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-02 的測試(送 `GET /api/models`),執行確認它因為「重連中仍去連轉發位址,等逾時回 504」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014
-- [ ] T186b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T186a)
+- [X] T186b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T186a)
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014
-- [ ] T187a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-03 的測試(送 `POST /api/models/preload {model:"qwen2.5:7b"}`,再放行),執行確認它因為「用一個真的 prompt 預熱(多花時間、產生輸出)」這類實作而失敗
+- [X] T187a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-03 的測試(送 `POST /api/models/preload {model:"qwen2.5:7b"}`,再放行),執行確認它因為「用一個真的 prompt 預熱(多花時間、產生輸出)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015
-- [ ] T187b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T187a)
+- [X] T187b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T187a)
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015
-- [ ] T188a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-04 的測試(送 `POST /api/models/preload {model:"qwen2.5:7b"}`),執行確認它因為「目錄沒有的模型就順手下載」這類實作而失敗
+- [X] T188a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-04 的測試(送 `POST /api/models/preload {model:"qwen2.5:7b"}`),執行確認它因為「目錄沒有的模型就順手下載」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-015、FR-016
-- [ ] T188b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T188a)
+- [X] T188b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T188a)
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-015、FR-016
-- [ ] T189a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-05 的測試(送 `POST /api/models/preload {model:"qwen2.5:7b"}`),執行確認它因為「載入失敗時把整個目錄標成錯誤,或清掉其他模型的已載入狀態」這類實作而失敗
+- [X] T189a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-05 的測試(送 `POST /api/models/preload {model:"qwen2.5:7b"}`),執行確認它因為「載入失敗時把整個目錄標成錯誤,或清掉其他模型的已載入狀態」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`、`paths./models.get`
   - 📎 `spec.md` § 邊界情況、FR-015
-- [ ] T189b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T189a)
+- [X] T189b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T189a)
   - 🧪 `testplan.md` § US3-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`、`paths./models.get`
   - 📎 `spec.md` § 邊界情況、FR-015
-- [ ] T190a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-06 的測試(對 `qwen2.5:7b` 連送兩次預先載入),執行確認它因為「每按一次就送一次載入」這類實作而失敗
+- [X] T190a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-06 的測試(對 `qwen2.5:7b` 連送兩次預先載入),執行確認它因為「每按一次就送一次載入」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`
   - 📎 `spec.md` § FR-015
-- [ ] T190b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T190a)
+- [X] T190b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T190a)
   - 🧪 `testplan.md` § US3-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`
   - 📎 `spec.md` § FR-015
-- [ ] T191a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-07 的測試(送 `POST /api/downloads {models:["qwen2.5:7b"]}`,同時訂閱 SSE),執行確認它因為「每一行進度都推一則事件」這類實作而失敗
+- [X] T191a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-07 的測試(送 `POST /api/downloads {models:["qwen2.5:7b"]}`,同時訂閱 SSE),執行確認它因為「每一行進度都推一則事件」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`paths./models.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadUpdated`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-017、FR-018
-- [ ] T191b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T191a)
+- [X] T191b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T191a)
   - 🧪 `testplan.md` § US3-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`paths./models.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadUpdated`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-017、FR-018
-- [ ] T192a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-08 的測試(送 `POST /api/downloads {models:["qwen2.5:cgb-test-nonexistent"]}`),執行確認它因為「不先查模型庫就排進佇列,等 pull 失敗才發現」這類實作而失敗
+- [X] T192a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-08 的測試(送 `POST /api/downloads {models:["qwen2.5:cgb-test-nonexistent"]}`),執行確認它因為「不先查模型庫就排進佇列,等 pull 失敗才發現」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`paths./downloads.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017
-- [ ] T192b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T192a)
+- [X] T192b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T192a)
   - 🧪 `testplan.md` § US3-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`paths./downloads.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017
-- [ ] T193a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-09 的測試(各加入一個模型),執行確認它因為「pull 回 HTTP 200 就當成功」這類實作而失敗
+- [X] T193a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-09 的測試(各加入一個模型),執行確認它因為「pull 回 HTTP 200 就當成功」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`paths./models.get`
   - 📎 `spec.md` § FR-017
-- [ ] T193b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T193a)
+- [X] T193b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T193a)
   - 🧪 `testplan.md` § US3-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`paths./models.get`
   - 📎 `spec.md` § FR-017
-- [ ] T194a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-10 的測試(一次送 `POST /api/downloads {models:["qwen2.5:0.5b","qwen2.5:7b","qwen2.5:1.5b"]}`),執行確認它因為「三個 pull 同時送出,搶頻寬與磁碟,也無法逐一顯示狀態」這類實作而失敗
+- [X] T194a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-10 的測試(一次送 `POST /api/downloads {models:["qwen2.5:0.5b","qwen2.5:7b","qwen2.5:1.5b"]}`),執行確認它因為「三個 pull 同時送出,搶頻寬與磁碟,也無法逐一顯示狀態」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-021
-- [ ] T194b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T194a)
+- [X] T194b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T194a)
   - 🧪 `testplan.md` § US3-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-021
-- [ ] T195a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-11 的測試(送 `DELETE /api/downloads/<第 3 筆>`,再送 `DELETE /api/downloads/<第 1 筆>`),執行確認它因為「取消排隊中的項目時連正在下載的一起中斷」這類實作而失敗
+- [X] T195a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-11 的測試(送 `DELETE /api/downloads/<第 3 筆>`,再送 `DELETE /api/downloads/<第 1 筆>`),執行確認它因為「取消排隊中的項目時連正在下載的一起中斷」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/{id}.delete`、`components.schemas.Error`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadRemoved`
   - 📎 `spec.md` § FR-021
-- [ ] T195b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T195a)
+- [X] T195b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T195a)
   - 🧪 `testplan.md` § US3-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/{id}.delete`、`components.schemas.Error`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadRemoved`
   - 📎 `spec.md` § FR-021
-- [ ] T196a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-12 的測試(送 `POST /api/downloads/estimate {models:["qwen2.5:7b","qwen2.5:0.5b"]}`),執行確認它因為「大小把 `config.size` 也加進去,或用版本頁四捨五入的值」這類實作而失敗
+- [X] T196a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-12 的測試(送 `POST /api/downloads/estimate {models:["qwen2.5:7b","qwen2.5:0.5b"]}`),執行確認它因為「大小把 `config.size` 也加進去,或用版本頁四捨五入的值」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`paths./downloads.get`
   - 📎 `spec.md` § FR-022
-- [ ] T196b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py`、`src/cgb/domain/estimate.py` 只寫讓 US3-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T196a)
+- [X] T196b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py`、`src/cgb/domain/estimate.py` 只寫讓 US3-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T196a)
   - 🧪 `testplan.md` § US3-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`paths./downloads.get`
   - 📎 `spec.md` § FR-022
-- [ ] T197a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-13 的測試(先試算再加入 `qwen2.5:0.5b`(397,821,319)),執行確認它因為「只比這次選的大小和剩餘空間,沒算佇列裡還沒下載的」這類實作而失敗
+- [X] T197a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-13 的測試(先試算再加入 `qwen2.5:0.5b`(397,821,319)),執行確認它因為「只比這次選的大小和剩餘空間,沒算佇列裡還沒下載的」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-022
-- [ ] T197b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py`、`src/cgb/domain/estimate.py` 只寫讓 US3-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T197a)
+- [X] T197b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py`、`src/cgb/domain/estimate.py` 只寫讓 US3-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T197a)
   - 🧪 `testplan.md` § US3-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-022
-- [ ] T198a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-14 的測試(送 `POST /api/downloads {models:["qwen2.5:0.5b"]}`),執行確認它因為「讀不到剩餘空間就當成夠用直接加入」這類實作而失敗
+- [X] T198a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-14 的測試(送 `POST /api/downloads {models:["qwen2.5:0.5b"]}`),執行確認它因為「讀不到剩餘空間就當成夠用直接加入」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-022
-- [ ] T198b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py`、`src/cgb/domain/estimate.py` 只寫讓 US3-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T198a)
+- [X] T198b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py`、`src/cgb/domain/estimate.py` 只寫讓 US3-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T198a)
   - 🧪 `testplan.md` § US3-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-022
-- [ ] T199a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-15 的測試(送 `POST /api/downloads {models:["qwen2.5:0.5b"]}`),執行確認它因為「沒有工作階段時照樣加入,使用者以為在下載」這類實作而失敗
+- [X] T199a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-15 的測試(送 `POST /api/downloads {models:["qwen2.5:0.5b"]}`),執行確認它因為「沒有工作階段時照樣加入,使用者以為在下載」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017
-- [ ] T199b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T199a)
+- [X] T199b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T199a)
   - 🧪 `testplan.md` § US3-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017
-- [ ] T200a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-16 的測試(分別送 `{models:["qwen2.5:0.5b","qwen2.5:1.5b"]}` 與 `{models:["qwen2.5:7b"]}`),執行確認它因為「一批裡有一個不合法時,其他照樣加入」這類實作而失敗
+- [X] T200a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-16 的測試(分別送 `{models:["qwen2.5:0.5b","qwen2.5:1.5b"]}` 與 `{models:["qwen2.5:7b"]}`),執行確認它因為「一批裡有一個不合法時,其他照樣加入」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-021
-- [ ] T200b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T200a)
+- [X] T200b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T200a)
   - 🧪 `testplan.md` § US3-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-021
-- [ ] T201a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-17 的測試(送 `POST /api/downloads {models:["qwen3-coder:480b-cloud"]}`),執行確認它因為「雲端專用版本 manifest 沒有層、大小算成 0,照樣排進佇列」這類實作而失敗
+- [X] T201a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-17 的測試(送 `POST /api/downloads {models:["qwen3-coder:480b-cloud"]}`),執行確認它因為「雲端專用版本 manifest 沒有層、大小算成 0,照樣排進佇列」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-020
-- [ ] T201b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T201a)
+- [X] T201b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T201a)
   - 🧪 `testplan.md` § US3-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-020
-- [ ] T202a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-18 的測試(送 `DELETE /api/session`;之後開新的工作階段(新的假伺服器 tags 為空)),執行確認它因為「結束時把下載中的那筆標成完成或留在下載中」這類實作而失敗
+- [X] T202a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-18 的測試(送 `DELETE /api/session`;之後開新的工作階段(新的假伺服器 tags 為空)),執行確認它因為「結束時把下載中的那筆標成完成或留在下載中」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.delete`、`paths./models.get`
   - 📎 `spec.md` § 邊界情況、FR-018
-- [ ] T202b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US3-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T202a)
+- [X] T202b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US3-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T202a)
   - 🧪 `testplan.md` § US3-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.delete`、`paths./models.get`
   - 📎 `spec.md` § 邊界情況、FR-018
-- [ ] T203a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-19 的測試(開新的工作階段到就緒),執行確認它因為「新的工作階段就緒後佇列沒有自動繼續」這類實作而失敗
+- [X] T203a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-19 的測試(開新的工作階段到就緒),執行確認它因為「新的工作階段就緒後佇列沒有自動繼續」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./downloads.get`
   - 📎 `spec.md` § 邊界情況、FR-021
-- [ ] T203b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US3-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T203a)
+- [X] T203b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US3-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T203a)
   - 🧪 `testplan.md` § US3-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./downloads.get`
   - 📎 `spec.md` § 邊界情況、FR-021
-- [ ] T204a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-20 的測試(送 `POST /api/downloads/<B>/retry`,再送 `POST /api/downloads/clear-completed`),執行確認它因為「重新排隊插回原位,插隊到 C 前面」這類實作而失敗
+- [X] T204a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-20 的測試(送 `POST /api/downloads/<B>/retry`,再送 `POST /api/downloads/clear-completed`),執行確認它因為「重新排隊插回原位,插隊到 C 前面」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/{id}/retry.post`、`paths./downloads/clear-completed.post`
   - 📎 `spec.md` § FR-021
-- [ ] T204b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T204a)
+- [X] T204b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T204a)
   - 🧪 `testplan.md` § US3-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/{id}/retry.post`、`paths./downloads/clear-completed.post`
   - 📎 `spec.md` § FR-021
-- [ ] T205a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US3-API-21 的測試(送 `GET /api/library/search?q=qwen2.5`),執行確認它因為「`downloadedTags` 沒對照執行環境」這類實作而失敗
+- [X] T205a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US3-API-21 的測試(送 `GET /api/library/search?q=qwen2.5`),執行確認它因為「`downloadedTags` 沒對照執行環境」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`
   - 📎 `spec.md` § FR-020
-- [ ] T205b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/library.py`、`src/cgb/services/library.py` 只寫讓 US3-API-21 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T205a)
+- [X] T205b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/library.py`、`src/cgb/services/library.py` 只寫讓 US3-API-21 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T205a)
   - 🧪 `testplan.md` § US3-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`
   - 📎 `spec.md` § FR-020
-- [ ] T206a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US3-API-22 的測試(送 `GET /api/library/models/qwen2.5/tags`),執行確認它因為「雲端專用版本沒標出,UI 讓它被勾選」這類實作而失敗
+- [X] T206a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US3-API-22 的測試(送 `GET /api/library/models/qwen2.5/tags`),執行確認它因為「雲端專用版本沒標出,UI 讓它被勾選」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`
   - 📎 `spec.md` § FR-020
-- [ ] T206b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/library.py`、`src/cgb/services/library.py` 只寫讓 US3-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T206a)
+- [X] T206b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/library.py`、`src/cgb/services/library.py` 只寫讓 US3-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T206a)
   - 🧪 `testplan.md` § US3-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`
   - 📎 `spec.md` § FR-020
-- [ ] T207a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US3-API-23 的測試(送 `GET /api/library/search?q=qwen2.5` 與 `GET /api/curated`),執行確認它因為「模型庫壞掉時連精選清單也讀不到(spec 假設的退路不成立)」這類實作而失敗
+- [X] T207a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US3-API-23 的測試(送 `GET /api/library/search?q=qwen2.5` 與 `GET /api/curated`),執行確認它因為「模型庫壞掉時連精選清單也讀不到(spec 假設的退路不成立)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`paths./curated.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-020
-- [ ] T207b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/library.py`、`src/cgb/services/library.py` 只寫讓 US3-API-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T207a)
+- [X] T207b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/library.py`、`src/cgb/services/library.py` 只寫讓 US3-API-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T207a)
   - 🧪 `testplan.md` § US3-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`paths./curated.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-020
-- [ ] T208a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-24 的測試(依序新增 `qwen2.5:7b`(說明「日常用」)、新增 `qwen2.5`、再新增 `qwen2.5:latest`、修改第一筆說明為 201 個字元、刪除第二筆),執行確認它因為「沒把沒寫版本的名稱正規化成 `:latest`,同一個模型存成兩筆」這類實作而失敗
+- [X] T208a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-24 的測試(依序新增 `qwen2.5:7b`(說明「日常用」)、新增 `qwen2.5`、再新增 `qwen2.5:latest`、修改第一筆說明為 201 個字元、刪除第二筆),執行確認它因為「沒把沒寫版本的名稱正規化成 `:latest`,同一個模型存成兩筆」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`paths./curated.get`、`components.schemas.Error`、`paths./curated/{id}.put`、`paths./curated/{id}.delete`;`contracts/store.dbml` § `Table curated_models`
   - 📎 `spec.md` § FR-020
-- [ ] T208b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-24 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T208a)
+- [X] T208b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-24 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T208a)
   - 🧪 `testplan.md` § US3-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`paths./curated.get`、`components.schemas.Error`、`paths./curated/{id}.put`、`paths./curated/{id}.delete`;`contracts/store.dbml` § `Table curated_models`
   - 📎 `spec.md` § FR-020
-- [ ] T209a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US3-API-25 的測試(重建 app(`list_sessions` 仍列出這台)),執行確認它因為「重啟後永遠停在 `downloading`,佇列卡住」這類實作而失敗
+- [X] T209a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US3-API-25 的測試(重建 app(`list_sessions` 仍列出這台)),執行確認它因為「重啟後永遠停在 `downloading`,佇列卡住」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-021
-- [ ] T209b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-25 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T209a)
+- [X] T209b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-25 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T209a)
   - 🧪 `testplan.md` § US3-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`;`contracts/store.dbml` § `Table download_jobs`
   - 📎 `spec.md` § FR-021
-- [ ] T210a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-26 的測試(送 `GET /api/models`;再讓 `probe_resources` 回 `vramTotalBytes: null` 後送一次),執行確認它因為「用剩餘顯示記憶體比較,已載入一個模型後全部標成可能無法載入(Q62)」這類實作而失敗
+- [X] T210a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-26 的測試(送 `GET /api/models`;再讓 `probe_resources` 回 `vramTotalBytes: null` 後送一次),執行確認它因為「用剩餘顯示記憶體比較,已載入一個模型後全部標成可能無法載入(Q62)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`
   - 📎 `spec.md` § NFR-006;`plan.md` § 待決問題 Q62
-- [ ] T210b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-26 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T210a)
+- [X] T210b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US3-API-26 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T210a)
   - 🧪 `testplan.md` § US3-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`
   - 📎 `spec.md` § NFR-006;`plan.md` § 待決問題 Q62
-- [ ] T211a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-27 的測試(加入下載後 0.5 秒,經 Ollama 相容端點送 5 次非串流 `generate`),執行確認它因為「下載與推論共用一把鎖或同一條 httpx 連線,推論要等下載結束」這類實作而失敗
+- [X] T211a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US3-API-27 的測試(加入下載後 0.5 秒,經 Ollama 相容端點送 5 次非串流 `generate`),執行確認它因為「下載與推論共用一把鎖或同一條 httpx 連線,推論要等下載結束」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`;`contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § NFR-007
-- [ ] T211b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-27 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T211a)
+- [X] T211b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/services/downloads.py`、`src/cgb/repos/downloads.py` 只寫讓 US3-API-27 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T211a)
   - 🧪 `testplan.md` § US3-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`;`contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § NFR-007
-- [ ] T212 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T185b~T211b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`、`src/cgb/repos/`、`src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T211b)
+- [X] T212 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T185b~T211b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`、`src/cgb/repos/`、`src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T211b)
   - 🧪 `testplan.md` § US3-API-01~US3-API-27
   - 📎 `testplan.md` § 4.1
 
@@ -1916,15 +1916,15 @@
 
 ### E4 資料庫(SQLite)
 
-- [ ] T232a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US3-DB-01 的測試(再插入 `pending_model='qwen2.5:7b'`;再插入 `queue_position=1` 的另一個模型;再插入兩筆 `pending_model` 為 null 的已完成項目;在 `curated_models` 插入兩筆 `name='qwen2.5:latest'`),執行確認它因為「`pending_model` 沒有 unique,同一個模型排兩次」這類實作而失敗
+- [X] T232a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US3-DB-01 的測試(再插入 `pending_model='qwen2.5:7b'`;再插入 `queue_position=1` 的另一個模型;再插入兩筆 `pending_model` 為 null 的已完成項目;在 `curated_models` 插入兩筆 `name='qwen2.5:latest'`),執行確認它因為「`pending_model` 沒有 unique,同一個模型排兩次」這類實作而失敗
   - 🧪 `testplan.md` § US3-DB-01
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`
   - 📎 `spec.md` § FR-021、FR-020
-- [ ] T232b [US3] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US3-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`download_jobs` 的 `queue_position` 與 `curated_models` 由 E2 節的 T194b、T208b 加上,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T232a、T194b、T208b)
+- [X] T232b [US3] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US3-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`download_jobs` 的 `queue_position` 與 `curated_models` 由 E2 節的 T194b、T208b 加上,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T232a、T194b、T208b)
   - 🧪 `testplan.md` § US3-DB-01
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`
   - 📎 `spec.md` § FR-021、FR-020
-- [ ] T233 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T232b~T232b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T232b)
+- [X] T233 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T232b~T232b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T232b)
   - 🧪 `testplan.md` § US3-DB-01
   - 📎 `testplan.md` § 4.6
 

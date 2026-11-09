@@ -57,6 +57,19 @@ class ColabWorld:
         tunnel.cleanup_residual.side_effect(self._cleanup)
         remote.get_version.side_effect(lambda *a, **k: {"version": "0.40.15"})
         remote.list_loaded_models.side_effect(lambda *a, **k: {"models": []})
+        # 剩餘磁碟夠大(下載佇列自動繼續前會重新讀,testplan.md § US3-API-19)
+        colab.probe_resources.side_effect(self._probe)
+
+    def _probe(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        self.log.append(("probe_resources", kwargs.get("name")))
+        return {
+            "diskFreeBytes": 225_485_783_040,
+            "diskTotalBytes": 253_338_115_072,
+            "gpuName": "Tesla T4",
+            "vramTotalBytes": 16_106_127_360,
+            "vramFreeBytes": 15_727_591_424,
+            "checkedAt": "2026-11-09T09:00:00Z",
+        }
 
     def _usage(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.log.append(("get_usage", None))

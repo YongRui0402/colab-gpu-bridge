@@ -40,6 +40,17 @@ class ColabWorld:
         colab.create_session.side_effect(self._create)
         colab.start_ollama.side_effect(lambda *a, **k: {"ollamaVersion": "0.40.15", "alreadyRunning": False})
         colab.stop_session.side_effect(self._stop)
+        # 故事 3:模型目錄與下載佇列會讀剩餘磁碟與顯示記憶體總量(S8 probe_resources)
+        colab.probe_resources.side_effect(
+            lambda *a, **k: {
+                "diskFreeBytes": 225_485_783_040,
+                "diskTotalBytes": 253_338_115_072,
+                "gpuName": "Tesla T4",
+                "vramTotalBytes": 16_106_127_360,
+                "vramFreeBytes": 15_727_591_424,
+                "checkedAt": "2026-11-09T09:00:00Z",
+            }
+        )
         tunnel.open_tunnel.side_effect(self._open_tunnel)
         tunnel.close_tunnel.side_effect(lambda *a, **k: {"sessionName": k.get("session_name"), "wasRunning": True, "forced": False})
         tunnel.check_health.side_effect(self._healthy)

@@ -28,3 +28,12 @@ class EventBus:
 
     def auth_updated(self, auth: dict[str, Any]) -> None:
         self.publish("auth.updated", {"type": "auth.updated", "auth": auth})
+
+    def models_updated(self, catalog: dict[str, Any]) -> None:
+        self.publish("models.updated", {"type": "models.updated", "catalog": catalog})
+
+    def download_updated(self, job: dict[str, Any]) -> None:
+        self.publish("download.updated", {"type": "download.updated", "job": job})
+
+    def download_removed(self, job_id: int) -> None:
+        self.publish("download.removed", {"type": "download.removed", "id": job_id})

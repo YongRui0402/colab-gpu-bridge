@@ -57,6 +57,16 @@ CREATE TABLE IF NOT EXISTS download_jobs (
 )
 """
 
+_CURATED_MODELS = """
+CREATE TABLE IF NOT EXISTS curated_models (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    recommended_runtime_type_gpu TEXT CHECK (recommended_runtime_type_gpu IN ('T4', 'L4', 'G4', 'A100', 'H100')),
+    recommended_runtime_type_high_mem INTEGER
+)
+"""
+
 
 def create_schema(conn: sqlite3.Connection) -> None:
     # WAL 記在資料庫檔裡,之後新開的連線也沿用(research.md R10)
@@ -70,3 +80,4 @@ def create_schema(conn: sqlite3.Connection) -> None:
     )
     conn.execute(_DOWNLOAD_JOBS)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_download_jobs_state ON download_jobs (state)")
+    conn.execute(_CURATED_MODELS)

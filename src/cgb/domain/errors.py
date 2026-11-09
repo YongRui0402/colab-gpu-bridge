@@ -22,6 +22,20 @@ MESSAGES: dict[str, str] = {
     "OAUTH_INVALID_SCOPE": "登入設定有誤,無法向 Google 換得授權。",
     "SESSION_NOT_FOUND": "沒有這個工作階段的紀錄。",
     "INVALID_RUNTIME_TYPE": "不支援這種執行階段類型,請從清單選擇 T4、L4、G4、A100 或 H100。",
+    "NO_READY_SESSION": "目前沒有就緒的工作階段,請等工作階段就緒後再試。",
+    "INVALID_CURATED_DESCRIPTION": "說明最多 200 個字。",
+    "CURATED_DUPLICATE": "精選清單已經有這個模型(沒寫版本視為 latest)。",
+    "OLLAMA_NOT_FOUND": "執行環境上沒有這個模型,請先下載。",
+    "MODEL_ALREADY_DOWNLOADED": "執行環境上已經有這個模型,不必再下載。",
+    "DOWNLOAD_ALREADY_QUEUED": "這個模型已經在下載佇列裡。",
+    "DISK_SPACE_INSUFFICIENT": "執行環境的剩餘磁碟空間不夠放下這些模型(含佇列裡還沒下載完的),請少選一些。",
+    "DISK_SPACE_UNKNOWN": "讀不到執行環境的剩餘磁碟空間,無法確認放不放得下,請稍後再試。",
+    "DOWNLOAD_IN_PROGRESS": "這個模型正在下載,不能取消;請等它下載完成或失敗。",
+    "LIBRARY_NOT_FOUND": "官方模型庫找不到這個模型或版本,請確認名稱。",
+    "LIBRARY_UNREACHABLE": "連不到 Ollama 官方模型庫,請稍後再試;也可以從精選清單挑選或直接輸入名稱。",
+    "LIBRARY_SERVER_ERROR": "Ollama 官方模型庫暫時發生錯誤,請稍後再試;也可以從精選清單挑選或直接輸入名稱。",
+    "LIBRARY_BAD_RESPONSE": "Ollama 官方模型庫的回應無法解讀(可能改版了);可以從精選清單挑選或直接輸入名稱。",
+    "LIBRARY_CLOUD_ONLY": "這個版本只能在 Ollama 雲端執行,不能下載到執行環境。",
 }
 
 
@@ -43,13 +57,22 @@ RELEASE_WARNING_MESSAGE = "無法確認 Colab 已釋放這個執行環境,它可
 class ApiError(Exception):
     """以 HTTP 錯誤回給 UI 的情況;`code` 是 `Error.code`。"""
 
-    def __init__(self, status: int, code: str) -> None:
+    def __init__(self, status: int, code: str, *, model: str | None = None, reason_code: str | None = None) -> None:
         super().__init__(code)
         self.status = status
         self.code = code
+        self.model = model
+        self.reason_code = reason_code
 
     def body(self) -> dict[str, Any]:
-        return {"code": self.code, "message": MESSAGES[self.code]}
+        body: dict[str, Any] = {"code": self.code, "message": MESSAGES[self.code]}
+        if self.model is not None:
+            # 下載相關的錯誤指出是哪一個模型(Error.model)
+            body["model"] = self.model
+        if self.reason_code is not None:
+            # `DISK_SPACE_UNKNOWN` 的外部原因(S8 的 `COLAB_` 代碼)
+            body["reasonCode"] = self.reason_code
+        return body
 
 
 # contracts/ui.openapi.yaml § submitAuthorizationCode:Google 的失敗依 S3 代碼原樣放在 `code`
