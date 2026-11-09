@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>下載模型|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-017 FR-020 FR-021 FR-022 NFR-011">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型<span class="badge" id="queue-count" hidden></span></a>
+      <a href="library.html" aria-current="page">下載模型</a>
+      <a href="usage.html">用量與設定</a>
+      <a href="history.html">紀錄</a>
+    </nav>
+    <div class="topbar-status">
+      <a href="index.html"><span class="pill" id="session-pill">未開啟</span></a>
+      <a href="login.html"><span class="pill" id="auth-chip">Colab 已登入</span></a>
+    </div>
+  </header>
+  <main>
+    <h1>下載模型</h1>
+    <p class="muted">勾選一個或多個版本加入下載佇列;模型會在背景從網路下載到目前的執行環境,依序一個一個來,不影響正在使用的模型。</p>
+
+    <!-- 精選清單 -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>精選清單</h2>
+        <button type="button" class="btn btn-small" id="toggle-edit">編輯清單</button>
+      </div>
+      <ul class="list" id="curated">
+        <li>
+          <div>
+            <label class="check"><input type="checkbox"> <span class="item-name">qwen2.5:7b</span></label>
+            <div class="item-meta">4.7 GB · 建議 T4 · 中文對話的主力;T4 上實測約 40 tokens/s</div>
+          </div>
+          <div class="item-side"><span class="pill pill-ok">已下載</span></div>
+        </li>
+      </ul>
+      <form id="curated-form" hidden>
+        <h3>加入精選清單</h3>
+        <div class="grid-2">
+          <div class="field">
+            <label for="c-name">模型名稱(含版本)</label>
+            <input type="text" class="mono" id="c-name" placeholder="qwen3:8b" required>
+          </div>
+          <div class="field">
+            <label for="c-type">建議的執行階段類型</label>
+            <select id="c-type"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="c-note">說明</label>
+          <input type="text" id="c-note" placeholder="例如:會思考的中型模型,回答前會先推理" required>
+        </div>
+        <p class="notice notice-error" id="c-error" hidden></p>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">加入</button>
+          <button type="button" class="btn" id="done-edit">完成編輯</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 搜尋官方模型庫 -->
+    <section class="panel">
+      <h2>搜尋 Ollama 官方模型庫</h2>
+      <form class="inline-form" id="search-form">
+        <div class="grow">
+          <label for="q" class="small muted">關鍵字</label>
+          <input type="search" id="q" placeholder="例如 qwen、llama、embed" required>
+        </div>
+        <button type="submit" class="btn btn-primary">搜尋</button>
+      </form>
+
+      <div data-state="normal">
+        <p class="empty">輸入關鍵字搜尋 ollama.com 上的官方模型;只列可以下載到執行環境的版本。</p>
+      </div>
+      <div data-state="searching">
+        <p class="empty">正在搜尋 ollama.com…</p>
+      </div>
+      <div data-state="results">
+        <p class="small muted" id="results-meta">「llama」的搜尋結果:前 20 筆</p>
+        <div id="results">
+          <div class="result">
+            <div class="result-head">
+              <div><span class="item-name">llama3.1</span> <span class="tag">工具呼叫</span> <span class="tag">8b</span><span class="tag">70b</span><span class="tag">405b</span></div>
+              <div class="item-side"><span class="small muted">1.1 億次下載 · 93 個版本</span><button type="button" class="btn btn-small">看版本</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="actions" id="more-box">
+          <button type="button" class="btn" id="more">顯示更多</button>
+        </div>
+      </div>
+      <div data-state="no-results">
+        <div class="empty">
+          <p>找不到符合「qwne」的官方模型。</p>
+          <p class="small">換個關鍵字試試,或在下面直接輸入完整的模型名稱。</p>
+        </div>
+      </div>
+      <div data-state="library-down">
+        <div class="notice notice-warn">
+          <strong>現在沒辦法搜尋官方模型庫</strong>
+          ollama.com 的搜尋頁讀不懂(可能改版了)或連不上。精選清單和直接輸入名稱照樣可以用。
+        </div>
+      </div>
+    </section>
+
+    <!-- 直接輸入名稱 -->
+    <section class="panel">
+      <h2>直接輸入名稱</h2>
+      <form class="inline-form" id="name-form">
+        <div class="grow">
+          <label for="direct" class="small muted">模型名稱(含版本;沒寫版本就是 latest)</label>
+          <input type="text" class="mono" id="direct" placeholder="qwen2.5:14b" required>
+        </div>
+        <button type="submit" class="btn">加入勾選</button>
+      </form>
+    </section>
+
+    <!-- 確認中 -->
+    <section data-state="checking" class="overlay">
+      <div class="sheet">
+        <p class="empty" id="checking-text">正在向 registry.ollama.ai 確認大小…</p>
+      </div>
+    </section>
+
+    <!-- 確認加入下載 -->
+    <section data-state="confirm" class="overlay">
+      <div class="sheet">
+        <h2>加入下載佇列</h2>
+        <table class="summary" id="confirm-table">
+          <tr><td class="mono">gemma3:4b</td><td>3.34 GB</td></tr>
+          <tr><td class="mono">qwen3:8b</td><td>5.23 GB</td></tr>
+          <tr><td class="mono">bge-m3:567m</td><td>1.16 GB</td></tr>
+          <tr class="total"><td>總大小</td><td>9.72 GB</td></tr>
+        </table>
+        <table class="summary" id="confirm-disk">
+          <tr><td>執行環境剩餘磁碟</td><td>195.0 GB</td></tr>
+          <tr><td>佇列中還沒下載完的</td><td>18.7 GB</td></tr>
+          <tr class="total"><td>全部下載完後剩餘</td><td>166.6 GB</td></tr>
+        </table>
+        <p>預估下載時間 <strong id="confirm-eta">約 3 分 14 秒</strong> <span class="small muted">(估計值,以 50 MB/s 計;實測 28–96 MB/s,要看 Colab 分到哪一區)</span></p>
+        <p class="small muted">確認後依序下載,每個會顯示「排隊中」「下載中」「完成」或「失敗」。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="confirm-go">確認加入</button>
+          <button type="button" class="btn" data-back>返回修改</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 空間不足 -->
+    <section data-state="no-space" class="overlay">
+      <div class="sheet">
+        <h2>執行環境的磁碟空間不夠</h2>
+        <table class="summary" id="space-table">
+          <tr><td class="mono">llama3.1:405b</td><td>243.25 GB</td></tr>
+          <tr class="total"><td>總大小</td><td>243.25 GB</td></tr>
+          <tr><td>執行環境剩餘磁碟(扣掉佇列中還沒下載完的)</td><td>176.3 GB</td></tr>
+          <tr class="total over"><td>不足</td><td>66.9 GB</td></tr>
+        </table>
+        <p>不能加入下載。請少勾幾個,或改選比較小的版本。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" data-back>返回修改</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 找不到這個模型 -->
+    <section data-state="not-found" class="overlay">
+      <div class="sheet">
+        <h2>找不到這個模型</h2>
+        <p>Ollama 官方模型庫沒有 <strong class="mono" id="nf-name">llama3.3:8b</strong>(名稱或版本不存在)。執行環境上的模型都沒有變動。</p>
+        <p class="small muted">名稱要和 ollama.com 上的寫法一樣,例如 <span class="mono">qwen2.5:14b</span>;可以先用上面的搜尋找到正確的版本。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" data-back>知道了</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 只能在雲端執行 -->
+    <section data-state="cloud-only" class="overlay">
+      <div class="sheet">
+        <h2>這個版本不能下載</h2>
+        <p><strong class="mono" id="co-name">qwen3-coder:480b-cloud</strong> 只能在 Ollama 雲端執行,沒有可以下載的模型檔。請改選其他版本。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" data-back>知道了</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 沒有就緒的工作階段 -->
+    <section data-state="no-session" class="overlay">
+      <div class="sheet">
+        <h2>要先開啟工作階段</h2>
+        <p>模型會下載到 Colab 的執行環境上;現在沒有就緒的工作階段,也就不知道剩下多少磁碟空間。開啟並就緒後再加入下載,勾選的項目會保留。</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="index.html">到工作階段開啟</a>
+          <button type="button" class="btn" data-back>返回</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="tray" id="tray">
+    <span>已勾選 <strong id="tray-count">2</strong> 個</span>
+    <div class="chips" id="tray-chips"><span class="tag mono">gemma3:4b</span><span class="tag mono">qwen3:8b</span></div>
+    <span class="muted">約 <strong id="tray-size">8.6 GB</strong></span>
+    <button type="button" class="btn btn-small" id="tray-clear">清除</button>
+    <button type="button" class="btn btn-primary" id="add">加入下載</button>
+  </div>
+
+  <script>
+    const selected = new Set();
+    let editing = false;
+    let keyword = "";
+    let page = 1;
+    let shown = [];
+    let expanded = {};
+    let resultsView = "normal";
+
+    const status = (fullName) => {
+      const session = Proto.load("session");
+      if (session.state === "ready" && Proto.load("models").some((m) => m.name === fullName)) return "downloaded";
+      if (Proto.load("queue").some((j) => j.name === fullName && (j.status === "queued" || j.status === "downloading"))) return "queued";
+      return null;
+    };
+    const statusPill = (s) => (s === "downloaded" ? "<span class=\"pill pill-ok\">已下載</span>" : s === "queued" ? "<span class=\"pill pill-busy\">已在佇列</span>" : "");
+    const gb = (n) => `${(n / 1e9).toFixed(2)} GB`;
+
+    const renderCurated = () => {
+      const curated = Proto.load("curated");
+      document.getElementById("curated").innerHTML = curated.length ? curated.map((c, i) => {
+        const info = Proto.lookup(c.name);
+        const s = status(c.name);
+        return `
+          <li>
+            <div>
+              <label class="check"><input type="checkbox" data-pick="${c.name}" ${selected.has(c.name) ? "checked" : ""} ${s || editing ? "disabled" : ""}> <span class="item-name">${c.name}</span></label>
+              <div class="item-meta">${info.found ? Proto.bytes(info.size) : "—"} · 建議 ${c.type} · ${c.note}</div>
+            </div>
+            <div class="item-side">${statusPill(s)}${editing ? `<button type="button" class="btn btn-small btn-danger" data-uncurate="${i}">移除</button>` : ""}</div>
+          </li>`;
+      }).join("") : "<li><span class=\"muted\">精選清單是空的,按「編輯清單」加入常用的模型。</span></li>";
+      document.getElementById("curated-form").hidden = !editing;
+      document.getElementById("toggle-edit").hidden = editing;
+    };
+
+    const versionsHtml = (name) => {
+      if (expanded[name] === "loading") return "<div class=\"versions\"><span class=\"muted small\">正在讀取版本清單…</span></div>";
+      return `<div class="versions">${Proto.tagsOf(name).map((t) => {
+        const full = `${name}:${t.tag}`;
+        if (t.cloud) return `<span class="version is-disabled"><span class="mono">${t.tag}</span><span class="small">只能在雲端執行</span></span>`;
+        const s = status(full);
+        return `<label class="version"><input type="checkbox" data-pick="${full}" ${selected.has(full) ? "checked" : ""} ${s ? "disabled" : ""}><span class="mono">${t.tag}</span><span class="small muted">${Proto.bytes(t.size)}</span>${statusPill(s)}</label>`;
+      }).join("")}</div>`;
+    };
+
+    const renderResults = () => {
+      document.getElementById("results-meta").textContent = `「${keyword}」的搜尋結果:${shown.length} 筆`;
+      document.getElementById("results").innerHTML = shown.map((m) => {
+        const params = m.tags ? [...new Set(m.tags.map(([tag]) => tag).filter((tag) => /^\d+(\.\d+)?[bm]$|^\d+x\d+b$/.test(tag)))] : m.sizes;
+        return `
+          <div class="result">
+            <div class="result-head">
+              <div><span class="item-name">${m.name}</span> ${m.caps.map((c) => `<span class="tag">${Proto.capLabel(c)}</span>`).join("")}${params.map((p) => `<span class="tag mono">${p}</span>`).join("")}</div>
+              <div class="item-side"><span class="small muted">${Proto.downloads(m.downloads)} · ${m.tagsCount} 個版本</span><button type="button" class="btn btn-small" data-expand="${m.name}">${expanded[m.name] ? "收起" : "看版本"}</button></div>
+            </div>
+            ${expanded[m.name] ? versionsHtml(m.name) : ""}
+          </div>`;
+      }).join("");
+    };
+
+    const renderTray = () => {
+      const list = [...selected];
+      document.getElementById("tray").hidden = list.length === 0;
+      document.getElementById("tray-count").textContent = list.length;
+      document.getElementById("tray-chips").innerHTML = list.map((n) => `<span class="tag mono">${n}</span>`).join("");
+      document.getElementById("tray-size").textContent = Proto.bytes(list.reduce((sum, n) => sum + (Proto.lookup(n).size ?? 0), 0));
+    };
+
+    const pendingBytes = () => Proto.load("queue").reduce((sum, j) => sum + (j.status === "queued" ? j.size : j.status === "downloading" ? j.size - Proto.progress(j).completed : 0), 0);
+
+    const back = () => Proto.showState(resultsView);
+
+    const doSearch = (more) => {
+      if (!more) {
+        page = 1;
+        shown = [];
+        expanded = {};
+        resultsView = "searching";
+        Proto.showState(resultsView);
+      } else {
+        page += 1;
+        document.getElementById("more").disabled = true;
+        document.getElementById("more").textContent = "讀取中…";
+      }
+      Proto.later(more ? 700 : 900, () => {
+        const res = Proto.search(keyword, page);
+        shown = shown.concat(res.items);
+        resultsView = shown.length ? "results" : "no-results";
+        document.querySelector("[data-state=\"no-results\"] p").textContent = `找不到符合「${keyword}」的官方模型。`;
+        document.getElementById("more-box").hidden = !res.hasMore;
+        document.getElementById("more").disabled = false;
+        document.getElementById("more").textContent = "顯示更多";
+        renderResults();
+        Proto.showState(resultsView);
+      });
+    };
+
+    document.getElementById("search-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (Proto.forced) return;
+      keyword = document.getElementById("q").value.trim();
+      doSearch(false);
+    });
+    document.getElementById("more").addEventListener("click", () => {
+      if (!Proto.forced) doSearch(true);
+    });
+
+    document.querySelector("main").addEventListener("change", (event) => {
+      const name = event.target.dataset.pick;
+      if (!name || Proto.forced) return;
+      if (event.target.checked) selected.add(name);
+      else selected.delete(name);
+      renderTray();
+    });
+
+    document.querySelector("main").addEventListener("click", (event) => {
+      if (Proto.forced) return;
+      const { expand, uncurate } = event.target.dataset;
+      if (expand) {
+        if (expanded[expand]) {
+          delete expanded[expand];
+          return renderResults();
+        }
+        expanded[expand] = "loading";
+        renderResults();
+        Proto.later(500, () => {
+          expanded[expand] = true;
+          renderResults();
+        });
+      }
+      if (uncurate !== undefined) {
+        const curated = Proto.load("curated");
+        curated.splice(Number(uncurate), 1);
+        Proto.save("curated", curated);
+        renderCurated();
+      }
+      if (event.target.closest("[data-back]")) back();
+    });
+
+    document.getElementById("toggle-edit").addEventListener("click", () => {
+      if (Proto.forced) return;
+      editing = true;
+      renderCurated();
+    });
+    document.getElementById("done-edit").addEventListener("click", () => {
+      editing = false;
+      document.getElementById("c-error").hidden = true;
+      renderCurated();
+    });
+    document.getElementById("c-type").innerHTML = MOCK.runtimeTypes.map((t) => `<option>${t.id}</option>`).join("");
+    document.getElementById("curated-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = document.getElementById("c-name").value.trim();
+      const info = Proto.lookup(name);
+      const error = document.getElementById("c-error");
+      const curated = Proto.load("curated");
+      const full = name.includes(":") ? name : `${name}:latest`;
+      error.hidden = info.found && !info.cloud && !curated.some((c) => c.name === full);
+      error.textContent = !info.found ? `官方模型庫沒有 ${name}。` : info.cloud ? `${name} 只能在雲端執行,不能下載。` : `${full} 已經在精選清單裡。`;
+      if (!error.hidden) return;
+      curated.push({ name: full, note: document.getElementById("c-note").value.trim(), type: document.getElementById("c-type").value });
+      Proto.save("curated", curated);
+      event.target.reset();
+      renderCurated();
+    });
+
+    document.getElementById("name-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (Proto.forced) return;
+      const raw = document.getElementById("direct").value.trim();
+      const full = raw.includes(":") ? raw : `${raw}:latest`;
+      document.getElementById("checking-text").textContent = `正在向 registry.ollama.ai 確認 ${full}…`;
+      Proto.showState("checking");
+      Proto.later(700, () => {
+        const info = Proto.lookup(full);
+        if (!info.found) {
+          document.getElementById("nf-name").textContent = full;
+          return Proto.showState("not-found");
+        }
+        if (info.cloud) {
+          document.getElementById("co-name").textContent = full;
+          return Proto.showState("cloud-only");
+        }
+        back();
+        if (status(full)) return;
+        selected.add(full);
+        event.target.reset();
+        renderTray();
+      });
+    });
+
+    document.getElementById("tray-clear").addEventListener("click", () => {
+      selected.clear();
+      renderTray();
+      renderCurated();
+      renderResults();
+    });
+
+    document.getElementById("add").addEventListener("click", () => {
+      if (Proto.forced) return;
+      if (Proto.load("session").state !== "ready") return Proto.showState("no-session");
+      document.getElementById("checking-text").textContent = `正在向 registry.ollama.ai 確認 ${selected.size} 個版本的大小…`;
+      Proto.showState("checking");
+      Proto.later(800, () => {
+        const items = [...selected].map((n) => Proto.lookup(n));
+        const total = items.reduce((sum, i) => sum + i.size, 0);
+        const free = Proto.diskFree();
+        const pending = pendingBytes();
+        const rows = items.map((i) => `<tr><td class="mono">${i.name}</td><td>${gb(i.size)}</td></tr>`).join("");
+        if (total > free - pending) {
+          document.getElementById("space-table").innerHTML = `${rows}
+            <tr class="total"><td>總大小</td><td>${gb(total)}</td></tr>
+            <tr><td>執行環境剩餘磁碟(扣掉佇列中還沒下載完的)</td><td>${Proto.bytes(free - pending)}</td></tr>
+            <tr class="total over"><td>不足</td><td>${Proto.bytes(total - (free - pending))}</td></tr>`;
+          return Proto.showState("no-space");
+        }
+        document.getElementById("confirm-table").innerHTML = `${rows}<tr class="total"><td>總大小</td><td>${gb(total)}</td></tr>`;
+        document.getElementById("confirm-disk").innerHTML = `
+          <tr><td>執行環境剩餘磁碟</td><td>${Proto.bytes(free)}</td></tr>
+          <tr><td>佇列中還沒下載完的</td><td>${Proto.bytes(pending)}</td></tr>
+          <tr class="total"><td>全部下載完後剩餘</td><td>${Proto.bytes(free - pending - total)}</td></tr>`;
+        document.getElementById("confirm-eta").textContent = `約 ${Proto.duration((total / ESTIMATE_BYTES_PER_SEC) * 1000)}`;
+        Proto.showState("confirm");
+      });
+    });
+
+    document.getElementById("confirm-go").addEventListener("click", () => {
+      if (Proto.forced) return;
+      const queue = Proto.load("queue");
+      const at = new Date().toISOString();
+      [...selected].forEach((n, i) => {
+        const info = Proto.lookup(n);
+        queue.push({ id: `dl-${Date.now()}-${i}`, name: info.name, size: info.size, parameterSize: info.parameterSize, quantization: info.quantization, status: "queued", addedAt: at, startedAt: null, doneAt: null, error: null, preload: false });
+      });
+      Proto.save("queue", queue);
+      location.href = "models.html";
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      renderCurated();
+      if (Proto.forced) {
+        if (Proto.forced === "results") {
+          keyword = "llama";
+          shown = Proto.search("llama", 1).items;
+          expanded = { "llama3.1": true };
+          selected.add("llama3.1:70b");
+          document.getElementById("q").value = "llama";
+          renderResults();
+        }
+        if (Proto.forced === "no-results") document.getElementById("q").value = "qwne";
+        if (Proto.forced === "confirm") ["gemma3:4b", "qwen3:8b", "bge-m3:567m"].forEach((n) => selected.add(n));
+        if (Proto.forced === "no-space") selected.add("llama3.1:405b");
+        renderTray();
+        return;
+      }
+      renderTray();
+    });
+  </script>
+</body>
+</html>

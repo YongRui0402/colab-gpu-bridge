@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>模型|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-014 FR-015 FR-018 FR-021 NFR-006 NFR-011">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html" aria-current="page">模型<span class="badge" id="queue-count" hidden></span></a>
+      <a href="library.html">下載模型</a>
+      <a href="usage.html">用量與設定</a>
+      <a href="history.html">紀錄</a>
+    </nav>
+    <div class="topbar-status">
+      <a href="index.html"><span class="pill" id="session-pill">未開啟</span></a>
+      <a href="login.html"><span class="pill" id="auth-chip">Colab 已登入</span></a>
+    </div>
+  </header>
+  <main>
+    <h1>模型</h1>
+
+    <!-- 目錄:執行環境上已下載的模型 -->
+    <section data-state="normal" class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>執行環境上的模型</h2>
+          <p class="small muted" id="cat-meta"><span class="mono">cgb-20261109-2114</span> · T4,顯示記憶體約 15 GB · 剩餘磁碟 195.0 GB</p>
+        </div>
+        <a class="btn" href="library.html">下載模型</a>
+      </div>
+      <ul class="list" id="catalog">
+        <li>
+          <div>
+            <div class="item-name">qwen2.5:7b</div>
+            <div class="item-meta">4.7 GB · 7.6B · Q4_K_M · 21:16 下載完成</div>
+          </div>
+          <div class="item-side"><span class="pill pill-ok">已載入 · 全部在 GPU</span></div>
+        </li>
+      </ul>
+      <p class="small muted">區網的程式指名其中任何一個都可以直接用,第一次會先載入;預先載入可以省下第一個請求的等待。下載中的模型完成前不會出現在這裡。</p>
+    </section>
+
+    <!-- 目錄是空的(新開的執行環境) -->
+    <section data-state="empty" class="panel">
+      <h2>執行環境上的模型</h2>
+      <div class="empty">
+        <p>這台執行環境上還沒有模型。每次新開的執行環境都是空的。</p>
+        <a class="btn btn-primary" href="library.html">挑選要下載的模型</a>
+      </div>
+    </section>
+
+    <!-- 讀取中 -->
+    <section data-state="loading" class="panel">
+      <h2>執行環境上的模型</h2>
+      <p class="empty">正在讀取執行環境上的模型…</p>
+    </section>
+
+    <!-- 沒有就緒的工作階段 -->
+    <section data-state="no-session" class="panel">
+      <h2>執行環境上的模型</h2>
+      <div class="empty">
+        <p id="ns-text">目前沒有就緒的工作階段。執行環境結束後,上面的模型會跟著消失;下載佇列中還沒完成的項目保留著,重新開啟後會繼續下載。</p>
+        <a class="btn btn-primary" href="index.html">到工作階段開啟</a>
+      </div>
+    </section>
+
+    <!-- 預先載入一個超過顯示記憶體的模型 -->
+    <section data-state="preload-warn" class="panel">
+      <h2>這個模型可能無法載入</h2>
+      <div class="notice notice-warn">
+        <strong class="mono" id="pw-name">qwen2.5-coder:32b-instruct-q4_K_M</strong>
+        <span id="pw-text">有 19.9 GB,超過 T4 的顯示記憶體(約 15 GB)。可能載入失敗,或有一部分放在 CPU 上執行而慢很多。要順跑的話,請改用 L4 以上的類型。</span>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="pw-go">仍要載入</button>
+        <button type="button" class="btn" id="pw-cancel">取消</button>
+      </div>
+    </section>
+
+    <!-- 預先載入中 -->
+    <section data-state="preloading" class="panel">
+      <h2>執行環境上的模型</h2>
+      <ul class="list">
+        <li>
+          <div>
+            <div class="item-name">llama3.2:3b</div>
+            <div class="item-meta">2.0 GB · 3.2B · Q4_K_M · 21:17 下載完成</div>
+          </div>
+          <div class="item-side"><span class="pill pill-busy">載入中…</span></div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 預先載入失敗 -->
+    <section data-state="preload-failed" class="panel">
+      <h2>載入失敗</h2>
+      <div class="notice notice-error">
+        <strong class="mono">qwen2.5-coder:32b-instruct-q4_K_M</strong>
+        執行環境的記憶體不足,Ollama 載入不了這個模型。已經載入的 <span class="mono">qwen2.5:7b</span> 不受影響。
+      </div>
+      <div class="actions">
+        <a class="btn" href="index.html">改用更大的類型</a>
+        <a class="btn" href="models.html">回到目錄</a>
+      </div>
+    </section>
+
+    <!-- 下載佇列 -->
+    <section class="panel" id="queue-panel">
+      <div class="panel-head">
+        <h2>下載佇列</h2>
+        <div class="item-side">
+          <button type="button" class="btn btn-small" id="clear-done">清除已完成</button>
+          <a class="btn btn-small" href="library.html">加入更多</a>
+        </div>
+      </div>
+      <ul class="list" id="queue">
+        <li>
+          <div>
+            <div class="item-name">gemma3:12b</div>
+            <div class="item-meta">下載中 41% · 3.3 / 8.1 GB · 剩約 1 分鐘</div>
+            <progress max="1" value="0.41"></progress>
+          </div>
+          <div class="item-side"><span class="pill pill-busy">下載中</span></div>
+        </li>
+      </ul>
+    </section>
+  </main>
+  <div class="toast" id="toast" hidden></div>
+  <script>
+    let local = null;
+    let warnTarget = null;
+    let lastSignature = "";
+    let lastModelCount = null;
+
+    const toast = (text) => {
+      const el = document.getElementById("toast");
+      el.textContent = text;
+      el.hidden = false;
+      Proto.later(4000, () => { el.hidden = true; });
+    };
+
+    const loadedText = (m) => (m.sizeVram >= m.size ? "已載入 · 全部在 GPU" : `已載入 · GPU ${Math.round((m.sizeVram / m.size) * 100)}%,其餘在 CPU`);
+
+    const catalogItem = (m, session) => {
+      const tooBig = m.size > Proto.vramBytes(session.type);
+      const side = m.loading
+        ? "<span class=\"pill pill-busy\">載入中…</span>"
+        : m.loaded
+          ? `<span class="pill pill-ok">${loadedText(m)}</span>`
+          : `<button type="button" class="btn btn-small" data-preload="${m.name}">預先載入</button>`;
+      return `
+        <li>
+          <div>
+            <div class="item-name">${m.name}</div>
+            <div class="item-meta">${Proto.bytes(m.size)} · ${m.parameterSize} · ${m.quantization} · ${Proto.clock(m.modifiedAt)} 下載完成${m.loaded ? " · 保留到工作階段結束" : ""}</div>
+          </div>
+          <div class="item-side">${tooBig ? `<span class="pill pill-warn">超過 ${session.type} 顯示記憶體,可能無法載入</span>` : ""}${side}</div>
+        </li>`;
+    };
+
+    const queueItem = (job, index, sessionReady) => {
+      if (job.status === "downloading") {
+        const p = Proto.progress(job);
+        const left = (job.size - p.completed) / DOWNLOAD_BYTES_PER_SEC;
+        return `
+          <li>
+            <div>
+              <div class="item-name">${job.name}</div>
+              <div class="item-meta" data-progress-text="${job.id}">下載中 ${Math.floor(p.ratio * 100)}% · ${Proto.bytes(p.completed)} / ${Proto.bytes(job.size)} · 剩約 ${Proto.duration(left * 1000)}</div>
+              <progress max="1" value="${p.ratio}" data-progress-bar="${job.id}"></progress>
+            </div>
+            <div class="item-side"><span class="pill pill-busy">下載中</span></div>
+          </li>`;
+      }
+      if (job.status === "queued") {
+        return `
+          <li>
+            <div>
+              <div class="item-name">${job.name}</div>
+              <div class="item-meta">${Proto.bytes(job.size)} · 第 ${index} 個${sessionReady ? "" : " · 等工作階段就緒後繼續"}${job.preload ? " · 完成後自動載入" : ""}</div>
+            </div>
+            <div class="item-side"><span class="pill">排隊中</span><button type="button" class="btn btn-small" data-cancel="${job.id}">取消</button></div>
+          </li>`;
+      }
+      if (job.status === "failed") {
+        return `
+          <li>
+            <div>
+              <div class="item-name">${job.name}</div>
+              <div class="item-meta">${Proto.bytes(job.size)} · ${job.error}</div>
+            </div>
+            <div class="item-side"><span class="pill pill-danger">失敗</span><button type="button" class="btn btn-small" data-retry="${job.id}">重新排隊</button><button type="button" class="btn btn-small" data-remove="${job.id}">移除</button></div>
+          </li>`;
+      }
+      return `
+        <li>
+          <div>
+            <div class="item-name">${job.name}</div>
+            <div class="item-meta">${Proto.bytes(job.size)} · ${Proto.clock(job.doneAt)} 完成</div>
+          </div>
+          <div class="item-side"><span class="pill pill-ok">完成</span></div>
+        </li>`;
+    };
+
+    const render = () => {
+      const session = Proto.load("session");
+      const models = Proto.load("models");
+      const queue = Proto.load("queue");
+      const ready = session.state === "ready";
+      if (lastModelCount !== null && ready && models.length > lastModelCount) toast(`${models[models.length - 1].name} 下載完成,已出現在目錄中`);
+      lastModelCount = models.length;
+
+      const view = local ?? (ready ? (models.length ? "normal" : "empty") : "no-session");
+      Proto.showState(view);
+
+      const order = { downloading: 0, queued: 1, failed: 2, done: 3 };
+      const sorted = queue.slice().sort((a, b) => order[a.status] - order[b.status]);
+      const signature = JSON.stringify([view, session.state, models.map((m) => [m.name, m.loaded, m.loading]), sorted.map((j) => [j.id, j.status])]);
+      if (signature === lastSignature) {
+        sorted.filter((j) => j.status === "downloading").forEach((job) => {
+          const p = Proto.progress(job);
+          const left = (job.size - p.completed) / DOWNLOAD_BYTES_PER_SEC;
+          const text = document.querySelector(`[data-progress-text="${job.id}"]`);
+          const bar = document.querySelector(`[data-progress-bar="${job.id}"]`);
+          if (text) text.textContent = `下載中 ${Math.floor(p.ratio * 100)}% · ${Proto.bytes(p.completed)} / ${Proto.bytes(job.size)} · 剩約 ${Proto.duration(left * 1000)}`;
+          if (bar) bar.value = p.ratio;
+        });
+        return;
+      }
+      lastSignature = signature;
+
+      if (ready) {
+        document.getElementById("cat-meta").innerHTML = `<span class="mono">${session.name}</span> · ${session.type}${session.highMem ? " 高 RAM" : ""},顯示記憶體約 ${Math.round(Proto.type(session.type).vramMiB / 1024)} GB · 剩餘磁碟 ${Proto.bytes(Proto.diskFree())}`;
+        document.getElementById("catalog").innerHTML = models.map((m) => catalogItem(m, session)).join("");
+      }
+      let position = 0;
+      document.getElementById("queue").innerHTML = sorted.length
+        ? sorted.map((job) => queueItem(job, job.status === "queued" ? ++position : 0, ready)).join("")
+        : "<li><span class=\"muted\">佇列是空的。到「下載模型」挑選要下載的模型。</span></li>";
+      document.getElementById("clear-done").hidden = !queue.some((j) => j.status === "done");
+    };
+
+    const preload = (name, partial) => {
+      const models = Proto.load("models");
+      const target = models.find((m) => m.name === name);
+      target.loading = true;
+      Proto.save("models", models);
+      render();
+      Proto.later(Math.max(3000, (target.size / 400e6) * 1000), () => {
+        const fresh = Proto.load("models");
+        const m = fresh.find((x) => x.name === name);
+        if (!m) return;
+        m.loading = false;
+        m.loaded = true;
+        m.sizeVram = partial ? Math.round(Proto.vramBytes(Proto.load("session").type) * 0.92) : m.size;
+        Proto.save("models", fresh);
+        render();
+      });
+    };
+
+    document.querySelector("main").addEventListener("click", (event) => {
+      if (Proto.forced) return;
+      const { preload: preloadName, cancel, retry, remove } = event.target.dataset;
+      if (preloadName) {
+        const session = Proto.load("session");
+        const m = Proto.load("models").find((x) => x.name === preloadName);
+        if (m.size > Proto.vramBytes(session.type)) {
+          warnTarget = m.name;
+          local = "preload-warn";
+          document.getElementById("pw-name").textContent = m.name;
+          document.getElementById("pw-text").textContent = `有 ${Proto.bytes(m.size)},超過 ${session.type} 的顯示記憶體(約 ${Math.round(Proto.type(session.type).vramMiB / 1024)} GB)。可能載入失敗,或有一部分放在 CPU 上執行而慢很多。要順跑的話,請改用顯示記憶體更大的類型。`;
+          lastSignature = "";
+          return render();
+        }
+        return preload(preloadName, false);
+      }
+      const queue = Proto.load("queue");
+      if (cancel) Proto.save("queue", queue.filter((j) => j.id !== cancel));
+      if (remove) Proto.save("queue", queue.filter((j) => j.id !== remove));
+      if (retry) {
+        const job = queue.find((j) => j.id === retry);
+        job.status = "queued";
+        job.error = null;
+        job.addedAt = new Date().toISOString();
+        Proto.save("queue", [...queue.filter((j) => j.id !== retry), job]);
+      }
+      if (cancel || remove || retry) render();
+    });
+
+    document.getElementById("pw-go").addEventListener("click", () => {
+      if (Proto.forced) return;
+      local = null;
+      preload(warnTarget, true);
+    });
+    document.getElementById("pw-cancel").addEventListener("click", () => {
+      if (Proto.forced) return;
+      local = null;
+      render();
+    });
+    document.getElementById("clear-done").addEventListener("click", () => {
+      if (Proto.forced) return;
+      Proto.save("queue", Proto.load("queue").filter((j) => j.status !== "done"));
+      render();
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (Proto.forced) {
+        if (["normal", "no-session", "empty", "preload-warn"].includes(Proto.forced)) render();
+        Proto.showState(Proto.forced);
+        return;
+      }
+      Proto.showState("loading");
+      Proto.later(500, () => {
+        const tick = () => {
+          Proto.badge();
+          render();
+          Proto.later(1000, tick);
+        };
+        tick();
+      });
+    });
+  </script>
+</body>
+</html>

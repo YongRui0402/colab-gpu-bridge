@@ -97,7 +97,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | 1 | S1 | E7 遠端 Ollama | api-plan | ✅ 與 S2、S3 平行 | Ollama 的 API 已經定好,不依賴任何介面;Ollama 相容端點的轉送與後端的下載、模型目錄都要照它 |
 | 1 | S2 | E8 Ollama 官方模型庫 | api-plan | ✅ 與 S1、S3 平行 | ollama.com 與 registry 的介面已經定好;後端的搜尋、版本與大小要照它 |
 | 1 | S3 | E9 Google OAuth | api-plan | ✅ 與 S1、S2 平行 | Google 的授權碼流程已經定好;後端的登入操作與前端的授權碼輸入要照它 |
-| 2 | S4 | E1 前端 UI | ui-plan | ✅ 與 S5、S6 平行 | 由使用者故事推出;登入要照 S3 的授權網址與貼回授權碼的流程,下載佇列的進度要照 S1 的 pull 進度。前端與後端以同一份需求為準,不必等對方 |
+| 2 | S4 | E1 前端 UI | ui-plan | ✅ 與 S5、S6 平行 | 由使用者故事推出;登入要照 S3 的授權網址與貼回授權碼的流程,下載佇列的進度要照 S1 的 pull 進度,搜尋結果與分頁要照 S2 的搜尋介面。前端與後端以同一份需求為準,不必等對方 |
 | 2 | S5 | E2 後端 UI API | api-plan | ✅ 與 S4、S6 平行 | 由 FR 推出;登入照 S3,模型目錄與下載照 S1,搜尋與大小照 S2 |
 | 2 | S6 | E3 Ollama 相容端點 | api-plan | ✅ 與 S4、S5 平行 | 要轉送與阻擋的路徑、串流格式照 S1 的 Ollama API |
 | 3 | S7 | E4 資料庫 | data-plan | ✅ 與 S8、S9 平行 | 要存什麼由 S5 的資源與操作決定(工作階段紀錄、下載項目、精選清單、設定) |
@@ -114,7 +114,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 
 | Q | 提出的步驟 | 問題與可選的做法 | 擋住 | 決定 |
 |---|---|---|---|---|
-| Q1 | S2 | **與 spec 矛盾**:搜尋只讀第 1 頁(20 筆)會讓使用者故事 3 驗收情境 9「列出符合的模型與各版本」只列前 20 筆。可選:(a)只讀第 1 頁;(b)帶 `page` 與 `HX-Request: true` 讀下一頁,UI 提供「顯示更多」 | S5 | (b)讀下一頁,UI 提供「顯示更多」(kevin-twin 代為決定) |
+| Q1 | S2 | **與 spec 矛盾**:搜尋只讀第 1 頁(20 筆)會讓使用者故事 3 驗收情境 9「列出符合的模型與各版本」只列前 20 筆。可選:(a)只讀第 1 頁;(b)帶 `page` 與 `HX-Request: true` 讀下一頁,UI 提供「顯示更多」 | S4、S5 | (b)讀下一頁,UI 提供「顯示更多」(kevin-twin 代為決定) |
 | Q2 | S1 | FR-018「未完成的下載不得顯示為可用」依賴 Ollama 下載完才寫入 manifest(只有說明文件,未實測)。可選:(a)直接信任 `/api/tags`(先採用),列給 testplan 實跑驗證;(b)後端另外排除佇列中未完成的名稱 | — | (a)信任 `/api/tags`,列給 testplan 實跑驗證(kevin-twin 代為決定) |
 | Q3 | S1 | `/api/pull` 失敗回報(HTTP 200 加一行 `{"error"}`,未實測)。可選:(a)依 error 文字分成 `OLLAMA_NOT_FOUND` 與 `OLLAMA_PULL_FAILED`(先採用);(b)一律 `OLLAMA_PULL_FAILED` | S5 | (a)依 error 文字分 `OLLAMA_NOT_FOUND` 與 `OLLAMA_PULL_FAILED`(kevin-twin 代為決定) |
 | Q4 | S1 | 預先載入的 `keep_alive`。可選:(a)`-1` 留到工作階段結束或被擠掉(先採用);(b)預設 5 分鐘;(c)與閒置時限相同 | — | (a)`keep_alive=-1`(kevin-twin 代為決定) |
@@ -131,3 +131,42 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q15 | S3 | 連不到與逾時沒有 HTTP 回應,代碼放哪。可選:(a)操作層 `x-transport-error-codes`(先採用);(b)放進 `default` 回應 | — | (a)`x-transport-error-codes`(kevin-twin 代為決定) |
 | Q16 | S3 | 約定外的原因 `OAUTH_SCOPE_NOT_GRANTED`(使用者取消勾選 colaboratory)與 `OAUTH_AUTHORIZE_REJECTED`。可選:(a)保留(先採用);(b)併入 `OAUTH_BAD_RESPONSE`;(c)刪掉 | S5 | (a)保留兩個代碼(kevin-twin 代為決定) |
 | Q17 | S3 | PKCE `code_verifier` 中途遺失(後端重啟)時貼回的授權碼換不到 token。可選:(a)不保存,讓使用者重新取得授權連結(先採用);(b)持久化 | S5 | (a)不保存,重新取得授權連結(kevin-twin 代為決定) |
+| Q18 | S6 | **與 spec 矛盾**:黑名單轉送會連帶提供 `/v1/*`,使「不另外提供 OpenAI 相容 API」(假設)不成立。(a)黑名單(先採用);(b)白名單,只轉送 FR-011 點名的路徑,其他回 404 | S6、S8 | (b)白名單(kevin-twin 代為決定) |
+| Q19 | S6 | **與 spec 矛盾**:管理操作且沒有工作階段時,FR-013 原文要求回「沒有可用的工作階段」。(a)一律 403 `MANAGED_IN_UI`(先採用);(b)先回 503 | S6 | (a)維持 403;spec FR-013 改為只管推論與查詢請求(kevin-twin 代為決定) |
+| Q20 | S6 | **與 spec 矛盾**:帶非本機 `Origin` 的瀏覽器程式會被遠端 Ollama 回 403,使故事 2 驗收情境 1 不成立。(a)照送(先採用);(b)遠端啟動時設 `OLLAMA_ORIGINS` | S6、S8 | (b)S8 的啟動步驟設 `OLLAMA_ORIGINS=*`(kevin-twin 代為決定) |
+| Q21 | S6 | `/api/blobs/{digest}` 是否算管理操作。(a)算,HEAD/POST 都擋(先採用);(b)只擋 R8 的五個 | — | (a)(kevin-twin 代為決定) |
+| Q22 | S6 | 未定逾時的操作。(a)`/` 5 秒、show 10 秒、推論類連線 10 秒且首段與段間 300 秒、不設總時長(先採用);(b)推論類不設讀取逾時 | — | (a)(kevin-twin 代為決定) |
+| Q23 | S6 | 遠端 Ollama 的英文錯誤說明。(a)原樣傳回(先採用);(b)改寫成繁體中文。憲法〈給人讀的文字一律用繁體中文〉管的是產出物的文字,不含執行時原樣轉送的第三方訊息 | — | (a)原樣傳回(kevin-twin 代為決定) |
+| Q24 | S6 | 閒置計時。(a)任何請求都重設,進行中(含串流)不計閒置,結束後重設(先採用);(b)只在收到請求時重設 | S5 | (a)(kevin-twin 代為決定) |
+| Q25 | S6 | 串流中途失敗。(a)NDJSON 補一行 `{"error"}` 再關閉;連線中斷 `OLLAMA_STREAM_INTERRUPTED`,工作階段被結束或換類型 `NO_READY_SESSION`(先採用);(b)直接關閉 | S5 | (a)(kevin-twin 代為決定) |
+| Q26 | S5 | 開啟前沒有有效授權的代碼。(a)`AUTH_REQUIRED` 409(先採用);(b)等 S8 的 `COLAB_` 代碼 | S8 | (a)`AUTH_REQUIRED`;S8 不得另造同義代碼(kevin-twin 代為決定) |
+| Q27 | S5 | Error 本文另加選填 `model`、`reasonCode`。(a)加(先採用);(b)只用 `{code, message}` | — | (a)(kevin-twin 代為決定) |
+| Q28 | S5 | 沒有就緒工作階段能否加入下載。(a)不行,回 `NO_READY_SESSION`(先採用);(b)可以 | — | (a)(kevin-twin 代為決定) |
+| Q29 | S5 | 工作階段結束後的佇列。(a)排隊中保留、就緒後自動繼續並重新檢查空間;下載中的變失敗 `SESSION_ENDED`,手動重下(先採用);(b)全部手動 | — | (a)(kevin-twin 代為決定) |
+| Q30 | S5 | 本系統自己的失敗原因 `SESSION_ENDED`、`DISK_SPACE_INSUFFICIENT`。(a)保留(先採用);(b)併入 `OLLAMA_STREAM_INTERRUPTED` | — | (a)(kevin-twin 代為決定) |
+| Q31 | S5 | 讀不到剩餘磁碟或顯示記憶體。(a)加入下載擋下回 `DISK_SPACE_UNKNOWN` 503,「可能無法載入」標未知(先採用);(b)只警告 | S8 | (a)(kevin-twin 代為決定) |
+| Q32 | S5 | 搜尋 `hasMore` 判斷。(a)過濾前滿 20 筆即視為有下一頁(先採用,未實測);(b)多讀一頁確認。另:S2 的 model-library.openapi.yaml 仍寫只讀第 1 頁,與 Q1 衝突 | S2 | (a);S2 重做以符合 Q1(後經 Q54 改為看下一頁連結)(kevin-twin 代為決定) |
+| Q33 | S5 | 模型庫逾時。(a)每請求 10 秒,試算依序送出(先採用);(b)平行或另設總時長 | — | (a)(kevin-twin 代為決定) |
+| Q34 | S5 | 設定值範圍。閒置時限 1–1440 分鐘整數、警告門檻 0–10000(先採用) | S7 | 照先採用的範圍(kevin-twin 代為決定) |
+| Q35 | S5 | NFR-006 預先載入前提示由誰把關。(a)只由 UI 依 `mayNotFit` 提示(先採用);(b)請求帶確認旗標 | — | (a)(kevin-twin 代為決定) |
+| Q36 | S5 | 變更類型時重新載入哪些模型:當下 `/api/ps` 已載入的模型以 `origin: restore` 加入佇列,完成後自動預先載入(先採用) | S7 | 照先採用(kevin-twin 代為決定) |
+| Q37 | S5 | 外部失敗代碼前綴 `^(COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_`。(a)照此(先採用);(b)放寬 | S8、S9 | (a);S8 用 `COLAB_`、S9 用 `TUNNEL_`(kevin-twin 代為決定) |
+| Q38 | S5 | SSE 細節:protocol `http`、連上先送完整快照、事件皆完整現況、不支援 `Last-Event-ID`、倒數每 5 秒、進度每秒最多一則(先採用) | — | 照先採用(kevin-twin 代為決定) |
+| Q39 | S5 | `OAUTH_AUTHORIZE_REJECTED` 不會出現在 UI API;不可自行修正的 `OAUTH_` 錯誤回 502。(a)照此(先採用);(b)另提示逾時未貼回 | — | (a)(kevin-twin 代為決定) |
+| Q40 | S4 | 審美方向。(a)淺色安靜的家用控制台,墨綠主色,狀態色綠/藍/琥珀/紅,名稱用等寬字(先採用);(b)深色;(c)跟系統 | — | (a)(kevin-twin 代為決定) |
+| Q41 | S4 | 畫面用到但 S1–S3 沒有的資料(剩餘磁碟、顯示記憶體等)。(a)照 Q7 由 S5、S8 提供(先採用);(b)顯示記憶體查固定表 | S8 | (a)(kevin-twin 代為決定) |
+| Q42 | S4 | 搜尋規格與 Q1 不一致(同 S5 提出的那題)。(a)回 S2 改成讀下一頁(先採用) | S2 | (a)(kevin-twin 代為決定) |
+| Q43 | S4 | 沒有就緒工作階段時加入下載(同 S5)。(a)擋下並提示先開啟(先採用) | — | (a)(kevin-twin 代為決定) |
+| Q44 | S4 | 工作階段結束時正在下載的那一個(同 S5)。(a)標失敗並可「重新排隊」(先採用) | — | (a)(kevin-twin 代為決定) |
+| Q45 | S4 | 背景下載時閒置計時照算。(a)照 spec 只看 Ollama 相容端點的請求(先採用);(b)下載時暫停計時(會使 FR-026 不成立) | — | (a)(kevin-twin 代為決定) |
+| Q46 | S4 | 「授權連結已失效」與「授權碼錯誤」分開。(a)分開,S5 給獨立代碼(先採用);(b)合併 | S5 | (a);S5 補代碼(kevin-twin 代為決定) |
+| Q47 | S4 | 登入頁不顯示帳號與登入時間。(a)只顯示已登入或未登入(先採用);(b)S5 另給 email | — | (a)(kevin-twin 代為決定) |
+| Q48 | S4 | 搜尋結果不顯示 ollama.com 英文簡介。(a)不顯示(先採用);(b)原樣顯示 | — | (a)(kevin-twin 代為決定) |
+| Q49 | S4 | 原型多加的操作:失敗項目「重新排隊」「移除」、「清除已完成」;不顯示端點位址。(a)保留三個操作,S5 補對應操作(先採用);(b)拿掉;(c)也顯示端點位址 | S5 | (a);S5 補操作(kevin-twin 代為決定) |
+| Q50 | S5 | 「授權連結已失效」代碼名稱。(a)`AUTH_FLOW_NOT_FOUND` 改名 `AUTH_LINK_EXPIRED`(先採用);(b)保留原名 | — | (a)(kevin-twin 代為決定) |
+| Q51 | S5 | 「清除已完成」。(a)`POST /api/downloads/clear-completed` 只清 completed(先採用);(b)`DELETE ?state=completed`;(c)連失敗一起清 | — | (a)(kevin-twin 代為決定) |
+| Q52 | S5 | 被擋下的管理操作是否重設閒置計時。(a)要,任何經 Ollama 相容端點的請求都算,與 FR-026 原文一致(先採用);(b)只算推論與查詢 | — | (a)(kevin-twin 代為決定) |
+| Q53 | S6 | 白名單路徑用錯方法(如 `POST /api/tags`)。(a)照樣轉送,回遠端的 405(先採用);(b)本端點回 405 並另立代碼 | — | (a)(kevin-twin 代為決定) |
+| Q54 | S2 | hasMore 判斷。(a)照 Q32 滿 20 筆推斷;(b)看頁面末尾有沒有 `hx-get="/search?page=<N+1>"` 的下一頁連結(實測:第 33 頁有、第 34 頁沒有)。規格檔先寫 (a) | S2、S5 | (b)看下一頁連結,取代 Q32 的 (a);S2、S5 跟著改(kevin-twin 代為決定) |
+| Q55 | S2 | 5xx 歸 `LIBRARY_SERVER_ERROR`(Q23),三個操作都改。(a)三個都改(先採用);(b)只改 searchLibrary | S5 | (a);S5 的模型庫相關操作補 `LIBRARY_SERVER_ERROR`(kevin-twin 代為決定) |
+| Q56 | S2 | 下一頁連結因 ollama.com 改版消失時。(a)當成沒有下一頁,只是不出現「顯示更多」(先採用);(b)連結不見但滿 20 筆時歸 `LIBRARY_BAD_RESPONSE` | — | (a)(kevin-twin 代為決定) |

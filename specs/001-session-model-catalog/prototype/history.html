@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>紀錄|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-028 NFR-011">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型<span class="badge" id="queue-count" hidden></span></a>
+      <a href="library.html">下載模型</a>
+      <a href="usage.html">用量與設定</a>
+      <a href="history.html" aria-current="page">紀錄</a>
+    </nav>
+    <div class="topbar-status">
+      <a href="index.html"><span class="pill" id="session-pill">未開啟</span></a>
+      <a href="login.html"><span class="pill" id="auth-chip">Colab 已登入</span></a>
+    </div>
+  </header>
+  <main>
+    <h1>紀錄</h1>
+
+    <section data-state="normal" class="panel">
+      <div class="panel-head">
+        <h2>最近的工作階段</h2>
+        <span class="small muted">點一列看每次狀態變化的時間</span>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>開啟時間</th>
+            <th>結束時間</th>
+            <th>類型</th>
+            <th>結束原因</th>
+            <th class="num">運行時長</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr>
+            <td>11/8 22:36<br><span class="mono small muted">cgb-20261108-2236</span></td>
+            <td>11/8 23:41</td>
+            <td>T4</td>
+            <td><span class="pill">閒置自動結束</span></td>
+            <td class="num">1 小時 5 分</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section data-state="empty" class="panel">
+      <h2>最近的工作階段</h2>
+      <div class="empty">
+        <p>還沒有任何工作階段的紀錄。開啟並結束過一次之後,這裡會列出開啟與結束時間、類型、結束原因與運行時長。</p>
+        <a class="btn btn-primary" href="index.html">到工作階段開啟</a>
+      </div>
+    </section>
+  </main>
+  <script>
+    const open = new Set();
+    const reasonPill = (h) => {
+      const cls = { "使用者結束": "", "變更類型": "", "閒置自動結束": "", "被 Colab 收回": "pill-danger", "重連逾時": "pill-danger", "開啟失敗": "pill-danger" }[h.endReason] ?? "";
+      return `<span class="pill ${cls}">${h.endReason}</span>`;
+    };
+    const render = () => {
+      const history = Proto.load("history");
+      if (history.length === 0) return Proto.showState("empty");
+      Proto.showState("normal");
+      document.getElementById("rows").innerHTML = history.map((h, i) => `
+        <tr data-row="${i}">
+          <td>${Proto.dateTime(h.openedAt)}<br><span class="mono small muted">${h.name}</span></td>
+          <td>${Proto.dateTime(h.endedAt)}</td>
+          <td>${h.type}${h.highMem ? " 高 RAM" : ""}</td>
+          <td>${reasonPill(h)}${h.failReason ? `<div class="small muted">${h.failReason}</div>` : ""}</td>
+          <td class="num">${Proto.duration(Date.parse(h.endedAt) - Date.parse(h.openedAt))}</td>
+        </tr>
+        ${open.has(i) ? `<tr class="row-sub"><td colspan="5"><ul class="timeline">${h.events.map((e) => `<li><span class="mono">${Proto.clock(e.at)}</span><span>${Proto.stateLabel(e.state).text}</span></li>`).join("")}</ul></td></tr>` : ""}`).join("");
+    };
+    document.getElementById("rows").addEventListener("click", (event) => {
+      const row = event.target.closest("[data-row]");
+      if (!row || Proto.forced) return;
+      const i = Number(row.dataset.row);
+      if (open.has(i)) open.delete(i);
+      else open.add(i);
+      render();
+    });
+    document.addEventListener("DOMContentLoaded", () => {
+      if (Proto.forced) {
+        if (Proto.forced === "normal") render();
+        return Proto.showState(Proto.forced);
+      }
+      render();
+    });
+  </script>
+</body>
+</html>

@@ -25,11 +25,21 @@ paths:
       - url: https://ollama.com
     get:
       operationId: searchLibrary
-      summary: 以關鍵字搜尋模型庫
+      summary: 以關鍵字搜尋模型庫(可翻頁)
       description: >-
-        回傳搜尋結果的 HTML 頁面,一頁 20 筆。結果混有官方模型(連結 `/library/<名稱>`)與社群使用者上傳的模型
-        (連結 `/<使用者>/<名稱>`);本系統只取官方模型。沒有符合的模型時仍回 200,頁面裡沒有任何 `/library/` 連結。
-        第 2 頁以後要帶 `page` 與 `HX-Request: true`,沒帶這個標頭會被 303 導回第 1 頁;本系統只讀第 1 頁,不帶這兩者。
+        回傳搜尋結果的 HTML,一頁最多 20 筆。結果混有官方模型(連結 `/library/<名稱>`)與社群使用者上傳的模型
+        (連結 `/<使用者>/<名稱>`);本系統只取官方模型,所以一頁過濾後可能少於 20 筆,甚至是 0 筆。
+        沒有符合的模型時仍回 200,頁面裡沒有任何 `/library/` 連結。
+        UI 的「顯示更多」靠翻頁讀下一頁:第 1 頁不帶 `page` 與 `HX-Request`,回整頁 HTML(`SearchPage`);
+        第 2 頁起帶 `page=<N>` 與 `HX-Request: true`,回只有結果清單的 HTML 片段(`SearchPageFragment`)。
+        實測第 2 頁起沒帶 `HX-Request` 會被 303 導回 `/search?q=<關鍵字>`(第 1 頁),本系統一定會帶,所以不列這個回應。
+        實測超過最後一頁時回 200 與只有空白的內容(0 筆)。
+        還有沒有下一頁(hasMore,plan.md Q54):以頁面末尾有沒有 `hx-get="/search?page=<N+1>&q=<關鍵字>"` 的下一頁連結為準,
+        沒有這個連結就是最後一頁;第 1 頁(整頁)和第 2 頁起(片段)都一樣。
+        實測:q=qwen2.5、c=local 時第 33 頁 20 筆有連到第 34 頁的連結,第 34 頁 1 筆沒有;
+        q=smallthinker、c=local 的第 1 頁 5 筆沒有連結;沒有符合的模型時(0 筆)也沒有。
+        這個連結不帶 `c`,翻頁時只取 `page` 的值,`q` 與 `c=local` 由本系統自己帶,不能照抄連結。
+        Q32 原本的「這一頁過濾社群模型之前滿 20 筆即視為還有下一頁」推斷已被 Q54 取代,不再使用。
       x-requirements: [FR-020]
       x-callers: 本系統後端轉接層;不需要登入或 token
       x-transport-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_TIMEOUT]
@@ -37,7 +47,7 @@ paths:
         - name: q
           in: query
           required: true
-          description: 使用者輸入的關鍵字,原樣帶入(URL 編碼)
+          description: 使用者輸入的關鍵字,原樣帶入(URL 編碼);翻頁時每一頁帶同一個值
           schema:
             type: string
             minLength: 1
@@ -46,21 +56,46 @@ paths:
           in: query
           required: false
           description: >-
-            分類篩選;本系統固定帶 `local`,排除只能在 Ollama 雲端執行、不能下載的模型(例如 glm-5.2 只有 `cloud` 版本)。
-            實測不帶時結果會出現 glm-5.2、glm-5.3 等雲端模型,帶 `local` 時不會。
+            分類篩選;本系統每一頁都固定帶 `local`,排除只能在 Ollama 雲端執行、不能下載的模型(例如 glm-5.2 只有 `cloud` 版本)。
+            實測第 1 頁不帶時結果會出現 glm-5.2、glm-5.3 等雲端模型,帶 `local` 時不會;第 2 頁帶與不帶的結果也不同(帶時少了 qwen3),
+            可見翻頁時這個參數仍有作用。
           schema:
             type: string
             enum: [local]
+        - name: page
+          in: query
+          required: false
+          description: "頁碼,從 2 開始帶;第 1 頁不帶。帶了就一定要同時帶 `HX-Request: true`"
+          schema:
+            type: integer
+            minimum: 2
+          example: 2
+        - name: HX-Request
+          in: header
+          required: false
+          description: "第 2 頁起一定要帶 `true`;沒帶時 ollama.com 回 303 導回第 1 頁。第 1 頁不帶"
+          schema:
+            type: string
+            enum: ['true']
       responses:
         '200':
-          description: 搜尋結果頁(`text/html; charset=utf-8`),格式見 `SearchPage`
+          description: >-
+            第 1 頁是整頁 HTML(`SearchPage`);第 2 頁起是結果清單的 HTML 片段(`SearchPageFragment`);
+            Content-Type 都是 `text/html; charset=utf-8`
           x-recipients: 本系統後端轉接層(呼叫者)
           content:
             text/html:
               schema:
-                $ref: '#/components/schemas/SearchPage'
+                oneOf:
+                  - $ref: '#/components/schemas/SearchPage'
+                  - $ref: '#/components/schemas/SearchPageFragment'
+        '5XX':
+          description: ollama.com 伺服器錯誤
+          x-error-codes: [LIBRARY_SERVER_ERROR]
         default:
-          description: 其他狀態碼(含 5xx),或 200 但頁面找不到 `id="searchresults"` 的結果區塊(頁面改版)
+          description: >-
+            其他非預期的狀態碼;或 200 但格式不符:第 1 頁找不到 `id="searchresults"` 的結果區塊,
+            第 2 頁起內容不是空白卻解析不出任何一筆結果(頁面改版)
           x-error-codes: [LIBRARY_BAD_RESPONSE]
   /library/{name}/tags:
     servers:
@@ -99,8 +134,11 @@ paths:
             text/html:
               schema:
                 type: string
+        '5XX':
+          description: ollama.com 伺服器錯誤
+          x-error-codes: [LIBRARY_SERVER_ERROR]
         default:
-          description: 其他狀態碼(含 5xx),或 200 但頁面上一個 `/library/<名稱>:<版本>` 連結都解析不出來(頁面改版)
+          description: 其他非預期的狀態碼,或 200 但頁面上一個 `/library/<名稱>:<版本>` 連結都解析不出來(頁面改版)
           x-error-codes: [LIBRARY_BAD_RESPONSE]
   /v2/library/{name}/manifests/{tag}:
     servers:
@@ -163,8 +201,11 @@ paths:
             text/plain:
               schema:
                 $ref: '#/components/schemas/RegistryErrorBody'
+        '5XX':
+          description: registry 伺服器錯誤
+          x-error-codes: [LIBRARY_SERVER_ERROR]
         default:
-          description: 其他狀態碼(含 5xx),或 200 但內容不是 `Manifest` 的格式
+          description: 其他非預期的狀態碼,或 200 但內容不是 `Manifest` 的格式
           x-error-codes: [LIBRARY_BAD_RESPONSE]
       x-adapter-error-codes-on-200:
         LIBRARY_CLOUD_ONLY: 200 但 `layers` 是空陣列(只能在 Ollama 雲端執行的版本,不能下載)
@@ -179,6 +220,14 @@ components:
         `title="23,526,304 downloads"` 是下載次數,`<數字> tags` 是版本數,
         藍底的 `<span>`(例 0.5b、7b、14b)是參數量,靛底的 `<span>`(例 tools、vision、thinking)是能力標籤,
         `cloud` 標籤表示有雲端版本。本系統只需要名稱;其他欄位可用來顯示,解析不出來時不算失敗。
+        還有下一頁時,結果末尾有 `hx-get="/search?page=2&q=<關鍵字>"` 的連結,只有一頁時沒有;hasMore 以它為準(見 `searchLibrary` 的說明,plan.md Q54)。
+    SearchPageFragment:
+      type: string
+      description: >-
+        HTML 片段(第 2 頁起,帶 `HX-Request: true` 時)。沒有 `<html>` 外框,也沒有 `id="searchresults"`;
+        每一筆結果的 `<a href=...>` 結構與 `SearchPage` 相同,一頁最多 20 筆。
+        還有下一頁時末尾有 `hx-get="/search?page=<N+1>&q=<關鍵字>"` 的連結,最後一頁沒有;hasMore 以它為準(plan.md Q54)。
+        超過最後一頁時內容只有空白字元(實測 5 個換行)。
     TagsPage:
       type: string
       description: >-
@@ -244,10 +293,11 @@ components:
       properties:
         code:
           type: string
-          enum: [LIBRARY_UNREACHABLE, LIBRARY_TIMEOUT, LIBRARY_BAD_RESPONSE, LIBRARY_NOT_FOUND, LIBRARY_CLOUD_ONLY]
+          enum: [LIBRARY_UNREACHABLE, LIBRARY_TIMEOUT, LIBRARY_BAD_RESPONSE, LIBRARY_SERVER_ERROR, LIBRARY_NOT_FOUND, LIBRARY_CLOUD_ONLY]
           description: >-
             `LIBRARY_UNREACHABLE` 連不到 ollama.com 或 registry;`LIBRARY_TIMEOUT` 逾時;
             `LIBRARY_BAD_RESPONSE` 非預期的狀態碼,或頁面、manifest 的格式解析不出來;
+            `LIBRARY_SERVER_ERROR` 對方回 5xx(後綴與其他服務共用,plan.md Q23);
             `LIBRARY_NOT_FOUND` 沒有這個模型或版本;`LIBRARY_CLOUD_ONLY` 這個版本只能在 Ollama 雲端執行,不能下載
         message:
           type: string

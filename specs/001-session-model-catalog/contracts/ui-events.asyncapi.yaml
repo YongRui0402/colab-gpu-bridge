@@ -1,0 +1,262 @@
+asyncapi: 3.0.0
+info:
+  title: 後端 UI API 的狀態推送事件(SSE)
+  version: 0.1.0
+  description: >-
+    S5(E2 後端 UI API)依 spec.md、research.md 與 plan.md 產出;REST 操作另見 `ui.openapi.yaml`,
+    本檔的 payload 直接參照那一份的 schema,兩邊同一個形狀。
+
+    傳輸是 Server-Sent Events(research.md R9,sse-starlette):UI 以 `GET /api/events` 開一條 `text/event-stream`,
+    只有伺服器往 UI 推送,UI 的操作一律走 REST,所以本檔沒有 `receive` 的操作。
+    每則事件的 SSE `event:` 欄位是訊息的 `name`,`data:` 是一行 JSON(訊息的 payload,`type` 與 `event:` 相同)。
+    伺服器每 15 秒送一行 SSE 註解(`: ping`)保持連線,並送 `retry: 3000` 讓瀏覽器斷線 3 秒後自動重連。
+
+    快照:每次連上(含自動重連)伺服器先依序送一次 `session.updated`、`auth.updated`、`usage.updated`、`settings.updated`、
+    `downloads.snapshot`,工作階段就緒時再送 `models.updated`;之後只在有變化時推送。事件都是完整的現況而不是差異,
+    UI 收到就整份取代,漏收一則不會讓畫面錯。不支援 `Last-Event-ID` 補送。
+
+    收件者:家中區網(含 VPN)所有連著的 UI,不需要登入(NFR-009);單一使用者,每條連線收到的內容相同,
+    不含任何憑證、token、金鑰或遠端位址(NFR-010)。訊息與 `message` 欄位用繁體中文(NFR-011)。
+servers:
+  ui:
+    host: '{uiHost}'
+    pathname: /api/events
+    protocol: http
+    description: 與 UI 靜態檔同一個來源;SSE(`text/event-stream`)。port 由 S11 決定,規格檔不寫死
+    variables:
+      uiHost:
+        description: 本系統所在主機與 UI 的 port
+channels:
+  uiEvents:
+    address: /api/events
+    messages:
+      sessionUpdated:
+        $ref: '#/components/messages/sessionUpdated'
+      authUpdated:
+        $ref: '#/components/messages/authUpdated'
+      modelsUpdated:
+        $ref: '#/components/messages/modelsUpdated'
+      downloadsSnapshot:
+        $ref: '#/components/messages/downloadsSnapshot'
+      downloadUpdated:
+        $ref: '#/components/messages/downloadUpdated'
+      downloadRemoved:
+        $ref: '#/components/messages/downloadRemoved'
+      usageUpdated:
+        $ref: '#/components/messages/usageUpdated'
+      settingsUpdated:
+        $ref: '#/components/messages/settingsUpdated'
+operations:
+  sendSessionUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/sessionUpdated'
+    summary: 工作階段狀態變化
+    x-requirements: [FR-001, FR-002, FR-003, FR-004, FR-005, FR-007, FR-009, FR-010, FR-026, FR-028, NFR-001, NFR-009, NFR-010]
+    x-callers: >-
+      連上時送一次;之後每次狀態或開啟步驟變化、重連開始與結束、釋放警告出現或消失、偵測到不是本系統開的執行環境時;
+      閒置計時照 Q24:Ollama 相容端點的進行中請求數由 0 變成大於 0(開始不計閒置,`deadline` 變 null)、
+      或回到 0(最後一個請求結束,重設並給出新的 `deadline`)時立即推送,其他重設最多每 5 秒推一次;設定的閒置時限改變時
+    x-error-codes: []
+  sendAuthUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/authUpdated'
+    summary: 登入狀態變化
+    x-requirements: [FR-008, NFR-010]
+    x-callers: 連上時送一次;送出授權碼成功、或後端發現授權已過期(Colab CLI 回報需要登入)時
+    x-error-codes: []
+  sendModelsUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/modelsUpdated'
+    summary: 模型目錄變化
+    x-requirements: [FR-014, FR-015, FR-018, NFR-006]
+    x-callers: >-
+      工作階段就緒時(連上時若已就緒也送一次);下載完成、預先載入開始、完成或失敗時;
+      工作階段結束或失聯時送一次空的目錄
+    x-error-codes: []
+  sendDownloadsSnapshot:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/downloadsSnapshot'
+    summary: 下載佇列的完整快照
+    x-requirements: [FR-021]
+    x-callers: 連上時送一次;工作階段就緒或結束而使佇列暫停狀態改變時
+    x-error-codes: []
+  sendDownloadUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/downloadUpdated'
+    summary: 一筆下載項目變化
+    x-requirements: [FR-017, FR-021, NFR-007]
+    x-callers: >-
+      加入佇列、開始下載、進度更新(最多每秒一次)、完成、失敗(含工作階段結束而中斷)、重新排隊時
+    x-error-codes: []
+  sendDownloadRemoved:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/downloadRemoved'
+    summary: 一筆下載項目從佇列移除
+    x-requirements: [FR-021]
+    x-callers: >-
+      `removeDownload` 取消排隊中的項目或移除已完成、已失敗的項目之後;`clearCompletedDownloads` 清掉的每一筆各推一則
+    x-error-codes: []
+  sendUsageUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/usageUpdated'
+    summary: 用量變化
+    x-requirements: [FR-024, FR-025, NFR-008]
+    x-callers: >-
+      連上時送一次;每次自動讀取用量後(至少每 5 分鐘);讀取時間超過 15 分鐘變成過期時;餘額警告門檻改變時
+    x-error-codes: []
+  sendSettingsUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/settingsUpdated'
+    summary: 設定變化
+    x-requirements: [FR-027]
+    x-callers: 連上時送一次;`updateSettings` 儲存成功之後
+    x-error-codes: []
+components:
+  messages:
+    sessionUpdated:
+      name: session.updated
+      summary: 目前工作階段的完整現況
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/SessionUpdated'
+    authUpdated:
+      name: auth.updated
+      summary: 目前的登入狀態
+      x-recipients: 所有連著的 UI(內容相同;不含 token)
+      payload:
+        $ref: '#/components/schemas/AuthUpdated'
+    modelsUpdated:
+      name: models.updated
+      summary: 執行環境上的模型目錄
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/ModelsUpdated'
+    downloadsSnapshot:
+      name: downloads.snapshot
+      summary: 下載佇列的完整內容與是否暫停
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/DownloadsSnapshot'
+    downloadUpdated:
+      name: download.updated
+      summary: 一筆下載項目的現況
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/DownloadUpdated'
+    downloadRemoved:
+      name: download.removed
+      summary: 被移除的下載項目
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/DownloadRemoved'
+    usageUpdated:
+      name: usage.updated
+      summary: 最後一次讀到的用量
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/UsageUpdated'
+    settingsUpdated:
+      name: settings.updated
+      summary: 目前的設定
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/SettingsUpdated'
+  schemas:
+    SessionUpdated:
+      type: object
+      required: [type, session]
+      properties:
+        type:
+          type: string
+          const: session.updated
+        session:
+          $ref: './ui.openapi.yaml#/components/schemas/Session'
+    AuthUpdated:
+      type: object
+      required: [type, auth]
+      properties:
+        type:
+          type: string
+          const: auth.updated
+        auth:
+          $ref: './ui.openapi.yaml#/components/schemas/AuthStatus'
+    ModelsUpdated:
+      type: object
+      required: [type, catalog]
+      properties:
+        type:
+          type: string
+          const: models.updated
+        catalog:
+          $ref: './ui.openapi.yaml#/components/schemas/ModelCatalog'
+    DownloadsSnapshot:
+      type: object
+      required: [type, queue]
+      properties:
+        type:
+          type: string
+          const: downloads.snapshot
+        queue:
+          $ref: './ui.openapi.yaml#/components/schemas/DownloadQueue'
+    DownloadUpdated:
+      type: object
+      required: [type, job]
+      properties:
+        type:
+          type: string
+          const: download.updated
+        job:
+          $ref: './ui.openapi.yaml#/components/schemas/DownloadJob'
+    DownloadRemoved:
+      type: object
+      required: [type, id]
+      properties:
+        type:
+          type: string
+          const: download.removed
+        id:
+          type: integer
+          minimum: 1
+          description: 被移除的下載項目 id
+    UsageUpdated:
+      type: object
+      required: [type, usage]
+      properties:
+        type:
+          type: string
+          const: usage.updated
+        usage:
+          $ref: './ui.openapi.yaml#/components/schemas/Usage'
+    SettingsUpdated:
+      type: object
+      required: [type, settings]
+      properties:
+        type:
+          type: string
+          const: settings.updated
+        settings:
+          $ref: './ui.openapi.yaml#/components/schemas/Settings'

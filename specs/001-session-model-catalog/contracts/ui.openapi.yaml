@@ -1,0 +1,1781 @@
+openapi: 3.1.0
+info:
+  title: 後端 UI API(工作階段、模型目錄、下載佇列、用量與設定)
+  version: 0.1.0
+  description: >-
+    S5(E2 後端 UI API)依 spec.md、research.md 與 plan.md 產出;狀態推送事件另見 `ui-events.asyncapi.yaml`。
+
+    呼叫者:本系統前端 UI(瀏覽器),家中區網(含 VPN 連回)的任何裝置都能呼叫,不需要登入(NFR-009);
+    不對外網公開由部署(S11)的 port 綁定處理,本介面不另驗證呼叫者。UI API 與 Ollama 相容端點(S6)是兩個不同的 port,
+    實際號碼由 S11 決定;UI 的靜態檔與本 API 同一個來源,所以 `servers` 只寫相對路徑 `/api`。
+
+    機密(NFR-010):任何回應與事件都不含 Colab 帳號憑證、OAuth token、`code_verifier`、SSH 金鑰,
+    也不含執行環境的遠端位址(`colab sessions` 列出的 endpoint)或本機轉發的 port;
+    也不提供 Ollama 相容端點的位址(Q49:UI 不顯示它,區網程式的設定方式寫在說明文件,port 由 S11 決定)。
+
+    錯誤本文一律是 `Error`(`{code, message}`,`message` 是給使用者看的繁體中文)。外部依賴的失敗原因沿用轉接層代碼
+    (S1 的 `OLLAMA_`、S2 的 `LIBRARY_`、S3 的 `OAUTH_`;`COLAB_`、`TUNNEL_` 由 S8、S9 定),直接放在 `code`,不另造同義的代碼。
+    非同步發生的失敗(開啟失敗、失聯、下載失敗、預先載入失敗、讀不到用量)不以 HTTP 錯誤回報,
+    而是寫在資源的 `reasonCode` 欄位(同樣是轉接層代碼)並以事件推送。
+
+    長時間操作(開啟、結束、變更類型、下載、預先載入)都是「受理後立即回 202」,進度與結果看資源狀態與 SSE 事件。
+
+    逾時:對遠端 Ollama 照 S1(version 5 秒、tags/ps 10 秒、pull 連線 10 秒且兩行進度之間 60 秒不設總時長、預先載入 300 秒);
+    對 ollama.com 與 registry 的每一個請求 10 秒(連線加讀取,本步驟決定,見各操作的 `x-timeout`)。
+servers:
+  - url: /api
+    description: 與 UI 靜態檔同一個來源;port 由 S11 決定
+paths:
+  /auth:
+    get:
+      operationId: getAuthStatus
+      summary: 查 Colab 帳號是否已登入
+      description: >-
+        UI 顯示「已登入」或「登入 Colab」按鈕用(FR-008)。後端以 Colab CLI 能否回應判斷(research.md R2;實際指令與失敗分類屬 S8)。
+        讀不到時 `state` 為 `unknown`,`reasonCode` 帶 S8 定的 `COLAB_` 代碼;授權過期時為 `logged_out`(spec 邊界情況「需要重新登入」),
+        不當成工作階段失聯。
+      x-requirements: [FR-008, NFR-009, NFR-010]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '200':
+          description: 目前的登入狀態
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatus'
+  /auth/authorizations:
+    post:
+      operationId: startAuthorization
+      summary: 取得 Google 授權連結
+      description: >-
+        產生一次新的授權流程(S3 `authorize`:新的 `state`、PKCE `code_verifier` 與 `code_challenge`),回傳授權網址與流程代號
+        (使用者故事 1 驗收情境 9)。`code_verifier` 只留在後端記憶體、不寫入任何檔案(Q17),
+        所以後端重新啟動後舊的流程代號就失效,要重新取得授權連結。同一時間只有最新的一次流程有效:
+        再呼叫一次會讓前一次的流程代號失效。已登入時也可以呼叫(重新登入)。
+        使用者在 Google 頁面按「取消」或授權請求被拒(S3 `OAUTH_AUTHORIZE_REJECTED`)時,後端收不到任何東西,
+        使用者拿不到授權碼,UI 讓使用者再取得一次授權連結即可。
+      x-requirements: [FR-008, NFR-010]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '201':
+          description: 新的授權流程;網址交給 UI 顯示成連結,在使用者自己的瀏覽器開啟
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationFlow'
+  /auth/authorizations/{flowId}/code:
+    post:
+      operationId: submitAuthorizationCode
+      summary: 送出使用者貼回的授權碼
+      description: >-
+        後端以授權碼與同一次流程的 `code_verifier` 向 Google 換 token(S3 `requestToken`,`grant_type=authorization_code`),
+        成功就保存成 Colab CLI 讀得到的授權檔(位置與權限屬 S8、S10),回傳已登入的狀態並推送 `auth.updated`。
+        授權碼送出前去掉前後空白。換 token 失敗時流程代號仍然有效,使用者可以用同一個連結再取得一次授權碼重送,
+        也可以重新取得授權連結(使用者故事 1 驗收情境 10)。成功後這個流程代號失效。
+        Google 的失敗依 S3 的轉接層代碼原樣放在 `code`。
+      x-requirements: [FR-008, NFR-010]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入),持有最新一次 `startAuthorization` 的流程代號
+      x-timeout: 對 Google token 端點 10 秒,逾時歸 `OAUTH_TIMEOUT`
+      parameters:
+        - name: flowId
+          in: path
+          required: true
+          description: '`startAuthorization` 回傳的流程代號'
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_-]{16,64}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizationCodeInput'
+      responses:
+        '200':
+          description: 登入成功;`state` 為 `logged_in`
+          x-recipients: 呼叫者(UI);token 不回傳,UI 只看到是否已登入
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatus'
+        '400':
+          description: >-
+            本文不是合法 JSON 或缺少 `code`;授權碼去掉空白後是空的;
+            Google 回 `invalid_grant`(授權碼錯誤、已用過、已過期,或與這次流程的 `code_verifier` 不符);
+            使用者在同意畫面取消勾選 colaboratory 權限
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_AUTH_CODE, OAUTH_INVALID_GRANT, OAUTH_SCOPE_NOT_GRANTED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: >-
+            授權連結已失效(Q46):後端沒有這個流程代號對應的進行中登入流程,例如後端重新啟動後 `code_verifier` 已遺失(Q17)、
+            已被較新的一次授權流程取代,或已經成功使用過;UI 提示使用者重新取得授權連結。
+            和授權碼本身錯誤(Google 回 `invalid_grant`,400 `OAUTH_INVALID_GRANT`)是不同的原因、不同的代碼
+          x-error-codes: [AUTH_LINK_EXPIRED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            連不到 Google、Google 端錯誤、回應格式不對或缺 refresh token,或 Google 拒絕本系統的 client 設定
+            (這幾種不是使用者能修正的,照 S3 代碼回報)
+          x-error-codes: [OAUTH_UNREACHABLE, OAUTH_SERVER_ERROR, OAUTH_BAD_RESPONSE, OAUTH_INVALID_REQUEST, OAUTH_INVALID_CLIENT, OAUTH_UNAUTHORIZED_CLIENT, OAUTH_UNSUPPORTED_GRANT_TYPE, OAUTH_INVALID_SCOPE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Google token 端點在逾時內沒有回應
+          x-error-codes: [OAUTH_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /session:
+    get:
+      operationId: getSession
+      summary: 查目前的工作階段
+      description: >-
+        回傳目前(或最近一次)的工作階段:狀態、類型、開啟進行到哪一步、結束原因、閒置倒數、重連期限與警告(FR-003、FR-009、NFR-001)。
+        從來沒開過時 `state` 為 `none`(未開啟)。後端重新啟動後,這裡反映的是重新接上之後的真實狀態(FR-005、使用者故事 1 驗收情境 7)。
+        狀態有變化時另以 `session.updated` 事件推送。
+      x-requirements: [FR-003, FR-004, FR-005, FR-007, FR-009, FR-025, FR-026, NFR-009, NFR-010]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '200':
+          description: 工作階段的現況
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+    post:
+      operationId: openSession
+      summary: 開啟工作階段
+      description: >-
+        依選定的類型在 Colab 開啟執行環境、啟動 Ollama 並建立通道(FR-001),受理後立即回 202,`state` 為 `opening`,
+        之後以 `session.updated` 推送每一步(`step`)與結果。開啟失敗時狀態為 `open_failed`、`endReason` 為 `OPEN_FAILED`,
+        `reasonCode` 帶 S8、S9 或 S1 的轉接層代碼,並確認沒有遺留的執行環境;釋放不了時 `releaseWarning` 不為空(FR-007)。
+        餘額低於警告門檻不阻止開啟(FR-025)。下載佇列裡排隊中的項目在就緒後自動開始。
+      x-requirements: [FR-001, FR-006, FR-007, FR-008, FR-009, FR-025, NFR-001]
+      x-callers: UI;目前沒有開啟中、就緒、重連中或結束中的工作階段,且 Colab 帳號不是「未登入」
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenSessionInput'
+      responses:
+        '202':
+          description: 已受理,開始開啟;回傳 `state` 為 `opening` 的工作階段
+          x-recipients: 呼叫者(UI);同一份狀態也以 `session.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: 本文不是合法 JSON;`runtimeType` 的 GPU 不在可選清單,或 `highMem` 不是布林值
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_RUNTIME_TYPE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >-
+            已有開啟中、就緒或重連中的工作階段(FR-006,使用者故事 1 驗收情境 8);目前的工作階段正在結束;
+            沒有有效的 Colab 帳號授權,要先登入(FR-008)
+          x-error-codes: [SESSION_ALREADY_ACTIVE, SESSION_ENDING, AUTH_REQUIRED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: endSession
+      summary: 結束工作階段
+      description: >-
+        結束目前的工作階段並釋放執行環境(FR-002;結束前的確認步驟在 UI)。受理後立即回 202,`state` 為 `ending`,
+        確認 Colab 帳號下已沒有這個執行環境後變成 `ended`、`endReason` 為 `USER_ENDED`(FR-007、SC-003)。
+        開啟到一半呼叫時,停止開啟流程並釋放已配置的執行環境,結果同樣是 `ended`(spec 邊界情況)。
+        正在下載的項目中斷,變成 `failed`(`reasonCode` 為 `SESSION_ENDED`);排隊中的保留(使用者故事 3 驗收情境 7)。
+        工作階段已是 `open_failed` 或 `lost` 但 `releaseWarning` 不為空時,呼叫這個操作會再試一次釋放。
+        已經是 `ending` 時再呼叫一次不另做事,照樣回 202。
+        對 Ollama 相容端點(S6,Q25):結束開始之後收到的推論或查詢請求回 `NO_READY_SESSION`;
+        串流途中因結束而中斷的那一次,用戶端收到 `NO_READY_SESSION`,只有連線本身中斷(不是本系統結束的)才是 `OLLAMA_STREAM_INTERRUPTED`。
+      x-requirements: [FR-002, FR-007, FR-021]
+      x-callers: UI;工作階段是開啟中、就緒、重連中、結束中,或已結束但仍有釋放警告
+      responses:
+        '202':
+          description: 已受理,開始結束(或再試一次釋放);回傳 `state` 為 `ending` 的工作階段
+          x-recipients: 呼叫者(UI);同一份狀態也以 `session.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '409':
+          description: 沒有可以結束的工作階段(未開啟,或已結束且沒有釋放警告)
+          x-error-codes: [NO_ACTIVE_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /session/restart:
+    post:
+      operationId: restartSession
+      summary: 變更執行階段類型並重開
+      description: >-
+        FR-010:結束目前的執行環境(`endReason` 為 `RUNTIME_TYPE_CHANGED`,寫入紀錄),再以新類型開一個新的工作階段;
+        「會結束目前的工作階段並重開」的確認在 UI。受理後立即回 202,回傳新的工作階段,`state` 為 `opening`、`step` 為 `ending_previous`。
+        呼叫當下已載入的模型(`/api/ps`)會加進下載佇列(`origin` 為 `restore`、`preloadOnComplete` 為 true),
+        新的工作階段就緒後依序重新下載並預先載入(使用者故事 1 驗收情境 12)。
+        新類型開不起來時新的工作階段為 `open_failed`,原本的執行環境已結束、不留遺留(使用者故事 1 驗收情境 13);
+        要重新下載的項目留在佇列裡排隊。重開期間 Ollama 相容端點對推論或查詢請求回 `NO_READY_SESSION`(spec 邊界情況);
+        串流途中因換類型而中斷的那一次同樣是 `NO_READY_SESSION`,連線本身中斷才是 `OLLAMA_STREAM_INTERRUPTED`(Q25,與 `endSession` 相同)。
+      x-requirements: [FR-009, FR-010, FR-007, FR-021, NFR-001]
+      x-callers: UI;目前有開啟中、就緒或重連中的工作階段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenSessionInput'
+      responses:
+        '202':
+          description: 已受理;回傳新的工作階段,`state` 為 `opening`
+          x-recipients: 呼叫者(UI);同一份狀態也以 `session.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: 本文不是合法 JSON;`runtimeType` 的 GPU 不在可選清單,或 `highMem` 不是布林值
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_RUNTIME_TYPE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >-
+            沒有開啟中、就緒或重連中的工作階段(這時直接用 `openSession` 選類型開啟);目前的工作階段正在結束;
+            沒有有效的 Colab 帳號授權
+          x-error-codes: [NO_ACTIVE_SESSION, SESSION_ENDING, AUTH_REQUIRED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /sessions:
+    get:
+      operationId: listSessionHistory
+      summary: 列出最近的工作階段紀錄
+      description: >-
+        使用者故事 1 驗收情境 14、FR-028:依開啟時間由新到舊,每筆有開啟與結束時間、類型、結束狀態與原因、運行時長。
+        還沒結束的那一筆也列出(`endedAt` 為 null)。要看某一筆的每次狀態變化用 `getSessionRecord`。
+        分頁:帶上一頁最後一筆的 `openedAt` 當 `before` 取下一頁。
+      x-requirements: [FR-028]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: 一頁的筆數,1 到 100,預設 20
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: before
+          in: query
+          required: false
+          description: 只列開啟時間早於這個時間的紀錄(ISO 8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 這一頁的紀錄;`hasMore` 表示還有更早的
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionHistoryPage'
+        '400':
+          description: '`limit` 不是 1 到 100 的整數;`before` 不是 ISO 8601 時間'
+          x-error-codes: [INVALID_LIMIT, INVALID_BEFORE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /sessions/{name}:
+    get:
+      operationId: getSessionRecord
+      summary: 查一筆工作階段紀錄與它的每次狀態變化
+      x-requirements: [FR-028]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: 工作階段的識別名稱
+          schema:
+            type: string
+            pattern: '^cgb-[a-z0-9-]{1,60}$'
+      responses:
+        '200':
+          description: 這筆紀錄與依時間排序的狀態變化
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionRecordDetail'
+        '404':
+          description: 沒有這個名稱的紀錄
+          x-error-codes: [SESSION_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /models:
+    get:
+      operationId: listCatalog
+      summary: 列出執行環境上已下載的模型(模型目錄)
+      description: >-
+        FR-014:名稱、大小、是否已載入;來自遠端 Ollama 的 `listLocalModels` 與 `listLoadedModels`(S1),
+        只含下載完成的模型(FR-018,依 Q2 信任 `/api/tags`)。執行環境剛開好時是空的。
+        NFR-006:`vramBytes` 是目前執行環境的可用顯示記憶體(由 S8 經 `colab exec` 取得,Q7),
+        模型大小超過它時 `mayNotFit` 為 true;讀不到時 `vramBytes` 與 `mayNotFit` 為 null。
+        目錄有變化(下載完成、預先載入開始或結束)時另以 `models.updated` 事件推送。
+      x-requirements: [FR-014, FR-018, NFR-006]
+      x-callers: UI;工作階段「就緒」
+      x-timeout: 遠端 Ollama 的 tags、ps 各 10 秒(S1)
+      responses:
+        '200':
+          description: 模型目錄
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelCatalog'
+        '502':
+          description: 經通道連不到遠端 Ollama,或回應格式不對
+          x-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段(含開啟中、重連中)
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 遠端 Ollama 在逾時內沒有回應
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /models/preload:
+    post:
+      operationId: preloadModel
+      summary: 預先載入目錄裡的一個模型
+      description: >-
+        FR-015、使用者故事 3 驗收情境 2:後端對遠端 Ollama 送只有 `model` 與 `keep_alive: -1` 的 `generate`(S1、Q4),
+        逾時 300 秒(Q5)。先確認模型在目錄裡,受理後立即回 202,該模型的 `preload.state` 為 `loading`;
+        載入完成後 `loaded` 為 true,失敗時 `preload.state` 為 `failed`、`reasonCode` 帶 S1 的代碼(例如顯示記憶體不足為 `OLLAMA_SERVER_ERROR`),
+        已載入的其他模型不受影響;結果都以 `models.updated` 推送。
+        已經載入或正在載入時不另做事,照樣回 202。
+        NFR-006 的「預先載入前提示」由 UI 依目錄的 `mayNotFit` 顯示,伺服器不擋。
+      x-requirements: [FR-015, NFR-006]
+      x-callers: UI;工作階段「就緒」,模型在目錄裡
+      x-timeout: 確認目錄用 tags 10 秒;預先載入本身 300 秒(S1、Q5)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreloadInput'
+      responses:
+        '202':
+          description: 已受理,開始載入;回傳這個模型在目錄裡的現況
+          x-recipients: 呼叫者(UI);目錄的變化也以 `models.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogModel'
+        '400':
+          description: 本文不是合法 JSON;模型名稱格式不對
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_MODEL_NAME]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 這個模型不在執行環境上(S1 的 `OLLAMA_NOT_FOUND`;不會自動下載)
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: 確認目錄時經通道連不到遠端 Ollama,或回應格式不對
+          x-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段(含開啟中、重連中)
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 確認目錄時遠端 Ollama 在逾時內沒有回應
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /library/search:
+    get:
+      operationId: searchLibrary
+      summary: 以關鍵字搜尋 Ollama 官方模型庫
+      description: >-
+        FR-020、使用者故事 3 驗收情境 9:轉呼叫 S2 的 `searchLibrary`(固定帶 `c=local`,Q10),只取官方 `/library/` 模型(Q9)。
+        分頁照 Q1:第 1 頁不帶分頁參數,第 2 頁以後帶 `page` 與 `HX-Request: true` 讀模型庫的下一頁,
+        UI 以「顯示更多」帶 `page` 取下一頁;官方模型庫一頁 20 筆(含社群模型,過濾後可能少於 20 筆)。
+        `hasMore` 看模型庫這一頁有沒有下一頁的連結(Q54):有就為 true,沒有就為 false;頁碼超過最後一頁時回空的 `items`、`hasMore` 為 false。
+        版本與大小另以 `listLibraryTags` 取得。工作階段「就緒」時,`downloadedTags` 標出執行環境上已有的版本;
+        沒有就緒的工作階段時 `runtimeChecked` 為 false、`downloadedTags` 都是空的。
+        失敗時 UI 退回只顯示精選清單與「輸入名稱」(spec 假設的退路)。
+      x-requirements: [FR-020]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      x-timeout: 對 ollama.com 10 秒(本步驟決定,Q12),逾時歸 `LIBRARY_TIMEOUT`
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: 關鍵字,去掉前後空白後 1 到 100 字元
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: page
+          in: query
+          required: false
+          description: 頁碼,從 1 開始,預設 1
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        '200':
+          description: 這一頁符合的官方模型
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibrarySearchPage'
+        '400':
+          description: 關鍵字去掉空白後是空的或超過 100 字元;頁碼不是大於等於 1 的整數
+          x-error-codes: [INVALID_QUERY, INVALID_PAGE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: 連不到 ollama.com、ollama.com 回 5xx(Q55),或搜尋頁的格式解析不出來(頁面改版)
+          x-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_SERVER_ERROR, LIBRARY_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: ollama.com 在逾時內沒有回應
+          x-error-codes: [LIBRARY_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /library/models/{name}/tags:
+    get:
+      operationId: listLibraryTags
+      summary: 列出一個官方模型的版本與大小
+      description: >-
+        FR-020:轉呼叫 S2 的 `listModelTags`;大小是版本頁四捨五入的顯示值(Q11),只用來在清單上顯示,
+        加入下載前的總大小用 `estimateDownloads` 的精確值。只能在雲端執行的版本 `cloudOnly` 為 true,UI 不讓它被勾選(Q8)。
+      x-requirements: [FR-020]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      x-timeout: 對 ollama.com 10 秒(本步驟決定,Q12),逾時歸 `LIBRARY_TIMEOUT`
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: 官方模型名稱,不含 `:版本`(照 S2 的格式)
+          schema:
+            type: string
+            pattern: '^[a-z0-9][a-z0-9._-]*$'
+      responses:
+        '200':
+          description: 這個模型的所有版本
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryTagList'
+        '400':
+          description: 模型名稱格式不對(含社群模型的 `<使用者>/<名稱>`,Q9)
+          x-error-codes: [INVALID_MODEL_NAME]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 官方模型庫沒有這個模型
+          x-error-codes: [LIBRARY_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: 連不到 ollama.com、ollama.com 回 5xx(Q55),或版本頁的格式解析不出來
+          x-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_SERVER_ERROR, LIBRARY_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: ollama.com 在逾時內沒有回應
+          x-error-codes: [LIBRARY_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /curated:
+    get:
+      operationId: listCurated
+      summary: 列出精選清單
+      description: >-
+        FR-020:使用者可編輯的精選清單,UI 列在可下載清單的最上方,依加入順序。精選清單是本系統自己的資料,不依賴 ollama.com。
+        工作階段「就緒」時 `downloaded` 標出執行環境上已有的;沒有就緒的工作階段時 `runtimeChecked` 為 false、`downloaded` 都是 false。
+      x-requirements: [FR-020]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '200':
+          description: 精選清單
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuratedList'
+    post:
+      operationId: addCurated
+      summary: 加一個模型到精選清單
+      description: 不向官方模型庫確認名稱是否存在;要下載時才確認(`estimateDownloads`、`enqueueDownloads`)。
+      x-requirements: [FR-020]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuratedModelInput'
+      responses:
+        '201':
+          description: 加入的那一筆
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuratedModel'
+        '400':
+          description: 本文不是合法 JSON;模型名稱格式不對;說明超過 200 字元;建議類型的 GPU 不在可選清單
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_MODEL_NAME, INVALID_CURATED_DESCRIPTION, INVALID_RUNTIME_TYPE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 精選清單已有同一個名稱(含版本;沒寫版本視為 `latest`)
+          x-error-codes: [CURATED_DUPLICATE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /curated/{id}:
+    put:
+      operationId: updateCurated
+      summary: 修改精選清單的一筆
+      x-requirements: [FR-020]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuratedModelInput'
+      responses:
+        '200':
+          description: 修改後的那一筆
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuratedModel'
+        '400':
+          description: 本文不是合法 JSON;模型名稱格式不對;說明超過 200 字元;建議類型的 GPU 不在可選清單
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_MODEL_NAME, INVALID_CURATED_DESCRIPTION, INVALID_RUNTIME_TYPE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 精選清單沒有這一筆
+          x-error-codes: [CURATED_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 改成的名稱和另一筆重複
+          x-error-codes: [CURATED_DUPLICATE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: removeCurated
+      summary: 從精選清單移除一筆
+      x-requirements: [FR-020]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '204':
+          description: 已移除
+          x-recipients: 呼叫者(UI)
+        '404':
+          description: 精選清單沒有這一筆
+          x-error-codes: [CURATED_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads/estimate:
+    post:
+      operationId: estimateDownloads
+      summary: 試算要加入下載的模型總大小、剩餘磁碟與預估時間
+      description: >-
+        FR-022、使用者故事 3 驗收情境 10:按「加入下載」後、確認前呼叫。每個模型以 S2 的 `getManifest` 取精確大小(`layers[].size` 加總,Q11),
+        剩餘磁碟由 S8 經 `colab exec` 取得(Q7)。`fits` 為 false 表示選取的總大小加上佇列裡還沒下載完的大小超過剩餘磁碟,
+        這時 `enqueueDownloads` 會拒絕(使用者故事 3 驗收情境 12)。預估時間是總大小 ÷ 50 MB/s(research.md R5 的估算),UI 標示為估計值。
+        不改變佇列。檢查條件與 `enqueueDownloads` 相同,只差空間不足時不回錯誤、改以 `fits` 表示。
+        重複的名稱只算一次;沒寫版本視為 `latest`。
+      x-requirements: [FR-022, FR-017, FR-021]
+      x-callers: UI;工作階段「就緒」
+      x-timeout: 每個 manifest 請求 10 秒(本步驟決定,Q12),依序送出
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadSelection'
+      responses:
+        '200':
+          description: 試算結果
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadEstimate'
+        '400':
+          description: 本文不是合法 JSON;`models` 是空的;某個模型名稱格式不對(`Error.model` 指出是哪一個)
+          x-error-codes: [INVALID_REQUEST_BODY, EMPTY_MODEL_LIST, INVALID_MODEL_NAME]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 官方模型庫沒有某個模型或版本(使用者故事 3 驗收情境 8;`Error.model` 指出是哪一個)
+          x-error-codes: [LIBRARY_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 某個模型已經在執行環境上;某個模型已經在佇列裡(排隊中或下載中)
+          x-error-codes: [MODEL_ALREADY_DOWNLOADED, DOWNLOAD_ALREADY_QUEUED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 某個版本只能在 Ollama 雲端執行,不能下載(Q8)
+          x-error-codes: [LIBRARY_CLOUD_ONLY]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: 連不到 registry、registry 回 5xx(Q55)或 manifest 格式不對;確認執行環境上已有的模型時連不到遠端 Ollama 或回應格式不對
+          x-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_SERVER_ERROR, LIBRARY_BAD_RESPONSE, OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: >-
+            沒有就緒的工作階段;讀不到執行環境的剩餘磁碟空間(`Error.reasonCode` 帶 S8 的 `COLAB_` 代碼),無法檢查 FR-022
+          x-error-codes: [NO_READY_SESSION, DISK_SPACE_UNKNOWN]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: registry 或遠端 Ollama 在逾時內沒有回應
+          x-error-codes: [LIBRARY_TIMEOUT, OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads:
+    get:
+      operationId: listDownloads
+      summary: 列出下載佇列
+      description: >-
+        FR-021:佇列裡每一筆的狀態(排隊中、下載中與進度、完成、失敗與原因),依加入順序。已取消的不列出(取消即從佇列移除)。
+        沒有就緒的工作階段時 `paused` 為 true:排隊中的項目保留,等下一個工作階段就緒後自動依序開始(spec 假設)。
+        每一筆的變化另以 `download.updated`、`download.removed` 事件推送。
+      x-requirements: [FR-017, FR-021]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '200':
+          description: 下載佇列
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadQueue'
+    post:
+      operationId: enqueueDownloads
+      summary: 把一個或多個模型加入下載佇列
+      description: >-
+        FR-017、FR-021、FR-022:一次勾選多個(或輸入一個名稱)加入佇列,依序在背景下載到目前的執行環境(S1 `pullModel`,一次一個,research.md R5),
+        不影響正在進行的推論(NFR-007)。檢查條件同 `estimateDownloads`;任何一個模型不符,整批都不加入,佇列不變。
+        選取的總大小加上佇列裡還沒下載完的大小超過剩餘磁碟時拒絕(使用者故事 3 驗收情境 12)。
+        下載失敗時那一筆為 `failed`,`reasonCode` 依 Q3 分 `OLLAMA_NOT_FOUND`(找不到這個模型或版本)與 `OLLAMA_PULL_FAILED`(其他),
+        或串流中斷 `OLLAMA_STREAM_INTERRUPTED`、兩行進度之間超過 60 秒 `OLLAMA_TIMEOUT` 等 S1 代碼;執行環境上已有的模型不變。
+        下載完成後才出現在模型目錄(FR-018)。
+      x-requirements: [FR-017, FR-018, FR-021, FR-022, NFR-007]
+      x-callers: UI;工作階段「就緒」
+      x-timeout: 每個 manifest 請求 10 秒(本步驟決定,Q12);pull 照 S1(連線 10 秒、兩行進度之間 60 秒、不設總時長)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadSelection'
+      responses:
+        '201':
+          description: 加入的項目(都是排隊中,或第一個馬上變成下載中)
+          x-recipients: 呼叫者(UI);每一筆也以 `download.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadJobList'
+        '400':
+          description: 本文不是合法 JSON;`models` 是空的;某個模型名稱格式不對(`Error.model` 指出是哪一個)
+          x-error-codes: [INVALID_REQUEST_BODY, EMPTY_MODEL_LIST, INVALID_MODEL_NAME]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 官方模型庫沒有某個模型或版本(使用者故事 3 驗收情境 8「找不到這個模型」)
+          x-error-codes: [LIBRARY_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 某個模型已經在執行環境上;某個模型已經在佇列裡;總大小超過剩餘磁碟空間
+          x-error-codes: [MODEL_ALREADY_DOWNLOADED, DOWNLOAD_ALREADY_QUEUED, DISK_SPACE_INSUFFICIENT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 某個版本只能在 Ollama 雲端執行,不能下載(Q8)
+          x-error-codes: [LIBRARY_CLOUD_ONLY]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: 連不到 registry、registry 回 5xx(Q55)或 manifest 格式不對;確認執行環境上已有的模型時連不到遠端 Ollama 或回應格式不對
+          x-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_SERVER_ERROR, LIBRARY_BAD_RESPONSE, OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段;讀不到執行環境的剩餘磁碟空間(`Error.reasonCode` 帶 S8 的代碼)
+          x-error-codes: [NO_READY_SESSION, DISK_SPACE_UNKNOWN]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: registry 或遠端 Ollama 在逾時內沒有回應
+          x-error-codes: [LIBRARY_TIMEOUT, OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads/clear-completed:
+    post:
+      operationId: clearCompletedDownloads
+      summary: 清除已完成的項目
+      description: >-
+        Q49:把佇列裡所有 `completed` 的項目從清單清掉(執行環境上的模型不受影響);排隊中、下載中、失敗的項目不動。
+        沒有已完成的項目時回空的 `removedIds`。每一筆清掉的項目推送一則 `download.removed`。
+      x-requirements: [FR-021]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      responses:
+        '200':
+          description: 被清掉的項目 id
+          x-recipients: 呼叫者(UI);每一筆也以 `download.removed` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemovedDownloads'
+  /downloads/{id}:
+    delete:
+      operationId: removeDownload
+      summary: 移除單一項目(取消排隊中的,或清掉已完成、已失敗的)
+      description: >-
+        FR-021、使用者故事 3 驗收情境 11:排隊中的項目取消並從佇列移除;正在下載的不能取消。
+        已完成或已失敗的項目從清單清掉(執行環境上的模型不受影響);這是 Q49 原型的「移除」。
+        失敗項目的「重新排隊」用 `retryDownload`,一次清掉全部已完成的用 `clearCompletedDownloads`。移除後推送 `download.removed`。
+      x-requirements: [FR-021]
+      x-callers: UI;項目不是下載中
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '204':
+          description: 已移除
+          x-recipients: 呼叫者(UI)
+        '404':
+          description: 佇列沒有這一筆
+          x-error-codes: [DOWNLOAD_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 這一筆正在下載,不能取消
+          x-error-codes: [DOWNLOAD_IN_PROGRESS]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads/{id}/retry:
+    post:
+      operationId: retryDownload
+      summary: 重新下載一筆失敗的項目
+      description: >-
+        失敗的項目(含工作階段結束而中斷的,spec 邊界情況「可再下載」)重新排到佇列最後,狀態回到排隊中。
+        和 `enqueueDownloads` 一樣先檢查剩餘磁碟。
+      x-requirements: [FR-017, FR-021, FR-022]
+      x-callers: UI;工作階段「就緒」,項目是失敗
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: 重新排隊的那一筆
+          x-recipients: 呼叫者(UI);也以 `download.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadJob'
+        '404':
+          description: 佇列沒有這一筆
+          x-error-codes: [DOWNLOAD_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 這一筆不是失敗(排隊中、下載中或已完成);模型已經在執行環境上;總大小超過剩餘磁碟空間
+          x-error-codes: [DOWNLOAD_NOT_RETRYABLE, MODEL_ALREADY_DOWNLOADED, DISK_SPACE_INSUFFICIENT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: 確認執行環境上已有的模型時連不到遠端 Ollama 或回應格式不對
+          x-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段;讀不到執行環境的剩餘磁碟空間
+          x-error-codes: [NO_READY_SESSION, DISK_SPACE_UNKNOWN]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 遠端 Ollama 在逾時內沒有回應
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /usage:
+    get:
+      operationId: getUsage
+      summary: 查 compute units 餘額與每小時耗用
+      description: >-
+        FR-024、FR-025、NFR-008:後端至少每 5 分鐘自動讀一次帳號用量(S8 的 `colab usage`),這裡回傳最後一次的結果,
+        有變化時推送 `usage.updated`。`readAt` 超過 15 分鐘時 `stale` 為 true,UI 標示為過期。
+        餘額低於警告門檻時 `lowBalance` 為 true,只是警告,不阻止開啟、也不自動結束(FR-025)。
+        讀不到時 `state` 為 `unknown`,`reasonCode` 帶 S8 的 `COLAB_` 代碼、`message` 說明原因,不影響開啟與結束(使用者故事 4 驗收情境 5)。
+      x-requirements: [FR-024, FR-025, NFR-008]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '200':
+          description: 最後一次讀到的用量
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usage'
+  /settings:
+    get:
+      operationId: getSettings
+      summary: 查設定
+      x-requirements: [FR-027]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '200':
+          description: 閒置時限與餘額警告門檻
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+    put:
+      operationId: updateSettings
+      summary: 修改設定
+      description: >-
+        FR-027、使用者故事 4 驗收情境 6:儲存後立即生效。閒置倒數改依新的時限計算(以最後一次請求時間起算;
+        新時限已經到了就立即自動結束),餘額警告依新的門檻判斷;推送 `settings.updated`,以及受影響的 `session.updated`、`usage.updated`。
+      x-requirements: [FR-026, FR-027, FR-025]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Settings'
+      responses:
+        '200':
+          description: 儲存後的設定
+          x-recipients: 呼叫者(UI);也以 `settings.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '400':
+          description: 本文不是合法 JSON 或缺少欄位;閒置時限不是 1 到 1440 分鐘的整數;餘額警告門檻不是 0 到 10000 的數字
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_IDLE_TIMEOUT, INVALID_BALANCE_THRESHOLD]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /events:
+    get:
+      operationId: subscribeEvents
+      summary: 訂閱狀態推送(SSE)
+      description: >-
+        開一條 `text/event-stream`;事件的名稱、內容、快照與重連規則見 `ui-events.asyncapi.yaml`。
+        連上後先收到各資源的快照,之後只在有變化時推送(FR-003、NFR-001、FR-021、FR-024、FR-026)。
+      x-requirements: [FR-003, FR-021, FR-024, FR-026, NFR-001, NFR-009]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '200':
+          description: SSE 串流,不會主動結束
+          x-recipients: 呼叫者(UI);所有連著的 UI 收到相同的事件
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE 格式,`event:` 為訊息名稱、`data:` 為一行 JSON
+components:
+  schemas:
+    GpuType:
+      type: string
+      enum: [T4, L4, G4, A100, H100]
+      description: 可選的 GPU(Colab CLI `colab new --gpu` 支援的類型,research.md R1);TPU 不在範圍內
+    RuntimeType:
+      type: object
+      required: [gpu, highMem]
+      properties:
+        gpu:
+          $ref: '#/components/schemas/GpuType'
+        highMem:
+          type: boolean
+          description: 是否高 RAM;L4 時 Colab 會忽略這個選項(research.md R1),工作階段照樣記錄使用者選的值
+    OpenSessionInput:
+      type: object
+      required: [runtimeType]
+      properties:
+        runtimeType:
+          $ref: '#/components/schemas/RuntimeType'
+          description: UI 預設 T4、不開高 RAM(FR-009)
+    SessionState:
+      type: string
+      enum: [none, opening, ready, reconnecting, ending, ended, open_failed, lost]
+      description: >-
+        UI 依序顯示為:未開啟、開啟中、就緒、重連中、結束中、已結束、開啟失敗、失聯(FR-003)。
+        `ended`、`open_failed`、`lost` 一定有 `endReason`。
+    OpeningStep:
+      type: string
+      enum: [ending_previous, allocating, starting_ollama, connecting, verifying]
+      description: >-
+        開啟中進行到哪一步(NFR-001):結束原本的執行環境(只在變更類型時)、在 Colab 配置執行環境、安裝並啟動 Ollama、
+        建立通道、確認模型服務可回應
+    EndReason:
+      type: string
+      enum: [USER_ENDED, IDLE_TIMEOUT, RUNTIME_TYPE_CHANGED, OPEN_FAILED, RECLAIMED_BY_COLAB, RECONNECT_TIMEOUT]
+      description: >-
+        使用者結束、閒置自動結束、變更執行階段類型而結束、開啟失敗、被 Colab 收回、重連逾時
+    ReasonCode:
+      type: string
+      pattern: '^(COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+$'
+      description: >-
+        外部依賴失敗的轉接層代碼,照原文沿用:`OLLAMA_`(S1)、`LIBRARY_`(S2)、`OAUTH_`(S3)、`COLAB_`(S8)、`TUNNEL_`(S9)
+    ReleaseWarning:
+      type: object
+      required: [message, detectedAt]
+      description: FR-007:確認或釋放由本系統開啟的執行環境失敗,Colab 帳號下可能還有遺留,會繼續扣 compute units
+      properties:
+        reasonCode:
+          $ref: '#/components/schemas/ReasonCode'
+        message:
+          type: string
+          description: 給使用者看的繁體中文說明,例如請到 Colab 網頁手動結束
+        detectedAt:
+          type: string
+          format: date-time
+    UnmanagedRuntime:
+      type: object
+      required: [hardware, detectedAt]
+      description: >-
+        Colab 帳號下運作中、但不是本系統開啟的執行環境(spec 邊界情況:不接手、不關閉,只提示);不含名稱與位址
+      properties:
+        hardware:
+          type: string
+          description: Colab 報的硬體類型,例如 T4
+        detectedAt:
+          type: string
+          format: date-time
+    IdleCountdown:
+      type: object
+      required: [timeoutMinutes, activeRequests, lastRequestAt, deadline]
+      description: >-
+        FR-026、使用者故事 4 驗收情境 4,算法照 Q24:閒置只以 Ollama 相容端點(S6)的請求為準,UI API 的呼叫不算。
+        任何經 Ollama 相容端點的請求(含被擋下的管理操作)開始時重設;請求進行中(含串流回應)不計閒置,
+        這時 `activeRequests` 大於 0、`deadline` 為 null;最後一個進行中的請求結束時再重設一次,
+        `deadline` = 那個時間 + `timeoutMinutes`。UI 以 `deadline` 自己倒數;
+        `activeRequests` 由 0 變成大於 0、或回到 0 時推送 `session.updated`,其他重設最多每 5 秒推一次
+      properties:
+        activeRequests:
+          type: integer
+          minimum: 0
+          description: Ollama 相容端點目前進行中的請求數(含串流中)
+        timeoutMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+        lastRequestAt:
+          type: string
+          format: date-time
+          description: 最後一次重設的時間(請求開始或最後一個進行中的請求結束);沒有任何請求時是就緒的時間
+        deadline:
+          type: [string, 'null']
+          format: date-time
+          description: 自動結束的時間;有請求進行中時為 null(不計閒置)
+    Reconnect:
+      type: object
+      required: [startedAt, deadline]
+      description: FR-004:重連中時開始的時間與重連時限到期的時間(預設 5 分鐘)
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+    Session:
+      type: object
+      required: [state]
+      description: 目前(或最近一次)的工作階段;`state` 為 `none` 時其他欄位都沒有
+      properties:
+        state:
+          $ref: '#/components/schemas/SessionState'
+        name:
+          type: string
+          pattern: '^cgb-[a-z0-9-]{1,60}$'
+          description: 工作階段的識別名稱(本系統產生,research.md R1)
+        runtimeType:
+          $ref: '#/components/schemas/RuntimeType'
+        step:
+          oneOf:
+            - $ref: '#/components/schemas/OpeningStep'
+            - type: 'null'
+          description: 只在 `opening` 時有值
+        endReason:
+          oneOf:
+            - $ref: '#/components/schemas/EndReason'
+            - type: 'null'
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+          description: 開啟失敗或失聯的外部原因(例如沒有可用的 GPU、帳號授權失效),沒有時為 null
+        message:
+          type: [string, 'null']
+          description: 給使用者看的繁體中文說明(開啟失敗的原因、失聯後可以重新開啟的提示等)
+        openedAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: [string, 'null']
+          format: date-time
+        endedAt:
+          type: [string, 'null']
+          format: date-time
+        durationSeconds:
+          type: integer
+          minimum: 0
+          description: 運行時長,從開啟到結束(還沒結束時到現在),秒
+        idle:
+          oneOf:
+            - $ref: '#/components/schemas/IdleCountdown'
+            - type: 'null'
+          description: 只在 `ready` 時有值
+        reconnect:
+          oneOf:
+            - $ref: '#/components/schemas/Reconnect'
+            - type: 'null'
+          description: 只在 `reconnecting` 時有值
+        releaseWarning:
+          oneOf:
+            - $ref: '#/components/schemas/ReleaseWarning'
+            - type: 'null'
+        balanceMayBeDepleted:
+          type: boolean
+          description: 重連中或失聯時,最後讀到的餘額小於等於 0;UI 額外提示餘額可能已歸零(spec 邊界情況)
+        unmanagedRuntimes:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnmanagedRuntime'
+    SessionRecord:
+      type: object
+      required: [name, runtimeType, state, openedAt, durationSeconds]
+      properties:
+        name:
+          type: string
+          pattern: '^cgb-[a-z0-9-]{1,60}$'
+        runtimeType:
+          $ref: '#/components/schemas/RuntimeType'
+        state:
+          $ref: '#/components/schemas/SessionState'
+          description: 最後的狀態;還沒結束的那一筆是目前的狀態
+        endReason:
+          oneOf:
+            - $ref: '#/components/schemas/EndReason'
+            - type: 'null'
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+        openedAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: [string, 'null']
+          format: date-time
+        endedAt:
+          type: [string, 'null']
+          format: date-time
+        durationSeconds:
+          type: integer
+          minimum: 0
+          description: 運行時長,秒
+    SessionHistoryPage:
+      type: object
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionRecord'
+        hasMore:
+          type: boolean
+    StateTransition:
+      type: object
+      required: [at, state]
+      properties:
+        at:
+          type: string
+          format: date-time
+        state:
+          $ref: '#/components/schemas/SessionState'
+        step:
+          oneOf:
+            - $ref: '#/components/schemas/OpeningStep'
+            - type: 'null'
+        endReason:
+          oneOf:
+            - $ref: '#/components/schemas/EndReason'
+            - type: 'null'
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+    SessionRecordDetail:
+      allOf:
+        - $ref: '#/components/schemas/SessionRecord'
+        - type: object
+          required: [transitions]
+          properties:
+            transitions:
+              type: array
+              description: 依時間排序的每一次狀態變化(FR-028)
+              items:
+                $ref: '#/components/schemas/StateTransition'
+    AuthStatus:
+      type: object
+      required: [state, checkedAt]
+      properties:
+        state:
+          type: string
+          enum: [logged_in, logged_out, unknown]
+          description: 已登入、未登入(含授權已過期,要重新登入)、確認不了
+        checkedAt:
+          type: string
+          format: date-time
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+          description: '`logged_out` 或 `unknown` 的原因(S8 的 `COLAB_` 代碼);已登入時為 null'
+        message:
+          type: [string, 'null']
+          description: 給使用者看的繁體中文說明
+    AuthorizationFlow:
+      type: object
+      required: [flowId, authorizationUrl, createdAt]
+      properties:
+        flowId:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{16,64}$'
+          description: 這次授權流程的代號,送出授權碼時帶回
+        authorizationUrl:
+          type: string
+          format: uri
+          description: S3 `authorize` 組出的 `https://accounts.google.com/o/oauth2/auth?...` 完整網址
+        createdAt:
+          type: string
+          format: date-time
+    AuthorizationCodeInput:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          maxLength: 2048
+          description: 使用者從 Google 落地頁複製的授權碼
+    ModelName:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9._-]*(:[A-Za-z0-9_][A-Za-z0-9._-]*)?$'
+      description: >-
+        官方模型名稱,可帶 `:版本`(例 qwen2.5:7b);沒寫版本視為 `latest`。不接受社群模型的 `<使用者>/<名稱>`(Q9)
+    PreloadState:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [idle, loading, failed]
+          description: 沒有預先載入、載入中、上一次預先載入失敗
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+        message:
+          type: [string, 'null']
+    CatalogModel:
+      type: object
+      required: [name, sizeBytes, modifiedAt, loaded, mayNotFit, preload]
+      properties:
+        name:
+          type: string
+          description: 模型名稱含版本,照遠端 Ollama `/api/tags` 的 `name`
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: 模型在磁碟上的大小,位元組
+        modifiedAt:
+          type: string
+          format: date-time
+          description: 下載完成的時間
+        loaded:
+          type: boolean
+          description: 目前是否已載入記憶體(遠端 Ollama `/api/ps`)
+        mayNotFit:
+          type: [boolean, 'null']
+          description: NFR-006:大小超過可用顯示記憶體時為 true,UI 標示「可能無法載入」;讀不到顯示記憶體時為 null
+        preload:
+          $ref: '#/components/schemas/PreloadState'
+    ModelCatalog:
+      type: object
+      required: [items, vramBytes]
+      properties:
+        vramBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: 目前執行環境的可用顯示記憶體,位元組(S8 提供,Q7);讀不到時為 null
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogModel'
+    PreloadInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          $ref: '#/components/schemas/ModelName'
+    LibraryModel:
+      type: object
+      required: [name, downloadedTags]
+      properties:
+        name:
+          type: string
+          description: 官方模型名稱(不含版本)
+        description:
+          type: [string, 'null']
+          description: 模型庫的英文簡介,原樣顯示;解析不出來時為 null
+        parameterSizes:
+          type: array
+          description: 搜尋頁標的參數量,例如 0.5b、7b;只用來顯示
+          items:
+            type: string
+        capabilities:
+          type: array
+          description: 搜尋頁的能力標籤,例如 tools、vision
+          items:
+            type: string
+        downloadedTags:
+          type: array
+          description: 執行環境上已有的版本(例如 7b),標示「已下載」
+          items:
+            type: string
+    LibrarySearchPage:
+      type: object
+      required: [query, page, hasMore, runtimeChecked, items]
+      properties:
+        query:
+          type: string
+        page:
+          type: integer
+          minimum: 1
+        hasMore:
+          type: boolean
+          description: 還有下一頁,UI 顯示「顯示更多」(Q1)
+        runtimeChecked:
+          type: boolean
+          description: 有沒有對照執行環境上的模型;沒有就緒的工作階段時為 false
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryModel'
+    LibraryTag:
+      type: object
+      required: [tag, fullName, sizeLabel, downloaded, cloudOnly]
+      properties:
+        tag:
+          type: string
+          description: 版本名稱,例如 7b、latest
+        fullName:
+          type: string
+          description: 名稱加版本,例如 qwen2.5:7b;加入下載時用這個
+        sizeLabel:
+          type: string
+          description: 版本頁的大小顯示值,例如 4.7GB、398MB
+        approxSizeBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: 由顯示值換算的約略位元組數(1 GB 以 10^9 計),只用來顯示;解析不出來時為 null
+        contextLength:
+          type: [string, 'null']
+          description: context 長度的顯示值,例如 32K
+        downloaded:
+          type: boolean
+          description: 執行環境上已有這個版本
+        cloudOnly:
+          type: boolean
+          description: 只能在 Ollama 雲端執行、不能下載的版本(名稱含 cloud)
+    LibraryTagList:
+      type: object
+      required: [name, runtimeChecked, tags]
+      properties:
+        name:
+          type: string
+        runtimeChecked:
+          type: boolean
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryTag'
+    CuratedModelInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          $ref: '#/components/schemas/ModelName'
+        description:
+          type: string
+          maxLength: 200
+          description: 使用者寫的說明
+        recommendedRuntimeType:
+          oneOf:
+            - $ref: '#/components/schemas/RuntimeType'
+            - type: 'null'
+    CuratedModel:
+      type: object
+      required: [id, name, downloaded]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          description: 模型名稱含版本(沒寫版本時存成 `<名稱>:latest`)
+        description:
+          type: [string, 'null']
+        recommendedRuntimeType:
+          oneOf:
+            - $ref: '#/components/schemas/RuntimeType'
+            - type: 'null'
+        downloaded:
+          type: boolean
+          description: 執行環境上已有這個模型
+    CuratedList:
+      type: object
+      required: [runtimeChecked, items]
+      properties:
+        runtimeChecked:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CuratedModel'
+    DownloadSelection:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          description: 勾選或輸入的模型名稱;重複的只算一次
+          items:
+            $ref: '#/components/schemas/ModelName'
+    EstimateItem:
+      type: object
+      required: [name, sizeBytes]
+      properties:
+        name:
+          type: string
+          description: 名稱含版本(沒寫版本時補上 latest)
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: manifest `layers[].size` 的總和,位元組
+    DownloadEstimate:
+      type: object
+      required: [items, totalBytes, pendingQueueBytes, freeDiskBytes, diskCheckedAt, fits, estimatedSeconds]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EstimateItem'
+        totalBytes:
+          type: integer
+          minimum: 0
+          description: 這次選取的總大小,位元組
+        pendingQueueBytes:
+          type: integer
+          minimum: 0
+          description: 佇列裡排隊中與下載中的項目還沒下載的大小,位元組
+        freeDiskBytes:
+          type: integer
+          minimum: 0
+          description: 執行環境的剩餘磁碟空間,位元組(S8 提供,Q7)
+        diskCheckedAt:
+          type: string
+          format: date-time
+        fits:
+          type: boolean
+          description: totalBytes 加 pendingQueueBytes 不超過 freeDiskBytes
+        estimatedSeconds:
+          type: integer
+          minimum: 0
+          description: 預估下載時間,秒;以 50 MB/s 估算(research.md R5),UI 標示為估計值
+    DownloadProgress:
+      type: object
+      required: [completedBytes, totalBytes]
+      properties:
+        phase:
+          type: string
+          enum: [manifest, downloading, verifying, writing]
+          description: 對應 pull 進度的 pulling manifest、pulling <digest>、verifying sha256 digest、writing manifest
+        completedBytes:
+          type: integer
+          minimum: 0
+          description: 各層已下載的位元組總和
+        totalBytes:
+          type: integer
+          minimum: 0
+          description: 各層的總大小
+    DownloadJob:
+      type: object
+      required: [id, model, sizeBytes, state, origin, preloadOnComplete, addedAt]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        model:
+          type: string
+          description: 模型名稱含版本
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: 加入時 manifest 算出的大小,位元組
+        state:
+          type: string
+          enum: [queued, downloading, completed, failed]
+          description: 排隊中、下載中、完成、失敗(已取消的直接從佇列移除,不會出現)
+        progress:
+          oneOf:
+            - $ref: '#/components/schemas/DownloadProgress'
+            - type: 'null'
+          description: 只在 `downloading` 時有值;事件最多每秒推一次
+        reasonCode:
+          type: [string, 'null']
+          description: >-
+            失敗原因:S1 的 `OLLAMA_` 代碼(例如 `OLLAMA_NOT_FOUND`、`OLLAMA_PULL_FAILED`、`OLLAMA_STREAM_INTERRUPTED`、`OLLAMA_TIMEOUT`),
+            或本系統的 `SESSION_ENDED`(工作階段結束或失聯而中斷)、`DISK_SPACE_INSUFFICIENT`(自動繼續時空間不足)
+        message:
+          type: [string, 'null']
+          description: 給使用者看的繁體中文失敗說明
+        origin:
+          type: string
+          enum: [user, restore]
+          description: 使用者加入的,或變更類型時為了重新載入原本的模型而加入的(FR-010)
+        preloadOnComplete:
+          type: boolean
+          description: 下載完成後自動預先載入(`origin` 為 `restore` 時為 true)
+        addedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: [string, 'null']
+          format: date-time
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+    DownloadJobList:
+      type: object
+      required: [jobs]
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/DownloadJob'
+    RemovedDownloads:
+      type: object
+      required: [removedIds]
+      properties:
+        removedIds:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+    DownloadQueue:
+      type: object
+      required: [paused, jobs]
+      properties:
+        paused:
+          type: boolean
+          description: 沒有就緒的工作階段,排隊中的項目暫停
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/DownloadJob'
+    Usage:
+      type: object
+      required: [state, stale, lowBalance, warningThreshold]
+      properties:
+        state:
+          type: string
+          enum: [known, unknown]
+          description: 讀得到,或讀不到(UI 顯示「未知」)
+        balance:
+          type: [number, 'null']
+          description: compute units 餘額
+        ratePerHour:
+          type: [number, 'null']
+          minimum: 0
+          description: 目前每小時耗用的 compute units
+        hoursRemaining:
+          type: [number, 'null']
+          minimum: 0
+          description: 估計還能用的時數(餘額 ÷ 每小時耗用);耗用為 0 時為 null
+        readAt:
+          type: [string, 'null']
+          format: date-time
+          description: 讀取時間
+        stale:
+          type: boolean
+          description: NFR-008:readAt 超過 15 分鐘
+        lowBalance:
+          type: boolean
+          description: 餘額低於警告門檻(FR-025)
+        warningThreshold:
+          type: number
+          minimum: 0
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+          description: 讀不到的原因(S8 的 `COLAB_` 代碼)
+        message:
+          type: [string, 'null']
+          description: 給使用者看的繁體中文說明
+    Settings:
+      type: object
+      required: [idleTimeoutMinutes, lowBalanceThreshold]
+      properties:
+        idleTimeoutMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          default: 30
+          description: 閒置時限,分鐘;預設 30
+        lowBalanceThreshold:
+          type: number
+          minimum: 0
+          maximum: 10000
+          default: 10
+          description: 餘額警告門檻,compute units;預設 10
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST_BODY
+            - INVALID_AUTH_CODE
+            - AUTH_LINK_EXPIRED
+            - AUTH_REQUIRED
+            - INVALID_RUNTIME_TYPE
+            - SESSION_ALREADY_ACTIVE
+            - SESSION_ENDING
+            - NO_ACTIVE_SESSION
+            - NO_READY_SESSION
+            - INVALID_LIMIT
+            - INVALID_BEFORE
+            - SESSION_NOT_FOUND
+            - INVALID_MODEL_NAME
+            - INVALID_QUERY
+            - INVALID_PAGE
+            - INVALID_CURATED_DESCRIPTION
+            - CURATED_DUPLICATE
+            - CURATED_NOT_FOUND
+            - EMPTY_MODEL_LIST
+            - MODEL_ALREADY_DOWNLOADED
+            - DOWNLOAD_ALREADY_QUEUED
+            - DISK_SPACE_INSUFFICIENT
+            - DISK_SPACE_UNKNOWN
+            - DOWNLOAD_NOT_FOUND
+            - DOWNLOAD_IN_PROGRESS
+            - DOWNLOAD_NOT_RETRYABLE
+            - INVALID_IDLE_TIMEOUT
+            - INVALID_BALANCE_THRESHOLD
+            - OLLAMA_UNREACHABLE
+            - OLLAMA_TIMEOUT
+            - OLLAMA_BAD_RESPONSE
+            - OLLAMA_NOT_FOUND
+            - LIBRARY_UNREACHABLE
+            - LIBRARY_TIMEOUT
+            - LIBRARY_BAD_RESPONSE
+            - LIBRARY_NOT_FOUND
+            - LIBRARY_CLOUD_ONLY
+            - LIBRARY_SERVER_ERROR
+            - OAUTH_UNREACHABLE
+            - OAUTH_TIMEOUT
+            - OAUTH_BAD_RESPONSE
+            - OAUTH_INVALID_GRANT
+            - OAUTH_INVALID_REQUEST
+            - OAUTH_INVALID_CLIENT
+            - OAUTH_UNAUTHORIZED_CLIENT
+            - OAUTH_UNSUPPORTED_GRANT_TYPE
+            - OAUTH_INVALID_SCOPE
+            - OAUTH_SCOPE_NOT_GRANTED
+            - OAUTH_SERVER_ERROR
+          description: >-
+            `OLLAMA_`、`LIBRARY_`、`OAUTH_` 開頭的照 S1、S2、S3 原文沿用;其他是本介面自己把關的條件。
+            `NO_READY_SESSION` 與 S6 共用(沒有就緒的工作階段,含開啟中與重連中,HTTP 503)
+        message:
+          type: string
+          description: 給使用者看的繁體中文說明
+        model:
+          type: string
+          description: 下載相關的錯誤指出是哪一個模型
+        reasonCode:
+          $ref: '#/components/schemas/ReasonCode'
+          description: '`DISK_SPACE_UNKNOWN` 的外部原因(S8 的 `COLAB_` 代碼)'

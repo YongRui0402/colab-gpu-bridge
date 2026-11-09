@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>狀態總覽|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body class="states-page">
+  <header class="topbar">
+    <span class="brand">Colab GPU 橋接 · 狀態總覽</span>
+    <nav>
+      <a href="index.html">開啟原型</a>
+      <button type="button" onclick="Proto.reset()">重設假資料</button>
+    </nav>
+  </header>
+  <main>
+    <section>
+      <h2 class="states-heading"><a href="index.html">工作階段</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="index.html?state=normal" title="工作階段:未開啟" loading="lazy"></iframe>
+          <figcaption>未開啟:FR-001、FR-009 選類型(預設 T4)後一鍵開啟</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=low-balance" title="工作階段:未開啟,餘額低" loading="lazy"></iframe>
+          <figcaption>未開啟,餘額低:FR-025、故事 4 情境 2 按「開啟」時明顯警告,但仍允許開啟</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=needs-login" title="工作階段:需要先登入" loading="lazy"></iframe>
+          <figcaption>需要先登入:FR-008 沒有有效授權時引導先登入;邊界情況 授權過期不當成失聯</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=starting" title="工作階段:開啟中" loading="lazy"></iframe>
+          <figcaption>開啟中:NFR-001、故事 1 情境 1 顯示目前進行到哪一步</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready" title="工作階段:就緒" loading="lazy"></iframe>
+          <figcaption>就緒:故事 1 情境 1、11,FR-026、故事 4 情境 4 閒置倒數</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=confirm-stop" title="工作階段:確認結束" loading="lazy"></iframe>
+          <figcaption>確認結束:FR-002 結束前的確認步驟</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=confirm-switch" title="工作階段:確認變更類型" loading="lazy"></iframe>
+          <figcaption>確認變更類型:FR-010、故事 1 情境 12「會結束目前的工作階段並重開」</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=stopping" title="工作階段:結束中" loading="lazy"></iframe>
+          <figcaption>結束中:FR-003 結束中,確認 Colab 上已沒有這台</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=switching" title="工作階段:變更類型中" loading="lazy"></iframe>
+          <figcaption>變更類型中:故事 1 情境 12 結束舊的、以新類型開啟、重新下載模型</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ended" title="工作階段:已結束(使用者結束)" loading="lazy"></iframe>
+          <figcaption>已結束(使用者結束):故事 1 情境 2,FR-007 已確認沒有遺留</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ended-idle" title="工作階段:已結束(閒置自動結束)" loading="lazy"></iframe>
+          <figcaption>已結束(閒置自動結束):FR-026、故事 4 情境 3</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=failed" title="工作階段:開啟失敗" loading="lazy"></iframe>
+          <figcaption>開啟失敗:故事 1 情境 3、13 顯示原因且不留下執行環境</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=already-open" title="工作階段:已有工作階段" loading="lazy"></iframe>
+          <figcaption>已有工作階段:FR-006、故事 1 情境 8 不另開第二個</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=reconnecting" title="工作階段:重連中" loading="lazy"></iframe>
+          <figcaption>重連中:FR-004、故事 1 情境 5 連線短暫中斷</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=lost" title="工作階段:失聯(被 Colab 收回)" loading="lazy"></iframe>
+          <figcaption>失聯(被 Colab 收回):故事 1 情境 4,提示可以重新開啟</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=lost-timeout" title="工作階段:失聯(重連逾時)" loading="lazy"></iframe>
+          <figcaption>失聯(重連逾時):故事 1 情境 6,已確保釋放</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=lost-zero" title="工作階段:失聯,餘額可能歸零" loading="lazy"></iframe>
+          <figcaption>失聯,餘額可能歸零:邊界情況 餘額歸零時額外提示</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=release-failed" title="工作階段:釋放不了的警告" loading="lazy"></iframe>
+          <figcaption>釋放不了的警告:FR-007、故事 1 情境 6 釋放不了就明確警告</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=resuming" title="工作階段:後端重啟後接回" loading="lazy"></iframe>
+          <figcaption>後端重啟後接回:FR-005、故事 1 情境 7 接回同一台,不另開新的</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=foreign" title="工作階段:不是本系統開的執行環境" loading="lazy"></iframe>
+          <figcaption>不是本系統開的執行環境:邊界情況 不接手、不關閉,只提示</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="login.html">Colab 登入</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="login.html?state=normal" title="Colab 登入:未登入" loading="lazy"></iframe>
+          <figcaption>未登入:FR-008、故事 1 情境 9 第一次使用</figcaption>
+        </figure>
+        <figure>
+          <iframe src="login.html?state=loading" title="Colab 登入:產生授權連結中" loading="lazy"></iframe>
+          <figcaption>產生授權連結中:FR-008 取得授權連結</figcaption>
+        </figure>
+        <figure>
+          <iframe src="login.html?state=link" title="Colab 登入:授權連結與授權碼輸入框" loading="lazy"></iframe>
+          <figcaption>授權連結與授權碼輸入框:故事 1 情境 9 顯示 Google 授權連結與輸入框</figcaption>
+        </figure>
+        <figure>
+          <iframe src="login.html?state=verifying" title="Colab 登入:換取授權中" loading="lazy"></iframe>
+          <figcaption>換取授權中:FR-008 送出授權碼之後</figcaption>
+        </figure>
+        <figure>
+          <iframe src="login.html?state=signed-in" title="Colab 登入:已登入" loading="lazy"></iframe>
+          <figcaption>已登入:FR-008 UI 顯示目前已登入</figcaption>
+        </figure>
+        <figure>
+          <iframe src="login.html?state=failed" title="Colab 登入:授權碼錯誤或已失效" loading="lazy"></iframe>
+          <figcaption>授權碼錯誤或已失效:故事 1 情境 10 顯示失敗原因,可以重新取得連結</figcaption>
+        </figure>
+        <figure>
+          <iframe src="login.html?state=link-expired" title="Colab 登入:授權連結已失效" loading="lazy"></iframe>
+          <figcaption>授權連結已失效:故事 1 情境 10、Q17 系統在登入途中重新啟動,重新取得連結</figcaption>
+        </figure>
+        <figure>
+          <iframe src="login.html?state=scope-missing" title="Colab 登入:缺少 Colab 權限" loading="lazy"></iframe>
+          <figcaption>缺少 Colab 權限:故事 1 情境 10 同意畫面取消勾選 Colab</figcaption>
+        </figure>
+        <figure>
+          <iframe src="login.html?state=unreachable" title="Colab 登入:連不到 Google" loading="lazy"></iframe>
+          <figcaption>連不到 Google:故事 1 情境 10 送出授權碼時連不到</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="models.html">模型</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="models.html?state=normal" title="模型:目錄與下載佇列" loading="lazy"></iframe>
+          <figcaption>目錄與下載佇列:FR-014、故事 3 情境 1 名稱、大小、是否已載入;FR-021 佇列狀態</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=loading" title="模型:讀取中" loading="lazy"></iframe>
+          <figcaption>讀取中:FR-014 讀取執行環境上的模型</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=empty" title="模型:目錄是空的" loading="lazy"></iframe>
+          <figcaption>目錄是空的:邊界情況 新開的執行環境沒有模型</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=no-session" title="模型:沒有就緒的工作階段" loading="lazy"></iframe>
+          <figcaption>沒有就緒的工作階段:故事 3 情境 7 下載中斷,不以可用出現;佇列保留</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=preloading" title="模型:預先載入中" loading="lazy"></iframe>
+          <figcaption>預先載入中:FR-015、故事 3 情境 2</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=preload-warn" title="模型:超過顯示記憶體的提示" loading="lazy"></iframe>
+          <figcaption>超過顯示記憶體的提示:NFR-006 預先載入前提示可能無法載入</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=preload-failed" title="模型:載入失敗" loading="lazy"></iframe>
+          <figcaption>載入失敗:邊界情況 記憶體不足,已載入的其他模型不受影響</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="library.html">下載模型</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="library.html?state=normal" title="下載模型:精選清單與搜尋" loading="lazy"></iframe>
+          <figcaption>精選清單與搜尋:FR-020 精選清單列在最上方,可編輯</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=searching" title="下載模型:搜尋中" loading="lazy"></iframe>
+          <figcaption>搜尋中:FR-020 以關鍵字搜尋官方模型庫</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=results" title="下載模型:搜尋結果與版本" loading="lazy"></iframe>
+          <figcaption>搜尋結果與版本:故事 3 情境 9 各版本的大小與「已下載」;Q1 顯示更多</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=no-results" title="下載模型:沒有符合的模型" loading="lazy"></iframe>
+          <figcaption>沒有符合的模型:FR-020 搜尋沒有結果</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=library-down" title="下載模型:模型庫無法搜尋" loading="lazy"></iframe>
+          <figcaption>模型庫無法搜尋:FR-020 退回只有精選清單與輸入名稱</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=checking" title="下載模型:確認大小中" loading="lazy"></iframe>
+          <figcaption>確認大小中:FR-022 向 registry 取得精確大小</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=confirm" title="下載模型:確認加入下載" loading="lazy"></iframe>
+          <figcaption>確認加入下載:FR-022、故事 3 情境 10 總大小、剩餘磁碟、預估時間</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=no-space" title="下載模型:空間不足" loading="lazy"></iframe>
+          <figcaption>空間不足:FR-022、故事 3 情境 12 阻止加入</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=not-found" title="下載模型:找不到這個模型" loading="lazy"></iframe>
+          <figcaption>找不到這個模型:FR-017、故事 3 情境 8</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=cloud-only" title="下載模型:只能在雲端執行" loading="lazy"></iframe>
+          <figcaption>只能在雲端執行:FR-017 這個版本不能下載</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=no-session" title="下載模型:要先開啟工作階段" loading="lazy"></iframe>
+          <figcaption>要先開啟工作階段:FR-022 沒有執行環境就不知道剩餘磁碟</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="usage.html">用量與設定</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="usage.html?state=normal" title="用量與設定:用量" loading="lazy"></iframe>
+          <figcaption>用量:FR-024、故事 4 情境 1 餘額、耗用、估計時數與讀取時間;FR-027 設定</figcaption>
+        </figure>
+        <figure>
+          <iframe src="usage.html?state=low" title="用量與設定:餘額低於門檻" loading="lazy"></iframe>
+          <figcaption>餘額低於門檻:FR-025、故事 4 情境 2、6 只警告不阻止</figcaption>
+        </figure>
+        <figure>
+          <iframe src="usage.html?state=unknown" title="用量與設定:讀不到用量" loading="lazy"></iframe>
+          <figcaption>讀不到用量:故事 4 情境 5 顯示「未知」並說明原因</figcaption>
+        </figure>
+        <figure>
+          <iframe src="usage.html?state=stale" title="用量與設定:用量過期" loading="lazy"></iframe>
+          <figcaption>用量過期:NFR-008 超過 15 分鐘未更新標示過期</figcaption>
+        </figure>
+        <figure>
+          <iframe src="usage.html?state=loading" title="用量與設定:讀取中" loading="lazy"></iframe>
+          <figcaption>讀取中:FR-024 讀取帳號用量</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="history.html">紀錄</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="history.html?state=normal" title="紀錄:最近的工作階段" loading="lazy"></iframe>
+          <figcaption>最近的工作階段:FR-028、故事 1 情境 14</figcaption>
+        </figure>
+        <figure>
+          <iframe src="history.html?state=empty" title="紀錄:沒有紀錄" loading="lazy"></iframe>
+          <figcaption>沒有紀錄:FR-028 還沒開過工作階段</figcaption>
+        </figure>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

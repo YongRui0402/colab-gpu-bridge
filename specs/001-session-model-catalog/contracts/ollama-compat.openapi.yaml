@@ -1,0 +1,1067 @@
+openapi: 3.1.0
+info:
+  title: Ollama 相容端點
+  version: 0.1.0
+  description: >-
+    S6(E3 Ollama 相容端點)依 spec.md 與 plan.md 產出。
+
+    本系統自己對外的 HTTP 介面:家中區網的程式把它當成一般的 Ollama 服務設定一次(FR-011),
+    請求轉送到目前「就緒」的工作階段上的遠端 Ollama(S1 `remote-ollama.openapi.yaml`),換了執行環境也不用改設定。
+    只開放給家中區網(含 VPN 連回),不需要登入(NFR-009);遠端 Ollama 只經 SSH 本機轉發存取,
+    本端點不回傳、不轉址到任何遠端位址(NFR-003)。和 UI API(S5)是不同的 port,port 號碼由 S11 決定。
+
+    處理順序,每個請求都一樣:
+    (1)路徑是管理模型的操作(`/api/pull`、`/api/push`、`/api/create`、`/api/copy`、`/api/delete`、`/api/blobs/{digest}`)
+    → 不論方法與工作階段狀態,立即回 403 `MANAGED_IN_UI`,不轉送(FR-012、FR-013、research.md R8);
+    (2)路徑不在白名單(本檔 `paths` 列出的推論與查詢路徑:`/`、`/api/version`、`/api/tags`、`/api/ps`、`/api/show`、
+    `/api/generate`、`/api/chat`、`/api/embed`、`/api/embeddings`)→ 不論工作階段狀態,立即回 404 `PATH_NOT_SUPPORTED`,不轉送(見 `x-unlisted-paths`);
+    (3)推論或查詢請求,但沒有「就緒」的工作階段(含開啟中、重連中、變更類型的過程中)→ 1 秒內回 503 `NO_READY_SESSION`,
+    不排隊等待(FR-013、SC-007);
+    (4)其他請求原樣轉送(白名單之內;research.md R8 的轉送代理):方法、路徑、query、本文與標頭照送,`Host` 改成遠端轉發的位址,
+    hop-by-hop 標頭(`Connection`、`Transfer-Encoding` 等)不轉;回應的狀態碼、標頭與本文原樣傳回,串流逐段傳回、不緩衝。
+    `Origin` 標頭也照送:遠端 Ollama 由 S8 的啟動步驟設 `OLLAMA_ORIGINS=*`(plan.md Q20),
+    所以帶 `Origin` 的瀏覽器程式(例如區網網頁 `http://192.168.0.50:3000`)也能用,遠端照它的 CORS 處理回應標頭,本端點原樣傳回。
+    (沒有這個設定時,遠端 Ollama 對不在允許清單內的 `Origin` 回 403、本文為空,桌機 Ollama 0.32.15 實測。)
+    轉送增加的延遲,單次非串流請求不超過 0.5 秒(NFR-004、SC-005;research.md R8 實測差距在雜訊內)。
+
+    本檔列出的是 FR-011 點名的推論與查詢操作(白名單)與 FR-012 的管理操作(plan.md Q18 決定用白名單)。
+    其他路徑一律不轉送,包含 Ollama 本身提供的 `/v1/*`(OpenAI 相容 API;spec 假設「不另外提供 OpenAI 相容 API」)、
+    `/api/status`、`/api/me`、`/api/signout`、`/api/experimental/*` 等,回 404 `PATH_NOT_SUPPORTED`。
+    白名單只看路徑:白名單路徑用錯方法(例如 `POST /api/tags`)照轉送,回遠端 Ollama 自己的 405(桌機 Ollama 0.32.15 實測)。
+
+    錯誤本文:為了相容 Ollama 用戶端,錯誤一律沿用 Ollama 的 `{"error": "<說明>"}`(schema `OllamaError`)。
+    本系統自己產生的錯誤(403、404 `PATH_NOT_SUPPORTED`、502、503、504 與串流中途補的那一行)`error` 是給使用者看的繁體中文;
+    遠端 Ollama 回的 4xx、5xx 原樣傳回,`error` 是 Ollama 的英文說明,本系統不改寫。
+    各回應的 `x-error-codes` 是這個錯誤的原因代碼(schema `Error` 列出全部代碼),**不出現在回應本文裡**;
+    外部依賴的失敗沿用 S1 轉接層的 `OLLAMA_` 代碼,和 UI API(S5)同一個原因用同一個代碼。
+    S1 的 `OLLAMA_BAD_RESPONSE` 不會出現在這裡:本端點不解析遠端的回應本文,形狀不符也原樣傳回;
+    `OLLAMA_PULL_FAILED` 也不會出現,因為 `/api/pull` 被阻擋。
+
+    閒置計時(FR-026):工作階段「就緒」時,本端點收到的任何請求(含被阻擋的管理操作與白名單外的路徑)都重設閒置計時;
+    請求進行中(含串流)不計入閒置,回應結束時再重設一次。503 的請求發生在沒有就緒的工作階段時,沒有計時可重設。
+    各操作的 `x-idle-timer` 寫出它對計時的作用。
+
+    同時有多個請求時,照遠端 Ollama 本身的處理方式排隊與並行,本端點不另外限制(spec 假設)。
+x-unlisted-paths:
+  description: >-
+    白名單外的每一個路徑(本檔 `paths` 沒有列出的),不論方法與工作階段狀態,一律不轉送、不讀請求本文,立即回 404(plan.md Q18)。
+    和遠端 Ollama 自己的 `404 page not found` 不同:本端點回 JSON。
+  x-requirements: [FR-011, FR-026]
+  x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009)
+  x-idle-timer: 工作階段「就緒」時,收到請求即重設閒置計時(FR-026「任何經 Ollama 相容端點的請求」)
+  responses:
+    '404':
+      description: >-
+        這個路徑不在 Ollama 相容端點開放的範圍。`error` 例如「Ollama 相容端點不提供 /v1/chat/completions;
+        只開放 Ollama 的推論與查詢 API(/api/generate、/api/chat、/api/embed、/api/tags 等)」。
+      x-error-codes: [PATH_NOT_SUPPORTED]
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OllamaError'
+servers:
+  - url: http://{host}:{port}
+    description: 本系統所在主機的區網位址;Ollama 相容端點專用的 port,和 UI API 分開,號碼由 S11 決定
+    variables:
+      host:
+        default: 本系統所在主機
+        description: 本系統所在主機的區網 IP 或主機名稱
+      port:
+        default: 由 S11 決定
+        description: Ollama 相容端點的 port(S11 決定;規格檔不寫死)
+paths:
+  /:
+    get:
+      operationId: getRoot
+      summary: Ollama 存活檢查
+      description: >-
+        Ollama 用戶端與常見工具(例如 Open WebUI)用來確認位址上有 Ollama;原樣轉送,遠端回 `text/plain` 的 `Ollama is running`(桌機實測)。
+        沒有就緒的工作階段時和其他推論與查詢路徑一樣回 503,呼叫者看到的是「目前不能用」,不是「有 Ollama 但每個請求都失敗」。
+      x-requirements: [FR-011, FR-013, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml GET /(S1)
+      x-timeout: 5 秒(比照 S1 `/api/version`,Q5)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      responses:
+        '200':
+          description: 遠端 Ollama 的存活回應,原樣傳回
+          x-recipients: 呼叫者(送出這個請求的區網程式)
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/RootResponse'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+    head:
+      operationId: headRoot
+      summary: Ollama 存活檢查(HEAD)
+      description: >-
+        Ollama 官方用戶端的 heartbeat 以 `HEAD /` 確認服務在線;原樣轉送,只回狀態碼與標頭。
+      x-requirements: [FR-011, FR-013, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml HEAD /(S1)
+      x-timeout: 5 秒(比照 S1 `/api/version`,Q5)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      responses:
+        '200':
+          description: 遠端 Ollama 在線
+          x-recipients: 呼叫者(送出這個請求的區網程式)
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/version:
+    get:
+      operationId: getVersion
+      summary: 查 Ollama 版本
+      description: >-
+        原樣轉送,回的是執行環境上 Ollama 的版本(research.md 實測 0.40.15),不是本系統的版本。
+      x-requirements: [FR-011, FR-013, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml GET /api/version(S1)
+      x-timeout: 5 秒(Q5)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      responses:
+        '200':
+          description: >-
+            遠端 Ollama 的版本
+          x-recipients: 呼叫者(送出這個請求的區網程式;每個呼叫者看到的都是遠端 Ollama 的同一份回應)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionResponse'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/tags:
+    get:
+      operationId: listLocalModels
+      summary: 列出執行環境上已下載的模型
+      description: >-
+        原樣轉送;回傳執行環境上已下載完成的模型,不含下載中的(FR-016、FR-018;依 Q2 信任遠端 `/api/tags`,本系統不另外過濾)。
+        執行環境剛開好時是空陣列。
+      x-requirements: [FR-011, FR-013, FR-016, FR-018, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml GET /api/tags(S1)
+      x-timeout: 10 秒(Q5)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      responses:
+        '200':
+          description: >-
+            執行環境上已下載完成的模型清單
+          x-recipients: 呼叫者(送出這個請求的區網程式;每個呼叫者看到的都是遠端 Ollama 的同一份回應)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagsResponse'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/ps:
+    get:
+      operationId: listLoadedModels
+      summary: 列出目前已載入記憶體的模型
+      description: >-
+        原樣轉送(查詢操作,FR-011)。
+      x-requirements: [FR-011, FR-013, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml GET /api/ps(S1)
+      x-timeout: 10 秒(Q5)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      responses:
+        '200':
+          description: >-
+            已載入的模型
+          x-recipients: 呼叫者(送出這個請求的區網程式;每個呼叫者看到的都是遠端 Ollama 的同一份回應)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PsResponse'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/show:
+    post:
+      operationId: showModel
+      summary: 查模型資訊
+      description: >-
+        原樣轉送(FR-011 的「查模型資訊」)。
+      x-requirements: [FR-011, FR-013, FR-016, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml POST /api/show(S1)
+      x-timeout: 10 秒(比照 S1 `/api/tags`;plan.md Q22)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShowRequest'
+      responses:
+        '200':
+          description: >-
+            模型的 modelfile、參數、樣板、細節與能力
+          x-recipients: 呼叫者(送出這個請求的區網程式;每個呼叫者看到的都是遠端 Ollama 的同一份回應)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowResponse'
+        '400':
+          description: >-
+            本文不是合法 JSON 或缺少必要欄位(照 S1 同一路徑的 400)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: >-
+            指名的模型不在執行環境上,不自動下載(FR-016;照 S1 同一路徑的 404,例如 `{"error":"model 'x' not found"}`)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/generate:
+    post:
+      operationId: generate
+      summary: 產生文字
+      description: >-
+        原樣轉送,預設串流(`application/x-ndjson`,每行一個 `GenerateResponse`,最後一行 `done: true`),逐段傳回、不等整份回應;
+        `stream: false` 時回一個 JSON。指名的模型在執行環境上但沒載入時,遠端 Ollama 自己先載入再回應(FR-016、research.md R8);
+        只帶 `model` 的預先載入請求也照樣轉送。
+
+        串流中途出事時,狀態碼與標頭已經送出,本系統在 NDJSON 最後補一行 `OllamaError`(和 Ollama 自己在串流中途失敗的格式相同)後關閉連線:
+        與執行環境的連線中斷 → `OLLAMA_STREAM_INTERRUPTED`,`error` 例如「串流中斷:與 Colab 執行環境的連線中斷,工作階段正在重連」,
+        工作階段隨之進入「重連中」(spec 邊界情況、FR-004);
+        工作階段在請求進行中被結束(使用者結束、變更執行階段類型) → `NO_READY_SESSION`,`error` 例如「工作階段已結束,這次回應中斷」。
+        `stream: false` 的回應在中途斷線時無法補行,本系統直接關閉連線,呼叫者收到不完整的本文。
+      x-requirements: [FR-011, FR-013, FR-016, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml POST /api/generate(S1)
+      x-timeout: 連線 10 秒;收到第一段之前與兩段之間 300 秒(比照 S1 預先載入,首次載入大模型要時間);不設總時長(plan.md Q22)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+      responses:
+        '200':
+          description: >-
+            遠端 Ollama 的回應原樣傳回;串流時逐段傳回
+          x-recipients: 呼叫者(送出這個請求的區網程式;每個呼叫者看到的都是遠端 Ollama 的同一份回應)
+          x-stream-error-codes: [OLLAMA_STREAM_INTERRUPTED, NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+        '400':
+          description: >-
+            本文不是合法 JSON 或缺少必要欄位(照 S1 同一路徑的 400)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: >-
+            指名的模型不在執行環境上,不自動下載(FR-016;照 S1 同一路徑的 404,例如 `{"error":"model 'x' not found"}`)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: >-
+            載入或推論失敗,例如顯示記憶體或磁碟不足;已載入的其他模型不受影響(spec 邊界情況;照 S1 同一路徑的 500)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/chat:
+    post:
+      operationId: chat
+      summary: 對話
+      description: >-
+        原樣轉送,預設串流(NDJSON,每行一個 `ChatResponse`),逐段傳回;`stream: false` 時回一個 JSON。
+        指名的模型沒載入時遠端 Ollama 先載入(FR-016)。
+
+        串流中途出事時,狀態碼與標頭已經送出,本系統在 NDJSON 最後補一行 `OllamaError`(和 Ollama 自己在串流中途失敗的格式相同)後關閉連線:
+        與執行環境的連線中斷 → `OLLAMA_STREAM_INTERRUPTED`,`error` 例如「串流中斷:與 Colab 執行環境的連線中斷,工作階段正在重連」,
+        工作階段隨之進入「重連中」(spec 邊界情況、FR-004);
+        工作階段在請求進行中被結束(使用者結束、變更執行階段類型) → `NO_READY_SESSION`,`error` 例如「工作階段已結束,這次回應中斷」。
+        `stream: false` 的回應在中途斷線時無法補行,本系統直接關閉連線,呼叫者收到不完整的本文。
+      x-requirements: [FR-011, FR-013, FR-016, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml POST /api/chat(S1)
+      x-timeout: 連線 10 秒;收到第一段之前與兩段之間 300 秒(比照 S1 預先載入,首次載入大模型要時間);不設總時長(plan.md Q22)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: >-
+            遠端 Ollama 的回應原樣傳回;串流時逐段傳回
+          x-recipients: 呼叫者(送出這個請求的區網程式;每個呼叫者看到的都是遠端 Ollama 的同一份回應)
+          x-stream-error-codes: [OLLAMA_STREAM_INTERRUPTED, NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: >-
+            本文不是合法 JSON 或缺少必要欄位(照 S1 同一路徑的 400)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: >-
+            指名的模型不在執行環境上,不自動下載(FR-016;照 S1 同一路徑的 404,例如 `{"error":"model 'x' not found"}`)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: >-
+            載入或推論失敗,例如顯示記憶體或磁碟不足;已載入的其他模型不受影響(spec 邊界情況;照 S1 同一路徑的 500)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/embed:
+    post:
+      operationId: embed
+      summary: 產生 embeddings
+      description: >-
+        原樣轉送;不串流。指名的模型沒載入時遠端 Ollama 先載入(FR-016)。
+      x-requirements: [FR-011, FR-013, FR-016, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml POST /api/embed(S1)
+      x-timeout: 連線 10 秒;收到第一段之前與兩段之間 300 秒(比照 S1 預先載入,首次載入大模型要時間);不設總時長(plan.md Q22)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbedRequest'
+      responses:
+        '200':
+          description: >-
+            每個輸入一個向量
+          x-recipients: 呼叫者(送出這個請求的區網程式;每個呼叫者看到的都是遠端 Ollama 的同一份回應)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedResponse'
+        '400':
+          description: >-
+            本文不是合法 JSON 或缺少必要欄位(照 S1 同一路徑的 400)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: >-
+            指名的模型不在執行環境上,不自動下載(FR-016;照 S1 同一路徑的 404,例如 `{"error":"model 'x' not found"}`)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: >-
+            載入或推論失敗,例如顯示記憶體或磁碟不足;已載入的其他模型不受影響(spec 邊界情況;照 S1 同一路徑的 500)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/embeddings:
+    post:
+      operationId: embeddingsLegacy
+      summary: 產生 embedding(舊版介面)
+      description: >-
+        Ollama 保留的舊版介面,仍有用戶端使用;原樣轉送。
+      x-requirements: [FR-011, FR-013, FR-016, FR-026, NFR-003, NFR-004, SC-005, SC-007]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009);轉送只在工作階段「就緒」時進行
+      x-forwards-to: remote-ollama.openapi.yaml POST /api/embeddings(S1)
+      x-timeout: 連線 10 秒;收到第一段之前與兩段之間 300 秒(比照 S1 預先載入,首次載入大模型要時間);不設總時長(plan.md Q22)
+      x-idle-timer: 收到請求即重設閒置計時;請求進行中(含串流)不計入閒置,回應結束時再重設一次
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingsRequest'
+      responses:
+        '200':
+          description: >-
+            一個向量
+          x-recipients: 呼叫者(送出這個請求的區網程式;每個呼叫者看到的都是遠端 Ollama 的同一份回應)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingsResponse'
+        '400':
+          description: >-
+            本文不是合法 JSON 或缺少必要欄位(照 S1 同一路徑的 400)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: >-
+            指名的模型不在執行環境上,不自動下載(FR-016;照 S1 同一路徑的 404,例如 `{"error":"model 'x' not found"}`)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: >-
+            載入或推論失敗,例如顯示記憶體或磁碟不足;已載入的其他模型不受影響(spec 邊界情況;照 S1 同一路徑的 500)。遠端 Ollama 的狀態碼與本文原樣傳回(英文說明,本系統不改寫)。
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama(本機轉發沒有在聽、連線被拒、SSH 通道剛斷、健康檢查還沒偵測到),
+            還沒收到任何 HTTP 回應。`error` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [OLLAMA_UNREACHABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '503':
+          description: >-
+            收到這個推論或查詢請求時,沒有「就緒」的工作階段(沒有工作階段、開啟中、重連中、開啟失敗、失聯、已結束,或變更執行階段類型的過程中);
+            不排隊、不轉送,1 秒內回應(FR-013、SC-007)。`error` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,
+            括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '504':
+          description: >-
+            連上遠端 Ollama,但在這個操作的 `x-timeout` 內沒有收到回應(串流時是兩段之間超過逾時)。
+            `error` 例如「Colab 上的模型服務沒有在時限內回應」。
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/pull:
+    post:
+      operationId: pullModel
+      summary: 下載模型(阻擋)
+      description: >-
+        管理模型的操作,一律不轉送、不讀請求本文,立即回 403(FR-012、research.md R8);執行環境上的模型都不受影響。
+        不論工作階段是什麼狀態都回 403、不回 503(FR-013 只管推論與查詢請求,管理操作一律依 FR-012 回錯誤;plan.md Q19)。
+        不論 HTTP 方法(用錯方法也回 403,不回遠端 Ollama 的 405)。下載請到 UI 的「下載模型」排進下載佇列(FR-017)。
+      x-requirements: [FR-012, FR-013, FR-026]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009)
+      x-idle-timer: 工作階段「就緒」時,收到請求即重設閒置計時(FR-026「任何經 Ollama 相容端點的請求」)
+      responses:
+        '403':
+          description: >-
+            這類操作請到 UI 進行。`error` 例如「下載模型請到 UI 操作;Ollama 相容端點不執行這個操作」。
+          x-error-codes: [MANAGED_IN_UI]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/push:
+    post:
+      operationId: pushModel
+      summary: 推送模型(阻擋)
+      description: >-
+        管理模型的操作,一律不轉送、不讀請求本文,立即回 403(FR-012、research.md R8);執行環境上的模型都不受影響。
+        不論工作階段是什麼狀態都回 403、不回 503(FR-013 只管推論與查詢請求,管理操作一律依 FR-012 回錯誤;plan.md Q19)。
+        不論 HTTP 方法(用錯方法也回 403,不回遠端 Ollama 的 405)。
+      x-requirements: [FR-012, FR-013, FR-026]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009)
+      x-idle-timer: 工作階段「就緒」時,收到請求即重設閒置計時(FR-026「任何經 Ollama 相容端點的請求」)
+      responses:
+        '403':
+          description: >-
+            這類操作請到 UI 進行。`error` 例如「推送模型請到 UI 操作;Ollama 相容端點不執行這個操作」。
+          x-error-codes: [MANAGED_IN_UI]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/create:
+    post:
+      operationId: createModel
+      summary: 建立模型(阻擋)
+      description: >-
+        管理模型的操作,一律不轉送、不讀請求本文,立即回 403(FR-012、research.md R8);執行環境上的模型都不受影響。
+        不論工作階段是什麼狀態都回 403、不回 503(FR-013 只管推論與查詢請求,管理操作一律依 FR-012 回錯誤;plan.md Q19)。
+        不論 HTTP 方法(用錯方法也回 403,不回遠端 Ollama 的 405)。
+      x-requirements: [FR-012, FR-013, FR-026]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009)
+      x-idle-timer: 工作階段「就緒」時,收到請求即重設閒置計時(FR-026「任何經 Ollama 相容端點的請求」)
+      responses:
+        '403':
+          description: >-
+            這類操作請到 UI 進行。`error` 例如「建立模型請到 UI 操作;Ollama 相容端點不執行這個操作」。
+          x-error-codes: [MANAGED_IN_UI]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/copy:
+    post:
+      operationId: copyModel
+      summary: 複製模型(阻擋)
+      description: >-
+        管理模型的操作,一律不轉送、不讀請求本文,立即回 403(FR-012、research.md R8);執行環境上的模型都不受影響。
+        不論工作階段是什麼狀態都回 403、不回 503(FR-013 只管推論與查詢請求,管理操作一律依 FR-012 回錯誤;plan.md Q19)。
+        不論 HTTP 方法(用錯方法也回 403,不回遠端 Ollama 的 405)。
+      x-requirements: [FR-012, FR-013, FR-026]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009)
+      x-idle-timer: 工作階段「就緒」時,收到請求即重設閒置計時(FR-026「任何經 Ollama 相容端點的請求」)
+      responses:
+        '403':
+          description: >-
+            這類操作請到 UI 進行。`error` 例如「複製模型請到 UI 操作;Ollama 相容端點不執行這個操作」。
+          x-error-codes: [MANAGED_IN_UI]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/delete:
+    delete:
+      operationId: deleteModel
+      summary: 刪除模型(阻擋)
+      description: >-
+        管理模型的操作,一律不轉送、不讀請求本文,立即回 403(FR-012、research.md R8);執行環境上的模型都不受影響。
+        不論工作階段是什麼狀態都回 403、不回 503(FR-013 只管推論與查詢請求,管理操作一律依 FR-012 回錯誤;plan.md Q19)。
+        不論 HTTP 方法(用錯方法也回 403,不回遠端 Ollama 的 405)。
+      x-requirements: [FR-012, FR-013, FR-026]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009)
+      x-idle-timer: 工作階段「就緒」時,收到請求即重設閒置計時(FR-026「任何經 Ollama 相容端點的請求」)
+      responses:
+        '403':
+          description: >-
+            這類操作請到 UI 進行。`error` 例如「刪除模型請到 UI 操作;Ollama 相容端點不執行這個操作」。
+          x-error-codes: [MANAGED_IN_UI]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  '/api/blobs/{digest}':
+    parameters:
+      - name: digest
+        in: path
+        required: true
+        description: 模型層的 digest,例如 `sha256:...`
+        schema:
+          type: string
+    head:
+      operationId: checkBlob
+      summary: 查詢模型層(阻擋)
+      description: >-
+        管理模型的操作,一律不轉送、不讀請求本文,立即回 403(FR-012、research.md R8);執行環境上的模型都不受影響。
+        不論工作階段是什麼狀態都回 403、不回 503(FR-013 只管推論與查詢請求,管理操作一律依 FR-012 回錯誤;plan.md Q19)。
+        不論 HTTP 方法(用錯方法也回 403,不回遠端 Ollama 的 405)。`/api/blobs` 是 Ollama 建立模型(`ollama create`)前先上傳模型層的介面,屬於「建立」的一部分(plan.md Q21)。
+      x-requirements: [FR-012, FR-013, FR-026]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009)
+      x-idle-timer: 工作階段「就緒」時,收到請求即重設閒置計時(FR-026「任何經 Ollama 相容端點的請求」)
+      responses:
+        '403':
+          description: >-
+            這類操作請到 UI 進行。`error` 例如「建立模型請到 UI 操作;Ollama 相容端點不執行這個操作」。
+          x-error-codes: [MANAGED_IN_UI]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+    post:
+      operationId: uploadBlob
+      summary: 上傳模型層(阻擋)
+      description: >-
+        管理模型的操作,一律不轉送、不讀請求本文,立即回 403(FR-012、research.md R8);執行環境上的模型都不受影響。
+        不論工作階段是什麼狀態都回 403、不回 503(FR-013 只管推論與查詢請求,管理操作一律依 FR-012 回錯誤;plan.md Q19)。
+        不論 HTTP 方法(用錯方法也回 403,不回遠端 Ollama 的 405)。`/api/blobs` 是 Ollama 建立模型(`ollama create`)前先上傳模型層的介面,屬於「建立」的一部分(plan.md Q21)。
+      x-requirements: [FR-012, FR-013, FR-026]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入(NFR-009)
+      x-idle-timer: 工作階段「就緒」時,收到請求即重設閒置計時(FR-026「任何經 Ollama 相容端點的請求」)
+      responses:
+        '403':
+          description: >-
+            這類操作請到 UI 進行。`error` 例如「建立模型請到 UI 操作;Ollama 相容端點不執行這個操作」。
+          x-error-codes: [MANAGED_IN_UI]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+components:
+  schemas:
+    RootResponse:
+      type: string
+      description: 遠端 Ollama 的存活回應(桌機實測)
+      enum: [Ollama is running]
+    VersionResponse:
+      type: object
+      required: [version]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文;本端點原樣轉送
+      properties:
+        version:
+          type: string
+          description: 執行環境上 Ollama 的版本,例如 0.40.15
+    TagsResponse:
+      type: object
+      required: [models]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文(每個元素是 S1 的 `LocalModel`);本端點原樣轉送
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocalModel'
+    LocalModel:
+      type: object
+      required: [name, model, modified_at, size, digest]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文,完整欄位見 S1
+      properties:
+        name:
+          type: string
+          description: 模型名稱含版本,例如 qwen2.5:7b
+        model:
+          type: string
+        modified_at:
+          type: string
+          format: date-time
+        size:
+          type: integer
+          minimum: 0
+          description: 模型在磁碟上的大小,位元組
+        digest:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+    PsResponse:
+      type: object
+      required: [models]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文(每個元素是 S1 的 `LoadedModel`,完整欄位見 S1);本端點原樣轉送
+      properties:
+        models:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            required: [name, model, size, digest, expires_at, size_vram]
+    ShowRequest:
+      type: object
+      required: [model]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文;本端點不讀內容,原樣轉送
+      properties:
+        model:
+          type: string
+        verbose:
+          type: boolean
+    ShowResponse:
+      type: object
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文,完整欄位見 S1;本端點原樣轉送,不解讀內容
+    GenerateRequest:
+      type: object
+      required: [model]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文;本端點不讀內容,所有欄位原樣轉送
+      properties:
+        model:
+          type: string
+        prompt:
+          type: string
+        stream:
+          type: boolean
+          default: true
+    GenerateResponse:
+      type: object
+      required: [model, created_at, done]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文,完整欄位見 S1;串流時是 NDJSON 的一行
+      properties:
+        model:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        response:
+          type: string
+        done:
+          type: boolean
+          description: 串流的最後一行是 true
+    ChatRequest:
+      type: object
+      required: [model]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文;本端點不讀內容,所有欄位原樣轉送
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        stream:
+          type: boolean
+          default: true
+    ChatResponse:
+      type: object
+      required: [model, created_at, done]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文,完整欄位見 S1;串流時是 NDJSON 的一行
+      properties:
+        model:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        message:
+          type: object
+          additionalProperties: true
+        done:
+          type: boolean
+    EmbedRequest:
+      type: object
+      required: [model, input]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文;本端點不讀內容,原樣轉送
+      properties:
+        model:
+          type: string
+        input:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+    EmbedResponse:
+      type: object
+      required: [model, embeddings]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文
+      properties:
+        model:
+          type: string
+        embeddings:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+    EmbeddingsRequest:
+      type: object
+      required: [model, prompt]
+      additionalProperties: true
+      description: 照 S1 同名 schema 原文;本端點不讀內容,原樣轉送
+      properties:
+        model:
+          type: string
+        prompt:
+          type: string
+    EmbeddingsResponse:
+      type: object
+      required: [embedding]
+      description: 照 S1 同名 schema 原文
+      properties:
+        embedding:
+          type: array
+          items:
+            type: number
+    OllamaError:
+      type: object
+      required: [error]
+      description: >-
+        本端點所有錯誤回應的本文,和 Ollama 的錯誤本文相同(S1 同名 schema),Ollama 用戶端照它處理錯誤。
+        本系統產生的錯誤 `error` 是繁體中文;遠端 Ollama 原樣傳回的錯誤是英文。沒有錯誤碼欄位。
+      properties:
+        error:
+          type: string
+    Error:
+      type: object
+      required: [code]
+      description: >-
+        本端點全部錯誤的原因代碼目錄,寫在各回應的 `x-error-codes` 與 `x-stream-error-codes`,**不出現在回應本文裡**
+        (回應本文是 `OllamaError`)。`NO_READY_SESSION`、`MANAGED_IN_UI` 與 UI API(S5)共用;`OLLAMA_` 開頭的照 S1 原文。
+      properties:
+        code:
+          type: string
+          enum: [MANAGED_IN_UI, PATH_NOT_SUPPORTED, NO_READY_SESSION, OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_REQUEST, OLLAMA_NOT_FOUND, OLLAMA_SERVER_ERROR, OLLAMA_STREAM_INTERRUPTED]
+          x-enum-descriptions:
+            MANAGED_IN_UI: 管理模型的操作(下載、刪除、建立、複製、推送)被本端點擋下,要到 UI 進行;HTTP 403
+            PATH_NOT_SUPPORTED: 路徑不在白名單(FR-011 點名的推論與查詢路徑以外,例如 `/v1/*`、`/api/me`),本端點不轉送;HTTP 404。和 `OLLAMA_NOT_FOUND`(模型不存在)是不同原因
+            NO_READY_SESSION: 收到推論或查詢請求,但沒有「就緒」的工作階段(含重連中);HTTP 503。請求進行中工作階段被結束時,也是串流最後補的那一行的代碼
+            OLLAMA_UNREACHABLE: 照 S1。工作階段就緒但連不到遠端 Ollama,還沒收到任何 HTTP 回應;HTTP 502
+            OLLAMA_TIMEOUT: 照 S1。連上了,但在逾時內沒有收到回應;HTTP 504
+            OLLAMA_BAD_REQUEST: 照 S1。遠端 Ollama 回 400,原樣傳回
+            OLLAMA_NOT_FOUND: 照 S1。指名的模型不在執行環境上,遠端 Ollama 回 404,原樣傳回;不自動下載(FR-016)
+            OLLAMA_SERVER_ERROR: 照 S1。遠端 Ollama 回 500(例如記憶體不足),原樣傳回
+            OLLAMA_STREAM_INTERRUPTED: 照 S1。串流已經開始,在最後一行之前與執行環境的連線中斷;本端點在 NDJSON 最後補一行 `OllamaError` 後關閉
