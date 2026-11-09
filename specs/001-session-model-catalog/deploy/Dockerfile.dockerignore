@@ -1,0 +1,5 @@
+# build context 是 repo 根目錄;只放行 Dockerfile 的 COPY 用到的檔,.env、資料夾與其他規格檔都不送進 builder。
+*
+!pyproject.toml
+!src/
+!specs/001-session-model-catalog/deploy/prepare-data.sh

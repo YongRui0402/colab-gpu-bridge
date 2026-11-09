@@ -1,0 +1,149 @@
+Project colab_gpu_bridge {
+  database_type: 'SQLite'
+  Note: '''
+S7(E4 資料庫)依 spec.md、plan.md 與前幾步的規格檔產出;資源與欄位照 S5 的 ui.openapi.yaml 與 ui-events.asyncapi.yaml 原文,只做 camelCase 轉 snake_case。
+
+- 引擎:Python 標準函式庫 sqlite3,WAL 模式(research.md R10);資料庫檔放在掛載的 `/data`,路徑與權限屬 S10。
+- 時間欄位以 ISO 8601 UTC 字串存(例 2026-11-09T08:30:00Z),對外原樣回成 `format: date-time`。
+- 巢狀物件攤平成欄位:`runtimeType.gpu` → `runtime_type_gpu`、`runtimeType.highMem` → `runtime_type_high_mem`,`releaseWarning.*`、`reconnect.*` 同理。
+- 不建表的資料(資料表-規範〈只寫要持久化的資料〉):
+  - Colab CLI 的 `sessions.json` 與授權檔 token.json:CLI 自己的檔,屬 S10。
+  - PKCE `code_verifier` 與授權流程代號:只留在後端記憶體(Q17),後端重啟後失效,回 `AUTH_LINK_EXPIRED`(Q50)。
+  - 模型目錄(`CatalogModel`):每次從遠端 Ollama `/api/tags`、`/api/ps` 讀,執行環境結束即不存在。
+  - 預先載入狀態(`PreloadState`)、下載進度(`DownloadProgress`)、閒置的 `activeRequests`、`unmanagedRuntimes`、`balanceMayBeDepleted`:只活在一次執行之中或可由其他欄位算出。
+  - 運行時長 `durationSeconds`:由 `ended_at`(還沒結束時用現在)減 `opened_at` 算出,不另存。
+'''
+}
+
+Enum gpu_type {
+  T4 [note: 'NVIDIA T4(預設)']
+  L4 [note: 'NVIDIA L4;Colab 會忽略高 RAM 選項']
+  G4 [note: 'Colab CLI 的 G4']
+  A100 [note: 'NVIDIA A100']
+  H100 [note: 'NVIDIA H100']
+}
+
+Enum session_state {
+  opening [note: '開啟中']
+  ready [note: '就緒']
+  reconnecting [note: '重連中']
+  ending [note: '結束中']
+  ended [note: '已結束,一定有 end_reason']
+  open_failed [note: '開啟失敗,一定有 end_reason']
+  lost [note: '失聯,一定有 end_reason']
+}
+
+Enum opening_step {
+  ending_previous [note: '結束原本的執行環境(只在變更類型時)']
+  allocating [note: '在 Colab 配置執行環境']
+  starting_ollama [note: '安裝並啟動 Ollama']
+  connecting [note: '建立通道']
+  verifying [note: '確認模型服務可回應']
+}
+
+Enum end_reason {
+  USER_ENDED [note: '使用者結束']
+  IDLE_TIMEOUT [note: '閒置自動結束']
+  RUNTIME_TYPE_CHANGED [note: '變更執行階段類型而結束']
+  OPEN_FAILED [note: '開啟失敗']
+  RECLAIMED_BY_COLAB [note: '被 Colab 收回']
+  RECONNECT_TIMEOUT [note: '重連逾時']
+}
+
+Enum download_state {
+  queued [note: '排隊中;沒有就緒的工作階段時保留,下一個工作階段就緒後自動依序開始(Q29)']
+  downloading [note: '下載中,同一時間最多一筆;工作階段結束或失聯時改為 failed,reason_code 為 SESSION_ENDED(Q29);後端重啟後接回同一個工作階段時,仍是 downloading 的那一筆改回 queued、保留 queue_position,由佇列重新送 pull']
+  completed [note: '完成;「清除已完成」只清這個狀態(Q51)']
+  failed [note: '失敗,一定有 reason_code;可重新排隊或移除']
+}
+
+Enum download_origin {
+  user [note: '使用者加入']
+  restore [note: '變更類型時為了重新載入原本已載入的模型而加入(FR-010、Q36)']
+}
+
+Table sessions {
+  name varchar(64) [pk, note: '對外的 name,格式 ^cgb-[a-z0-9-]{1,60}$;與 Colab CLI sessions.json 裡的名稱相同,後端重啟時用它找回執行環境(FR-005)']
+  runtime_type_gpu gpu_type [not null, note: '照 S5 的 runtimeType.gpu']
+  runtime_type_high_mem boolean [not null, note: '照 S5 的 runtimeType.highMem;L4 時照樣記錄使用者選的值']
+  state session_state [not null, default: 'opening', note: 'S5 的 `none`(未開啟)不存成值:一列都沒有時 getSession 回 none;有列時回開啟時間最新的那一列']
+  active_slot integer [unique, note: 'FR-006 同一時間最多一個工作階段:state 為 opening、ready、reconnecting 時固定為 1,其他狀態為 null;unique 讓第二個開啟中或就緒的工作階段寫不進來(對外回 SESSION_ALREADY_ACTIVE)。ending 不占位,變更類型時舊的先改成 ending 才寫入新的']
+  step opening_step [note: '只在 state 為 opening 時有值,其他為 null']
+  end_reason end_reason [note: 'state 為 ended、open_failed、lost 時必填,其他為 null']
+  reason_code varchar(64) [note: '開啟失敗或失聯的外部原因,照 S5 ReasonCode:^(COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+$;沒有時為 null']
+  message text [note: '給使用者看的繁體中文說明;沒有時為 null']
+  opened_at datetime [not null]
+  ready_at datetime [note: '還沒就緒過為 null']
+  ended_at datetime [note: '還沒結束為 null;state 為 ended、open_failed、lost 時必填']
+  last_request_at datetime [note: '照 S5 idle.lastRequestAt:Ollama 相容端點最後一次重設閒置計時的時間(請求開始或最後一個進行中的請求結束);就緒時先設為 ready_at。後端重啟後閒置倒數從這裡接續(FR-026)']
+  reconnect_started_at datetime [note: '照 S5 reconnect.startedAt;只在 state 為 reconnecting 時有值']
+  reconnect_deadline datetime [note: '照 S5 reconnect.deadline;預設 reconnect_started_at + 5 分鐘;只在 state 為 reconnecting 時有值。後端重啟時已過期就直接標 lost(RECONNECT_TIMEOUT)']
+  release_warning_reason_code varchar(64) [note: '照 S5 releaseWarning.reasonCode;沒有警告或沒有外部代碼時為 null']
+  release_warning_message text [note: '照 S5 releaseWarning.message;不為 null 表示有釋放警告(FR-007),後端重啟後仍要顯示,endSession 會再試一次釋放']
+  release_warning_detected_at datetime [note: '照 S5 releaseWarning.detectedAt;與 release_warning_message 同時有值或同時為 null']
+  indexes {
+    (opened_at) [name: 'idx_sessions_opened_at', note: 'listSessionHistory 依開啟時間由新到舊、以 before 分頁']
+    (state) [name: 'idx_sessions_state', note: '後端啟動時找最後一筆未結束的工作階段(research.md R10)']
+  }
+  Note: '需求: FR-001、FR-003、FR-004、FR-005、FR-006、FR-007、FR-009、FR-010、FR-026、FR-028、NFR-012'
+}
+
+Table session_transitions {
+  id integer [pk, increment]
+  session_name varchar(64) [not null]
+  at datetime [not null, note: '這次狀態變化的時間']
+  state session_state [not null]
+  step opening_step [note: '照 S5 StateTransition.step;state 為 opening 時每一步各記一筆']
+  end_reason end_reason [note: '照 S5 StateTransition.endReason']
+  reason_code varchar(64) [note: '照 S5 StateTransition.reasonCode']
+  indexes {
+    (session_name, at) [name: 'idx_session_transitions_session', note: 'getSessionRecord 依時間排序列出']
+  }
+  Note: '需求: FR-028、FR-003、NFR-001'
+}
+
+Table download_jobs {
+  id integer [pk, increment, note: '對外的 DownloadJob.id']
+  model varchar(200) [not null, note: '模型名稱含版本;沒寫版本時存成 <名稱>:latest']
+  pending_model varchar(200) [unique, note: 'state 為 queued 或 downloading 時等於 model,其他狀態為 null;unique 讓同一個模型不會同時排兩次(對外回 DOWNLOAD_ALREADY_QUEUED)']
+  queue_position integer [not null, unique, note: '佇列順序,只增不減;加入時取目前最大值 + 1,retryDownload 重新排到最後時改成最大值 + 1。listDownloads 依此排序']
+  size_bytes integer [not null, note: '加入時 manifest layers[].size 的總和,位元組,>= 0']
+  state download_state [not null, default: 'queued']
+  reason_code varchar(64) [note: 'state 為 failed 時必填,其他為 null;S1 的 OLLAMA_ 代碼,或本系統的 SESSION_ENDED、DISK_SPACE_INSUFFICIENT']
+  message text [note: '給使用者看的繁體中文失敗說明;沒有時為 null']
+  origin download_origin [not null, default: 'user']
+  preload_on_complete boolean [not null, default: false, note: 'origin 為 restore 時為 true(Q36)']
+  added_at datetime [not null, note: '第一次加入的時間;重新排隊不改']
+  started_at datetime [note: '開始下載的時間;重新排隊時清回 null']
+  finished_at datetime [note: '完成或失敗的時間;重新排隊時清回 null']
+  indexes {
+    (state) [name: 'idx_download_jobs_state', note: '找下一個 queued、找 downloading、清除 completed']
+  }
+  Note: '需求: FR-021、FR-017、FR-022、FR-010'
+}
+
+Table curated_models {
+  id integer [pk, increment, note: '對外的 CuratedModel.id;listCurated 依此排序(加入順序)']
+  name varchar(200) [not null, unique, note: '模型名稱含版本;沒寫版本時存成 <名稱>:latest;unique 對外回 CURATED_DUPLICATE']
+  description varchar(200) [note: '使用者寫的說明,最多 200 字元(對外回 INVALID_CURATED_DESCRIPTION);沒有時為 null']
+  recommended_runtime_type_gpu gpu_type [note: '照 S5 recommendedRuntimeType.gpu;沒有建議類型時為 null']
+  recommended_runtime_type_high_mem boolean [note: '照 S5 recommendedRuntimeType.highMem;與 recommended_runtime_type_gpu 同時有值或同時為 null']
+  Note: '需求: FR-020'
+}
+
+Table settings {
+  id integer [pk, default: 1, note: '固定為 1,整張表只有一列;第一次啟動時以預設值寫入']
+  idle_timeout_minutes integer [not null, default: 30, note: '照 S5 idleTimeoutMinutes:1–1440 的整數(Q34),超出範圍對外回 INVALID_IDLE_TIMEOUT']
+  low_balance_threshold real [not null, default: 10, note: '照 S5 lowBalanceThreshold(Usage.warningThreshold 也是這個值):0–10000(Q34),超出範圍對外回 INVALID_BALANCE_THRESHOLD']
+  Note: '需求: FR-027、FR-025、FR-026、NFR-012'
+}
+
+Table usage_snapshots {
+  id integer [pk, default: 1, note: '固定為 1,只留最後一次讀到的用量;每次讀成功就覆寫']
+  balance real [not null, note: '照 S5 Usage.balance,compute units 餘額']
+  rate_per_hour real [not null, note: '照 S5 Usage.ratePerHour,每小時耗用的 compute units,>= 0']
+  read_at datetime [not null, note: '照 S5 Usage.readAt;超過 15 分鐘對外標 stale(NFR-008)。後端重啟後第一次讀到之前,UI 先看到這一筆,重連中或失聯時也用它判斷 balanceMayBeDepleted']
+  Note: '需求: FR-024、FR-025、NFR-008'
+}
+
+Ref: session_transitions.session_name > sessions.name [delete: cascade]

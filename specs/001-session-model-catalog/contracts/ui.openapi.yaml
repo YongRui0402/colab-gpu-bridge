@@ -162,6 +162,9 @@ paths:
         之後以 `session.updated` 推送每一步(`step`)與結果。開啟失敗時狀態為 `open_failed`、`endReason` 為 `OPEN_FAILED`,
         `reasonCode` 帶 S8、S9 或 S1 的轉接層代碼,並確認沒有遺留的執行環境;釋放不了時 `releaseWarning` 不為空(FR-007)。
         餘額低於警告門檻不阻止開啟(FR-025)。下載佇列裡排隊中的項目在就緒後自動開始。
+        開啟流程的總時限 5 分鐘(Q58、SC-001):從受理起超過 5 分鐘還沒就緒,即判定 `open_failed`、`reasonCode` 為 `COLAB_TIMEOUT`,並釋放執行環境。
+        遺留處理照 Q63:`colab new` 不中途終止,等它結束後再 stop 並以 `colab sessions` 確認;`colab new` 因逾時被終止時,
+        比對開啟前後 Colab 帳號下沒有名稱的執行環境清單,多出來的視為可能的遺留,`releaseWarning` 不為空(FR-007)。
       x-requirements: [FR-001, FR-006, FR-007, FR-008, FR-009, FR-025, NFR-001]
       x-callers: UI;目前沒有開啟中、就緒、重連中或結束中的工作階段,且 Colab 帳號不是「未登入」
       requestBody:
@@ -345,7 +348,7 @@ paths:
       description: >-
         FR-014:名稱、大小、是否已載入;來自遠端 Ollama 的 `listLocalModels` 與 `listLoadedModels`(S1),
         只含下載完成的模型(FR-018,依 Q2 信任 `/api/tags`)。執行環境剛開好時是空的。
-        NFR-006:`vramBytes` 是目前執行環境的可用顯示記憶體(由 S8 經 `colab exec` 取得,Q7),
+        NFR-006:`vramBytes` 是目前執行環境 GPU 的顯示記憶體總量(由 S8 經 `colab exec` 取得,Q7、Q62;不扣掉已載入模型佔用的部分),
         模型大小超過它時 `mayNotFit` 為 true;讀不到時 `vramBytes` 與 `mayNotFit` 為 null。
         目錄有變化(下載完成、預先載入開始或結束)時另以 `models.updated` 事件推送。
       x-requirements: [FR-014, FR-018, NFR-006]
@@ -1070,6 +1073,9 @@ components:
       description: >-
         UI 依序顯示為:未開啟、開啟中、就緒、重連中、結束中、已結束、開啟失敗、失聯(FR-003)。
         `ended`、`open_failed`、`lost` 一定有 `endReason`。
+        時間門檻(SC-002,Q57):執行環境被 Colab 收回時,2 分鐘內變成 `lost`(`RECLAIMED_BY_COLAB`);
+        單純連線中斷時,1 分鐘內變成 `reconnecting`,重連時限(固定 5 分鐘)到了仍接不回才變成 `lost`(`RECONNECT_TIMEOUT`)。
+        開啟中超過 5 分鐘變成 `open_failed`(SC-001,Q58)。
     OpeningStep:
       type: string
       enum: [ending_previous, allocating, starting_ollama, connecting, verifying]
@@ -1083,9 +1089,11 @@ components:
         使用者結束、閒置自動結束、變更執行階段類型而結束、開啟失敗、被 Colab 收回、重連逾時
     ReasonCode:
       type: string
-      pattern: '^(COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+$'
+      pattern: '^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+|AUTH_REQUIRED)$'
       description: >-
-        外部依賴失敗的轉接層代碼,照原文沿用:`OLLAMA_`(S1)、`LIBRARY_`(S2)、`OAUTH_`(S3)、`COLAB_`(S8)、`TUNNEL_`(S9)
+        外部依賴失敗的轉接層代碼,照原文沿用:`OLLAMA_`(S1)、`LIBRARY_`(S2)、`OAUTH_`(S3)、`COLAB_`(S8)、`TUNNEL_`(S9);
+        各前綴底下的代碼以各步驟的規格檔為準,本檔不另列舉。
+        另外允許 `AUTH_REQUIRED`(Q61):S8 偵測到 Colab CLI 的授權失效時回它,與本介面 `openSession` 的 409 `AUTH_REQUIRED` 同一個原因、同一個代碼(Q26)
     ReleaseWarning:
       type: object
       required: [message, detectedAt]
@@ -1140,7 +1148,9 @@ components:
     Reconnect:
       type: object
       required: [startedAt, deadline]
-      description: FR-004:重連中時開始的時間與重連時限到期的時間(預設 5 分鐘)
+      description: >-
+        FR-004:重連中時開始的時間與重連時限到期的時間。重連時限固定 5 分鐘,不能設定(Q67);
+        到期仍接不回就變成 `lost`(`RECONNECT_TIMEOUT`),期間確認執行環境已被收回則提早變成 `lost`(`RECLAIMED_BY_COLAB`)
       properties:
         startedAt:
           type: string
@@ -1368,7 +1378,7 @@ components:
           description: 目前是否已載入記憶體(遠端 Ollama `/api/ps`)
         mayNotFit:
           type: [boolean, 'null']
-          description: NFR-006:大小超過可用顯示記憶體時為 true,UI 標示「可能無法載入」;讀不到顯示記憶體時為 null
+          description: NFR-006:大小超過顯示記憶體總量(`vramBytes`,Q62)時為 true,UI 標示「可能無法載入」;讀不到顯示記憶體時為 null
         preload:
           $ref: '#/components/schemas/PreloadState'
     ModelCatalog:
@@ -1378,7 +1388,7 @@ components:
         vramBytes:
           type: [integer, 'null']
           minimum: 0
-          description: 目前執行環境的可用顯示記憶體,位元組(S8 提供,Q7);讀不到時為 null
+          description: 目前執行環境 GPU 的顯示記憶體總量,位元組(S8 提供,Q7、Q62);讀不到時為 null
         items:
           type: array
           items:

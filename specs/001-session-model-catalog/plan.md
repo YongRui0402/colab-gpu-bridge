@@ -170,3 +170,35 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q54 | S2 | hasMore 判斷。(a)照 Q32 滿 20 筆推斷;(b)看頁面末尾有沒有 `hx-get="/search?page=<N+1>"` 的下一頁連結(實測:第 33 頁有、第 34 頁沒有)。規格檔先寫 (a) | S2、S5 | (b)看下一頁連結,取代 Q32 的 (a);S2、S5 跟著改(kevin-twin 代為決定) |
 | Q55 | S2 | 5xx 歸 `LIBRARY_SERVER_ERROR`(Q23),三個操作都改。(a)三個都改(先採用);(b)只改 searchLibrary | S5 | (a);S5 的模型庫相關操作補 `LIBRARY_SERVER_ERROR`(kevin-twin 代為決定) |
 | Q56 | S2 | 下一頁連結因 ollama.com 改版消失時。(a)當成沒有下一頁,只是不出現「顯示更多」(先採用);(b)連結不見但滿 20 筆時歸 `LIBRARY_BAD_RESPONSE` | — | (a)(kevin-twin 代為決定) |
+| Q57 | S9 | **與 spec 矛盾**:SC-002 原文「連線中斷後 2 分鐘內失聯」與重連時限 5 分鐘衝突。(a)被收回 2 分鐘內失聯、單純斷線 1 分鐘內重連中、時限到才失聯,改 SC-002(先採用);(b)重連時限縮為 2 分鐘;(c)中斷即失聯 | S5 | (a);spec SC-002 已改寫(kevin-twin 代為決定) |
+| Q58 | S8 | **與 spec 矛盾**:new 300 秒加初始化 300 秒,最壞超過 SC-001 的 5 分鐘。(a)照各步驟時限(先採用);(b)開啟流程另設總時限 | S5 | (b)開啟流程總時限 5 分鐘,到了即開啟失敗並釋放;spec SC-001 已補上(kevin-twin 代為決定) |
+| Q59 | S8 | CLI 的 `colab.log` 會寫入含 Authorization token 的 DEBUG 紀錄,無法關閉。(a)當成受限資料夾的一部分(會使 NFR-010「不出現在日誌」不成立);(b)S10 把 `colab.log` 指到 `/dev/null`,並把 `enable_update_check` 設為 false(先採用) | S10 | (b)(kevin-twin 代為決定) |
+| Q60 | S8 | 約定外新增 `COLAB_ALLOCATION_REFUSED`、`COLAB_ACCELERATOR_REJECTED`、`COLAB_REMOTE_ERROR`、`COLAB_STOP_UNCONFIRMED`、`COLAB_UNSUPPORTED_VERSION`。(a)保留(先採用);(b)併入 | — | (a)(kevin-twin 代為決定) |
+| Q61 | S8 | `AUTH_REQUIRED` 放不進 S5 `ReasonCode` 的前綴 pattern。(a)S5 放寬 pattern 允許 `AUTH_REQUIRED`(先採用);(b)另造 `COLAB_AUTH_REQUIRED`(違反 Q26);(c)logged_out 時 reasonCode 為 null | S5 | (a)(kevin-twin 代為決定) |
+| Q62 | S8 | 可用顯示記憶體用總量或剩餘量。(a)總量(先採用);(b)剩餘量 | S5 | (a)(kevin-twin 代為決定) |
+| Q63 | S8 | 開啟中途按結束或 new 逾時。(a)不中途終止,等子行程結束再 stop;逾時被終止時比對前後的 unnamed 清單,多出一台且硬體相符即視為遺留並警告(先採用);(b)立即終止 | — | (a)(kevin-twin 代為決定) |
+| Q64 | S9 | `colab ssh --proxy-mode -s <名稱>` 找不到名稱會自己開新執行環境(讀原始碼,未實測)。(a)建立前先以 `colab sessions` 確認在列、不帶 `--gpu` 等旗標,stderr 出現 `Creating runtime` 立即關閉並交 S8 stop,回 `TUNNEL_NOT_FOUND`(先採用);(b)自寫 WebSocket 代理 | — | (a);列入 testplan 實跑護欄(kevin-twin 代為決定) |
+| Q65 | S9 | 約定外新增 `TUNNEL_KEY_REJECTED`、`TUNNEL_TOKEN_REJECTED`、`TUNNEL_ALREADY_CONNECTED`、`TUNNEL_PORT_IN_USE`、`TUNNEL_REMOTE_REFUSED`,沿用 `TUNNEL_SERVER_ERROR`。(a)保留(先採用);(b)併入 `TUNNEL_FAILED` | S5 | (a);S5 的 ReasonCode 已涵蓋 `TUNNEL_` 前綴(kevin-twin 代為決定) |
+| Q66 | S9 | `_FAILED` 判定:ssh 結束即失敗、不看 exit code;stderr 比對不到才是 `TUNNEL_FAILED`,附上的最後一行遮蔽網址與 token;不設 `LogLevel=ERROR`(先採用) | — | 照先採用;OpenSSH 錯誤字樣列入 testplan 實跑(kevin-twin 代為決定) |
+| Q67 | S9 | 重連節奏:立即、5、10、20 秒,之後每 30 秒;每輪先關閉、查 sessions(不在即失聯 `RECLAIMED_BY_COLAB`)、再建立;時限固定 5 分鐘不可設定;逾時 `TUNNEL_TIMEOUT` 帶 `lastCode`(先採用) | — | 照先採用(kevin-twin 代為決定) |
+| Q68 | S9 | 開啟時就緒期限:每 0.5 秒打 `/api/version`,30 秒內就緒;失敗 5 秒後重試一次(先採用) | — | 照先採用(kevin-twin 代為決定) |
+| Q69 | S9 | 斷線後多久才能再連(半開連線何時被放掉,未實測)。(a)列入 testplan 實跑(先採用);(b)另訂處理 | — | (a)(kevin-twin 代為決定) |
+| Q70 | S9 | 健康檢查一次失敗即進重連中,S6 遇 `OLLAMA_UNREACHABLE`/`OLLAMA_STREAM_INTERRUPTED` 立即加做一次(先採用);(b)連續 2 次 | — | (a)(kevin-twin 代為決定) |
+| Q71 | S9 | Ollama 掛了但執行環境還在(`TUNNEL_REMOTE_REFUSED`)。(a)照一般重連,5 分鐘後失聯(先採用);(b)S8 以 exec 重啟 Ollama | — | (a)(kevin-twin 代為決定) |
+| Q72 | S9 | 金鑰與 port:容器專用 ed25519,不存在才 `ssh-keygen`,不覆寫既有;回應只給類型與指紋;路徑由 S10 定;本機 port 預設 11435、只綁 127.0.0.1,S11 不得發布到區網(先採用) | S10、S11 | 照先採用(kevin-twin 代為決定) |
+| Q73 | S9 | S8 的遠端指令只能走 `colab exec`,不得另開 `colab ssh`(同一台只能一條,HTTP 429)(先採用) | — | 照先採用;S8 現行規格已只用 exec(kevin-twin 代為決定) |
+| Q74 | S7 | 後端重啟時正在下載的那一筆。(a)改回 queued 重新 pull(先採用);(b)改 failed | — | (a)(kevin-twin 代為決定) |
+| Q75 | S7 | `last_request_at` 是否存。(a)存,重啟後倒數接著算(先採用);(b)不存 | — | (a)(kevin-twin 代為決定) |
+| Q76 | S7 | 用量快照。(a)只留最後一筆(先採用);(b)保留歷史;(c)不存 | — | (a)(kevin-twin 代為決定) |
+| Q77 | S7 | 「最多一個」的唯一性:輔助欄位 `active_slot`、`pending_model` 配 unique,`ending` 不佔位(先採用);(b)只靠應用程式;(c)另寫 partial index | — | (a)(kevin-twin 代為決定) |
+| Q78 | S7 | 重新排隊的順序:內部欄位 `queue_position` 取最大值加 1(先採用);(b)改 `added_at` | — | (a)(kevin-twin 代為決定) |
+| Q79 | S7 | 工作階段紀錄是否定期清除。(a)本迭代不清(先採用);(b)只留 N 筆 | — | (a)(kevin-twin 代為決定) |
+| Q80 | S7 | 舊工作階段下載完成的項目。(a)保留到使用者清除(先採用);(b)結束時自動清;(c)記錄所屬工作階段 | — | (a)(kevin-twin 代為決定) |
+| Q81 | S10 | 主機資料位置。(a)`${CGB_HOST_DATA:-cgb-data}`,留空用 named volume、填路徑即 bind mount(先採用);(b)必填;(c)`./data`(有把機密 commit 進 repo 的風險) | S11 | (a)(kevin-twin 代為決定) |
+| Q82 | S10 | 既有的一般檔 `colab.log`。(a)刪掉換成指向 `/dev/null` 的連結(先採用);(b)改名保留;(c)啟動失敗 | — | (a)(kevin-twin 代為決定) |
+| Q83 | S10 | CLI 的 `history/` 含 endpoint 與 exec 輸出。(a)掛 tmpfs(先採用);(b)持久化於 0700;(c)每次啟動清除 | S11 | (a);不屬本系統日誌,容器停止即消失(kevin-twin 代為決定) |
+| Q84 | S10 | 容器執行使用者。(a)root(先採用);(b)非 root | — | (a)(kevin-twin 代為決定) |
+| Q85 | S10 | Dockerfile 與 compose 位置。(a)留在 spec 的 `deploy/`(先採用);(b)implement 時搬到 repo 根目錄,符合 plan.md Source Code 樹 | — | (b)(kevin-twin 代為決定) |
+| Q86 | S10 | 與 S11 的分工:本步驟不寫 ports、listen 位址、HTTP 健康檢查;已加 `init: true`(tini 回收 ssh 子行程) | S11 | 照先採用;S11 保留 `init: true` 與 `/data` 健康檢查(kevin-twin 代為決定) |
+| Q87 | S10 | 後端寫檔約定:讀 `CGB_DATA_DIR`、`CGB_DB_PATH`、`CGB_COLAB_CONFIG_DIR`、`CGB_SSH_IDENTITY_PATH`,權限靠 umask 077(先採用) | — | (a)(kevin-twin 代為決定) |
+| Q88 | S10 | 搬上 Unraid 的資料位置:SQLite WAL 不放 `/mnt/user` FUSE,建議 cache/pool 的 appdata 實際路徑;備份目的地要權限受限。(a)只在 `.env.example` 提醒(先採用);(b)另寫部署說明 | — | (a)(kevin-twin 代為決定) |

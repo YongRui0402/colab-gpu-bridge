@@ -56,7 +56,9 @@ operations:
     summary: 工作階段狀態變化
     x-requirements: [FR-001, FR-002, FR-003, FR-004, FR-005, FR-007, FR-009, FR-010, FR-026, FR-028, NFR-001, NFR-009, NFR-010]
     x-callers: >-
-      連上時送一次;之後每次狀態或開啟步驟變化、重連開始與結束、釋放警告出現或消失、偵測到不是本系統開的執行環境時;
+      連上時送一次;之後每次狀態或開啟步驟變化、重連開始與結束、釋放警告出現或消失、偵測到不是本系統開的執行環境時
+      (時間門檻照 SC-002、Q57:被 Colab 收回 2 分鐘內推 `lost`;單純斷線 1 分鐘內推 `reconnecting`,固定 5 分鐘的重連時限到了才推 `lost`;
+      開啟超過 5 分鐘推 `open_failed`、`reasonCode` 為 `COLAB_TIMEOUT`,Q58);
       閒置計時照 Q24:Ollama 相容端點的進行中請求數由 0 變成大於 0(開始不計閒置,`deadline` 變 null)、
       或回到 0(最後一個請求結束,重設並給出新的 `deadline`)時立即推送,其他重設最多每 5 秒推一次;設定的閒置時限改變時
     x-error-codes: []

@@ -1,0 +1,626 @@
+openapi: 3.1.0
+info:
+  title: SSH 通道(OpenSSH 本機轉發,ProxyCommand 為 colab ssh --proxy-mode)
+  version: 0.1.0
+  description: >-
+    S9(E6 SSH 通道)依 spec.md、research.md R3 與 plan.md 產出。
+
+    這不是 HTTP 服務:E6 是後端以子行程呼叫的外部程式——OpenSSH 的 `ssh`(Debian 套件 `openssh-client`),
+    它的 ProxyCommand 是 google-colab-cli 0.7.5 的 `colab ssh --proxy-mode`(WebSocket 走 Colab 自己的執行環境代理)。
+    本檔用 OpenAPI 的「路徑」替每一個子行程操作命名(準備金鑰、建立轉發、健康檢查、重連、關閉),
+    實際的命令列寫在各操作的 `x-argv`(照 shell 規則,`<…>` 是代入的值,其餘逐字),輸出怎麼解析、怎麼判定失敗寫在 description 與 `x-` 擴充;
+    `responses` 的 HTTP 狀態碼只是把失敗原因分組,子行程本身不回 HTTP 狀態碼。呼叫者一律是本系統後端的 `services/`(S5 的工作階段生命週期、
+    S6 回報連不到遠端時),不是 UI 也不是區網的程式。
+
+    通道的樣子(research.md R3):本機 `127.0.0.1:<localPort>` → ssh → `colab ssh --proxy-mode -s <sessionName>` 的 WebSocket
+    → 執行環境上的 sshd(`root@colab-runtime`)→ 執行環境本機的 `127.0.0.1:11434`(遠端 Ollama,S1 `remote-ollama.openapi.yaml`)。
+    轉發只綁 `127.0.0.1`,不加 `-g`,遠端 Ollama 也只聽 `127.0.0.1:11434`,所以沒有任何公開網址(NFR-003);
+    S6 的轉送與 S5 的模型目錄、下載都以 `http://127.0.0.1:<localPort>` 當成 S1 的 base URL。
+    `<localPort>` 預設 `11435`(research.md R3 實測用的值),只在容器內部使用,部署(S11)不得把它發布到區網。
+    同一時間只有一條通道(FR-006 只有一個工作階段),所以 port 固定一個,變更類型時先關舊的再建新的。
+
+    實測事實(research.md R3,桌機 → T4):已建立的連線撐過 runtime proxy token 的 1 小時期限,不必定時重建
+    (proxy token 只在連線建立時出示,新建連線時 CLI 會自己換新 token);殺掉 ssh 模擬斷線後 `colab sessions` 仍列出同一台,
+    重新建立轉發 2.33 秒、已載入的 qwen2.5:7b 仍在記憶體;通道上 `/api/version` 5 次平均 0.321 秒;`/api/pull` 432 行串流完整穿過。
+    金鑰用 ed25519:公鑰放在 `X-Colab-Ssh-Pubkey` header 送出,伺服器拒絕 RSA(`colab_cli/commands/ssh.py` 查證)。
+
+    exit code 不可信(同一波共用的約定,research.md R1):`colab ssh --proxy-mode` 不論哪一端關閉都以 0 結束,
+    `ssh -N` 正常運作時根本不會結束;所以判定一律依「ssh 子行程還在不在」、stderr 的文字與本機轉發的 `/api/version` 回應,
+    執行環境還在不在一律以 S8 的 `colab sessions` 回讀(本檔不定義 `colab sessions`,只引用 S8 `colab-cli.openapi.yaml` 的結果)。
+
+    **一定要避開的陷阱(`colab_cli/commands/ssh.py` 查證)**:`colab ssh --proxy-mode -s <名稱>` 在 CLI 本機的工作階段紀錄裡找不到這個名稱時,
+    會**自己以 `colab new` 開一台新的執行環境**(會花 compute units,也違反 FR-006 只有一個工作階段)。所以:
+    (1)建立轉發之前,一定先以 S8 的 `colab sessions` 確認 `[<sessionName>]` 在列(方括號裡是名稱,代表 CLI 本機有這筆紀錄),不在列就不啟動 ssh;
+    (2)ProxyCommand 一律不帶 `--gpu`、`--tpu`、`--high-mem`、`--rm`(`--rm` 會在斷線時把執行環境結束掉);
+    (3)stderr 出現 `[colab] Creating runtime '` 時,立即關閉這條轉發,交給 S8 以 `colab stop -s <sessionName>` 結束這台意外開出的執行環境並以 `colab sessions` 確認,
+    回報 `TUNNEL_NOT_FOUND`(原本要接的那一台已經不在)。
+
+    同一台執行環境同時只能有一條 `colab ssh` 連線(握手回 HTTP 429,`ssh.py` 查證)。本系統只用這一條通道連 SSH;
+    S8 的遠端指令走 `colab exec`,不得再開 `colab ssh`,否則會和通道互相擠掉。
+
+    失敗原因代碼一律 `TUNNEL_` 前綴(plan.md Q37),後綴照同一波共用的約定:`_UNREACHABLE`、`_TIMEOUT`、`_BAD_RESPONSE`(輸出無法解析)、
+    `_NOT_FOUND`、`_NOT_INSTALLED`(找不到執行檔)、`_FAILED`(子行程結束且 stderr 無法歸類,附 stderr 最後一行),
+    以及 Q6 的共用後綴 `_SERVER_ERROR`;另有本介面才有的 `_KEY_REJECTED`、`_TOKEN_REJECTED`、`_ALREADY_CONNECTED`、`_PORT_IN_USE`、
+    `_REMOTE_REFUSED`(見 `Error` 的 `x-enum-descriptions`)。S5 把這些代碼原樣放在 `Session.reasonCode`(`ReasonCode` 的 `TUNNEL_` 前綴),
+    不另造同義代碼。
+
+    stderr 的讀法:ssh 的 stderr 和 ProxyCommand(`colab ssh --proxy-mode`)的 stderr 是同一條(OpenSSH 讓 ProxyCommand 繼承 stderr),
+    所以一行一行讀、依 `Error` 的 `x-stderr-patterns` 由上而下比對,第一個比中的決定代碼;
+    `Warning: Permanently added 'colab-runtime'` 開頭的行(`UserKnownHostsFile=/dev/null` 每次連線都會印)忽略,不算失敗。
+    `colab ssh` 的錯誤行都以 `[colab] ` 開頭(`ssh.py` 查證);OpenSSH 的錯誤字樣依 OpenSSH 原始碼判斷,未實測,列給 testplan 的實跑案例確認。
+    不設 `LogLevel=ERROR`(維持預設 INFO),否則 keepalive 逾時的 `Timeout, server colab-runtime not responding.` 不會印出。
+
+    機密(NFR-010):命令列、stderr 與回報裡不得出現私鑰內容、OAuth token、runtime proxy token 或執行環境的遠端位址。
+    `colab ssh` 的 WebSocket 錯誤訊息可能帶出連線網址(網址的 query 含 `colab-runtime-proxy-token`),
+    所以附在 `TUNNEL_FAILED` 與日誌裡的 stderr 一律先遮蔽:每個 `ws://`、`wss://`、`http://`、`https://` 開頭到下一個空白為止的字串換成 `<url>`,
+    `colab-runtime-proxy-token=` 之後到下一個 `&` 或空白為止換成 `<token>`;遮蔽要先以一個已知的假 token 驗證過。
+    回應只給金鑰的類型與 SHA256 指紋,不給私鑰或公鑰本文。
+servers:
+  - url: subprocess://tunnel
+    description: 不是 HTTP 服務;路徑只是本檔替子行程操作取的代號,實際命令列見各操作的 `x-argv`
+paths:
+  /key:
+    post:
+      operationId: ensureTunnelKey
+      summary: 準備通道專用的 ed25519 金鑰
+      description: >-
+        後端啟動時、以及每次建立轉發之前呼叫(冪等)。`<keyPath>` 是容器內通道專用的私鑰路徑,放在掛載的資料夾裡、權限 0600,
+        實際路徑由 S10(檔案系統)決定;不用使用者桌機的 `~/.ssh/id_ed25519`(techstack.md:實作時改為容器專用金鑰)。
+
+        步驟:(1)`<keyPath>` 不存在 → 以 `x-argv` 第一行產生一把沒有密碼的 ed25519 金鑰(同時產生 `<keyPath>.pub`);
+        已存在 → 不覆寫(可能是使用者自己放的)。(2)以第二行確認私鑰讀得出公鑰而且不需要密碼:stdout 只取第一個欄位當成金鑰類型,
+        其餘(公鑰本文)不記錄、不回傳。(3)以第三行取 SHA256 指紋,stdout 格式 `<位元數> SHA256:<指紋> <註解> (<類型>)`。
+
+        判定:執行檔找不到 → `TUNNEL_NOT_INSTALLED`;第二行 stdout 第一個欄位不是 `ssh-ed25519`(例如 `ssh-rsa`,伺服器會拒絕;
+        或私鑰有密碼,stderr 含 `incorrect passphrase`、stdout 為空)→ `TUNNEL_KEY_REJECTED`;
+        第一行或第三行 stdout 為空、或第三行不符上述格式 → `TUNNEL_FAILED`(附遮蔽後的 stderr 最後一行)。
+      x-requirements: [NFR-010, NFR-012]
+      x-callers: 本系統後端(啟動時與 openTunnel 之前);`<keyPath>` 所在的資料夾已掛載而且可寫
+      x-argv:
+        - test -e <keyPath> || ssh-keygen -q -t ed25519 -N '' -C cgb-tunnel -f <keyPath>
+        - ssh-keygen -y -P '' -f <keyPath>
+        - ssh-keygen -l -E sha256 -f <keyPath>
+      x-argv-note: 三個命令依序各自執行;stdin 一律接 `/dev/null`,避免 ssh-keygen 停下來等待輸入密碼
+      x-timeout: 每個命令 10 秒;逾時視為 `TUNNEL_FAILED`
+      parameters:
+        - name: keyPath
+          in: query
+          required: true
+          description: 通道專用私鑰的絕對路徑,由 S10 決定;不得含空白或 `%`(會被 ssh 的 ProxyCommand 展開)
+          schema:
+            type: string
+            pattern: '^/[^\s%]+$'
+      responses:
+        '200':
+          description: 金鑰可以用;`created` 表示這次是不是新產生的
+          x-recipients: 呼叫者(本系統後端);不含私鑰或公鑰本文
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TunnelKey'
+        '400':
+          description: 金鑰不是 ed25519,或私鑰有密碼、讀不出公鑰
+          x-error-codes: [TUNNEL_KEY_REJECTED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 找不到 `ssh-keygen`;或產生、讀取金鑰失敗、輸出無法解析
+          x-error-codes: [TUNNEL_NOT_INSTALLED, TUNNEL_FAILED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /tunnels:
+    post:
+      operationId: openTunnel
+      summary: 建立本機轉發
+      description: >-
+        開啟工作階段的「建立通道」與「確認模型服務可回應」兩步(S5 `OpeningStep` 的 `connecting`、`verifying`;FR-001),
+        也是重連(reconnectTunnel)與後端重新啟動後重新接上(FR-005)用的同一個操作。
+
+        前置(缺一不可,否則不啟動 ssh):(1)ensureTunnelKey 成功;(2)S8 的 `colab sessions` 列出 `[<sessionName>]`
+        (不在列 → `TUNNEL_NOT_FOUND`,見 info 的陷阱);(3)本系統沒有其他還在跑的 ssh 轉發
+        (後端啟動時先以 closeTunnel 的「清除殘留」關掉上一個後端行程留下的 ssh,否則會撞 `TUNNEL_PORT_IN_USE` 或 `TUNNEL_ALREADY_CONNECTED`)。
+
+        執行 `x-argv`:ssh 在前景執行(不加 `-f`),以新的 process group 啟動(之後 closeTunnel 對整個 group 送訊號,ProxyCommand 一起結束),
+        stdin 接 `/dev/null`,stdout 不讀(`-N` 不會有輸出),stderr 持續逐行讀到 ssh 結束為止。`-F none` 不讀任何 ssh 設定檔,
+        避免主機或容器裡的 `~/.ssh/config` 改變行為;`BatchMode=yes` 讓 ssh 不會停下來等密碼;`-i` 與 `--identity` 是同一把金鑰,
+        `IdentitiesOnly=yes` 確保 ssh 驗證用的和 header 送出的公鑰是同一把(不一致時 sshd 回 `Permission denied (publickey)`)。
+
+        就緒判定:ssh 成功時不印任何東西,所以啟動後每 0.5 秒打一次 `GET http://127.0.0.1:<localPort>/api/version`
+        (S1 `getVersion`,逾時 5 秒),回 200 且本文是含 `version` 字串的 JSON 才算就緒,回傳 `Tunnel`。
+        就緒期限 30 秒(實測重建 2.33 秒):期限內連線被拒(ssh 還沒開始聽)或 `TUNNEL_REMOTE_REFUSED`(遠端 Ollama 剛啟動還沒聽)都繼續等;
+        期間 ssh 結束,就依 stderr 判定(`Error` 的 `x-stderr-patterns`),判不出來為 `TUNNEL_FAILED`;
+        期限到仍未就緒 → 關閉這條轉發(closeTunnel),最後一次觀察是遠端拒絕連線就回 `TUNNEL_REMOTE_REFUSED`,否則回 `TUNNEL_TIMEOUT`。
+        回 200 但本文不是 JSON 或沒有 `version` → 關閉轉發,回 `TUNNEL_BAD_RESPONSE`。
+
+        開啟工作階段時的重試:失敗是 `TUNNEL_NOT_FOUND`、`TUNNEL_NOT_INSTALLED`、`TUNNEL_KEY_REJECTED` 以外的代碼時,
+        5 秒後重試一次(比照 S8 `colab exec` 的重試一次);仍失敗,S5 把工作階段標成 `open_failed`,`reasonCode` 帶最後一次的代碼。
+        重連時的重試另見 reconnectTunnel。
+      x-requirements: [FR-001, FR-005, FR-006, FR-011, NFR-003, NFR-010, SC-001, SC-005]
+      x-callers: >-
+        本系統後端:開啟工作階段的 `connecting` 步驟、reconnectTunnel、後端重新啟動後接回由本系統開啟的 `cgb-` 執行環境(FR-005);
+        前置是 S8 的 `colab sessions` 列出 `[<sessionName>]`,且本系統目前沒有其他 ssh 轉發
+      x-argv: >-
+        ssh -F none -N -i <keyPath>
+        -o IdentitiesOnly=yes -o BatchMode=yes
+        -o 'ProxyCommand=colab ssh --proxy-mode -s <sessionName> --identity <keyPath>'
+        -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+        -L 127.0.0.1:<localPort>:127.0.0.1:11434 root@colab-runtime
+      x-argv-verified: 以 `ssh -G`(OpenSSH 10.2p1,只解析設定、不連線)確認每個 `-o` 都被接受,ProxyCommand 與 LocalForward 解析成預期的值
+      x-readiness:
+        probe: GET http://127.0.0.1:<localPort>/api/version(S1 getVersion,逾時 5 秒)
+        interval: 0.5 秒
+        deadline: 30 秒
+      x-timeout: 就緒期限 30 秒(含 ssh 握手與 `colab ssh` 的 WebSocket 連線);建立後不設期限,直到 closeTunnel 或 ssh 自己結束
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenTunnelInput'
+      responses:
+        '201':
+          description: 轉發已建立,而且遠端 Ollama 透過它回應了 `/api/version`
+          x-recipients: 呼叫者(本系統後端);`baseUrl` 只給 S6 的轉送與 S5 呼叫 S1 用,不得出現在 UI API、事件或日誌(NFR-010)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tunnel'
+        '400':
+          description: >-
+            `colab ssh` 送出的公鑰被伺服器拒絕(不是 ed25519 或 ecdsa、缺少 header),
+            `colab ssh` 在 `~/.ssh` 找不到金鑰,或 sshd 不接受這把金鑰(`Permission denied (publickey)`)
+          x-error-codes: [TUNNEL_KEY_REJECTED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Colab 的執行環境代理不接受 runtime proxy token(HTTP 401 或 403),通常是執行環境已過期或已被收回
+          x-error-codes: [TUNNEL_TOKEN_REJECTED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: >-
+            `colab sessions` 沒有列出 `[<sessionName>]`;執行環境沒有 `/colab/ssh` 端點(握手 HTTP 404);
+            或 `colab ssh` 找不到這個名稱而自己開了一台新的(stderr 出現 `[colab] Creating runtime '`,已關閉並交給 S8 結束)
+          x-error-codes: [TUNNEL_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >-
+            這台執行環境已經有另一條 `colab ssh` 連線(握手 HTTP 429);或本機的 `127.0.0.1:<localPort>` 已被占用
+            (`ExitOnForwardFailure=yes` 讓 ssh 在綁不到 port 時直接結束)
+          x-error-codes: [TUNNEL_ALREADY_CONNECTED, TUNNEL_PORT_IN_USE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: 找不到 `ssh` 或 `colab` 執行檔;ssh 結束了但 stderr 無法歸類(附遮蔽後的 stderr 最後一行)
+          x-error-codes: [TUNNEL_NOT_INSTALLED, TUNNEL_FAILED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            連不到 Colab 的執行環境代理(WebSocket 沒有 HTTP 狀態就失敗、ssh 握手前連線就斷);
+            執行環境上的 sshd 連不到(握手 HTTP 502);通道通了但遠端 `127.0.0.1:11434` 拒絕連線(Ollama 沒有在聽);
+            `/api/version` 回了 200 但本文無法解析
+          x-error-codes: [TUNNEL_UNREACHABLE, TUNNEL_SERVER_ERROR, TUNNEL_REMOTE_REFUSED, TUNNEL_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 30 秒的就緒期限內 `/api/version` 沒有回應,或 ssh 的 keepalive 逾時(`Timeout, server colab-runtime not responding.`)
+          x-error-codes: [TUNNEL_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /tunnels/{sessionName}/health:
+    get:
+      operationId: checkTunnelHealth
+      summary: 健康檢查
+      description: >-
+        FR-004 的「定期確認執行環境與模型服務是否仍存在」中,確認通道與模型服務的那一半(執行環境在不在由 S8 的 `colab sessions` 確認)。
+        工作階段「就緒」時每 15 秒做一次(research.md R3);S6 轉送時遇到 `OLLAMA_UNREACHABLE` 或 `OLLAMA_STREAM_INTERRUPTED` 時立即加做一次,不等下一個 15 秒。
+        同一時間只做一次,上一次還沒結束就不再排新的。
+
+        步驟:(1)ssh 子行程還在嗎(等價於 `kill -0 <pid>`;實作用子行程物件的 poll)——已結束 → 依它的 stderr 判定代碼
+        (`Error` 的 `x-stderr-patterns`;keepalive 連續 3 次沒有回應時 ssh 印 `Timeout, server colab-runtime not responding.` 後結束,為 `TUNNEL_TIMEOUT`),
+        判不出來為 `TUNNEL_FAILED`;(2)ssh 還在 → 打 `x-argv` 的 `/api/version`(S1 `getVersion`,逾時 5 秒):
+        回 200 且本文是含 `version` 字串的 JSON → 健康;本機連線被拒 → `TUNNEL_UNREACHABLE`;
+        連上了但沒有任何回應就被關閉、同時 stderr 多了 `open failed: connect failed` → `TUNNEL_REMOTE_REFUSED`(Ollama 不在,通道還在);
+        5 秒內沒有回應 → `TUNNEL_TIMEOUT`;回 200 但本文無法解析 → `TUNNEL_BAD_RESPONSE`;回其他狀態碼 → `TUNNEL_BAD_RESPONSE`。
+
+        判定的結果:一次失敗就算失敗(research.md R3「失敗即重連中」),S5 把工作階段改成 `reconnecting` 並呼叫 reconnectTunnel。
+        最晚多久偵測到:健康檢查間隔 15 秒加逾時 5 秒,或 ssh keepalive 15 秒 × 3 = 45 秒,取先到的,約 1 分鐘內進入「重連中」(research.md R3 判斷)。
+        這個操作本身不重連、不改狀態,只回報結果。
+      x-requirements: [FR-004, NFR-002, SC-002]
+      x-callers: 本系統後端:工作階段「就緒」時的 15 秒排程;S6 轉送遇到連不到或串流中斷時;只在 openTunnel 成功之後、closeTunnel 之前
+      x-argv: curl -sS -m 5 http://127.0.0.1:<localPort>/api/version
+      x-argv-note: 這行是等價的命令列,方便人工確認;後端以 httpx 送同樣的請求(逾時 5 秒),不另外呼叫 curl
+      x-schedule: 每 15 秒一次(和 ssh 的 `ServerAliveInterval=15` 相同,research.md R3)
+      x-timeout: 5 秒(照 S1 `getVersion`,plan.md Q5)
+      parameters:
+        - name: sessionName
+          in: path
+          required: true
+          description: 要檢查的工作階段名稱(本系統產生,S5 `Session.name`)
+          schema:
+            type: string
+            pattern: '^cgb-[a-z0-9-]{1,60}$'
+      responses:
+        '200':
+          description: 通道還在,遠端 Ollama 透過它回應了
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TunnelHealth'
+        '404':
+          description: 本系統沒有這個工作階段的轉發(還沒建立、已經 closeTunnel)
+          x-error-codes: [TUNNEL_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: ssh 已經結束,stderr 無法歸類(附遮蔽後的 stderr 最後一行)
+          x-error-codes: [TUNNEL_FAILED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            本機轉發沒有在聽,或 ssh 已結束而 stderr 顯示連不到代理;代理回報 sshd 連不到;
+            遠端 Ollama 拒絕連線;`/api/version` 的回應無法解析
+          x-error-codes: [TUNNEL_UNREACHABLE, TUNNEL_SERVER_ERROR, TUNNEL_REMOTE_REFUSED, TUNNEL_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: '`/api/version` 5 秒內沒有回應,或 ssh 因 keepalive 逾時而結束'
+          x-error-codes: [TUNNEL_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /tunnels/{sessionName}/reconnect:
+    post:
+      operationId: reconnectTunnel
+      summary: 斷線後重連到同一個執行環境
+      description: >-
+        FR-004 的「持續嘗試接回同一個執行環境」與使用者故事 1 驗收情境 5、6。不是一個新的子行程,而是 closeTunnel、S8 的 `colab sessions`
+        與 openTunnel 依下列規則組成的流程;寫成一個操作,是為了讓 S5 的 `reconnecting` 狀態與結果有一個固定的依據。
+
+        開始時(健康檢查失敗,或 S6 回報串流中斷之後健康檢查也失敗):S5 把狀態改成 `reconnecting`,`Reconnect.startedAt` 為現在,
+        `Reconnect.deadline` 為現在加重連時限 5 分鐘(spec 假設「重連時限預設 5 分鐘」)。
+
+        每一輪:(1)closeTunnel 關掉這條轉發(含 ProxyCommand),確保不會和新的連線撞 `TUNNEL_ALREADY_CONNECTED`;
+        (2)S8 的 `colab sessions`:沒有列出 `[<sessionName>]` → 停止重連,回 `TUNNEL_NOT_FOUND`,S5 把工作階段改成 `lost`、
+        `endReason` 為 `RECLAIMED_BY_COLAB`(使用者故事 1 驗收情境 4);`colab sessions` 本身失敗(例如家裡網路斷了)→ 不能確認,當成還在,繼續;
+        (3)openTunnel(單次,不套用開啟時的「重試一次」):成功 → 回 200,S5 改回 `ready`,接回的是同一個執行環境,已載入的模型仍在
+        (research.md R3 實測);失敗 → 等下一輪。
+        輪與輪之間的等待:第 1 輪立即,之後依序等 5、10、20 秒,再之後每 30 秒一輪;下一輪的開始時間超過 `deadline` 就不再開始。
+
+        期限到仍接不回 → 回 `TUNNEL_TIMEOUT`,`Error.lastCode` 是最後一輪 openTunnel 的代碼;S5 把工作階段改成 `lost`、
+        `endReason` 為 `RECONNECT_TIMEOUT`、`reasonCode` 帶 `lastCode`(期限到這件事已由 `endReason` 表達,`reasonCode` 給出接不回的原因),並交給 S8 以 `colab stop` 結束執行環境、以 `colab sessions` 確認已不在;
+        釋放不了就設 `releaseWarning`(FR-004「確保該執行環境被釋放」、FR-007、使用者故事 1 驗收情境 6)。
+
+        重連中 Ollama 相容端點對新請求回 `NO_READY_SESSION`(S6,FR-013);重連進行中使用者按「結束」或變更類型時,
+        S5 中止這個流程(不再開始下一輪,進行中的 openTunnel 以 closeTunnel 中斷),改走結束流程。
+        偵測時間:執行環境被 Colab 收回時,健康檢查約 1 分鐘內失敗,第 1 輪立即以 `colab sessions` 確認已不在,所以約 2 分鐘內顯示「失聯」(SC-002);
+        只是網路中斷而執行環境還在時,狀態是「重連中」直到接回或 5 分鐘期限到才「失聯」(見 plan.md 待決問題)。
+      x-requirements: [FR-004, FR-005, FR-007, NFR-002, SC-002]
+      x-callers: 本系統後端:工作階段由 `ready` 轉為 `reconnecting` 時;後端重新啟動後接回(FR-005)第一次 openTunnel 失敗時也走這個流程
+      x-argv: closeTunnel、S8 `colab sessions`、openTunnel 依 description 的規則組成,沒有自己的命令列
+      x-composed-of: [closeTunnel, 'S8 colab sessions', openTunnel]
+      x-retry-schedule: 第 1 輪立即;之後等 5、10、20 秒;再之後每 30 秒;期限為開始重連後 5 分鐘
+      x-timeout: 5 分鐘(spec 假設「重連時限預設 5 分鐘」)
+      parameters:
+        - name: sessionName
+          in: path
+          required: true
+          description: 要接回的工作階段名稱(S5 `Session.name`)
+          schema:
+            type: string
+            pattern: '^cgb-[a-z0-9-]{1,60}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconnectInput'
+      responses:
+        '200':
+          description: 已接回同一個執行環境;本文是新建立的轉發,`attempts` 是用了幾輪
+          x-recipients: 呼叫者(本系統後端);`baseUrl` 不得出現在 UI API、事件或日誌(NFR-010)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReconnectResult'
+        '404':
+          description: '`colab sessions` 已沒有這台執行環境(被 Colab 收回),停止重連'
+          x-error-codes: [TUNNEL_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: >-
+            5 分鐘的重連時限到了仍接不回;`Error.lastCode` 是最後一輪 openTunnel 的代碼
+            (`TUNNEL_` 開頭任一個,例如 `TUNNEL_UNREACHABLE`、`TUNNEL_ALREADY_CONNECTED`、`TUNNEL_REMOTE_REFUSED`)
+          x-error-codes: [TUNNEL_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /tunnels/{sessionName}:
+    delete:
+      operationId: closeTunnel
+      summary: 關閉轉發
+      description: >-
+        結束工作階段(FR-002)、變更類型時結束舊的(FR-010)、開啟失敗的收尾(FR-007)、重連的每一輪(FR-004)都先關閉轉發,
+        再由 S8 `colab stop` 結束執行環境。這個操作只結束本機的 ssh 與 ProxyCommand,**不會**結束 Colab 上的執行環境
+        (ProxyCommand 沒有帶 `--rm`,見 info)。冪等:轉發已經不在也回成功。
+
+        步驟:對 openTunnel 建立的整個 process group 送 SIGTERM(`x-argv` 第一行;ssh 結束時會再對 ProxyCommand 送 SIGHUP,`ssh.py` 查證),
+        等最多 5 秒;還有行程在就送 SIGKILL(第二行),再等最多 2 秒。之後確認 `127.0.0.1:<localPort>` 已沒有在聽
+        (等價於 `x-argv` 第三行沒有輸出),才算關閉完成;否則回 `TUNNEL_FAILED`。不留下殭屍:每個子行程都要被 wait 回收。
+
+        清除殘留:後端啟動時,在接回任何工作階段之前,關掉上一個後端行程留下、仍在跑的本系統轉發
+        (命令列以 `ssh -F none -N -i <keyPath>` 開頭、且含 `ProxyCommand=colab ssh --proxy-mode -s cgb-` 的 ssh 行程;第四行),
+        避免撞 `TUNNEL_PORT_IN_USE` 或 `TUNNEL_ALREADY_CONNECTED`。只比對本系統自己的命令列,不碰其他 ssh。
+
+        和 S6 的關係:關閉轉發會讓進行中的串流斷掉。S5 在呼叫這個操作之前已經把狀態改成 `ending`(或變更類型的過程中),
+        所以 S6 對這時候斷掉的串流補 `NO_READY_SESSION`;非預期的斷線(這個操作以外造成的)才補 `OLLAMA_STREAM_INTERRUPTED`(plan.md Q25)。
+      x-requirements: [FR-002, FR-004, FR-005, FR-007, FR-010]
+      x-callers: 本系統後端:結束工作階段、變更類型、開啟失敗的收尾、reconnectTunnel 的每一輪、後端啟動時清除殘留
+      x-argv:
+        - kill -TERM -- -<pgid>
+        - kill -KILL -- -<pgid>
+        - ss -Hltn 'sport = :<localPort>'
+        - pkill -TERM -f -- '^ssh -F none -N -i <keyPath> .*ProxyCommand=colab ssh --proxy-mode -s cgb-'
+      x-argv-note: >-
+        四個命令各自執行,用法見 description。`<pgid>` 是 openTunnel 啟動 ssh 時建立的 process group(等於 ssh 的 pid);
+        實作以 `os.killpg` 送訊號、以 socket 試連確認 port,命令列是等價的寫法(映像裡不一定有 `ss`)
+      x-timeout: SIGTERM 後 5 秒、SIGKILL 後 2 秒
+      parameters:
+        - name: sessionName
+          in: path
+          required: true
+          description: 要關閉的工作階段名稱(S5 `Session.name`)
+          schema:
+            type: string
+            pattern: '^cgb-[a-z0-9-]{1,60}$'
+      responses:
+        '200':
+          description: 轉發已關閉(或原本就不在),`127.0.0.1:<localPort>` 已沒有在聽
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TunnelClosed'
+        '500':
+          description: SIGKILL 之後行程仍在,或 port 仍在聽(可能是別的行程占用)
+          x-error-codes: [TUNNEL_FAILED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    OpenTunnelInput:
+      type: object
+      required: [sessionName, keyPath, localPort]
+      properties:
+        sessionName:
+          type: string
+          pattern: '^cgb-[a-z0-9-]{1,60}$'
+          description: 要連的工作階段名稱(本系統產生,S5 `Session.name`、research.md R1);必須已在 S8 的 `colab sessions` 列出
+        keyPath:
+          type: string
+          pattern: '^/[^\s%]+$'
+          description: ensureTunnelKey 準備好的私鑰路徑(S10 決定);同時給 ssh 的 `-i` 與 `colab ssh` 的 `--identity`
+        localPort:
+          type: integer
+          minimum: 1024
+          maximum: 65535
+          default: 11435
+          description: 本機轉發的 port,只綁 `127.0.0.1`;容器內部使用,不發布到區網
+    ReconnectInput:
+      type: object
+      required: [keyPath, localPort, startedAt]
+      properties:
+        keyPath:
+          type: string
+          pattern: '^/[^\s%]+$'
+        localPort:
+          type: integer
+          minimum: 1024
+          maximum: 65535
+          default: 11435
+        startedAt:
+          type: string
+          format: date-time
+          description: 進入「重連中」的時間;期限 = 這個時間 + 5 分鐘(S5 `Reconnect.startedAt`、`Reconnect.deadline`)
+    TunnelKey:
+      type: object
+      required: [keyType, fingerprint, created]
+      properties:
+        keyType:
+          type: string
+          enum: [ssh-ed25519]
+        fingerprint:
+          type: string
+          pattern: '^SHA256:[A-Za-z0-9+/]{43}$'
+          description: '`ssh-keygen -l -E sha256` 的指紋;只用來確認是不是同一把,不含公鑰本文'
+        created:
+          type: boolean
+          description: 這次是不是新產生的金鑰
+    Tunnel:
+      type: object
+      required: [sessionName, baseUrl, remoteOllamaVersion, connectedAt, elapsedMs]
+      properties:
+        sessionName:
+          type: string
+          pattern: '^cgb-[a-z0-9-]{1,60}$'
+        baseUrl:
+          type: string
+          pattern: '^http://127\.0\.0\.1:[0-9]{4,5}$'
+          description: S1 遠端 Ollama 的 base URL(本機轉發);只在後端內部使用
+        remoteOllamaVersion:
+          type: string
+          description: 就緒判定時 `/api/version` 回的 `version`,例如 `0.40.15`
+        connectedAt:
+          type: string
+          format: date-time
+        elapsedMs:
+          type: integer
+          minimum: 0
+          description: 從啟動 ssh 到就緒的毫秒數(實測重建約 2330 毫秒),供 SC-001 與重連的紀錄使用
+    TunnelHealth:
+      type: object
+      required: [sessionName, healthy, remoteOllamaVersion, checkedAt, latencyMs]
+      properties:
+        sessionName:
+          type: string
+          pattern: '^cgb-[a-z0-9-]{1,60}$'
+        healthy:
+          type: boolean
+          enum: [true]
+          description: 成功回應一定是 true;不健康一律以錯誤回報
+        remoteOllamaVersion:
+          type: string
+        checkedAt:
+          type: string
+          format: date-time
+        latencyMs:
+          type: integer
+          minimum: 0
+          description: '`/api/version` 的來回毫秒數(實測平均約 321 毫秒)'
+    ReconnectResult:
+      type: object
+      required: [tunnel, attempts]
+      properties:
+        tunnel:
+          $ref: '#/components/schemas/Tunnel'
+        attempts:
+          type: integer
+          minimum: 1
+          description: 第幾輪接回
+    TunnelClosed:
+      type: object
+      required: [sessionName, wasRunning, forced]
+      properties:
+        sessionName:
+          type: string
+          pattern: '^cgb-[a-z0-9-]{1,60}$'
+        wasRunning:
+          type: boolean
+          description: 呼叫時 ssh 是否還在;false 表示轉發原本就不在(冪等)
+        forced:
+          type: boolean
+          description: 是否動用到 SIGKILL
+    Error:
+      type: object
+      required: [code, message]
+      description: >-
+        轉接層回報給 `services/` 的失敗;`code` 原樣成為 S5 的 `reasonCode`。`message` 是給使用者看的繁體中文,
+        `stderrLastLine` 只在 `TUNNEL_FAILED` 時有值,而且已經依 info 的規則遮蔽過網址與 token。
+      properties:
+        code:
+          type: string
+          enum: [TUNNEL_NOT_INSTALLED, TUNNEL_NOT_FOUND, TUNNEL_KEY_REJECTED, TUNNEL_TOKEN_REJECTED, TUNNEL_ALREADY_CONNECTED, TUNNEL_PORT_IN_USE, TUNNEL_UNREACHABLE, TUNNEL_SERVER_ERROR, TUNNEL_REMOTE_REFUSED, TUNNEL_TIMEOUT, TUNNEL_BAD_RESPONSE, TUNNEL_FAILED]
+          x-enum-descriptions:
+            TUNNEL_NOT_INSTALLED: 找不到 `ssh`、`ssh-keygen` 或 `colab` 執行檔(啟動子行程時找不到檔,或 ssh 的 stderr 顯示 ProxyCommand 的 `colab` 找不到)
+            TUNNEL_NOT_FOUND: 要連的執行環境不在:`colab sessions` 沒有列出它、握手回 HTTP 404、`colab ssh` 自己開了新的一台(已關閉並交給 S8 結束);健康檢查時是本系統沒有這條轉發
+            TUNNEL_KEY_REJECTED: 金鑰不能用:不是 ed25519、私鑰有密碼、伺服器拒絕公鑰(握手 HTTP 400)、`colab ssh` 找不到公鑰、sshd 回 `Permission denied (publickey)`
+            TUNNEL_TOKEN_REJECTED: Colab 執行環境代理不接受 runtime proxy token(握手 HTTP 401 或 403),通常是執行環境已過期或已被收回
+            TUNNEL_ALREADY_CONNECTED: 這台執行環境已經有另一條 `colab ssh` 連線(握手 HTTP 429),例如上一條還沒被伺服器放掉
+            TUNNEL_PORT_IN_USE: 本機 `127.0.0.1:<localPort>` 已被占用,ssh 綁不到(`ExitOnForwardFailure=yes`)
+            TUNNEL_UNREACHABLE: 連不到:WebSocket 沒有 HTTP 狀態就失敗(網路斷了)、ssh 握手前連線就斷、本機轉發沒有在聽
+            TUNNEL_SERVER_ERROR: 執行環境上的 sshd 連不到(握手 HTTP 502),執行環境可能不健康;沿用 Q6 的共用後綴
+            TUNNEL_REMOTE_REFUSED: 通道是通的,但執行環境上的 `127.0.0.1:11434` 拒絕連線(Ollama 沒有在聽);重建通道不會好
+            TUNNEL_TIMEOUT: 就緒期限 30 秒或健康檢查 5 秒內沒有回應;ssh keepalive 連續 3 次沒有回應而結束;重連的 5 分鐘時限到了
+            TUNNEL_BAD_RESPONSE: '`/api/version` 有回應,但不是 200 加含 `version` 的 JSON,或 `ssh-keygen` 的輸出無法解析'
+            TUNNEL_FAILED: 子行程結束了(ssh `-N` 正常時不會結束,所以不論 exit code)或關不掉,而 stderr 比對不到任何已知字樣;附遮蔽後的 stderr 最後一行
+          x-stderr-patterns:
+            - match: "[colab] Creating runtime '"
+              code: TUNNEL_NOT_FOUND
+              note: '`colab ssh` 自己開了新的執行環境;立即 closeTunnel,交給 S8 `colab stop` 並確認'
+            - match: '[colab] Endpoint not found (HTTP 404)'
+              code: TUNNEL_NOT_FOUND
+            - match: "[colab] session '"
+              code: TUNNEL_NOT_FOUND
+              note: '只在沒有帶 `-s` 時出現;本系統一律帶 `-s`,列出來以防萬一'
+            - match: '[colab] Server rejected'
+              code: TUNNEL_KEY_REJECTED
+              note: 'HTTP 400:缺少 pubkey header、不支援的金鑰類型(RSA)或其他公鑰錯誤'
+            - match: '[colab] no SSH public key found'
+              code: TUNNEL_KEY_REJECTED
+            - match: '[colab] --identity '
+              code: TUNNEL_KEY_REJECTED
+              note: '私鑰檔不存在'
+            - match: '[colab] failed to derive public key'
+              code: TUNNEL_KEY_REJECTED
+            - match: 'Permission denied (publickey'
+              code: TUNNEL_KEY_REJECTED
+              note: 'OpenSSH 字樣,未實測'
+            - match: '[colab] Authentication failed (HTTP 401)'
+              code: TUNNEL_TOKEN_REJECTED
+            - match: '[colab] Forbidden (HTTP 403)'
+              code: TUNNEL_TOKEN_REJECTED
+            - match: '[colab] Already-active SSH session (HTTP 429)'
+              code: TUNNEL_ALREADY_CONNECTED
+            - match: '[colab] Bad gateway (HTTP 502)'
+              code: TUNNEL_SERVER_ERROR
+            - match: '[colab] WebSocket connection failed'
+              code: TUNNEL_UNREACHABLE
+            - match: '[colab] WebSocket upgrade failed without an HTTP status'
+              code: TUNNEL_UNREACHABLE
+            - match: 'Could not request local forwarding'
+              code: TUNNEL_PORT_IN_USE
+              note: 'OpenSSH 字樣(之前通常有一行 `bind [127.0.0.1]:<localPort>: Address already in use`),未實測'
+            - match: 'Timeout, server colab-runtime not responding'
+              code: TUNNEL_TIMEOUT
+              note: 'OpenSSH keepalive 逾時字樣(LogLevel INFO 才會印),未實測'
+            - match: 'open failed: connect failed'
+              code: TUNNEL_REMOTE_REFUSED
+              note: 'OpenSSH 對單一轉發連線的錯誤,ssh 不會因此結束;只在 `/api/version` 沒有回應就被關閉時用來判定,未實測'
+            - match: 'colab: not found'
+              code: TUNNEL_NOT_INSTALLED
+              note: 'ProxyCommand 由 shell 執行,找不到 `colab` 時 shell 印出的字樣(也比對 `colab: No such file or directory`)'
+            - match: 'kex_exchange_identification'
+              code: TUNNEL_UNREACHABLE
+              note: 'ProxyCommand 在 ssh 握手前就結束;前面若有 `[colab] ` 開頭的行,以那一行為準(由上而下比對,先比中的優先)'
+            - match: 'Connection closed by UNKNOWN port 65535'
+              code: TUNNEL_UNREACHABLE
+              note: '同上,經 ProxyCommand 連線時 OpenSSH 顯示的字樣,未實測'
+            - match: 'Broken pipe'
+              code: TUNNEL_UNREACHABLE
+          x-stderr-ignore: ["Warning: Permanently added 'colab-runtime'"]
+        message:
+          type: string
+          description: 給使用者看的繁體中文說明,例如「連不到 Colab 執行環境,正在重連」;不含網址、token 或金鑰
+        lastCode:
+          type: string
+          pattern: '^TUNNEL_[A-Z0-9_]+$'
+          description: 只在 reconnectTunnel 逾時(`code` 為 `TUNNEL_TIMEOUT`)時有值:最後一輪 openTunnel 的代碼
+        stderrLastLine:
+          type: string
+          description: 只在 `TUNNEL_FAILED` 時有值;遮蔽過網址與 token 的 stderr 最後一行(略過 `x-stderr-ignore` 的行)

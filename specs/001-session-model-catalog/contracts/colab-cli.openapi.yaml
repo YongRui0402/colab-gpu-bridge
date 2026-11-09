@@ -1,0 +1,739 @@
+openapi: 3.1.0
+info:
+  title: Colab CLI(google-colab-cli 0.7.5,後端以子行程呼叫的外部程式)
+  version: 0.1.0
+  description: >-
+    S8(E5 Colab CLI)依 spec.md、research.md(R1、R2、R3、R11)與 plan.md 產出;上游呼叫者的需求見 `ui.openapi.yaml`(S5)。
+
+    這不是 HTTP 介面:每個操作是本系統後端的 Colab CLI 轉接層執行一次 `colab` 子行程(必要時再加一次 `colab sessions` 回讀)。
+    路徑與方法只是操作的代號;`requestBody` 是代入命令列 `<…>` 的值,`200` 是轉接層解析輸出後交給呼叫者的結果,
+    `default` 是失敗,`code` 是轉接層歸成的原因代碼。實際的命令列寫在各操作的 `x-argv`,
+    原始輸出格式寫在 `x-stdout`,失敗的判定依序寫在 `x-failure-rules`(由上往下,第一條符合的就是結果)。
+
+    共用約定:
+
+    (1)**exit code 不可信**(research.md R1 實測:`colab stop` 對不存在的 session 回 0;遠端程式丟出例外時 `colab exec` 也回 0),
+    成功與否一律依輸出文字判定;會改變執行環境的操作(`createSession`、`stopSession`)最後一律以 `colab sessions` 回讀確認。
+    exit code 只用來把「沒有被其他規則認出、但以非 0 結束」的情況歸成 `COLAB_FAILED`。
+
+    (2)每次呼叫都把 stdin 接到 `/dev/null`(命令列的 `</dev/null`):CLI 在沒有有效授權時會印出授權網址並以 `input()` 等授權碼,
+    stdin 接著 `/dev/null` 時它立刻以 `EOFError` 結束,轉接層據此歸成 `AUTH_REQUIRED`,不會卡住;
+    UI 內的登入改走 S3 的授權碼流程(research.md R2),不經 CLI。
+    每次呼叫都帶環境變數 `COLAB_CLI_REQUEST_TIMEOUT=60`,讓 CLI 對 Colab 後端的每個 HTTP 請求最多等 60 秒(CLI 預設不設讀取逾時)。
+
+    (3)原因代碼:前綴 `COLAB_` 加原因後綴,後綴沿用各服務共用的 `_UNREACHABLE`、`_TIMEOUT`、`_BAD_RESPONSE`(輸出無法解析)、`_NOT_FOUND`,
+    以及外部程式共用的 `_NOT_INSTALLED`(找不到執行檔)、`_FAILED`(子行程以非 0 結束,附 stderr 最後一行)。
+    CLI 授權失效不另造 `COLAB_` 代碼,直接歸成 `AUTH_REQUIRED`(Q26),與 UI API(S5)同一個代碼。
+    本介面另立 `COLAB_ALLOCATION_REFUSED`、`COLAB_ACCELERATOR_REJECTED`、`COLAB_REMOTE_ERROR`、`COLAB_STOP_UNCONFIRMED`、
+    `COLAB_UNSUPPORTED_VERSION` 五個原因(見各操作)。
+
+    (4)機密(NFR-010):`colab sessions` 的每一行含執行環境的 endpoint,轉接層解析後就丟掉,不放進任何結果、日誌或錯誤訊息;
+    交出的結果只有名稱、硬體、形狀與變體。`Error.stderrLastLine` 交出前把其中的網址一律換成 `<網址>`
+    (CLI 的錯誤訊息形如 `Failed to issue request POST https://…/unassign/<endpoint>: …`,網址裡有 endpoint)。
+    轉接層不記錄 stdout、stderr 的全文。
+
+    (5)遠端腳本的輸出協定:`colab exec` 執行的兩支腳本(`startOllama`、`probeResources`)由本系統提供,
+    遠端把結果印成 stdout 的一行 `CGB-RESULT <一行 JSON>`;轉接層取 stdout 最後一個以 `CGB-RESULT ` 開頭的行解析,
+    其他行(安裝程式的輸出等)一律忽略。遠端丟出未處理的例外時 CLI 把 traceback 印到 stderr、仍以 0 結束,
+    所以「沒有 `CGB-RESULT` 行且 stderr 有 `Traceback (most recent call last)`」歸成 `COLAB_REMOTE_ERROR`。
+
+    (6)`colab exec` 偶發 `RuntimeError: Connection was lost`(research.md R1 實測,執行環境仍在):同一個指令重試一次,
+    第二次仍是這個錯誤才歸成 `COLAB_UNREACHABLE`。兩支遠端腳本都設計成重跑無害(冪等)。
+
+    (7)CLI 每天第一次執行時可能在 stdout 印出「有新版本」的提示(每行以 `[colab] ` 開頭或是空行);
+    解析時以 `[colab] ` 開頭的行與空行都不當成資料。
+
+    (8)Google Drive 不在範圍內(research.md R4),不使用 `colab drivemount`;SSH 通道(`colab ssh --proxy-mode`)屬 S9。
+    CLI 的授權檔與 session 狀態檔(`~/.config/colab-cli/`)必須持久化,本系統才認得自己開的執行環境(research.md R10),位置由 S10 決定。
+servers:
+  - url: /
+    description: 不是 HTTP 伺服器;每個操作是一次 `colab` 子行程,`colab` 由映像安裝(google-colab-cli==0.7.5,research.md R11)
+paths:
+  /version:
+    get:
+      operationId: getCliVersion
+      summary: 確認 CLI 已安裝且是支援的版本
+      description: >-
+        後端啟動時執行一次。輸出格式(`sessions`、`usage` 的每一行)只對 0.7.5 實測過(research.md R1),
+        版本不是 0.7.5 時本介面的解析規則不保證成立,回 `COLAB_UNSUPPORTED_VERSION`;
+        呼叫者照常提供服務,但把這個代碼記在後端的啟動紀錄,實跑案例要重測。
+        `version` 是 CLI 不印更新提示的指令。
+      x-requirements: [FR-001]
+      x-callers: 本系統後端(啟動時)
+      x-argv: colab version </dev/null
+      x-timeout: 子行程 10 秒
+      x-stdout: >-
+        一行 `Version: <版本>`,例如 `Version: 0.7.5`;解析用 `^Version: (\S+)$`
+      responses:
+        '200':
+          description: 已安裝,版本是 0.7.5
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CliVersion'
+        default:
+          description: 找不到執行檔、逾時、輸出無法解析,或版本不是 0.7.5
+          x-error-codes: [COLAB_NOT_INSTALLED, COLAB_TIMEOUT, COLAB_FAILED, COLAB_BAD_RESPONSE, COLAB_UNSUPPORTED_VERSION]
+          x-failure-rules:
+            - code: COLAB_NOT_INSTALLED
+              when: 找不到 `colab` 執行檔(啟動子行程時就失敗)
+            - code: COLAB_TIMEOUT
+              when: 超過子行程時限被終止
+            - code: COLAB_FAILED
+              when: 以非 0 結束
+            - code: COLAB_BAD_RESPONSE
+              when: >-
+                stdout 沒有符合 `^Version: (\S+)$` 的行
+            - code: COLAB_UNSUPPORTED_VERSION
+              when: 版本不是 `0.7.5`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /sessions:
+    get:
+      operationId: listSessions
+      summary: 列出 Colab 帳號下運作中的執行環境
+      description: >-
+        讀 Colab 伺服器上目前所有的執行環境(assignment),並對照 CLI 本機的 session 狀態檔標出名稱。用途:
+        開啟前確認沒有本系統開的執行環境還在(FR-006);開啟後確認新名稱在列(`createSession` 的回讀);
+        結束後確認名稱已不在(`stopSession` 的回讀,FR-007、SC-003);
+        健康檢查失敗時判斷執行環境是否還在,不在就是被 Colab 收回(FR-003、FR-004);
+        後端重新啟動時找回資料庫裡最後一筆未結束的名稱(FR-005,research.md R10);
+        列出名稱是 `?` 的執行環境(不是本系統開的,或 CLI 狀態檔遺失),只提示、不接手、不關閉(spec 邊界情況)。
+        名稱以 `cgb-` 開頭、但不是資料庫裡目前那一筆的,是本系統先前開過的遺留,呼叫者要以 `stopSession` 釋放(FR-007)。
+        CLI 執行這個指令時會順便把本機狀態檔裡伺服器上已經沒有的 session 移除,並印出 `[colab] Pruned <n> stale local session(s).`,
+        轉接層忽略這一行。
+      x-requirements: [FR-003, FR-004, FR-005, FR-006, FR-007, SC-003]
+      x-callers: 本系統後端(開啟、結束、健康檢查與重連、啟動時找回)
+      x-argv: COLAB_CLI_REQUEST_TIMEOUT=60 colab sessions </dev/null
+      x-timeout: 子行程 60 秒
+      x-stdout: >-
+        沒有任何執行環境時一行 `[colab] No active sessions found on server.`;
+        否則每台一行 `[<名稱>] <endpoint> | Hardware: <硬體> | Shape: <形狀> | Variant: <變體>`
+        (CLI 0.7.5 `commands/session.py` 的 `_format_session_line`),解析用
+        `^\[([^\]]+)\] (\S+) \| Hardware: ([A-Z0-9]+) \| Shape: (Standard|High-RAM) \| Variant: (DEFAULT|GPU|TPU)$`。
+        名稱是 `?` 表示伺服器上有、CLI 本機狀態檔沒有。硬體是 `CPU`、`T4`、`L4`、`G4`、`A100`、`H100`、`V5E1`、`V6E1` 之一。
+        以 `[colab] ` 開頭的其他行與空行不是資料;除此之外的任何行都表示格式變了。
+      responses:
+        '200':
+          description: 運作中的執行環境;本系統認得名稱的與不認得的(`?`)分開列,都不含 endpoint
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionList'
+        default:
+          description: 找不到執行檔、授權失效、連不到 Colab、逾時、子行程失敗,或輸出無法解析
+          x-error-codes: [COLAB_NOT_INSTALLED, COLAB_TIMEOUT, AUTH_REQUIRED, COLAB_UNREACHABLE, COLAB_FAILED, COLAB_BAD_RESPONSE]
+          x-failure-rules:
+            - code: COLAB_NOT_INSTALLED
+              when: 找不到 `colab` 執行檔
+            - code: COLAB_TIMEOUT
+              when: 超過子行程時限被終止
+            - code: AUTH_REQUIRED
+              when: >-
+                stderr 含 `To authorize colab-cli, visit this URL`(沒有 token,或 refresh 失敗而要求重新授權),
+                或含 `: Unauthorized`(Colab 後端回 401)
+            - code: COLAB_UNREACHABLE
+              when: >-
+                stderr 含 `ConnectionError`、`Max retries exceeded`、`NameResolutionError` 或 `Temporary failure in name resolution`
+            - code: COLAB_TIMEOUT
+              when: stderr 含 `ReadTimeout` 或 `timed out`
+            - code: COLAB_FAILED
+              when: 以非 0 結束(附 stderr 最後一行,網址換成 `<網址>`)
+            - code: COLAB_BAD_RESPONSE
+              when: >-
+                以 0 結束,但 stdout 既沒有 `No active sessions found on server.` 也沒有任何一行符合上面的格式,
+                或有一行既不符合格式、也不是以 `[colab] ` 開頭的訊息或空行
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /new:
+    post:
+      operationId: createSession
+      summary: 在 Colab 配置一台執行環境
+      description: >-
+        開啟工作階段的第一步(S5 的 `step` 為 `allocating`,FR-001)。名稱由呼叫者產生,固定 `cgb-` 前綴(research.md R1),
+        每次開啟都用新的名稱(CLI 對同名的 session 會直接覆寫本機紀錄)。`--gpu` 只代入 `GpuType` 的值:
+        CLI 對認不得的 GPU 名稱不報錯、直接當成 A100,所以轉接層不得把未驗證的字串放進命令列。
+        `highMem` 為 true 時在命令列最後加 `--high-mem`(見 `x-argv-high-mem`);L4 只有一種形狀,CLI 會忽略並在 stderr 提示,
+        結果的 `highMemIgnored` 為 true(FR-009)。
+        CLI 對配置請求本身會重試(502、503、504 與讀取逾時,最多 3 次、間隔 10、20、40 秒),所以開到的時間差很多
+        (research.md R1:13.7 秒與 161 秒)。
+        成功判定:stdout 有 `[colab] Session READY.`,**而且**接著執行 `listSessions` 看得到 `[<名稱>]`(exit code 不算數);
+        回讀看不到時歸成 `COLAB_NOT_FOUND`,呼叫者照開啟失敗處理並再以 `listSessions` 確認沒有遺留(FR-007)。
+        開啟中使用者按「結束」時,不要中途終止這個子行程:配置請求可能已在伺服器生效、本機卻還沒記下名稱,
+        那台會變成名稱是 `?` 的執行環境,CLI 無法以名稱結束它;要等子行程結束後再 `stopSession`。
+        呼叫前,呼叫者要先以 `listSessions` 確認沒有本系統開的執行環境還在(FR-006),並記下當時的 `unnamed` 清單;
+        子行程因逾時被終止(`COLAB_TIMEOUT`)後再回讀一次,`unnamed` 多出一台、硬體與要求的 GPU 相同時,
+        視為本系統這次開出、卻無法以名稱結束的遺留,呼叫者在 UI 顯示釋放警告(FR-007),請使用者到 Colab 網頁手動結束。
+      x-requirements: [FR-001, FR-006, FR-007, FR-009, SC-001]
+      x-callers: 本系統後端(開啟工作階段、變更類型重開);Colab 帳號下沒有本系統開的其他執行環境時
+      x-argv: COLAB_CLI_REQUEST_TIMEOUT=60 colab new -s <name> --gpu <gpu> </dev/null
+      x-argv-high-mem: COLAB_CLI_REQUEST_TIMEOUT=60 colab new -s <name> --gpu <gpu> --high-mem </dev/null
+      x-timeout: 子行程 300 秒(含 CLI 自己的重試);之後的 `listSessions` 回讀另計 60 秒
+      x-stdout: >-
+        成功時 stdout 依序是 `[colab] Creating session '<名稱>'...` 與 `[colab] Session READY.`;
+        `highMem` 被忽略時 stderr 有 `[colab] --high-mem ignored: this accelerator only offers one machine shape.`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionInput'
+      responses:
+        '200':
+          description: 配置完成,而且 `colab sessions` 已列出這個名稱
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedSession'
+        default:
+          description: >-
+            找不到執行檔、授權失效、連不到、逾時、Colab 拒絕配置(同時開太多或暫時沒有容量)、
+            帳號沒有這種加速器的額度、子行程失敗、輸出無法解析,或回讀不到新名稱
+          x-error-codes:
+            - COLAB_NOT_INSTALLED
+            - COLAB_TIMEOUT
+            - AUTH_REQUIRED
+            - COLAB_UNREACHABLE
+            - COLAB_ALLOCATION_REFUSED
+            - COLAB_ACCELERATOR_REJECTED
+            - COLAB_FAILED
+            - COLAB_BAD_RESPONSE
+            - COLAB_NOT_FOUND
+          x-failure-rules:
+            - code: COLAB_NOT_INSTALLED
+              when: 找不到 `colab` 執行檔
+            - code: COLAB_TIMEOUT
+              when: 超過子行程時限被終止(之後一定要以 `listSessions` 檢查遺留)
+            - code: AUTH_REQUIRED
+              when: >-
+                stderr 含 `To authorize colab-cli, visit this URL`,或含 `: Unauthorized`
+            - code: COLAB_ALLOCATION_REFUSED
+              when: >-
+                stderr 含 `[colab] Allocation refused (precondition failed).`(Colab 回 412:同時開的執行環境太多,
+                或要求的類型暫時有用量或容量限制;使用者可以稍後再試或換類型)
+            - code: COLAB_ACCELERATOR_REJECTED
+              when: >-
+                stderr 含 `[colab] Backend rejected accelerator`(Colab 回 400:帳號沒有這種加速器的額度或權限,
+                spec 的「沒有可用的 GPU」)
+            - code: COLAB_UNREACHABLE
+              when: >-
+                stderr 含 `ConnectionError`、`Max retries exceeded`、`NameResolutionError` 或 `Temporary failure in name resolution`
+            - code: COLAB_TIMEOUT
+              when: stderr 含 `ReadTimeout` 或 `timed out`
+            - code: COLAB_FAILED
+              when: 以非 0 結束(附 stderr 最後一行,網址換成 `<網址>`)
+            - code: COLAB_BAD_RESPONSE
+              when: 以 0 結束,但 stdout 沒有 `[colab] Session READY.`
+            - code: COLAB_NOT_FOUND
+              when: 有 `[colab] Session READY.`,但接著的 `listSessions` 沒有 `[<名稱>]` 這一行
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /exec/start-ollama:
+    post:
+      operationId: startOllama
+      summary: 在執行環境上安裝並啟動 Ollama
+      description: >-
+        開啟工作階段的第二步(S5 的 `step` 為 `starting_ollama`,FR-001)。以 `colab exec -f` 執行本系統提供的初始化腳本
+        (`<scriptPath>` 是後端本機上那支腳本的路徑),`--env` 把下列環境變數設進遠端 kernel,腳本啟動的 Ollama 繼承它們:
+        `OLLAMA_HOST=127.0.0.1:11434`(只聽執行環境本機,不對外,NFR-003;S9 的 SSH 轉發接到這個位址)、
+        `OLLAMA_ORIGINS=*`(Q18、Q20:讓帶非本機 `Origin` 的瀏覽器程式經 Ollama 相容端點轉送後不被遠端回 403)。
+        命令列裡 `'OLLAMA_ORIGINS=*'` 的單引號是為了不讓 shell 展開 `*`,送出的值就是 `OLLAMA_ORIGINS=*`。
+        模型存放位置用 Ollama 預設的 `/root/.ollama/models`(research.md R4,不使用 Drive)。
+
+        遠端腳本的行為(冪等,重跑無害):
+        (a)先打 `http://127.0.0.1:11434/api/version`,已有回應就不安裝也不再啟動,直接回報(`alreadyRunning` 為 true);
+        (b)否則以 Ollama 官方安裝程式安裝(`curl -fsSL https://ollama.com/install.sh | sh`,research.md R1 實測 34.6 秒);
+        (c)以 `ollama serve` 背景啟動,`start_new_session=True`、輸出導到執行環境上的紀錄檔,讓它在這次 `exec` 結束後繼續執行;
+        (d)每秒打一次 `/api/version`,60 秒內有回應即成功;
+        (e)印出一行 `CGB-RESULT <JSON>`(`StartOllamaScriptResult`),失敗時 `ok` 為 false 並寫明失敗在哪一段(`stage`)。
+
+        `--timeout 240` 是 CLI 等遠端執行完成的時限(research.md R1 實測整段 43 秒);子行程另設 300 秒的硬時限。
+        遇到 `Connection was lost` 時重跑一次(共用約定 6)。
+      x-requirements: [FR-001, NFR-003, SC-001]
+      x-callers: 本系統後端(開啟工作階段);`createSession` 成功之後
+      x-argv: >-
+        COLAB_CLI_REQUEST_TIMEOUT=60 colab exec -s <name> -f <scriptPath> --timeout 240
+        --env OLLAMA_HOST=127.0.0.1:11434 --env 'OLLAMA_ORIGINS=*' </dev/null
+      x-timeout: CLI `--timeout 240`;子行程 300 秒
+      x-retry: stderr 含 `Connection was lost` 時同一個命令列重跑一次
+      x-stdout: >-
+        安裝程式與 Ollama 的輸出(忽略),最後一個以 `CGB-RESULT ` 開頭的行是結果,
+        例如 `CGB-RESULT {"ok": true, "ollamaVersion": "0.40.15", "alreadyRunning": false}`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionNameInput'
+      responses:
+        '200':
+          description: Ollama 已在執行環境的 127.0.0.1:11434 回應
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaStarted'
+        default:
+          description: >-
+            找不到執行檔、授權失效、執行環境已不在、重試後連線仍中斷、逾時、遠端腳本回報失敗或丟出例外、子行程失敗,或輸出無法解析
+          x-error-codes:
+            - COLAB_NOT_INSTALLED
+            - COLAB_TIMEOUT
+            - COLAB_NOT_FOUND
+            - AUTH_REQUIRED
+            - COLAB_UNREACHABLE
+            - COLAB_REMOTE_ERROR
+            - COLAB_FAILED
+            - COLAB_BAD_RESPONSE
+          x-failure-rules: &execFailureRules
+            - code: COLAB_NOT_INSTALLED
+              when: 找不到 `colab` 執行檔
+            - code: COLAB_TIMEOUT
+              when: 超過子行程時限被終止
+            - code: COLAB_NOT_FOUND
+              when: >-
+                stdout 含 `[colab] Session '<名稱>' not found.`(本機沒有這個名稱,或伺服器上已經沒有),
+                或含 `appears to be lost (404/401)`(執行環境已被收回);這時不重試
+            - code: AUTH_REQUIRED
+              when: >-
+                stderr 含 `To authorize colab-cli, visit this URL`,或含 `: Unauthorized`
+            - code: COLAB_UNREACHABLE
+              when: >-
+                重跑一次之後 stderr 仍含 `Connection was lost`;或 stderr 含 `ConnectionError`、`Max retries exceeded`、
+                `NameResolutionError`、`Temporary failure in name resolution`
+            - code: COLAB_TIMEOUT
+              when: stderr 含 `TimeoutError`、`ReadTimeout` 或 `timed out`(CLI 的 `--timeout` 到了,或 HTTP 請求逾時)
+            - code: COLAB_FAILED
+              when: 以非 0 結束(附 stderr 最後一行,網址換成 `<網址>`)
+            - code: COLAB_REMOTE_ERROR
+              when: >-
+                以 0 結束,結果行的 `ok` 為 false(`message` 寫出 `stage` 與 `detail`);
+                或沒有結果行而 stderr 有 `Traceback (most recent call last)`(遠端腳本丟出例外,附 stderr 最後一行)
+            - code: COLAB_BAD_RESPONSE
+              when: 以 0 結束,但沒有 `CGB-RESULT ` 行且 stderr 沒有 traceback,或結果行不是符合 schema 的 JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /exec/probe-resources:
+    post:
+      operationId: probeResources
+      summary: 讀執行環境的剩餘磁碟與顯示記憶體
+      description: >-
+        Q7:Ollama API 不提供執行環境的剩餘磁碟(FR-022)與可用顯示記憶體(NFR-006),由這個操作經 `colab exec` 讀。
+        呼叫時機由 S5 決定(加入下載前的試算、模型目錄的 `mayNotFit`);讀不到時 S5 回 `DISK_SPACE_UNKNOWN`,
+        `reasonCode` 帶這裡的代碼(Q31)。
+
+        遠端腳本的行為(只讀,不改任何東西):
+        (a)磁碟:`shutil.disk_usage` 讀模型存放位置 `/root/.ollama/models` 所在的檔案系統(這個資料夾還不存在時讀 `/root`),
+        得到可用與總容量的位元組;
+        (b)顯示記憶體:執行 `nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader,nounits`(單位 MiB,
+        轉成位元組乘 1048576;多張 GPU 時取第一張);沒有 `nvidia-smi` 或執行失敗時三個欄位都是 null,不算失敗;
+        (c)印出一行 `CGB-RESULT <JSON>`(`ProbeScriptResult`);讀不到磁碟時 `ok` 為 false。
+        遇到 `Connection was lost` 時重跑一次(共用約定 6)。
+      x-requirements: [FR-022, NFR-006]
+      x-callers: 本系統後端(下載試算與加入下載、模型目錄);工作階段就緒時
+      x-argv: COLAB_CLI_REQUEST_TIMEOUT=60 colab exec -s <name> -f <scriptPath> --timeout 30 </dev/null
+      x-timeout: CLI `--timeout 30`;子行程 90 秒
+      x-retry: stderr 含 `Connection was lost` 時同一個命令列重跑一次
+      x-stdout: >-
+        最後一個以 `CGB-RESULT ` 開頭的行是結果,例如
+        `CGB-RESULT {"ok": true, "diskFreeBytes": 225485783040, "diskTotalBytes": 253338115072, "gpuName": "Tesla T4", "vramTotalBytes": 16106127360, "vramFreeBytes": 15727591424}`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionNameInput'
+      responses:
+        '200':
+          description: 剩餘磁碟與顯示記憶體(讀不到顯示記憶體時為 null)
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeResources'
+        default:
+          description: 與 `startOllama` 相同的失敗判定;遠端讀不到磁碟為 `COLAB_REMOTE_ERROR`
+          x-error-codes:
+            - COLAB_NOT_INSTALLED
+            - COLAB_TIMEOUT
+            - COLAB_NOT_FOUND
+            - AUTH_REQUIRED
+            - COLAB_UNREACHABLE
+            - COLAB_REMOTE_ERROR
+            - COLAB_FAILED
+            - COLAB_BAD_RESPONSE
+          x-failure-rules: *execFailureRules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /stop:
+    post:
+      operationId: stopSession
+      summary: 結束並釋放執行環境
+      description: >-
+        使用者結束、閒置自動結束、變更類型、開啟失敗後的清理與重連逾時都用這個操作釋放執行環境(FR-002、FR-007)。
+        `colab stop` 對本機沒有紀錄的名稱只印 `not found` 並以 0 結束(research.md R1 實測),對伺服器的釋放請求失敗時則丟出例外;
+        所以不論輸出是什麼(授權失效與找不到執行檔除外),都接著執行 `listSessions`:
+        看不到 `[<名稱>]` 才算結束成功(SC-003);仍看得到就再執行一次 `colab stop`、再回讀一次,
+        還在就是 `COLAB_STOP_UNCONFIRMED`,呼叫者在 UI 顯示釋放警告(S5 的 `releaseWarning`)。
+        名稱是 `?` 的執行環境 CLI 無法以名稱結束,本介面不提供結束它的方式(spec 邊界情況:不是本系統開的不關閉)。
+      x-requirements: [FR-002, FR-007, SC-003]
+      x-callers: 本系統後端(結束工作階段、閒置自動結束、變更類型、開啟失敗與失聯後的清理)
+      x-argv: COLAB_CLI_REQUEST_TIMEOUT=60 colab stop -s <name> </dev/null
+      x-timeout: 子行程 60 秒;每次回讀的 `listSessions` 另計 60 秒
+      x-retry: 回讀仍看得到名稱時,`colab stop` 與回讀各再做一次
+      x-stdout: >-
+        本機有這個名稱時依序是 `[colab] Stopping session '<名稱>'...` 與 `[colab] Session terminated.`;
+        沒有時一行 `[colab] Session '<名稱>' not found.`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionNameInput'
+      responses:
+        '200':
+          description: '`colab sessions` 已沒有這個名稱'
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoppedSession'
+        default:
+          description: 找不到執行檔、授權失效、回讀本身失敗,或兩次結束後回讀仍看得到這個名稱
+          x-error-codes:
+            - COLAB_NOT_INSTALLED
+            - AUTH_REQUIRED
+            - COLAB_UNREACHABLE
+            - COLAB_TIMEOUT
+            - COLAB_FAILED
+            - COLAB_BAD_RESPONSE
+            - COLAB_STOP_UNCONFIRMED
+          x-failure-rules:
+            - code: COLAB_NOT_INSTALLED
+              when: 找不到 `colab` 執行檔
+            - code: AUTH_REQUIRED
+              when: >-
+                `colab stop` 或回讀的 stderr 含 `To authorize colab-cli, visit this URL`,或含 `: Unauthorized`
+                (確認不了是否已釋放;呼叫者同樣要顯示釋放警告,並引導重新登入)
+            - code: COLAB_UNREACHABLE
+              when: 回讀的 `listSessions` 歸成 `COLAB_UNREACHABLE`(`colab stop` 本身的連線錯誤不直接回報,一律以回讀為準)
+            - code: COLAB_TIMEOUT
+              when: 回讀的 `listSessions` 歸成 `COLAB_TIMEOUT`
+            - code: COLAB_FAILED
+              when: 回讀的 `listSessions` 歸成 `COLAB_FAILED`
+            - code: COLAB_BAD_RESPONSE
+              when: 回讀的 `listSessions` 歸成 `COLAB_BAD_RESPONSE`
+            - code: COLAB_STOP_UNCONFIRMED
+              when: >-
+                兩次 `colab stop` 之後回讀仍看得到 `[<名稱>]`;`message` 附最後一次 `colab stop` 的 stderr 最後一行(網址換成 `<網址>`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /usage:
+    get:
+      operationId: getUsage
+      summary: 讀帳號的 compute units 餘額與每小時耗用
+      description: >-
+        FR-024:讀餘額、每小時耗用與運作中的執行環境數(research.md R1:來源是 Colab 後端 `GET /tun/m/ccu-info`)。
+        呼叫頻率由 S5 決定(至少每 5 分鐘一次,NFR-008)。
+        同一個操作也用來判斷是否已登入(research.md R2、S5 `getAuthStatus`):成功即已登入,`AUTH_REQUIRED` 即未登入,
+        其他失敗為確認不了。讀不到時不影響開啟與結束(使用者故事 4 驗收情境 5)。
+        `Active assignments` 是整個帳號運作中的執行環境數,包含不是本系統開的。
+      x-requirements: [FR-024, FR-008, NFR-008]
+      x-callers: 本系統後端(定時讀用量、查登入狀態)
+      x-argv: COLAB_CLI_REQUEST_TIMEOUT=60 colab usage </dev/null
+      x-timeout: 子行程 60 秒
+      x-stdout: >-
+        固定三行(CLI 0.7.5 `consumption.py` 的 `format_consumption_status`,數字一律兩位小數):
+        `Current balance: <餘額> compute units`、`Usage rate: <耗用>/hr`、`Active assignments: <數量>`,
+        解析用 `^Current balance: (-?\d+\.\d{2}) compute units$`、`^Usage rate: (-?\d+\.\d{2})/hr$`、`^Active assignments: (\d+)$`。
+        失敗時 stderr 有 `[colab] Warning: failed to fetch compute-unit info: <原因>` 並以 1 結束。
+      responses:
+        '200':
+          description: 三個值都解析得到
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountUsage'
+        default:
+          description: 找不到執行檔、授權失效、連不到 Colab、逾時、子行程失敗,或三行沒有都解析到
+          x-error-codes: [COLAB_NOT_INSTALLED, COLAB_TIMEOUT, AUTH_REQUIRED, COLAB_UNREACHABLE, COLAB_FAILED, COLAB_BAD_RESPONSE]
+          x-failure-rules:
+            - code: COLAB_NOT_INSTALLED
+              when: 找不到 `colab` 執行檔
+            - code: COLAB_TIMEOUT
+              when: 超過子行程時限被終止
+            - code: AUTH_REQUIRED
+              when: >-
+                stderr 含 `To authorize colab-cli, visit this URL`,或含 `: Unauthorized`
+            - code: COLAB_UNREACHABLE
+              when: >-
+                stderr 含 `ConnectionError`、`Max retries exceeded`、`NameResolutionError` 或 `Temporary failure in name resolution`
+            - code: COLAB_TIMEOUT
+              when: stderr 含 `ReadTimeout` 或 `timed out`
+            - code: COLAB_FAILED
+              when: 以非 0 結束(附 stderr 最後一行,網址換成 `<網址>`)
+            - code: COLAB_BAD_RESPONSE
+              when: 以 0 結束,但三行沒有都符合格式
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    SessionName:
+      type: string
+      pattern: '^cgb-[a-z0-9-]{1,60}$'
+      description: >-
+        工作階段的識別名稱,由本系統產生(research.md R1),與 S5 `Session.name` 同一個格式;
+        建議 `cgb-<yyyymmdd>-<hhmmss>-<4 碼十六進位>`,每次開啟都不同
+    GpuType:
+      type: string
+      enum: [T4, L4, G4, A100, H100]
+      description: 照 S5 `GpuType`;代入 `colab new --gpu`。TPU 與 CPU 不在範圍內
+    CliVersion:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: string
+          enum: ['0.7.5']
+          description: '`colab version` 印出的版本'
+    CreateSessionInput:
+      type: object
+      required: [name, gpu, highMem]
+      properties:
+        name:
+          $ref: '#/components/schemas/SessionName'
+        gpu:
+          $ref: '#/components/schemas/GpuType'
+        highMem:
+          type: boolean
+          description: true 時命令列加 `--high-mem`(照 S5 `RuntimeType.highMem`)
+    CreatedSession:
+      type: object
+      required: [name, hardware, shape, highMemIgnored]
+      properties:
+        name:
+          $ref: '#/components/schemas/SessionName'
+        hardware:
+          $ref: '#/components/schemas/Hardware'
+          description: 回讀時 `colab sessions` 列出的硬體
+        shape:
+          $ref: '#/components/schemas/Shape'
+          description: 回讀時 `colab sessions` 列出的形狀
+        highMemIgnored:
+          type: boolean
+          description: 要求了高 RAM 但 CLI 回報這種加速器只有一種形狀而忽略(L4)
+    SessionNameInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          $ref: '#/components/schemas/SessionName'
+    Hardware:
+      type: string
+      enum: [CPU, T4, L4, G4, A100, H100, V5E1, V6E1]
+      description: '`colab sessions` 的 `Hardware:` 欄(加速器 `NONE` 顯示為 `CPU`)'
+    Shape:
+      type: string
+      enum: [Standard, High-RAM]
+      description: '`colab sessions` 的 `Shape:` 欄'
+    Variant:
+      type: string
+      enum: [DEFAULT, GPU, TPU]
+      description: '`colab sessions` 的 `Variant:` 欄'
+    ListedSession:
+      type: object
+      required: [name, hardware, shape, variant]
+      description: 本機 CLI 狀態檔認得名稱的執行環境;不含 endpoint(NFR-010)
+      properties:
+        name:
+          type: string
+          description: '`[<名稱>]` 裡的名稱;以 `cgb-` 開頭的是本系統開的'
+        hardware:
+          $ref: '#/components/schemas/Hardware'
+        shape:
+          $ref: '#/components/schemas/Shape'
+        variant:
+          $ref: '#/components/schemas/Variant'
+    UnnamedAssignment:
+      type: object
+      required: [hardware, shape, variant]
+      description: 名稱是 `?` 的執行環境(伺服器上有、本機 CLI 狀態檔沒有);對應 S5 的 `UnmanagedRuntime`,不含 endpoint
+      properties:
+        hardware:
+          $ref: '#/components/schemas/Hardware'
+        shape:
+          $ref: '#/components/schemas/Shape'
+        variant:
+          $ref: '#/components/schemas/Variant'
+    SessionList:
+      type: object
+      required: [named, unnamed]
+      properties:
+        named:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListedSession'
+        unnamed:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnnamedAssignment'
+    StartOllamaScriptResult:
+      type: object
+      required: [ok]
+      description: 初始化腳本在 stdout 印出的 `CGB-RESULT ` 之後的一行 JSON
+      properties:
+        ok:
+          type: boolean
+        ollamaVersion:
+          type: string
+          description: '`ok` 為 true 時,`/api/version` 回的版本,例如 0.40.15'
+        alreadyRunning:
+          type: boolean
+          description: '`ok` 為 true 時,Ollama 在執行前就已經在回應(重跑的情況),沒有重新安裝與啟動'
+        stage:
+          type: string
+          enum: [install, start, verify]
+          description: '`ok` 為 false 時,失敗在哪一段:安裝、啟動 `ollama serve`、60 秒內等不到 `/api/version` 回應'
+        detail:
+          type: string
+          description: '`ok` 為 false 時的英文原因(安裝程式或 Ollama 紀錄的最後一行),原樣放進 `Error.message`'
+    OllamaStarted:
+      type: object
+      required: [ollamaVersion, alreadyRunning]
+      properties:
+        ollamaVersion:
+          type: string
+        alreadyRunning:
+          type: boolean
+    ProbeScriptResult:
+      type: object
+      required: [ok]
+      description: 資源探測腳本在 stdout 印出的 `CGB-RESULT ` 之後的一行 JSON
+      properties:
+        ok:
+          type: boolean
+        diskFreeBytes:
+          type: integer
+          minimum: 0
+        diskTotalBytes:
+          type: integer
+          minimum: 0
+        gpuName:
+          type: [string, 'null']
+        vramTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+        vramFreeBytes:
+          type: [integer, 'null']
+          minimum: 0
+        detail:
+          type: string
+          description: '`ok` 為 false 時的英文原因'
+    RuntimeResources:
+      type: object
+      required: [diskFreeBytes, diskTotalBytes, gpuName, vramTotalBytes, vramFreeBytes, checkedAt]
+      properties:
+        diskFreeBytes:
+          type: integer
+          minimum: 0
+          description: 模型存放位置所在檔案系統的可用空間,位元組;S5 `DownloadEstimate.freeDiskBytes` 用這個值
+        diskTotalBytes:
+          type: integer
+          minimum: 0
+          description: 同一個檔案系統的總容量,位元組
+        gpuName:
+          type: [string, 'null']
+          description: '`nvidia-smi` 報的 GPU 名稱,例如 Tesla T4;讀不到時為 null'
+        vramTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: >-
+            GPU 的顯示記憶體總量,位元組(T4 為 15360 MiB);S5 的 `vramBytes`(NFR-006「可用顯示記憶體」)建議用這個值;讀不到時為 null
+        vramFreeBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: 讀取當下尚未使用的顯示記憶體,位元組(已載入的模型會占用);讀不到時為 null
+        checkedAt:
+          type: string
+          format: date-time
+          description: 轉接層收到結果的時間;S5 的 `diskCheckedAt` 用這個值
+    StoppedSession:
+      type: object
+      required: [name, stopOutput]
+      properties:
+        name:
+          $ref: '#/components/schemas/SessionName'
+        stopOutput:
+          type: string
+          enum: [terminated, not_found, error]
+          description: >-
+            最後一次 `colab stop` 的輸出:`[colab] Session terminated.`、`[colab] Session '<名稱>' not found.`,或其他
+            (例如釋放請求丟出例外);不論是哪一種,成功都是以回讀為準
+    AccountUsage:
+      type: object
+      required: [balance, ratePerHour, activeAssignments, readAt]
+      properties:
+        balance:
+          type: number
+          description: '`Current balance:` 的 compute units 餘額(兩位小數)'
+        ratePerHour:
+          type: number
+          description: '`Usage rate:` 的每小時耗用 compute units(兩位小數);S5 `Usage.ratePerHour` 用這個值'
+        activeAssignments:
+          type: integer
+          minimum: 0
+          description: '`Active assignments:` 整個帳號運作中的執行環境數'
+        readAt:
+          type: string
+          format: date-time
+          description: 轉接層收到結果的時間;S5 `Usage.readAt` 用這個值
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - AUTH_REQUIRED
+            - COLAB_NOT_INSTALLED
+            - COLAB_FAILED
+            - COLAB_UNREACHABLE
+            - COLAB_TIMEOUT
+            - COLAB_BAD_RESPONSE
+            - COLAB_NOT_FOUND
+            - COLAB_ALLOCATION_REFUSED
+            - COLAB_ACCELERATOR_REJECTED
+            - COLAB_REMOTE_ERROR
+            - COLAB_STOP_UNCONFIRMED
+            - COLAB_UNSUPPORTED_VERSION
+          description: >-
+            轉接層歸成的原因代碼。`AUTH_REQUIRED` 與 S5 共用(Q26:CLI 授權失效不另造 `COLAB_` 代碼);
+            其他是 `COLAB_` 前綴(Q37)。`_NOT_INSTALLED`、`_FAILED`、`_UNREACHABLE`、`_TIMEOUT`、`_BAD_RESPONSE`、`_NOT_FOUND`
+            是共用後綴;`_ALLOCATION_REFUSED`、`_ACCELERATOR_REJECTED`、`_REMOTE_ERROR`、`_STOP_UNCONFIRMED`、`_UNSUPPORTED_VERSION`
+            是本介面另立的
+        message:
+          type: string
+          description: 給使用者看的繁體中文說明;遠端或 CLI 的英文原因附在後面,原樣不翻譯
+        stderrLastLine:
+          type: [string, 'null']
+          description: >-
+            `COLAB_FAILED`、`COLAB_REMOTE_ERROR`、`COLAB_STOP_UNCONFIRMED` 時附 stderr 最後一個非空行,
+            其中的網址換成 `<網址>`(不讓 endpoint 出現,NFR-010);其他代碼為 null
