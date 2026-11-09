@@ -3,3 +3,4 @@
 !pyproject.toml
 !src/
 !specs/001-session-model-catalog/deploy/prepare-data.sh
+!specs/001-session-model-catalog/deploy/healthcheck.py

@@ -202,3 +202,9 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q86 | S10 | 與 S11 的分工:本步驟不寫 ports、listen 位址、HTTP 健康檢查;已加 `init: true`(tini 回收 ssh 子行程) | S11 | 照先採用;S11 保留 `init: true` 與 `/data` 健康檢查(kevin-twin 代為決定) |
 | Q87 | S10 | 後端寫檔約定:讀 `CGB_DATA_DIR`、`CGB_DB_PATH`、`CGB_COLAB_CONFIG_DIR`、`CGB_SSH_IDENTITY_PATH`,權限靠 umask 077(先採用) | — | (a)(kevin-twin 代為決定) |
 | Q88 | S10 | 搬上 Unraid 的資料位置:SQLite WAL 不放 `/mnt/user` FUSE,建議 cache/pool 的 appdata 實際路徑;備份目的地要權限受限。(a)只在 `.env.example` 提醒(先採用);(b)另寫部署說明 | — | (a)(kevin-twin 代為決定) |
+| Q89 | S11 | 健康檢查會重設閒置計時(FR-026)。(a)Ollama port 只確認 TCP、UI port 送 `GET /api/session`(先採用);(b)S6 排除 127.0.0.1 的檢查請求;(c)不檢查 Ollama port | — | (a)(kevin-twin 代為決定) |
+| Q90 | S11 | 桌機 11434 已被使用者的 Ollama 占用。(a)預設 11434,桌機驗收在 `.env` 填 `CGB_HOST_OLLAMA_PORT=11436`(先採用);(b)停掉使用者的 Ollama;(c)預設改用別的 port | — | (a)(kevin-twin 代為決定) |
+| Q91 | S11 | UI port。(a)8780,可用 `CGB_HOST_UI_PORT` 改(先採用);Tower 上是否被占用待搬遷前確認 | — | (a)(kevin-twin 代為決定) |
+| Q92 | S11 | 綁定位址。(a)預設 `0.0.0.0`,不對外網靠路由器不轉發,可用 `CGB_BIND_ADDR` 限縮;Docker 發布的 port 不經 ufw(先採用);(b)`CGB_BIND_ADDR` 必填 | — | (a)(kevin-twin 代為決定) |
+| Q93 | S11 | 單一行程 `python -m cgb` 跑兩個 uvicorn,環境變數 `CGB_LISTEN_HOST`、`CGB_UI_PORT`、`CGB_OLLAMA_PORT`、`CGB_TUNNEL_LOCAL_PORT`(先採用);(b)兩個行程 | — | (a)(kevin-twin 代為決定) |
+| Q94 | S11 | 為放行 `healthcheck.py` 在 S10 的 `Dockerfile.dockerignore` 加一行。(a)維持(先採用);(b)改成 compose 內單行 python | — | (a)(kevin-twin 代為決定) |

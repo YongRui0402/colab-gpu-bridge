@@ -1,5 +1,20 @@
 name: colab-gpu-bridge
-x-source: S10(E10 檔案系統)依 spec.md、plan.md、research.md(R2、R3、R10、R11)與前幾步的規格檔(S3 google-oauth、S7 store.dbml、S8 colab-cli、S9 tunnel)產出;對外 port、listen 位址與服務啟動指令留給 S11(E11 部署與網路)接著改
+x-source: S10(E10 檔案系統)依 spec.md、plan.md、research.md(R2、R3、R10、R11)與前幾步的規格檔(S3 google-oauth、S7 store.dbml、S8 colab-cli、S9 tunnel)產出;S11(E11 部署與網路)依 spec.md(NFR-009、NFR-012、假設)、research.md R11 與 S5 ui.openapi、ui-events.asyncapi、S6 ollama-compat、S9 tunnel 補上對外 port、listen 位址、啟動指令與 HTTP 健康檢查
+# 對外入口。家中區網(含 VPN 連回)可連、不需要登入、不對外網公開(NFR-009);由這裡的 port 綁定處理,不經反向代理(spec 假設)。
+# 兩個入口是同一個後端行程(python -m cgb)裡的兩個 uvicorn 伺服器:工作階段狀態、閒置計時與下載佇列共用同一份記憶體,不能拆成兩個行程。
+x-ports:
+  - name: UI(前端靜態檔、S5 UI API `/api`、S5 SSE `/api/events`)
+    container: "0.0.0.0:8780"
+    host: ${CGB_BIND_ADDR:-0.0.0.0}:${CGB_HOST_UI_PORT:-8780}
+    published: 區網
+  - name: Ollama 相容端點(S6,路徑照 Ollama 原樣:`/`、`/api/generate`、`/api/chat` 等)
+    container: "0.0.0.0:11434"
+    host: ${CGB_BIND_ADDR:-0.0.0.0}:${CGB_HOST_OLLAMA_PORT:-11434}
+    published: 區網;預設 11434 是 Ollama 的慣例,區網程式只要把主機名稱換成本系統所在主機
+  - name: SSH 通道的本機轉發(S9)
+    container: "127.0.0.1:11435"
+    host: 不發布
+    published: 只在容器內部使用;不寫進 ports 與 expose(Q72)
 # /data 底下的配置。路徑是容器內的;主機那一側只有一個掛載點(${CGB_HOST_DATA})。
 # 權限:容器以 root 執行,cgb-prepare-data 以 umask 077 啟動後端,目錄 0700、檔案 0600(不跟隨符號連結)。
 x-data-layout:
@@ -53,27 +68,37 @@ x-data-layout:
     owner: 只留在後端記憶體,後端重啟後失效(Q17)
 services:
   cgb:
-    x-requirements: [NFR-010, NFR-012, FR-005, FR-008]
+    x-requirements: [NFR-009, NFR-010, NFR-012, FR-005, FR-008, FR-011, FR-026]
     image: colab-gpu-bridge:0.1.0
     build:
       context: ../../..
       dockerfile: specs/001-session-model-catalog/deploy/Dockerfile
     init: true
+    command: ["python", "-m", "cgb"]
+    ports:
+      - "${CGB_BIND_ADDR:-0.0.0.0}:${CGB_HOST_UI_PORT:-8780}:8780"
+      - "${CGB_BIND_ADDR:-0.0.0.0}:${CGB_HOST_OLLAMA_PORT:-11434}:11434"
     environment:
       HOME: /root
       CGB_DATA_DIR: /data
       CGB_DB_PATH: /data/cgb.sqlite3
       CGB_COLAB_CONFIG_DIR: /data/colab-cli
       CGB_SSH_IDENTITY_PATH: /data/ssh/id_ed25519
+      CGB_LISTEN_HOST: 0.0.0.0
+      CGB_UI_PORT: 8780
+      CGB_OLLAMA_PORT: 11434
+      CGB_TUNNEL_LOCAL_PORT: 11435
     volumes:
       - ${CGB_HOST_DATA:-cgb-data}:/data
     tmpfs:
       - /data/colab-cli/history:mode=0700,size=16m
+    # 先照 S10 檢查 /data 的配置,再檢查兩個入口(見 healthcheck.py:Ollama 相容端點只連 TCP,不送 HTTP,免得重設閒置計時)
     healthcheck:
-      test: ["CMD", "cgb-prepare-data", "--check"]
-      interval: 60s
-      timeout: 5s
+      test: ["CMD-SHELL", "cgb-prepare-data --check && cgb-healthcheck"]
+      interval: 30s
+      timeout: 10s
       retries: 3
+      start_period: 30s
     restart: unless-stopped
 volumes:
   cgb-data:
