@@ -279,3 +279,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q163 | implement T045 | 〔任務 T045b〕授權碼去掉空白後為空字串時,合約要回 400 `INVALID_AUTH_CODE`,testplan 沒有案例、未實作。(a)列為未覆蓋;(b)補案例 | — | (a);無花費風險,同 Q131 列入完成報告的未覆蓋(kevin-twin 代為決定) |
 | Q164 | implement T081 | 〔任務 T081a,E5 補充〕`test_stop_that_times_out_is_still_judged_by_session_list` 平行時約 1/13 會紅(斷言耗時 ≤ 1.5 秒)。主 agent 在無平行時全部測試連跑 3 次皆 205 passed、單獨 10 次皆過。(a)放寬時間餘裕;(b)維持,實跑時留意 | — | (b)(kevin-twin 代為決定) |
 | Q165 | implement T111 | 〔任務 T111b〕`_ended` 先等 stderr 讀完(最多 1 秒)再收尾整個 group;真 ProxyCommand 佔著 stderr,失敗回報固定多等 1 秒,不卡事件迴圈。(a)先收尾再讀 stderr;(b)維持 | — | (b)(kevin-twin 代為決定) |
+| Q166 | implement T140 | 〔任務 T140a〕US1-AJ-10 要「L4 勾高 RAM」,但原型與 colab-cli 合約 L4 不支援高 RAM、勾選框停用。(a)testplan 改用 G4 加高 RAM;(b)原型改成 L4 也能勾 | T140a、T140b | (a)(kevin-twin 代為決定) |
+| Q167 | implement T144 | 〔任務 T144b〕`[data-state="resuming"]` 接回期間 API 無欄位可分辨。(a)recovery 接回期間報 reconnecting;(b)照 Q117 留給 G-06(T250b);(c)接受 ⚙ 不完整 | T250b | (b)(kevin-twin 代為決定) |
+| Q168 | implement T138 | 〔任務 T138b、T141b〕越界改檔:T138b 在 `static/index.html` 加 `needs-login` 區塊(⚙ 列的元素);T141b 在 `api/__init__.py` 掛 `models.router`。(a)追認;(b)撤回另開任務 | — | (a);照 Q155(a) 前例(kevin-twin 代為決定) |
+| Q169 | implement T147 | 〔任務 T147b〕服務層寫死 `TUNNEL_LOCAL_PORT = 11435`,`CGB_TUNNEL_LOCAL_PORT` 不生效;`HealthMonitor` 自讀 `CGB_SSH_IDENTITY_PATH`,預設值寫兩份。(a)Phase 6 重構時從 `AppState` 注入;(b)列入完成報告,compose 先用預設值 | — | (b);compose 的值與預設一致,不影響本次迭代(kevin-twin 代為決定) |
