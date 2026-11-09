@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -34,6 +35,19 @@ async def failure_of_or_result(call):
         return await call
     except Exception as error:  # noqa: BLE001
         return error
+
+
+@pytest.fixture(autouse=True)
+def kill_leftover_fake_children(fake_cli):
+    """測試結束後,把假 `colab` 分出、仍活著的子行程清掉(紅燈時被測程式沒清,也不讓它留在桌機上)。"""
+    yield
+    for call in fake_cli.calls("colab"):
+        for pid in (call.get("child_pid"), call["pid"]):
+            if pid is not None:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
 
 
 def code_of(error):
@@ -581,3 +595,419 @@ async def test_session_list_times_out_and_leaves_no_process_behind(fake_cli):
     assert len(pids) == 1
     ps = subprocess.run(["ps", "-o", "pid=,stat=", "-p", ",".join(pids)], capture_output=True, text=True, check=False)
     assert ps.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------- US1-CLI-22~41(Q134 補充案例)
+
+# 先分出一個常駐的子行程(同一個 process group,模擬 `sleep 30 &`),自己再睡 30 秒
+HANGS_WITH_CHILD = {"spawn_child": True, "sleep": 30}
+SHORT = 0.5
+
+
+def processes_still_present(pids):
+    """`ps` 還看得到的行程(含 defunct);空清單表示都已結束並被回收。"""
+    pids = [str(pid) for pid in pids if pid is not None]
+    if not pids:
+        return []
+    ps = subprocess.run(["ps", "-o", "pid=,stat=", "-p", ",".join(pids)], capture_output=True, text=True, check=False)
+    return ps.stdout.split("\n")[:-1] if ps.stdout.strip() else []
+
+
+def fake_and_child_pids(fake_cli):
+    calls = fake_cli.calls("colab")
+    return [call["pid"] for call in calls] + [call.get("child_pid") for call in calls]
+
+
+async def timed(call):
+    started = time.monotonic()
+    error = await failure_of(call)
+    return error, time.monotonic() - started
+
+
+# ---------------------------------------------------------------- US1-CLI-22
+
+
+async def test_cli_version_times_out_and_ends_cli_with_its_children(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {"version": HANGS_WITH_CHILD}})
+    colab = ColabControl(timeouts=CliTimeouts(version=SHORT))
+
+    # Act
+    error, elapsed = await timed(colab.get_cli_version())
+
+    # Assert
+    assert code_of(error) == "COLAB_TIMEOUT"
+    assert SHORT <= elapsed <= 1.5
+    assert len(fake_cli.calls("colab")) == 1
+    assert processes_still_present(fake_and_child_pids(fake_cli)) == []
+
+
+# ---------------------------------------------------------------- US1-CLI-23
+
+
+async def test_create_session_times_out_and_ends_cli_with_its_children(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {"new -s cgb-test-0001 --gpu T4": HANGS_WITH_CHILD}})
+    colab = ColabControl(timeouts=CliTimeouts(new=SHORT))
+
+    # Act
+    error, elapsed = await timed(colab.create_session(name="cgb-test-0001", gpu="T4", high_mem=False))
+
+    # Assert
+    assert code_of(error) == "COLAB_TIMEOUT"
+    assert SHORT <= elapsed <= 1.5
+    assert processes_still_present(fake_and_child_pids(fake_cli)) == []
+
+
+# ---------------------------------------------------------------- US1-CLI-24
+
+
+@pytest.mark.parametrize(
+    ("method", "argv"),
+    [("start_ollama", START_OLLAMA_ARGV), ("probe_resources", PROBE_ARGV)],
+)
+async def test_exec_times_out_without_retry_and_ends_cli_with_its_children(fake_cli, method, argv):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(argv): HANGS_WITH_CHILD}})
+    colab = ColabControl(timeouts=CliTimeouts(start_ollama=SHORT, probe_resources=SHORT))
+
+    # Act
+    error, elapsed = await timed(getattr(colab, method)(name="cgb-test-0001"))
+
+    # Assert
+    assert code_of(error) == "COLAB_TIMEOUT"
+    assert SHORT <= elapsed <= 1.5
+    assert processes_still_present(fake_and_child_pids(fake_cli)) == []
+    assert len(fake_cli.calls("colab")) == 1
+
+
+# ---------------------------------------------------------------- US1-CLI-25
+
+
+async def test_stop_that_times_out_is_still_judged_by_session_list(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {STOP_ARGV: {"sleep": 30}, "sessions": NO_SESSIONS}})
+    colab = ColabControl(timeouts=CliTimeouts(stop=SHORT))
+    started = time.monotonic()
+
+    # Act
+    result = await failure_of_or_result(colab.stop_session(name="cgb-test-0001"))
+    elapsed = time.monotonic() - started
+
+    # Assert
+    assert isinstance(result, dict) and result.get("name") == "cgb-test-0001"
+    # 要抓的錯是「colab stop 沒有時限」:沒有時限時要等滿 30 秒
+    assert elapsed <= 1.5
+    stop_calls, sessions_calls = calls_of(fake_cli, "stop"), calls_of(fake_cli, "sessions")
+    assert len(stop_calls) == 1 and len(sessions_calls) == 1
+    assert sessions_calls[0]["time"] >= stop_calls[0]["time"] + SHORT
+    assert processes_still_present([stop_calls[0]["pid"]]) == []
+
+
+# ---------------------------------------------------------------- US1-CLI-26
+
+
+async def test_stop_whose_session_list_times_out_is_timeout(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {STOP_ARGV: STOP_TERMINATED, "sessions": {"sleep": 30}}})
+    colab = ColabControl(timeouts=CliTimeouts(sessions=SHORT, stop=SHORT))
+
+    # Act
+    error = await failure_of(colab.stop_session(name="cgb-test-0001"))
+
+    # Assert
+    assert code_of(error) == "COLAB_TIMEOUT"
+    assert processes_still_present([call["pid"] for call in calls_of(fake_cli, "sessions")]) == []
+
+
+# ---------------------------------------------------------------- US1-CLI-27
+
+
+async def test_usage_times_out_and_ends_cli_with_its_children(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {"usage": HANGS_WITH_CHILD}})
+    colab = ColabControl(timeouts=CliTimeouts(usage=SHORT))
+
+    # Act
+    error, elapsed = await timed(colab.get_usage())
+
+    # Assert
+    assert code_of(error) == "COLAB_TIMEOUT"
+    assert SHORT <= elapsed <= 1.5
+    assert processes_still_present(fake_and_child_pids(fake_cli)) == []
+
+
+# ---------------------------------------------------------------- US1-CLI-28
+
+
+@pytest.mark.parametrize(
+    ("last_line", "expected"),
+    [
+        ("requests.exceptions.ConnectionError: x", "COLAB_UNREACHABLE"),
+        ("Max retries exceeded with url: /tun/m", "COLAB_UNREACHABLE"),
+        ("NameResolutionError: x", "COLAB_UNREACHABLE"),
+        ("Temporary failure in name resolution", "COLAB_UNREACHABLE"),
+        ("requests.exceptions.ReadTimeout: x", "COLAB_TIMEOUT"),
+        ("Read timed out.", "COLAB_TIMEOUT"),
+    ],
+)
+async def test_session_list_network_failures_are_told_apart(fake_cli, last_line, expected):
+    # Arrange
+    fake_cli.script({"colab": {"sessions": {"stderr": f"Traceback (most recent call last):\n{last_line}\n", "exit": 1}}})
+
+    # Act
+    error = await failure_of(ColabControl().list_sessions())
+
+    # Assert
+    assert code_of(error) == expected
+
+
+# ---------------------------------------------------------------- US1-CLI-29
+
+NETWORK_MARKERS = [
+    ("ConnectionError", "COLAB_UNREACHABLE"),
+    ("Max retries exceeded", "COLAB_UNREACHABLE"),
+    ("NameResolutionError", "COLAB_UNREACHABLE"),
+    ("Temporary failure in name resolution", "COLAB_UNREACHABLE"),
+    ("ReadTimeout", "COLAB_TIMEOUT"),
+    ("timed out", "COLAB_TIMEOUT"),
+]
+
+
+@pytest.mark.parametrize(("marker", "expected"), NETWORK_MARKERS)
+async def test_create_session_network_failures_are_told_apart(fake_cli, marker, expected):
+    # Arrange
+    fake_cli.script({"colab": {"new -s cgb-test-0001 --gpu T4": {"stderr": f"error: {marker}\n", "exit": 1}}})
+
+    # Act
+    error = await failure_of(ColabControl().create_session(name="cgb-test-0001", gpu="T4", high_mem=False))
+
+    # Assert
+    assert code_of(error) == expected
+
+
+# ---------------------------------------------------------------- US1-CLI-30
+
+
+@pytest.mark.parametrize(("marker", "expected"), [*NETWORK_MARKERS[:4], ("TimeoutError", "COLAB_TIMEOUT"), *NETWORK_MARKERS[4:]])
+async def test_start_ollama_network_failures_are_told_apart_without_retry(fake_cli, marker, expected):
+    # Arrange
+    fake_cli.script(start_ollama_script({"stderr": f"error: {marker}\n", "exit": 1}))
+
+    # Act
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+
+    # Assert
+    assert code_of(error) == expected
+    assert len(fake_cli.calls("colab")) == 1
+
+
+# ---------------------------------------------------------------- US1-CLI-31
+
+
+@pytest.mark.parametrize(("marker", "expected"), NETWORK_MARKERS)
+async def test_usage_network_failures_are_told_apart(fake_cli, marker, expected):
+    # Arrange
+    fake_cli.script({"colab": {"usage": {"stderr": f"[colab] Warning: failed to fetch compute-unit info: {marker}\n", "exit": 1}}})
+
+    # Act
+    error = await failure_of(ColabControl().get_usage())
+
+    # Assert
+    assert code_of(error) == expected
+
+
+# ---------------------------------------------------------------- US1-CLI-32
+
+AUTH_FAILURES = {
+    "authorize-url": "To authorize colab-cli, visit this URL: https://accounts.google.com/o/oauth2/auth?x=1\n",
+    "http-401": f"requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: {FAKE_ENDPOINT}/x\n",
+}
+
+
+@pytest.mark.parametrize("stderr", AUTH_FAILURES.values(), ids=AUTH_FAILURES.keys())
+async def test_session_list_without_valid_authorization_is_auth_required(fake_cli, stderr):
+    # Arrange
+    fake_cli.script({"colab": {"sessions": {"stderr": stderr, "exit": 1}}})
+
+    # Act
+    error = await failure_of(ColabControl().list_sessions())
+
+    # Assert
+    assert code_of(error) == "AUTH_REQUIRED"
+
+
+# ---------------------------------------------------------------- US1-CLI-33
+
+
+@pytest.mark.parametrize("stderr", AUTH_FAILURES.values(), ids=AUTH_FAILURES.keys())
+async def test_create_session_without_valid_authorization_is_auth_required(fake_cli, stderr):
+    # Arrange
+    fake_cli.script({"colab": {"new -s cgb-test-0001 --gpu T4": {"stderr": stderr, "exit": 1}}})
+
+    # Act
+    error = await failure_of(ColabControl().create_session(name="cgb-test-0001", gpu="T4", high_mem=False))
+
+    # Assert
+    assert code_of(error) == "AUTH_REQUIRED"
+
+
+# ---------------------------------------------------------------- US1-CLI-34
+
+
+@pytest.mark.parametrize("stderr", AUTH_FAILURES.values(), ids=AUTH_FAILURES.keys())
+async def test_start_ollama_without_valid_authorization_is_auth_required_without_retry(fake_cli, stderr):
+    # Arrange
+    fake_cli.script(start_ollama_script({"stderr": stderr, "exit": 1}))
+
+    # Act
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+
+    # Assert
+    assert code_of(error) == "AUTH_REQUIRED"
+    assert len(fake_cli.calls("colab")) == 1
+
+
+# ---------------------------------------------------------------- US1-CLI-35
+
+
+async def test_stop_without_valid_authorization_is_auth_required_without_session_list(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {STOP_ARGV: {"stderr": AUTH_FAILURES["authorize-url"], "exit": 1}}})
+
+    # Act
+    error = await failure_of(ColabControl().stop_session(name="cgb-test-0001"))
+
+    # Assert
+    assert code_of(error) == "AUTH_REQUIRED"
+    assert calls_of(fake_cli, "sessions") == []
+
+
+# ---------------------------------------------------------------- US1-CLI-36
+
+
+@pytest.mark.parametrize(
+    ("gpu", "stderr", "expected"),
+    [
+        ("T4", "[colab] Allocation refused (precondition failed).\n", "COLAB_ALLOCATION_REFUSED"),
+        ("L4", "[colab] Backend rejected accelerator 'L4' for this account.\n", "COLAB_ACCELERATOR_REJECTED"),
+    ],
+    ids=["allocation-refused", "accelerator-rejected"],
+)
+async def test_create_session_tells_refused_allocation_from_rejected_accelerator(fake_cli, gpu, stderr, expected):
+    # Arrange
+    fake_cli.script({"colab": {f"new -s cgb-test-0001 --gpu {gpu}": {"stderr": stderr, "exit": 1}}})
+
+    # Act
+    error = await failure_of(ColabControl().create_session(name="cgb-test-0001", gpu=gpu, high_mem=False))
+
+    # Assert
+    assert code_of(error) == expected
+
+
+# ---------------------------------------------------------------- US1-CLI-37
+
+CRASH = {
+    "stderr": f"Traceback (most recent call last):\n  File x\nRuntimeError: boom at {FAKE_ENDPOINT}/x\n\n",
+    "exit": 2,
+}
+CALLS_THAT_CRASH = {
+    "get_cli_version": ("version", lambda colab: colab.get_cli_version()),
+    "list_sessions": ("sessions", lambda colab: colab.list_sessions()),
+    "create_session": (
+        "new -s cgb-test-0001 --gpu T4",
+        lambda colab: colab.create_session(name="cgb-test-0001", gpu="T4", high_mem=False),
+    ),
+    "start_ollama": (shlex.join(START_OLLAMA_ARGV), lambda colab: colab.start_ollama(name="cgb-test-0001")),
+}
+
+
+@pytest.mark.parametrize("method", CALLS_THAT_CRASH.keys())
+async def test_cli_exiting_non_zero_is_failed_with_last_non_blank_stderr_line_masked(fake_cli, method):
+    # Arrange
+    key, call = CALLS_THAT_CRASH[method]
+    fake_cli.script({"colab": {key: CRASH}})
+
+    # Act
+    error = await failure_of(call(ColabControl()))
+
+    # Assert
+    assert code_of(error) == "COLAB_FAILED"
+    assert error.stderr_last_line == "RuntimeError: boom at <網址>"
+
+
+# ---------------------------------------------------------------- US1-CLI-38
+
+
+async def test_create_session_without_session_ready_is_bad_response(fake_cli):
+    # Arrange
+    fake_cli.script(
+        {
+            "colab": {
+                "new -s cgb-test-0001 --gpu T4": {"stdout": "[colab] Creating session 'cgb-test-0001'...\n", "exit": 0},
+                "sessions": SESSIONS_WITH_0001,
+            }
+        }
+    )
+
+    # Act
+    error = await failure_of(ColabControl().create_session(name="cgb-test-0001", gpu="T4", high_mem=False))
+
+    # Assert
+    assert code_of(error) == "COLAB_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------- US1-CLI-39
+
+
+@pytest.mark.parametrize(
+    "stdout",
+    ["[colab] Session 'cgb-test-0001' not found.\n", "[colab] Runtime appears to be lost (404/401).\n"],
+    ids=["not-found", "lost"],
+)
+async def test_start_ollama_on_runtime_that_is_gone_is_not_found_without_retry(fake_cli, stdout):
+    # Arrange
+    fake_cli.script(start_ollama_script({"stdout": stdout, "exit": 0}))
+
+    # Act
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+
+    # Assert
+    assert code_of(error) == "COLAB_NOT_FOUND"
+    assert len(fake_cli.calls("colab")) == 1
+
+
+# ---------------------------------------------------------------- US1-CLI-40
+
+
+async def test_start_ollama_result_not_ok_is_remote_error_with_stage_and_detail(fake_cli):
+    # Arrange
+    result = 'CGB-RESULT {"ok": false, "stage": "install", "detail": "curl: (22) error 503"}\n'
+    fake_cli.script(start_ollama_script({"stdout": INSTALLER_OUTPUT + result, "exit": 0}))
+
+    # Act
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+
+    # Assert
+    assert code_of(error) == "COLAB_REMOTE_ERROR"
+    assert "install" in error.message
+    assert "curl: (22) error 503" in error.message
+
+
+# ---------------------------------------------------------------- US1-CLI-41
+
+
+@pytest.mark.parametrize(
+    "stdout",
+    [INSTALLER_OUTPUT, INSTALLER_OUTPUT + "CGB-RESULT {ok: true\n"],
+    ids=["no-result-line", "invalid-json"],
+)
+async def test_probe_resources_without_a_valid_result_line_is_bad_response(fake_cli, stdout):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(PROBE_ARGV): {"stdout": stdout, "exit": 0}}})
+
+    # Act
+    error = await failure_of(ColabControl().probe_resources(name="cgb-test-0001"))
+
+    # Assert
+    assert code_of(error) == "COLAB_BAD_RESPONSE"

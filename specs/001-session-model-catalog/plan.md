@@ -264,3 +264,6 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q148 | tasks | 〔testplan 提出〕`ensureTunnelKey`「第一行 stdout 為空 → `TUNNEL_FAILED`」照字面永遠失敗(`ssh-keygen -q` 成功時本來就沒輸出)。(a)讀成「第一行跑完後 keyPath 仍不存在」,S9 合約改寫;(b)照字面 | S9 | (a)(kevin-twin 代為決定) |
 | Q149 | tasks | 〔testplan 提出〕ssh-keygen 10 秒時限在測試中縮短。(a)`Tunnel` 建構參數加 `keygen_timeout`;(b)不縮短 | — | (a)(kevin-twin 代為決定) |
 | Q150 | tasks | 〔tasks 提出〕Q141、Q142 在 E6 後新增一節 T110a–T120,原 T110–T281 整批改為 T121–T292(Q146 那次之後的第二次平移);plan.md 的引用已同步加 11,Q146 保留當時的編號作為紀錄 | — | 已同步(本列為紀錄)(kevin-twin 代為決定) |
+| Q151 | implement T095 | 〔任務 T095b〕exec 重跑後的輸出沒有再判一次 `COLAB_NOT_FOUND`(第二次輸出 not found/lost 時落到 `COLAB_BAD_RESPONSE`)。(a)補案例;(b)維持,列為未覆蓋 | — | (b);不會造成卡住或扣點,列入完成報告的未覆蓋(kevin-twin 代為決定) |
+| Q152 | implement T097 | 〔任務 T097b〕`probe_resources` 成功時仍回 `{}`,由 US3-CLI-01/02 補。(a)照計畫由故事 3 補;(b)現在補 | — | (a);E2 不得依賴其回傳值(kevin-twin 代為決定) |
+| Q153 | implement T078 | 〔任務 T078b〕實作途中桌機曾留下一個假 colab 分出的 `sleep` 子行程,根因未明;測試檔加了每個測試結束時清除子行程的 fixture。主 agent 連跑逾時測試 20 次,本 pytest 結束時皆無持續殘留(唯一一次的計數出現在本 pytest 結束 2 秒後,來自同時執行的 E2 全套測試)。(a)接受,實跑階段再以 ps 確認;(b)另外排查 | — | (a)(kevin-twin 代為決定) |
