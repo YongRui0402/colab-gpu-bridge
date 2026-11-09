@@ -104,7 +104,15 @@ def session_payload(row: dict[str, Any] | None, unmanaged_runtimes: list[dict[st
         "endedAt": row["ended_at"],
         "releaseWarning": _release_warning(row),
         "idle": _idle(row),
+        "reconnect": _reconnect(row),
     }
+
+
+def _reconnect(row: dict[str, Any]) -> dict[str, Any] | None:
+    """FR-004:只在重連中時有值(contracts/ui.openapi.yaml § Reconnect)。"""
+    if row["state"] != "reconnecting" or row["reconnect_started_at"] is None:
+        return None
+    return {"startedAt": row["reconnect_started_at"], "deadline": row["reconnect_deadline"]}
 
 
 def _idle(row: dict[str, Any]) -> dict[str, Any] | None:

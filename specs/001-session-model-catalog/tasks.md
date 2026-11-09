@@ -219,11 +219,11 @@
   - 🧪 `testplan.md` § US1-API-17
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`
   - 📎 `spec.md` § FR-003、FR-004
-- [ ] T032a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-18 的測試(`check_health` 回失敗 1 次;重連第 1 輪 `open_tunnel` 回 `TUNNEL_ALREADY_CONNECTED`、第 2 輪成功),執行確認它因為「重連時另開新的執行環境」這類實作而失敗
+- [X] T032a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US1-API-18 的測試(`check_health` 回失敗 1 次;重連第 1 輪 `open_tunnel` 回 `TUNNEL_ALREADY_CONNECTED`、第 2 輪成功),執行確認它因為「重連時另開新的執行環境」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-18
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}/reconnect.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-004
-- [ ] T032b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T032a)
+- [X] T032b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/domain/session_state.py` 只寫讓 US1-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T032a)
   - 🧪 `testplan.md` § US1-API-18
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}/reconnect.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-004
@@ -323,11 +323,11 @@
   - 🧪 `testplan.md` § US1-API-30
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T045a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auth.py` 寫 US1-API-31 的測試(以 `{code:"  4/cgb-test-code  "}` 送出),執行確認它因為「沒去空白,貼上時多帶的空白讓 Google 回 invalid_grant」這類實作而失敗
+- [X] T045a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auth.py` 寫 US1-API-31 的測試(以 `{code:"  4/cgb-test-code  "}` 送出),執行確認它因為「沒去空白,貼上時多帶的空白讓 Google 回 invalid_grant」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-31
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendAuthUpdated`
   - 📎 `spec.md` § FR-008
-- [ ] T045b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/auth.py`、`src/cgb/services/auth.py` 只寫讓 US1-API-31 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T045a)
+- [X] T045b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/auth.py`、`src/cgb/services/auth.py` 只寫讓 US1-API-31 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T045a)
   - 🧪 `testplan.md` § US1-API-31
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendAuthUpdated`
   - 📎 `spec.md` § FR-008

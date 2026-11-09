@@ -5,6 +5,7 @@
 """
 
 import secrets
+from collections.abc import Callable
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
@@ -16,6 +17,8 @@ class AuthService:
     def __init__(self, state: Any) -> None:
         self._state = state
         self._status: dict[str, Any] | None = None
+        # 登入狀態每次判斷之後呼叫(推送 auth.updated 用)
+        self.listeners: list[Callable[[dict[str, Any]], None]] = []
         # 同一時間只有最新的一次授權流程有效;`code_verifier` 只放記憶體,後端重啟就失效(Q17)
         self._flow: dict[str, str] | None = None
 
@@ -26,6 +29,8 @@ class AuthService:
             "reasonCode": reason_code,
             "message": None,
         }
+        for listener in list(self.listeners):
+            listener(self._status)
         return self._status
 
     def mark_logged_out(self) -> None:
@@ -57,7 +62,8 @@ class AuthService:
             # Q46、Q50:已被較新的流程取代、已用過,或後端重啟後遺失
             raise ApiError(404, "AUTH_LINK_EXPIRED")
         try:
-            await self._state.google_oauth.request_token(code=code, code_verifier=flow["codeVerifier"])
+            # 貼上時多帶的空白會讓 Google 回 invalid_grant
+            await self._state.google_oauth.request_token(code=code.strip(), code_verifier=flow["codeVerifier"])
         except AdapterError as error:
             # 換 token 失敗時流程代號仍然有效,使用者可以用同一個連結再送一次
             raise oauth_error(error.code) from None

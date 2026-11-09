@@ -25,3 +25,6 @@ class EventBus:
 
     def session_updated(self, session: dict[str, Any]) -> None:
         self.publish("session.updated", {"type": "session.updated", "session": session})
+
+    def auth_updated(self, auth: dict[str, Any]) -> None:
+        self.publish("auth.updated", {"type": "auth.updated", "auth": auth})

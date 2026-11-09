@@ -58,6 +58,7 @@ def install(app: FastAPI) -> None:
             events=EventBus(),
         )
         repo.listeners.append(lambda: app.state.services.events.session_updated(lifecycle.current()))
+        auth_service.listeners.append(lambda status: app.state.services.events.auth_updated(status))
         recovery = Recovery(state, repo, key_path)
         recovery.start()
         monitor = HealthMonitor(state, repo)

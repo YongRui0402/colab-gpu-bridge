@@ -172,3 +172,55 @@ async def test_健康檢查不重設閒置計時(ui_client: httpx.AsyncClient, f
     # Assert
     assert (session.get("idle") or {}).get("lastRequestAt") == session.get("readyAt") is not None
     assert fakes.tunnel.check_health.call_count - checks_before >= 5
+
+
+# ---------------------------------------------------------------- US1-API-18
+
+
+async def test_斷線後重連接回同一個執行環境_不另開新的(live_servers: Any, fakes: Any) -> None:
+    # Arrange:就緒;已載入 qwen2.5:0.5b
+    from datetime import datetime
+
+    from integration.test_api_events import sse_events
+
+    world = ColabWorld(fakes)
+    fakes.remote_ollama.list_loaded_models.side_effect(
+        lambda *a, **k: {"models": [{"name": "qwen2.5:0.5b", "model": "qwen2.5:0.5b", "size": 397_821_319}]}
+    )
+    seen: list[dict[str, Any]] = []
+    async with httpx.AsyncClient(base_url=live_servers.ui_url, timeout=5.0) as client:
+        name = (await open_ready(client))["name"]
+        async with client.stream("GET", "/api/events") as stream:
+            events = sse_events(stream)
+
+            # Act:健康檢查失敗 1 次;重連第 1 輪 open_tunnel 撞上舊連線、第 2 輪成功
+            fakes.tunnel.open_tunnel.then(AdapterError("TUNNEL_ALREADY_CONNECTED", "已有另一條連線"))
+            fakes.tunnel.check_health.then(AdapterError("TUNNEL_UNREACHABLE", "連不到"))
+
+            async def collect() -> None:
+                async for event, payload in events:
+                    if event != "session.updated":
+                        continue
+                    seen.append(payload["session"])
+                    states = [s.get("state") for s in seen]
+                    if "reconnecting" in states and states[-1] == "ready":
+                        return
+
+            try:
+                await asyncio.wait_for(collect(), 3.0)
+            except TimeoutError:
+                pass
+
+    # Assert
+    states = [s.get("state") for s in seen]
+    collapsed = [state for i, state in enumerate(states) if i == 0 or states[i - 1] != state]
+    assert collapsed[-2:] == ["reconnecting", "ready"], states
+    assert seen[-1].get("name") == name
+    assert fakes.colab.create_session.call_count == 1
+    reconnecting = [s for s in seen if s.get("state") == "reconnecting"]
+    windows = [
+        (datetime.fromisoformat(r["deadline"].replace("Z", "+00:00")) - datetime.fromisoformat(r["startedAt"].replace("Z", "+00:00"))).total_seconds()
+        for s in reconnecting
+        if (r := s.get("reconnect"))
+    ]
+    assert reconnecting and windows == [2.0] * len(reconnecting), windows

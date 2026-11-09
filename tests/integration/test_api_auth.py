@@ -3,12 +3,16 @@
 接縫:HTTP `/api/*` 與 SSE `/api/events`;Google OAuth 轉接層用 `FakeGoogleOAuth`。
 """
 
+import asyncio
 import itertools
+import stat
 from collections.abc import Callable
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import httpx
+import pytest
 
 from cgb.adapters.errors import AdapterError
 from cgb.app import AppPair
@@ -95,3 +99,55 @@ async def test_後端重啟後舊的授權連結失效(make_app: Callable[..., A
     # Assert
     assert (response.status_code, error_code(response)) == (404, "AUTH_LINK_EXPIRED")
     assert fakes.google_oauth.request_token.call_count == 0
+
+
+# ---------------------------------------------------------------- US1-API-31
+
+
+async def test_送出授權碼時去掉前後空白_登入後推送登入狀態(
+    live_servers: Any, fakes: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange:替身照 E9 轉接層的行為,在 $CGB_COLAB_CONFIG_DIR 寫出 0600 的 token.json 並回傳路徑
+    from integration.test_api_events import sse_events
+
+    config_dir = tmp_path / "colab-cli"
+    monkeypatch.setenv("CGB_COLAB_CONFIG_DIR", str(config_dir))
+    ColabWorld(fakes)
+    google_flows(fakes)
+
+    def write_token(*args: Any, **kwargs: Any) -> Path:
+        config_dir.mkdir(mode=0o700, exist_ok=True)
+        token = config_dir / "token.json"
+        token.touch(mode=0o600)
+        token.write_text('{"refresh_token": "cgb-test-refresh"}', encoding="utf-8")
+        return token
+
+    fakes.google_oauth.request_token.side_effect(write_token)
+    auth_events: list[dict[str, Any]] = []
+
+    async with httpx.AsyncClient(base_url=live_servers.ui_url, timeout=5.0) as client:
+        flow_id = (await client.post("/api/auth/authorizations")).json().get("flowId")
+        async with client.stream("GET", "/api/events") as stream:
+            events = sse_events(stream)
+
+            # Act
+            response = await client.post(f"/api/auth/authorizations/{flow_id}/code", json={"code": "  4/cgb-test-code  "})
+
+            async def collect() -> None:
+                async for event, payload in events:
+                    if event == "auth.updated":
+                        auth_events.append(payload.get("auth", {}))
+                        if auth_events[-1].get("state") == "logged_in":
+                            return
+
+            try:
+                await asyncio.wait_for(collect(), 2.0)
+            except TimeoutError:
+                pass
+
+    # Assert
+    token = config_dir / "token.json"
+    assert (response.status_code, response.json().get("state")) == (200, "logged_in")
+    assert fakes.google_oauth.request_token.last_call.kwargs.get("code") == "4/cgb-test-code"
+    assert token.exists() and stat.S_IMODE(token.stat().st_mode) == 0o600
+    assert [e.get("state") for e in auth_events][-1:] == ["logged_in"]
