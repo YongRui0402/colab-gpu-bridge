@@ -63,14 +63,14 @@ Enum download_origin {
 }
 
 Table sessions {
-  name varchar(64) [pk, note: '對外的 name,格式 ^cgb-[a-z0-9-]{1,60}$;與 Colab CLI sessions.json 裡的名稱相同,後端重啟時用它找回執行環境(FR-005)']
+  name varchar(64) [pk, note: '對外的 name,格式 ^cgb-[a-z0-9-]{1,60}$;與 Colab CLI sessions.json 裡的名稱相同,後端重啟時用它找回執行環境(FR-005)。遺留判定以這張表的名稱為準(Q100):Colab 帳號下名稱在這張表裡、但本系統認為已結束的執行環境才算本系統的遺留,要釋放(FR-007);這張表不認得、CLI 記得的執行環境一律在 UI 警告,不自動關閉']
   runtime_type_gpu gpu_type [not null, note: '照 S5 的 runtimeType.gpu']
   runtime_type_high_mem boolean [not null, note: '照 S5 的 runtimeType.highMem;L4 時照樣記錄使用者選的值']
   state session_state [not null, default: 'opening', note: 'S5 的 `none`(未開啟)不存成值:一列都沒有時 getSession 回 none;有列時回開啟時間最新的那一列']
   active_slot integer [unique, note: 'FR-006 同一時間最多一個工作階段:state 為 opening、ready、reconnecting 時固定為 1,其他狀態為 null;unique 讓第二個開啟中或就緒的工作階段寫不進來(對外回 SESSION_ALREADY_ACTIVE)。ending 不占位,變更類型時舊的先改成 ending 才寫入新的']
   step opening_step [note: '只在 state 為 opening 時有值,其他為 null']
   end_reason end_reason [note: 'state 為 ended、open_failed、lost 時必填,其他為 null']
-  reason_code varchar(64) [note: '開啟失敗或失聯的外部原因,照 S5 ReasonCode:^(COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+$;沒有時為 null']
+  reason_code varchar(64) [note: '開啟失敗或失聯的外部原因,照 S5 ReasonCode(Q61、Q106):^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+|AUTH_REQUIRED)$,例如沒有有效授權時為 AUTH_REQUIRED;沒有時為 null']
   message text [note: '給使用者看的繁體中文說明;沒有時為 null']
   opened_at datetime [not null]
   ready_at datetime [note: '還沒就緒過為 null']
@@ -78,7 +78,7 @@ Table sessions {
   last_request_at datetime [note: '照 S5 idle.lastRequestAt:Ollama 相容端點最後一次重設閒置計時的時間(請求開始或最後一個進行中的請求結束);就緒時先設為 ready_at。後端重啟後閒置倒數從這裡接續(FR-026)']
   reconnect_started_at datetime [note: '照 S5 reconnect.startedAt;只在 state 為 reconnecting 時有值']
   reconnect_deadline datetime [note: '照 S5 reconnect.deadline;預設 reconnect_started_at + 5 分鐘;只在 state 為 reconnecting 時有值。後端重啟時已過期就直接標 lost(RECONNECT_TIMEOUT)']
-  release_warning_reason_code varchar(64) [note: '照 S5 releaseWarning.reasonCode;沒有警告或沒有外部代碼時為 null']
+  release_warning_reason_code varchar(64) [note: '照 S5 releaseWarning.reasonCode,格式同 sessions.reason_code(^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+|AUTH_REQUIRED)$,Q61、Q106);沒有警告或沒有外部代碼時為 null']
   release_warning_message text [note: '照 S5 releaseWarning.message;不為 null 表示有釋放警告(FR-007),後端重啟後仍要顯示,endSession 會再試一次釋放']
   release_warning_detected_at datetime [note: '照 S5 releaseWarning.detectedAt;與 release_warning_message 同時有值或同時為 null']
   indexes {
@@ -95,7 +95,7 @@ Table session_transitions {
   state session_state [not null]
   step opening_step [note: '照 S5 StateTransition.step;state 為 opening 時每一步各記一筆']
   end_reason end_reason [note: '照 S5 StateTransition.endReason']
-  reason_code varchar(64) [note: '照 S5 StateTransition.reasonCode']
+  reason_code varchar(64) [note: '照 S5 StateTransition.reasonCode,格式同 sessions.reason_code(^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+|AUTH_REQUIRED)$,Q61、Q106);沒有時為 null']
   indexes {
     (session_name, at) [name: 'idx_session_transitions_session', note: 'getSessionRecord 依時間排序列出']
   }

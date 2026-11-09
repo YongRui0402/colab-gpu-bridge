@@ -97,12 +97,14 @@ paths:
       summary: 列出 Colab 帳號下運作中的執行環境
       description: >-
         讀 Colab 伺服器上目前所有的執行環境(assignment),並對照 CLI 本機的 session 狀態檔標出名稱。用途:
-        開啟前確認沒有本系統開的執行環境還在(FR-006);開啟後確認新名稱在列(`createSession` 的回讀);
+        開啟前確認本系統資料庫記錄的執行環境都已不在(FR-006);開啟後確認新名稱在列(`createSession` 的回讀);
         結束後確認名稱已不在(`stopSession` 的回讀,FR-007、SC-003);
         健康檢查失敗時判斷執行環境是否還在,不在就是被 Colab 收回(FR-003、FR-004);
         後端重新啟動時找回資料庫裡最後一筆未結束的名稱(FR-005,research.md R10);
-        列出名稱是 `?` 的執行環境(不是本系統開的,或 CLI 狀態檔遺失),只提示、不接手、不關閉(spec 邊界情況)。
-        名稱以 `cgb-` 開頭、但不是資料庫裡目前那一筆的,是本系統先前開過的遺留,呼叫者要以 `stopSession` 釋放(FR-007)。
+        判定是不是本系統的執行環境一律以本系統資料庫 sessions 表記錄的名稱為準(Q100),不看名稱前綴:
+        資料庫有記錄、但不是目前那一筆而且還在列的,是本系統先前開過的遺留,呼叫者要以 `stopSession` 釋放(FR-007);
+        資料庫不認得的(包含名稱是 `?` 的,以及名稱前綴相同、但屬於另一個實例的,例如正式實例與實跑測試實例互相看到對方),
+        一律不接手、不關閉,只回報給上層在 UI 警告(spec 邊界情況)。本操作只交出清單,不做這個判定。
         CLI 執行這個指令時會順便把本機狀態檔裡伺服器上已經沒有的 session 移除,並印出 `[colab] Pruned <n> stale local session(s).`,
         轉接層忽略這一行。
       x-requirements: [FR-003, FR-004, FR-005, FR-006, FR-007, SC-003]
@@ -156,7 +158,7 @@ paths:
       operationId: createSession
       summary: 在 Colab 配置一台執行環境
       description: >-
-        開啟工作階段的第一步(S5 的 `step` 為 `allocating`,FR-001)。名稱由呼叫者產生,固定 `cgb-` 前綴(research.md R1),
+        開啟工作階段的第一步(S5 的 `step` 為 `allocating`,FR-001)。名稱由呼叫者產生並先記進資料庫,前綴由應用程式設定注入(Q95,例如正式 `cgb-`、實跑 `cgb-test-`;research.md R1),
         每次開啟都用新的名稱(CLI 對同名的 session 會直接覆寫本機紀錄)。`--gpu` 只代入 `GpuType` 的值:
         CLI 對認不得的 GPU 名稱不報錯、直接當成 A100,所以轉接層不得把未驗證的字串放進命令列。
         `highMem` 為 true 時在命令列最後加 `--high-mem`(見 `x-argv-high-mem`);L4 只有一種形狀,CLI 會忽略並在 stderr 提示,
@@ -167,9 +169,9 @@ paths:
         回讀看不到時歸成 `COLAB_NOT_FOUND`,呼叫者照開啟失敗處理並再以 `listSessions` 確認沒有遺留(FR-007)。
         開啟中使用者按「結束」時,不要中途終止這個子行程:配置請求可能已在伺服器生效、本機卻還沒記下名稱,
         那台會變成名稱是 `?` 的執行環境,CLI 無法以名稱結束它;要等子行程結束後再 `stopSession`。
-        呼叫前,呼叫者要先以 `listSessions` 確認沒有本系統開的執行環境還在(FR-006),並記下當時的 `unnamed` 清單;
-        子行程因逾時被終止(`COLAB_TIMEOUT`)後再回讀一次,`unnamed` 多出一台、硬體與要求的 GPU 相同時,
-        視為本系統這次開出、卻無法以名稱結束的遺留,呼叫者在 UI 顯示釋放警告(FR-007),請使用者到 Colab 網頁手動結束。
+        呼叫前,呼叫者要先以 `listSessions` 確認資料庫記錄的執行環境都已不在(FR-006),並記下當時的 `unnamed` 清單;
+        子行程因逾時被終止(`COLAB_TIMEOUT`)後再回讀一次,`unnamed` 多出的執行環境資料庫不認得,依 Q100 不接手、不關閉,
+        只回報給上層在 UI 警告(可能是這次配置生效卻沒記下名稱,請使用者到 Colab 網頁確認並手動結束;FR-007 的「釋放不了必須在 UI 明確警告」)。
       x-requirements: [FR-001, FR-006, FR-007, FR-009, SC-001]
       x-callers: 本系統後端(開啟工作階段、變更類型重開);Colab 帳號下沒有本系統開的其他執行環境時
       x-argv: COLAB_CLI_REQUEST_TIMEOUT=60 colab new -s <name> --gpu <gpu> </dev/null
@@ -498,10 +500,10 @@ components:
   schemas:
     SessionName:
       type: string
-      pattern: '^cgb-[a-z0-9-]{1,60}$'
+      pattern: '^[a-z0-9][a-z0-9-]{0,63}$'
       description: >-
-        工作階段的識別名稱,由本系統產生(research.md R1),與 S5 `Session.name` 同一個格式;
-        建議 `cgb-<yyyymmdd>-<hhmmss>-<4 碼十六進位>`,每次開啟都不同
+        工作階段的識別名稱,由本系統產生(research.md R1)。前綴不寫死,由應用程式設定注入(Q95:正式 `cgb-`、實跑 `cgb-test-`);
+        建議 `<前綴><yyyymmdd>-<hhmmss>-<4 碼十六進位>`,每次開啟都不同。是不是本系統的執行環境以資料庫記錄的名稱判定(Q100),不看前綴
     GpuType:
       type: string
       enum: [T4, L4, G4, A100, H100]
@@ -565,7 +567,7 @@ components:
       properties:
         name:
           type: string
-          description: '`[<名稱>]` 裡的名稱;以 `cgb-` 開頭的是本系統開的'
+          description: '`[<名稱>]` 裡的名稱;是不是本系統開的,由呼叫者對照資料庫 sessions 表判定(Q100),不看前綴'
         hardware:
           $ref: '#/components/schemas/Hardware'
         shape:

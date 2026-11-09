@@ -222,3 +222,17 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q106 | tasks | 〔testplan 提出〕`store.dbml` 的 `sessions.reason_code` 說明缺 `AUTH_REQUIRED`(與 Q61 不一致)。(a)補改 dbml 說明(先採用);(b)維持 | S7 | (a)(kevin-twin 代為決定) |
 | Q107 | tasks | 〔testplan 提出〕預估下載時間的 MB 與取整。(a)MB 以 10^6 位元組計,案例斷言落在捨去與進位之間(先採用);(b)無條件進位 | — | (a)(kevin-twin 代為決定) |
 | Q108 | tasks | 〔testplan 提出〕19 個實跑案例照第 1 節護欄 P1–P9 執行(上限 2 compute units、60 分鐘、前綴 `cgb-test-`、桌機 UI 8780/Ollama 11436、暫存資料夾)。(a)照護欄執行;(b)不跑 | — | (a);需本人的 US1-OA-06、G-01 延後(kevin-twin 代為決定) |
+| Q109 | S8 | S5 `Session.name` pattern 寫死 `^cgb-`,與 Q95 可注入前綴衝突。(a)S5 放寬成不寫死前綴(先採用);(b)維持 `cgb-`,規定注入的前綴必須以 `cgb-` 開頭(實跑的 `cgb-test-` 符合) | — | (b),不必重做 S5(kevin-twin 代為決定) |
+| Q110 | tasks | 故事 4 的 15 個介面元素(用量、設定、閒置相關)沒有任務,`check_tasks.py` 不過,implement Phase 1 Step 2 因此無法開工。(a)列為範疇外,接受不過;(b)故事 4 拉回本迭代範疇,testplan 補案例、tasks 補任務;(c)掛在 Setup 的 `§ 全檔` 讓檢查通過 | — | (b)範疇改為故事 1–4;推翻 testplan 範疇「故事 1、2、3」的決定(kevin-twin 代為決定) |
+| Q111 | tasks | G-06 要不要看用量頁。(a)只看範疇內畫面;(b)也看用量頁 | — | (b),因 Q110 故事 4 已納入範疇(kevin-twin 代為決定) |
+| Q112 | tasks | Setup 放 `create_app` 注入點與 `AdapterError`(只有簽章與空 app)。(a)放 Setup(先採用);(b)併入 US1-API-01 綠燈 | — | (a)(kevin-twin 代為決定) |
+| Q113 | tasks | `python -m cgb` 進入點。(a)放進 US1-AJ-01 綠燈 T099b,測試 uvicorn fixture 走同一個 `serve()`(先採用);(b)testplan 補子行程案例;(c)放 Setup | — | (a)(kevin-twin 代為決定) |
+| Q114 | tasks | G-03、G-04、G-08 紅燈可能一開始就綠。(a)紅燈先對故意改壞的對照組確認抓得到,再對實物執行(先採用);(b)全域綠燈才搬入 | — | (a)(kevin-twin 代為決定) |
+| Q115 | tasks | 外部程序參數交給真工具解讀。(a)E5 在 T061a 以真 `colab` 0.7.5(空暫存 HOME、無授權)只斷言無參數錯誤;E6 在 T079a 以 `ssh -G` 解讀(先採用);(b)只靠實跑 | — | (a)(kevin-twin 代為決定) |
+| Q116 | tasks | 📏 實跑任務排法。(a)照規範排在各故事,Checkpoint 註明整批延到全域測試區後依 P9 執行(先採用);(b)全部標 ⏸;(c)全部移到全域 | — | (a)(kevin-twin 代為決定) |
+| Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T217b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
+| Q118 | tasks | Q85 搬遷後的位置。(a)Dockerfile、dockerignore、compose、.env.example 放根目錄,prepare-data.sh、healthcheck.py 放 repo 的 `deploy/`(先採用);(b)全放 `deploy/` | — | (a)(kevin-twin 代為決定) |
+| Q119 | tasks | 〔testplan 提出〕讀過用量但最近一次失敗時 `GET /api/usage`。(a)回最後快照,超過 15 分鐘標 `stale` 並說明讀取失敗,`unknown` 只用在從沒讀到過(先採用);(b)一律 `unknown`(會使 NFR-008 做不到) | — | (a)(kevin-twin 代為決定) |
+| Q120 | tasks | 〔testplan 提出〕餘額 ≤ 0 時估計可用時數。(a)回 0(先採用);(b)負數;(c)null | — | (a)(kevin-twin 代為決定) |
+| Q121 | tasks | 〔testplan 提出〕FR-025「低於警告門檻」含不含等於。(a)不含 `<`(先採用);(b)含 | — | (a)(kevin-twin 代為決定) |
+| Q122 | tasks | 〔testplan 提出〕Q100 的「資料庫不認得、CLI 記得」警告放哪。(a)`Session.unmanagedRuntimes` 加一筆(先採用);(b)併入 `releaseWarning` | S5 | (a)(kevin-twin 代為決定) |
