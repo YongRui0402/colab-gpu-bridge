@@ -2,6 +2,7 @@
 
 import asyncio
 import secrets
+from dataclasses import dataclass
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
@@ -12,6 +13,18 @@ from cgb.services.auth import AuthService
 
 # 本機轉發的 port(contracts/tunnel.openapi.yaml § OpenTunnelInput.localPort 預設)
 TUNNEL_LOCAL_PORT = 11435
+
+
+# 工作階段被結束(使用者結束、變更執行階段類型)時進入的狀態;進行中的轉送要隨之中斷(FR-013)
+_ENDED_STATES = frozenset({"ending", "ended"})
+
+
+@dataclass(frozen=True)
+class ForwardTarget:
+    """Ollama 相容端點這次要轉送到的地方。`ended` 在這個工作階段被結束時設定。"""
+
+    base_url: str
+    ended: asyncio.Event
 
 
 class SessionLifecycle:
@@ -26,9 +39,27 @@ class SessionLifecycle:
         self._creating: dict[str, asyncio.Future[Any]] = {}
         # 目前通道的遠端 Ollama base URL(contracts/tunnel.openapi.yaml § Tunnel.baseUrl);只在後端內部使用
         self.base_url: str | None = None
+        # 進行中的轉送等著的「工作階段被結束」事件(名稱 → 事件);repo 一有變更就檢查
+        self._ended_events: dict[str, asyncio.Event] = {}
+        repo.listeners.append(self._signal_ended)
 
     def current(self) -> dict[str, Any]:
         return session_payload(self._repo.latest(), self._repo.unmanaged_runtimes)
+
+    def forward_target(self) -> ForwardTarget | None:
+        """Ollama 相容端點此刻該轉送到的地方;沒有可轉送的工作階段時是 None(FR-013)。"""
+        latest = self._repo.latest()
+        # 只有「就緒」才轉送:開啟中、重連中、結束中、變更類型的過程中都不排隊等(FR-013)
+        if latest is None or latest["state"] != "ready" or self.base_url is None:
+            return None
+        ended = self._ended_events.setdefault(latest["name"], asyncio.Event())
+        return ForwardTarget(base_url=self.base_url, ended=ended)
+
+    def _signal_ended(self) -> None:
+        for name in list(self._ended_events):
+            row = self._repo.get(name)
+            if row is None or row["state"] in _ENDED_STATES:
+                self._ended_events.pop(name).set()
 
     def _new_name(self) -> str:
         # contracts/colab-cli.openapi.yaml § SessionName 建議的 <前綴><yyyymmdd>-<hhmmss>-<4 碼十六進位>

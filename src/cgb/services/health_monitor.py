@@ -25,14 +25,25 @@ class HealthMonitor:
         # Q159:重連的 open_tunnel 帶和首次開啟相同的金鑰與本機 port
         self._key_path = key_path if key_path is not None else os.environ.get("CGB_SSH_IDENTITY_PATH", DEFAULT_SSH_IDENTITY_PATH)
         self._task: asyncio.Task[None] | None = None
+        self._immediate: asyncio.Task[None] | None = None
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._loop())
 
     async def stop(self) -> None:
-        if self._task is not None:
-            self._task.cancel()
-            await asyncio.gather(self._task, return_exceptions=True)
+        for task in (self._task, self._immediate):
+            if task is not None:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
+    def check_now(self) -> None:
+        """Ollama 相容端點的串流中途斷線時立刻檢查一次,不等下一個排程(spec 邊界情況:串流回應時連線中斷)。"""
+        latest = self._repo.latest()
+        if latest is None or latest["state"] != "ready":
+            return
+        if self._immediate is not None and not self._immediate.done():
+            return
+        self._immediate = asyncio.create_task(self._check(latest["name"]))
 
     async def _loop(self) -> None:
         while True:

@@ -1280,127 +1280,127 @@
 
 ### E3 Ollama 相容端點(FastAPI 轉送)
 
-- [ ] T155a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-01 的測試(用 httpx 串流讀 `POST /api/generate {model:"qwen2.5:0.5b",prompt:"你好"}`),執行確認它因為「用 `r.aread()` 讀完整份再回,串流變成一次傳回」這類實作而失敗
+- [X] T155a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-01 的測試(用 httpx 串流讀 `POST /api/generate {model:"qwen2.5:0.5b",prompt:"你好"}`),執行確認它因為「用 `r.aread()` 讀完整份再回,串流變成一次傳回」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § FR-011;`plan.md` § 待決問題 Q97
-- [ ] T155b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/__init__.py`、`src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;在 `src/cgb/ollama_compat/__init__.py` 把轉送路由掛進 `create_app` 的 Ollama 相容端點 app(取代 T131b 先掛的空 app)(依賴 T155a)
+- [X] T155b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/__init__.py`、`src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;在 `src/cgb/ollama_compat/__init__.py` 把轉送路由掛進 `create_app` 的 Ollama 相容端點 app(取代 T131b 先掛的空 app)(依賴 T155a)
   - 🧪 `testplan.md` § US2-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § FR-011;`plan.md` § 待決問題 Q97
-- [ ] T156a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-02 的測試(送 `POST /api/generate?x=1 {model:"qwen2.5:0.5b",prompt:"你好",stream:false}`,帶 `Connection: keep-alive`),執行確認它因為「沒轉 query 或改寫本文」這類實作而失敗
+- [X] T156a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-02 的測試(送 `POST /api/generate?x=1 {model:"qwen2.5:0.5b",prompt:"你好",stream:false}`,帶 `Connection: keep-alive`),執行確認它因為「沒轉 query 或改寫本文」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § FR-011
-- [ ] T156b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T156a)
+- [X] T156b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T156a)
   - 🧪 `testplan.md` § US2-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § FR-011
-- [ ] T157a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-03 的測試(依序送 `GET /`、`HEAD /`、`GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/show`、`POST /api/chat`、`POST /api/embed`、`POST /api/embeddings`(parametrize)),執行確認它因為「白名單漏了 `HEAD /`(有些用戶端用它檢查存活)或 `/api/embeddings`」這類實作而失敗
+- [X] T157a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-03 的測試(依序送 `GET /`、`HEAD /`、`GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/show`、`POST /api/chat`、`POST /api/embed`、`POST /api/embeddings`(parametrize)),執行確認它因為「白名單漏了 `HEAD /`(有些用戶端用它檢查存活)或 `/api/embeddings`」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-03
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/tags.get`、`paths./.get`、`paths./.head`、`paths./api/version.get`、`paths./api/ps.get`、`paths./api/show.post`、`paths./api/generate.post`、`paths./api/chat.post`、`paths./api/embed.post`、`paths./api/embeddings.post`;`contracts/remote-ollama.openapi.yaml` § `paths./api/version.get`、`paths./api/tags.get`、`paths./api/ps.get`、`paths./api/show.post`、`paths./api/generate.post`、`paths./api/chat.post`、`paths./api/embed.post`、`paths./api/embeddings.post`
   - 📎 `spec.md` § FR-011
-- [ ] T157b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T157a)
+- [X] T157b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T157a)
   - 🧪 `testplan.md` § US2-OC-03
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/tags.get`、`paths./.get`、`paths./.head`、`paths./api/version.get`、`paths./api/ps.get`、`paths./api/show.post`、`paths./api/generate.post`、`paths./api/chat.post`、`paths./api/embed.post`、`paths./api/embeddings.post`;`contracts/remote-ollama.openapi.yaml` § `paths./api/version.get`、`paths./api/tags.get`、`paths./api/ps.get`、`paths./api/show.post`、`paths./api/generate.post`、`paths./api/chat.post`、`paths./api/embed.post`、`paths./api/embeddings.post`
   - 📎 `spec.md` § FR-011
-- [ ] T158a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-04 的測試(依序送 `POST /api/pull`、`POST /api/push`、`POST /api/create`、`POST /api/copy`、`DELETE /api/delete`、`HEAD /api/blobs/sha256:00`、`POST /api/blobs/sha256:00`(parametrize)),執行確認它因為「只擋 R8 的五個路徑,`/api/blobs` 照轉」這類實作而失敗
+- [X] T158a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-04 的測試(依序送 `POST /api/pull`、`POST /api/push`、`POST /api/create`、`POST /api/copy`、`DELETE /api/delete`、`HEAD /api/blobs/sha256:00`、`POST /api/blobs/sha256:00`(parametrize)),執行確認它因為「只擋 R8 的五個路徑,`/api/blobs` 照轉」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-04
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-012
-- [ ] T158b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T158a)
+- [X] T158b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T158a)
   - 🧪 `testplan.md` § US2-OC-04
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-012
-- [ ] T159a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-05 的測試(送 `POST /api/pull {model:"qwen2.5:0.5b"}`),執行確認它因為「先判斷有沒有工作階段才判斷路徑,管理操作在沒有工作階段時回「沒有可用的工作階段」」這類實作而失敗
+- [X] T159a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-05 的測試(送 `POST /api/pull {model:"qwen2.5:0.5b"}`),執行確認它因為「先判斷有沒有工作階段才判斷路徑,管理操作在沒有工作階段時回「沒有可用的工作階段」」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-05
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-012、FR-013
-- [ ] T159b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T159a)
+- [X] T159b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T159a)
   - 🧪 `testplan.md` § US2-OC-05
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-012、FR-013
-- [ ] T160a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-06 的測試(送 `POST /v1/chat/completions` 與 `GET /api/me`),執行確認它因為「用黑名單轉送,`/v1/*` 被轉到遠端(等於另外提供 OpenAI 相容 API)」這類實作而失敗
+- [X] T160a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-06 的測試(送 `POST /v1/chat/completions` 與 `GET /api/me`),執行確認它因為「用黑名單轉送,`/v1/*` 被轉到遠端(等於另外提供 OpenAI 相容 API)」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-06
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `components.schemas.Error`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-011
-- [ ] T160b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T160a)
+- [X] T160b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T160a)
   - 🧪 `testplan.md` § US2-OC-06
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `components.schemas.Error`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-011
-- [ ] T161a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-07 的測試(送 `POST /api/generate {model:"qwen2.5:0.5b",prompt:"你好"}`),執行確認它因為「沒有工作階段時仍往轉發位址送,等連線逾時才回錯誤」這類實作而失敗
+- [X] T161a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-07 的測試(送 `POST /api/generate {model:"qwen2.5:0.5b",prompt:"你好"}`),執行確認它因為「沒有工作階段時仍往轉發位址送,等連線逾時才回錯誤」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-07
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-013、SC-007
-- [ ] T161b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T161a)
+- [X] T161b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T161a)
   - 🧪 `testplan.md` § US2-OC-07
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-013、SC-007
-- [ ] T162a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-08 的測試(各送一次 `POST /api/chat`),執行確認它因為「只把 `none` 當成沒有工作階段,重連中照樣轉送、排隊等通道回來」這類實作而失敗
+- [X] T162a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-08 的測試(各送一次 `POST /api/chat`),執行確認它因為「只把 `none` 當成沒有工作階段,重連中照樣轉送、排隊等通道回來」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-08
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/chat.post`
   - 📎 `spec.md` § FR-013
-- [ ] T162b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T162a)
+- [X] T162b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T162a)
   - 🧪 `testplan.md` § US2-OC-08
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/chat.post`
   - 📎 `spec.md` § FR-013
-- [ ] T163a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-09 的測試(第一個就緒時送一次 `GET /api/version`;第二個就緒後用同一個用戶端物件再送一次),執行確認它因為「轉發目標在啟動時就固定成第一個工作階段的連線,新的工作階段要重啟才接得上」這類實作而失敗
+- [X] T163a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-09 的測試(第一個就緒時送一次 `GET /api/version`;第二個就緒後用同一個用戶端物件再送一次),執行確認它因為「轉發目標在啟動時就固定成第一個工作階段的連線,新的工作階段要重啟才接得上」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-09
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/version.get`
   - 📎 `spec.md` § FR-011
-- [ ] T163b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T163a)
+- [X] T163b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T163a)
   - 🧪 `testplan.md` § US2-OC-09
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/version.get`
   - 📎 `spec.md` § FR-011
-- [ ] T164a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-10 的測試(送 `POST /api/session/restart`,在 `step` 為 `ending_previous` 與 `allocating` 時各送一次 `POST /api/generate`),執行確認它因為「變更類型時把請求排隊等新的工作階段就緒」這類實作而失敗
+- [X] T164a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-10 的測試(送 `POST /api/session/restart`,在 `step` 為 `ending_previous` 與 `allocating` 時各送一次 `POST /api/generate`),執行確認它因為「變更類型時把請求排隊等新的工作階段就緒」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`;`contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § 邊界情況、FR-013
-- [ ] T164b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T164a)
+- [X] T164b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T164a)
   - 🧪 `testplan.md` § US2-OC-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`;`contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § 邊界情況、FR-013
-- [ ] T165a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-11 的測試(串流讀 `POST /api/generate`),執行確認它因為「串流中斷時靜默關閉,用戶端以為回應結束」這類實作而失敗
+- [X] T165a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-11 的測試(串流讀 `POST /api/generate`),執行確認它因為「串流中斷時靜默關閉,用戶端以為回應結束」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-11
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`;`contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § 邊界情況、FR-004
-- [ ] T165b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/health_monitor.py` 只寫讓 US2-OC-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T165a)
+- [X] T165b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/health_monitor.py` 只寫讓 US2-OC-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T165a)
   - 🧪 `testplan.md` § US2-OC-11
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`;`contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § 邊界情況、FR-004
-- [ ] T166a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-12 的測試(串流讀 `POST /api/generate`,讀到第 1 行後送 `DELETE /api/session`),執行確認它因為「使用者結束造成的中斷被當成非預期斷線,觸發重連」這類實作而失敗
+- [X] T166a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-12 的測試(串流讀 `POST /api/generate`,讀到第 1 行後送 `DELETE /api/session`),執行確認它因為「使用者結束造成的中斷被當成非預期斷線,觸發重連」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-12
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`;`contracts/ui.openapi.yaml` § `paths./session.delete`
   - 📎 `spec.md` § FR-013
-- [ ] T166b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T166a)
+- [X] T166b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-OC-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T166a)
   - 🧪 `testplan.md` § US2-OC-12
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`;`contracts/ui.openapi.yaml` § `paths./session.delete`
   - 📎 `spec.md` § FR-013
-- [ ] T167a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-13 的測試(送 `POST /api/generate`),執行確認它因為「連不到時回 500 與 Python 例外文字」這類實作而失敗
+- [X] T167a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-13 的測試(送 `POST /api/generate`),執行確認它因為「連不到時回 500 與 Python 例外文字」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-13
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-011
-- [ ] T167b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T167a)
+- [X] T167b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T167a)
   - 🧪 `testplan.md` § US2-OC-13
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-011
-- [ ] T168a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-14 的測試(帶 `Origin: http://192.168.0.50:3000` 送 `POST /api/chat`),執行確認它因為「轉送時丟掉或改寫 `Origin`」這類實作而失敗
+- [X] T168a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-14 的測試(帶 `Origin: http://192.168.0.50:3000` 送 `POST /api/chat`),執行確認它因為「轉送時丟掉或改寫 `Origin`」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-14
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/chat.post`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`
   - 📎 `spec.md` § FR-011
-- [ ] T168b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T168a)
+- [X] T168b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-OC-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T168a)
   - 🧪 `testplan.md` § US2-OC-14
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/chat.post`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`
   - 📎 `spec.md` § FR-011
-- [ ] T169a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-15 的測試(送 `GET /api/tags`,另送一次 `POST /api/generate` 讓假伺服器回 500),執行確認它因為「把遠端的轉址照樣傳回,讓用戶端知道並嘗試直連轉發位址」這類實作而失敗
+- [X] T169a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US2-OC-15 的測試(送 `GET /api/tags`,另送一次 `POST /api/generate` 讓假伺服器回 500),執行確認它因為「把遠端的轉址照樣傳回,讓用戶端知道並嘗試直連轉發位址」這類實作而失敗
   - 🧪 `testplan.md` § US2-OC-15
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/tags.get`、`components.schemas.OllamaError`
   - 📎 `spec.md` § NFR-003、NFR-010
-- [ ] T169b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/ollama_compat/access_log.py` 只寫讓 US2-OC-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T169a)
+- [X] T169b [US2] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/ollama_compat/access_log.py` 只寫讓 US2-OC-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T169a)
   - 🧪 `testplan.md` § US2-OC-15
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/tags.get`、`components.schemas.OllamaError`
   - 📎 `spec.md` § NFR-003、NFR-010
-- [ ] T170 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T155b~T169b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`、`src/cgb/services/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T169b)
+- [X] T170 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T155b~T169b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`、`src/cgb/services/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T169b)
   - 🧪 `testplan.md` § US2-OC-01~US2-OC-15
   - 📎 `testplan.md` § 3.1
 

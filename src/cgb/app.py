@@ -138,8 +138,8 @@ def create_app(
     install_ui_api(ui)
     # 掛在 `/api` 的路由之後:沒有對應路由的路徑才交給靜態檔
     ui.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
-    return AppPair(
-        ui=ui,
-        ollama=_empty_app("colab-gpu-bridge Ollama 相容端點", state),
-        state=state,
-    )
+    ollama = _empty_app("colab-gpu-bridge Ollama 相容端點", state)
+    from cgb.ollama_compat import install as install_ollama_compat
+
+    install_ollama_compat(ollama, ui)
+    return AppPair(ui=ui, ollama=ollama, state=state)

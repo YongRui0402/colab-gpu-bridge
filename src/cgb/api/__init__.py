@@ -35,6 +35,7 @@ class Services:
     switch: RuntimeSwitch
     sessions_repo: SessionsRepo
     events: EventBus
+    monitor: HealthMonitor
 
 
 def install(app: FastAPI) -> None:
@@ -49,6 +50,7 @@ def install(app: FastAPI) -> None:
         auth_service = AuthService(state)
         lifecycle = SessionLifecycle(state, repo, auth_service, key_path)
         downloads_service = DownloadsService(state, DownloadsRepo(conn))
+        monitor = HealthMonitor(state, repo)
         app.state.services = Services(
             auth=auth_service,
             lifecycle=lifecycle,
@@ -56,12 +58,12 @@ def install(app: FastAPI) -> None:
             switch=RuntimeSwitch(state, repo, lifecycle, downloads_service),
             sessions_repo=repo,
             events=EventBus(),
+            monitor=monitor,
         )
         repo.listeners.append(lambda: app.state.services.events.session_updated(lifecycle.current()))
         auth_service.listeners.append(lambda status: app.state.services.events.auth_updated(status))
         recovery = Recovery(state, repo, key_path)
         recovery.start()
-        monitor = HealthMonitor(state, repo)
         monitor.start()
         try:
             yield
