@@ -251,3 +251,10 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q135 | implement T063b | gpu 不在 GpuType 時丟 `ValueError`(合約無輸入錯誤代碼)。(a)維持;(b)另定代碼 | — | (a)(kevin-twin 代為決定) |
 | Q136 | implement T076 | 重構時 `_run` 統一處理找不到執行檔、`start_ollama` 連續兩次斷線改回 `COLAB_UNREACHABLE`,改動了沒有測試的路徑(與合約一致)。(a)接受;(b)撤回 | — | (a);由 Q134 補的案例覆蓋(kevin-twin 代為決定) |
 | Q137 | implement T066b | `start_ollama.py`、`probe_resources.py` 遠端腳本本節沒有測試實際執行。(a)由 US2-CLI-01 與實跑 US1-CLI-21 驗證;(b)另補 | — | (a)(kevin-twin 代為決定) |
+| Q138 | tasks | 〔testplan 提出〕子行程逾時要不要清掉它分出的子行程(合約只寫「被終止」)。(a)以新 process group 啟動,逾時對整個 group 先 SIGTERM、等不到再 SIGKILL 並回收,S8 合約補這一句;(b)只終止 colab 本身 | S8 | (a)(kevin-twin 代為決定) |
+| Q139 | tasks | 〔testplan 提出〕`colab stop` 本身逾時。(a)終止後照常回讀,以回讀為準,只有回讀逾時才回 `COLAB_TIMEOUT`;(b)直接回 `COLAB_TIMEOUT` | — | (a)(kevin-twin 代為決定) |
+| Q140 | tasks | 〔testplan 提出〕exec 的 `appears to be lost (404/401)` 比對 stdout 或 stderr。(a)兩個都看;(b)只看 stdout | — | (a)(kevin-twin 代為決定) |
+| Q141 | implement T080b | **open_tunnel 失敗收尾可能卡死**:同步 `_stop_group` 只送 SIGTERM 再 `wait()`,子行程忽略 SIGTERM 就無限卡住並阻塞事件迴圈。(a)改用 close_tunnel 的 SIGTERM→等待→SIGKILL;(b)維持。行為改變,不屬重構 | — | (a);先補 testplan 案例再照 TDD 改(同 Q134)(kevin-twin 代為決定) |
+| Q142 | implement T085b | 合約有、testplan 沒有案例的 E6 分支:`TUNNEL_NOT_INSTALLED`(找不到 ssh/ssh-keygen,現在丟 FileNotFoundError)、ssh-keygen 10 秒逾時、close_tunnel/ensure_key 的 `TUNNEL_FAILED`;已實作但無測試:check_health 的 `TUNNEL_UNREACHABLE`/`TUNNEL_REMOTE_REFUSED`/`TUNNEL_NOT_FOUND`。開啟的「5 秒後重試一次」屬 services。(a)補 testplan 案例;(b)由 services 負責 | — | (a)補案例(重試仍歸 services/E2)(kevin-twin 代為決定) |
+| Q143 | implement T085a | US1-TUN-08 的假 ssh 由 python 執行,命令列不以 `ssh` 開頭;測試改寫 `/proc/self/cmdline`。(a)接受;(b)fixture 另提供命令列即 `ssh …` 的假行程 | — | (a)(kevin-twin 代為決定) |
+| Q144 | implement T079a | `ssh -G` 不給目的地會印 usage,所以保留目的地 `root@colab-runtime`、只把 `-N` 換 `-G`。(a)接受;(b)其他 | — | (a)(kevin-twin 代為決定) |

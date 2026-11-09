@@ -579,79 +579,79 @@
 
 ### E6 SSH 通道(OpenSSH 與 `colab ssh --proxy-mode`)
 
-- [ ] T078a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-01 的測試(各呼叫一次(真的 `ssh-keygen`)),執行確認它因為「已有金鑰時覆寫(可能是使用者自己放的)」這類實作而失敗
+- [X] T078a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-01 的測試(各呼叫一次(真的 `ssh-keygen`)),執行確認它因為「已有金鑰時覆寫(可能是使用者自己放的)」這類實作而失敗
   - 🧪 `testplan.md` § US1-TUN-01
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./key.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T078b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T078a)
+- [X] T078b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T078a)
   - 🧪 `testplan.md` § US1-TUN-01
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./key.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T079a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-02 的測試(以 `cgb-test-0001`、`localPort` 為隨機 port 呼叫),執行確認它因為「ProxyCommand 帶了 `--rm`(斷線就結束執行環境)或開啟用的旗標」這類實作而失敗;另把 `open_tunnel` 實際傳出的 argv 換成 `ssh -G`(去掉 `-N` 與目的地以外不變)交給真的 OpenSSH 解讀,只印解析後的設定、不連線,斷言 `localforward`、`proxycommand`、`batchmode yes`、`identitiesonly yes`、`exitonforwardfailure yes`、`serveraliveinterval 15`、`serveralivecountmax 3` 和規格一致
+- [X] T079a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-02 的測試(以 `cgb-test-0001`、`localPort` 為隨機 port 呼叫),執行確認它因為「ProxyCommand 帶了 `--rm`(斷線就結束執行環境)或開啟用的旗標」這類實作而失敗;另把 `open_tunnel` 實際傳出的 argv 換成 `ssh -G`(去掉 `-N` 與目的地以外不變)交給真的 OpenSSH 解讀,只印解析後的設定、不連線,斷言 `localforward`、`proxycommand`、`batchmode yes`、`identitiesonly yes`、`exitonforwardfailure yes`、`serveraliveinterval 15`、`serveralivecountmax 3` 和規格一致
   - 🧪 `testplan.md` § US1-TUN-02
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`
   - 📎 `spec.md` § FR-001、FR-004
-- [ ] T079b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T079a)
+- [X] T079b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T079a)
   - 🧪 `testplan.md` § US1-TUN-02
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`
   - 📎 `spec.md` § FR-001、FR-004
-- [ ] T080a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-03 的測試(呼叫),執行確認它因為「沒比對這行,讓 `colab ssh` 意外開出的執行環境繼續跑(扣點,Q64)」這類實作而失敗
+- [X] T080a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-03 的測試(呼叫),執行確認它因為「沒比對這行,讓 `colab ssh` 意外開出的執行環境繼續跑(扣點,Q64)」這類實作而失敗
   - 🧪 `testplan.md` § US1-TUN-03
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006;`plan.md` § 待決問題 Q64
-- [ ] T080b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T080a)
+- [X] T080b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T080a)
   - 🧪 `testplan.md` § US1-TUN-03
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006;`plan.md` § 待決問題 Q64
-- [ ] T081a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-04 的測試(每一條字樣各呼叫一次(parametrize)),執行確認它因為「比對順序錯,使 `TUNNEL_ALREADY_CONNECTED` 之類落到 `TUNNEL_FAILED`」這類實作而失敗
+- [X] T081a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-04 的測試(每一條字樣各呼叫一次(parametrize)),執行確認它因為「比對順序錯,使 `TUNNEL_ALREADY_CONNECTED` 之類落到 `TUNNEL_FAILED`」這類實作而失敗
   - 🧪 `testplan.md` § US1-TUN-04
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`
   - 📎 `spec.md` § FR-004
-- [ ] T081b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T081a)
+- [X] T081b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T081a)
   - 🧪 `testplan.md` § US1-TUN-04
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`
   - 📎 `spec.md` § FR-004
-- [ ] T082a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-05 的測試(各呼叫一次),執行確認它因為「期限內第一次被拒就放棄(Ollama 剛啟動還沒聽)」這類實作而失敗
+- [X] T082a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-05 的測試(各呼叫一次),執行確認它因為「期限內第一次被拒就放棄(Ollama 剛啟動還沒聽)」這類實作而失敗
   - 🧪 `testplan.md` § US1-TUN-05
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T082b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T082a)
+- [X] T082b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T082a)
   - 🧪 `testplan.md` § US1-TUN-05
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T083a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-06 的測試(情況 A 假伺服器回 200 與 version;情況 B 假 `ssh` 印 `Timeout, server colab-runtime not responding.` 後結束;情況 C 假伺服器 0.3 秒內不回應;情況 D 假伺服器回 200 與 `<html>`),執行確認它因為「只看 ssh 行程還在就算健康,沒打 `/api/version`」這類實作而失敗
+- [X] T083a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-06 的測試(情況 A 假伺服器回 200 與 version;情況 B 假 `ssh` 印 `Timeout, server colab-runtime not responding.` 後結束;情況 C 假伺服器 0.3 秒內不回應;情況 D 假伺服器回 200 與 `<html>`),執行確認它因為「只看 ssh 行程還在就算健康,沒打 `/api/version`」這類實作而失敗
   - 🧪 `testplan.md` § US1-TUN-06
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T083b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T083a)
+- [X] T083b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T083a)
   - 🧪 `testplan.md` § US1-TUN-06
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T084a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-07 的測試(呼叫兩次),執行確認它因為「只對 ssh 的 pid 送訊號,ProxyCommand 留著」這類實作而失敗
+- [X] T084a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-07 的測試(呼叫兩次),執行確認它因為「只對 ssh 的 pid 送訊號,ProxyCommand 留著」這類實作而失敗
   - 🧪 `testplan.md` § US1-TUN-07
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}.delete`
   - 📎 `spec.md` § FR-002、FR-004
-- [ ] T084b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T084a)
+- [X] T084b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T084a)
   - 🧪 `testplan.md` § US1-TUN-07
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}.delete`
   - 📎 `spec.md` § FR-002、FR-004
-- [ ] T085a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-08 的測試(呼叫),執行確認它因為「用 `pkill ssh` 一類的寬鬆比對,關掉使用者自己的 ssh」這類實作而失敗
+- [X] T085a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-08 的測試(呼叫),執行確認它因為「用 `pkill ssh` 一類的寬鬆比對,關掉使用者自己的 ssh」這類實作而失敗
   - 🧪 `testplan.md` § US1-TUN-08
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}.delete`
   - 📎 `spec.md` § FR-005
-- [ ] T085b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T085a)
+- [X] T085b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T085a)
   - 🧪 `testplan.md` § US1-TUN-08
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}.delete`
   - 📎 `spec.md` § FR-005
-- [ ] T086a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-09 的測試(呼叫),執行確認它因為「遮蔽 regex 只換網址的主機、沒換 query 裡的 token」這類實作而失敗
+- [X] T086a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-09 的測試(呼叫),執行確認它因為「遮蔽 regex 只換網址的主機、沒換 query 裡的 token」這類實作而失敗
   - 🧪 `testplan.md` § US1-TUN-09
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-010
-- [ ] T086b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T086a)
+- [X] T086b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T086a)
   - 🧪 `testplan.md` § US1-TUN-09
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-010
-- [ ] T087 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T078b~T086b 記下的重構清單(範圍限 `src/cgb/adapters/tunnel.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T086b)
+- [X] T087 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T078b~T086b 記下的重構清單(範圍限 `src/cgb/adapters/tunnel.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T086b)
   - 🧪 `testplan.md` § US1-TUN-01~US1-TUN-09
   - 📎 `testplan.md` § 2.3
 - [ ] T088 [US1] 📏 量測:撰寫 `tests/realrun/test_us1_tun_10.py`(`-m realrun`),照 US1-TUN-10 量測。假如:主機上真的 OpenSSH 與 `colab ssh --proxy-mode`;US1-CLI-21 開好的 `cgb-test-<時間>-adapter` 已啟動 Ollama,`colab sessions` 列出它;US2-RO-03 已載入 `qwen2.5:0.5b`。當:建立通道;健康檢查 3 次;以 SIGKILL 殺掉 ssh;立即健康檢查;每 2 秒嘗試一次 `open_tunnel` 直到成功或 120 秒;查 `/api/ps`;`close_tunnel`。記下的數字與門檻:則1:第一次建立在 30 秒內就緒;則2:殺掉 ssh 後的那次健康檢查回失敗,代碼不是健康;則3:重新建立在 120 秒內成功,並記下等了幾秒、中間出現過哪些代碼(Q69);則4:重新建立後 `/api/ps` 仍有 `qwen2.5:0.5b`;則5:`close_tunnel` 後 `localPort` 沒有在聽、沒有 defunct 行程;則6:`close_tunnel` 後 `colab sessions` 仍列出這台(關通道不結束執行環境);則7:這次 stderr 出現過的每一行,都比對得到 `x-stderr-patterns` 的一條或屬於可忽略的行。副作用與護欄:P1~P9;與 US1-CLI-21 共用同一台 T4,本案例約 3 分鐘,占用算在 US1-CLI-21 的 0.21 compute units 之內;本機轉發只綁 127.0.0.1 的隨機 port,不用 11434~11436;金鑰放 `<暫存目錄>/data/ssh/`,不用桌機的 `~/.ssh`(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(30 秒與 120 秒門檻);樣本:一次實跑(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
