@@ -7,6 +7,7 @@
 
 import asyncio
 import contextlib
+import logging
 import os
 import re
 import signal
@@ -20,6 +21,8 @@ from typing import Any
 import httpx
 
 from cgb.adapters.errors import AdapterError
+
+logger = logging.getLogger(__name__)
 
 KEYGEN_TIMEOUT = 10.0  # ensureTunnelKey 的 x-timeout:每個命令 10 秒
 ACCEPTED_KEY_TYPE = "ssh-ed25519"
@@ -90,6 +93,12 @@ def mask_secrets(line: str) -> str:
     return URL.sub("<url>", PROXY_TOKEN.sub(r"\1<token>", line))
 
 
+def _masked_last_line(stderr: str) -> str | None:
+    """stderr 遮蔽後的最後一個非空行;stderr 為空時不附(None)。"""
+    lines = [line for line in stderr.splitlines() if line.strip()]
+    return mask_secrets(lines[-1]) if lines else None
+
+
 def relevant_lines(lines: list[str]) -> list[str]:
     """略過 `x-stderr-ignore` 的行(每次連線都會印的 known_hosts 警告)。"""
     return [line for line in lines if not line.startswith(STDERR_IGNORE)]
@@ -148,15 +157,25 @@ class _Forward:
         return any(REMOTE_REFUSED in line for line in self.stderr_lines)
 
 
-async def _run(*argv: str) -> tuple[str, str]:
+async def _run(*argv: str, timeout: float = KEYGEN_TIMEOUT) -> tuple[str, str]:
     """執行一個命令,stdin 接 /dev/null(不讓 ssh-keygen 停下來等密碼),回傳 stdout 與 stderr。"""
-    process = await asyncio.create_subprocess_exec(
-        *argv,
-        stdin=asyncio.subprocess.DEVNULL,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await asyncio.wait_for(process.communicate(), KEYGEN_TIMEOUT)
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *argv,
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except FileNotFoundError:
+        raise AdapterError("TUNNEL_NOT_INSTALLED", f"找不到 {argv[0]} 指令") from None
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout)
+    except TimeoutError:
+        # 逾時(例如停下來等輸入密碼)視為 TUNNEL_FAILED(Q147);結束並回收子行程,不留殭屍
+        with contextlib.suppress(ProcessLookupError):
+            process.kill()
+        await process.wait()
+        raise AdapterError("TUNNEL_FAILED", f"{argv[0]} 在時限內沒有完成") from None
     return stdout.decode(errors="replace"), stderr.decode(errors="replace")
 
 
@@ -169,43 +188,58 @@ class Tunnel:
         probe_timeout: float = PROBE_TIMEOUT,
         term_wait: float = TERM_WAIT,
         kill_wait: float = KILL_WAIT,
+        keygen_timeout: float = KEYGEN_TIMEOUT,
     ) -> None:
         self._ready_deadline = ready_deadline
         self._ready_interval = ready_interval
         self._probe_timeout = probe_timeout
         self._term_wait = term_wait
         self._kill_wait = kill_wait
+        self._keygen_timeout = keygen_timeout
         self._forwards: dict[str, _Forward] = {}
 
     async def ensure_key(self, key_path: str) -> dict[str, Any]:
         """準備通道專用的 ed25519 金鑰(ensureTunnelKey);已存在就不覆寫,只回類型與指紋。"""
         created = False
         if not os.path.exists(key_path):
-            await _run("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "cgb-tunnel", "-f", key_path)
+            _, create_err = await _run(
+                "ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "cgb-tunnel", "-f", key_path,
+                timeout=self._keygen_timeout,
+            )  # fmt: skip
+            # `-q` 成功時本來就沒有輸出,所以只看檔案在不在(Q148)
+            if not os.path.exists(key_path):
+                raise AdapterError("TUNNEL_FAILED", "產生通道金鑰失敗", stderr_last_line=_masked_last_line(create_err))
             created = True
 
-        public_key, _ = await _run("ssh-keygen", "-y", "-P", "", "-f", key_path)
+        public_key, _ = await _run("ssh-keygen", "-y", "-P", "", "-f", key_path, timeout=self._keygen_timeout)
         # 只取第一個欄位(類型);公鑰本文不記錄、不回傳
         key_type = public_key.split(maxsplit=1)[0] if public_key.strip() else ""
         if key_type != ACCEPTED_KEY_TYPE:
             raise AdapterError("TUNNEL_KEY_REJECTED", "通道金鑰不是沒有密碼的 ed25519,Colab 不接受")
 
-        fingerprint_out, _ = await _run("ssh-keygen", "-l", "-E", "sha256", "-f", key_path)
+        fingerprint_out, fingerprint_err = await _run(
+            "ssh-keygen", "-l", "-E", "sha256", "-f", key_path, timeout=self._keygen_timeout
+        )
         match = FINGERPRINT_LINE.match(fingerprint_out.strip())
         if match is None:
-            raise AdapterError("TUNNEL_FAILED", "讀不出通道金鑰的指紋")
+            raise AdapterError(
+                "TUNNEL_FAILED", "讀不出通道金鑰的指紋", stderr_last_line=_masked_last_line(fingerprint_err)
+            )
         return {"keyType": key_type, "fingerprint": match.group(1), "created": created}
 
     async def open_tunnel(self, session_name: str, key_path: str, local_port: int) -> dict[str, Any]:
         """建立本機轉發(openTunnel),等到遠端 Ollama 透過它回應 `/api/version` 才回成功。"""
         started = time.monotonic()
-        process = subprocess.Popen(
-            ssh_argv(session_name, key_path, local_port),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            start_new_session=True,  # 自成一個 process group,closeTunnel 對整個 group 送訊號
-        )
+        try:
+            process = subprocess.Popen(
+                ssh_argv(session_name, key_path, local_port),
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                start_new_session=True,  # 自成一個 process group,closeTunnel 對整個 group 送訊號
+            )
+        except FileNotFoundError:
+            raise AdapterError("TUNNEL_NOT_INSTALLED", "找不到 ssh 指令") from None
         forward = _Forward(process=process, local_port=local_port)
         threading.Thread(target=forward.read_stderr, name=f"tunnel-stderr-{session_name}", daemon=True).start()
         self._forwards[session_name] = forward
@@ -219,10 +253,10 @@ class Tunnel:
                 # 連上了卻沒有任何回應就被關閉,同時 stderr 有 `open failed: connect failed`:遠端 11434 沒有在聽
                 remote_refused = closed_without_reply and forward.saw_remote_refused()
                 if forward.creating_runtime.is_set():
-                    self._stop_group(forward)
+                    await self._end_group(forward)
                     raise AdapterError("TUNNEL_NOT_FOUND", "要連的執行環境已經不在,Colab 正要另開一台(已停止)")
                 if forward.process.poll() is not None or forward.stderr_closed.is_set():
-                    raise self._ended(forward)
+                    raise await self._ended(forward)
                 if version is not None:
                     return {
                         "sessionName": session_name,
@@ -232,15 +266,18 @@ class Tunnel:
                         "elapsedMs": int((time.monotonic() - started) * 1000),
                     }
                 await asyncio.sleep(self._ready_interval)
-        self._stop_group(forward)
+        await self._end_group(forward)
         if remote_refused:
             raise AdapterError("TUNNEL_REMOTE_REFUSED", FAILURE_MESSAGES["TUNNEL_REMOTE_REFUSED"])
         raise AdapterError("TUNNEL_TIMEOUT", "通道在期限內沒有就緒")
 
-    def _ended(self, forward: _Forward) -> AdapterError:
-        """ssh 已經結束:收尾並依 stderr 判定代碼(exit code 不可信,不看)。"""
-        forward.stderr_closed.wait(STDERR_DRAIN)
-        self._stop_group(forward)
+    async def _ended(self, forward: _Forward) -> AdapterError:
+        """ssh 已經結束:對整個 process group 收尾(留下的 ProxyCommand 一起),並依 stderr 判定代碼(exit code 不可信,不看)。"""
+        # 真的 ProxyCommand 繼承 ssh 的 stderr,活著時 stderr 不會關;等待改成非同步輪詢,不卡事件迴圈
+        drain_until = time.monotonic() + STDERR_DRAIN
+        while not forward.stderr_closed.is_set() and time.monotonic() < drain_until:
+            await asyncio.sleep(EXIT_POLL)
+        await self._end_group(forward)
         code = classify_stderr(forward.stderr_lines)
         if code is None:
             relevant = relevant_lines(forward.stderr_lines)
@@ -254,15 +291,9 @@ class Tunnel:
         if forward is None:
             return {"sessionName": session_name, "wasRunning": False, "forced": False}
         was_running = forward.process.poll() is None
-        pgid = forward.process.pid
-
-        _signal_group(pgid, signal.SIGTERM)
-        forced = False
-        if not await _group_gone(forward.process, self._term_wait):
-            forced = True
-            _signal_group(pgid, signal.SIGKILL)
-            if not await _group_gone(forward.process, self._kill_wait):
-                raise AdapterError("TUNNEL_FAILED", "SSH 通道的行程關不掉")
+        gone, forced = await self._terminate(forward)
+        if not gone:
+            raise AdapterError("TUNNEL_FAILED", "SSH 通道的行程關不掉")
         if not await _port_closed(forward.local_port, self._kill_wait):
             raise AdapterError("TUNNEL_FAILED", "本機轉發的 port 仍在聽,可能被別的行程占用")
         return {"sessionName": session_name, "wasRunning": was_running, "forced": forced}
@@ -287,7 +318,7 @@ class Tunnel:
         if forward is None:
             raise AdapterError("TUNNEL_NOT_FOUND", "本系統沒有這個工作階段的通道")
         if forward.process.poll() is not None:
-            raise self._ended(forward)
+            raise await self._ended(forward)
 
         started = time.monotonic()
         base_url = base_url_of(forward.local_port)
@@ -313,11 +344,24 @@ class Tunnel:
             "latencyMs": int((time.monotonic() - started) * 1000),
         }
 
-    def _stop_group(self, forward: _Forward) -> None:
-        """對 ssh 的整個 process group 送 SIGTERM(ProxyCommand 一起),並回收 ssh。"""
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(forward.process.pid, signal.SIGTERM)
-        forward.process.wait()
+    async def _end_group(self, forward: _Forward) -> bool:
+        """失敗收尾(Q141):和 closeTunnel 同一套流程;收尾失敗不改變回報的代碼,只記一筆日誌。回傳是否已全部結束。"""
+        gone, _ = await self._terminate(forward)
+        if not gone:
+            logger.warning("SSH 通道的行程在 SIGKILL 之後仍在(process group %d)", forward.process.pid)
+        return gone
+
+    async def _terminate(self, forward: _Forward) -> tuple[bool, bool]:
+        """整個 process group 送 SIGTERM、等待、還在就 SIGKILL、再等待,並回收 ssh;等待都是非同步的。
+
+        回傳(是否已全部結束, 是否動用到 SIGKILL)。
+        """
+        pgid = forward.process.pid
+        _signal_group(pgid, signal.SIGTERM)
+        if await _group_gone(forward.process, self._term_wait):
+            return True, False
+        _signal_group(pgid, signal.SIGKILL)
+        return await _group_gone(forward.process, self._kill_wait), True
 
 
 async def _probe_unless(client: httpx.AsyncClient, alarm: threading.Event) -> tuple[str | None, bool]:

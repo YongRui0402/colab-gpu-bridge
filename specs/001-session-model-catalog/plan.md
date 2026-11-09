@@ -277,3 +277,5 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q161 | tasks | 〔testplan 提出〕重啟接回時釋放遺留失敗,`releaseWarning` 掛在哪。(a)掛在 `GET /api/session` 回的那筆工作階段的 `release_warning_*`;(b)另立欄位(S5 要改) | — | (a)(kevin-twin 代為決定) |
 | Q162 | tasks | 〔tasks 提出〕Q159 補 US1-AJ-23(T147a/b)與 G-09(T290a/b),原 T147–T288 加 1、原 T289–T292 加 2,最後一個任務成為 T294(第三次平移,只動未勾選的任務);plan.md 引用已同步 | — | 已同步(本列為紀錄)(kevin-twin 代為決定) |
 | Q163 | implement T045 | 〔任務 T045b〕授權碼去掉空白後為空字串時,合約要回 400 `INVALID_AUTH_CODE`,testplan 沒有案例、未實作。(a)列為未覆蓋;(b)補案例 | — | (a);無花費風險,同 Q131 列入完成報告的未覆蓋(kevin-twin 代為決定) |
+| Q164 | implement T081 | 〔任務 T081a,E5 補充〕`test_stop_that_times_out_is_still_judged_by_session_list` 平行時約 1/13 會紅(斷言耗時 ≤ 1.5 秒)。主 agent 在無平行時全部測試連跑 3 次皆 205 passed、單獨 10 次皆過。(a)放寬時間餘裕;(b)維持,實跑時留意 | — | (b)(kevin-twin 代為決定) |
+| Q165 | implement T111 | 〔任務 T111b〕`_ended` 先等 stderr 讀完(最多 1 秒)再收尾整個 group;真 ProxyCommand 佔著 stderr,失敗回報固定多等 1 秒,不卡事件迴圈。(a)先收尾再讀 stderr;(b)維持 | — | (b)(kevin-twin 代為決定) |

@@ -19,6 +19,7 @@ import sys
 import threading
 import time
 from collections.abc import Awaitable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +49,7 @@ def sha256_of(path: Path) -> str:
 
 def make_rsa_key(path: Path) -> None:
     subprocess.run(
-        ["ssh-keygen", "-q", "-t", "rsa", "-b", "2048", "-N", "", "-C", "cgb-test-rsa", "-f", str(path)],
+        [real_program("ssh-keygen"), "-q", "-t", "rsa", "-b", "2048", "-N", "", "-C", "cgb-test-rsa", "-f", str(path)],
         check=True,
         stdin=subprocess.DEVNULL,
     )
@@ -147,7 +148,7 @@ def key_path(tmp_path: Path) -> str:
     path = tmp_path / "ssh" / "id_ed25519"
     path.parent.mkdir()
     subprocess.run(
-        ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "cgb-test", "-f", str(path)],
+        [real_program("ssh-keygen"), "-q", "-t", "ed25519", "-N", "", "-C", "cgb-test", "-f", str(path)],
         check=True,
         stdin=subprocess.DEVNULL,
     )
@@ -193,6 +194,7 @@ class ForwardStandIn:
 
     def __init__(self, server: FakeOllamaServer, fake_cli: FakeCli) -> None:
         self.server = server
+        self.keep_listening_after_ssh_ends = False  # True:代表別的行程占用 `localPort`,假 ssh 結束後照樣在聽
         self._fake_cli = fake_cli
         self._ssh_started = Gate()
         self._stop = threading.Event()
@@ -206,6 +208,10 @@ class ForwardStandIn:
     def reply_version(self, reply: Any, times: int | None = None) -> None:
         self.server.add("GET", "/api/version", HangReply(release=self._ssh_started, after=reply), times=times)
 
+    def close_version_without_reply(self) -> None:
+        """之後的 `/api/version` 連上後不回應就關閉連線(遠端 11434 沒有在聽時,ssh 對轉發的連線就是這樣)。"""
+        self.server.add("GET", "/api/version", DisconnectReply())
+
     def _watch(self) -> None:
         while not self._stop.wait(self.WATCH_SECONDS):
             calls = self._fake_cli.calls("ssh")
@@ -213,7 +219,8 @@ class ForwardStandIn:
                 continue
             self._ssh_started.release()
             if not _alive(calls[-1]["pid"]):
-                self.server.stop()
+                if not self.keep_listening_after_ssh_ends:
+                    self.server.stop()
                 return
 
     def close(self) -> None:
@@ -230,12 +237,16 @@ def forward(ollama_server: FakeOllamaServer, fake_ssh: FakeCli) -> Iterator[Forw
         stand_in.close()
 
 
-def real_ssh() -> str:
-    """真的 OpenSSH(PATH 去掉假執行檔的資料夾)。"""
+def real_program(name: str) -> str:
+    """主機上真的執行檔(PATH 去掉假執行檔的資料夾);`fake_cli` 把假的放在 PATH 最前面時也找得到真的。"""
     path = os.pathsep.join(p for p in os.environ.get("PATH", "").split(os.pathsep) if Path(p) != FAKE_BIN_DIR)
-    found = shutil.which("ssh", path=path)
-    assert found is not None, "主機上找不到真的 ssh"
+    found = shutil.which(name, path=path)
+    assert found is not None, f"主機上找不到真的 {name}"
     return found
+
+
+def real_ssh() -> str:
+    return real_program("ssh")
 
 
 # ---------------------------------------------------------------- US1-TUN-02 open_tunnel 的命令列與就緒
@@ -841,3 +852,523 @@ async def test_open_tunnel_failure_logs_never_contain_proxy_token(
 
     # Assert
     assert FAKE_TOKEN not in caplog.text
+
+
+# ---------------------------------------------------------------- 補充案例共用:記時 task 與卡住時的救援
+
+INJECTED_TERM_WAIT_SHORT = 0.3
+INJECTED_KILL_WAIT = 0.2
+TICK_SECONDS = 0.05
+RESCUE_AFTER = 4.0  # 實作卡住(同步 wait 等不到忽略 SIGTERM 的行程)時,測試在這之後以 SIGKILL 救回,讓紅燈有結果
+
+
+class Ticker:
+    """同一個事件迴圈上每 0.05 秒記一次時間;事件迴圈被同步呼叫卡住時,相鄰兩次的間隔就會變大。"""
+
+    def __init__(self) -> None:
+        self.times: list[float] = []
+        self._task: asyncio.Task[None] | None = None
+
+    async def _run(self) -> None:
+        while True:
+            self.times.append(time.monotonic())
+            await asyncio.sleep(TICK_SECONDS)
+
+    async def __aenter__(self) -> "Ticker":
+        self._task = asyncio.create_task(self._run())
+        await asyncio.sleep(0)
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        assert self._task is not None
+        self.times.append(time.monotonic())
+        self._task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await self._task
+
+    @property
+    def max_gap(self) -> float:
+        return max((b - a for a, b in zip(self.times, self.times[1:], strict=False)), default=0.0)
+
+
+@contextlib.contextmanager
+def rescue_stuck_processes(fake_cli: FakeCli, after: float = RESCUE_AFTER) -> Iterator[None]:
+    """`after` 秒後還沒離開這個區塊,就以紀錄裡的 pid 對假 ssh 與子行程送 SIGKILL(不比對命令列)。"""
+    done = threading.Event()
+
+    def rescue() -> None:
+        if done.wait(after):
+            return
+        for record in fake_cli.calls("ssh"):
+            for pid in (record["pid"], record.get("child_pid")):
+                if pid:
+                    with contextlib.suppress(ProcessLookupError):
+                        os.kill(pid, signal.SIGKILL)
+
+    thread = threading.Thread(target=rescue, name="rescue-stuck", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        done.set()
+        thread.join(timeout=5)
+
+
+@dataclass
+class Outcome:
+    code: str
+    returned_at: float  # time.time()
+    elapsed: float  # 呼叫到回傳的秒數
+    running_at_return: set[int]
+    record: dict[str, Any]
+    max_gap: float
+
+
+async def open_and_observe(fake_ssh: FakeCli, tunnel: Tunnel, key_path: str, port: int, entry: dict[str, Any]) -> Outcome:
+    script_ssh(fake_ssh, spec_ssh_argv(key_path, SESSION, port), entry)
+    with rescue_stuck_processes(fake_ssh):
+        async with Ticker() as ticker:
+            started = time.monotonic()
+            code = await code_of(tunnel.open_tunnel(SESSION, key_path, port))
+            elapsed = time.monotonic() - started
+            returned_at = time.time()
+            record = fake_ssh.calls("ssh")[0]
+            running = still_running(record)
+    return Outcome(code, returned_at, elapsed, running, record, ticker.max_gap)
+
+
+# ---------------------------------------------------------------- US1-TUN-11 Creating runtime 收尾遇到忽略 SIGTERM 的行程
+
+
+async def open_creating_runtime_with_stubborn_group(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> Outcome:
+    tunnel = Tunnel(term_wait=INJECTED_TERM_WAIT_SHORT, kill_wait=INJECTED_KILL_WAIT)
+    entry = {"stderr": CREATING_RUNTIME, "daemon": True, "spawn_child": True, "ignore_sigterm": True}
+    return await open_and_observe(fake_ssh, tunnel, key_path, forward.port, entry)
+
+
+async def test_open_tunnel_reports_not_found_even_when_creating_runtime_group_ignores_sigterm(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_creating_runtime_with_stubborn_group(fake_ssh, forward, key_path)
+
+    # Assert
+    assert outcome.code == "TUNNEL_NOT_FOUND"
+
+
+async def test_open_tunnel_returns_within_a_second_of_creating_runtime_despite_ignored_sigterm(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_creating_runtime_with_stubborn_group(fake_ssh, forward, key_path)
+
+    # Assert:假 ssh 一啟動就印這行,所以從它的啟動時間起算
+    assert outcome.returned_at - outcome.record["time"] <= 1.0
+
+
+async def test_open_tunnel_has_ended_ssh_and_proxy_command_that_ignore_sigterm_when_returning(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_creating_runtime_with_stubborn_group(fake_ssh, forward, key_path)
+
+    # Assert
+    assert outcome.running_at_return == set()
+
+
+async def test_open_tunnel_leaves_no_defunct_process_after_creating_runtime(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_creating_runtime_with_stubborn_group(fake_ssh, forward, key_path)
+
+    # Assert:ssh 由後端回收;子行程被殺後由 init 回收,給它一點時間
+    assert await wait_for_no_leftovers(outcome.record, timeout=1.0) == set()
+
+
+async def test_open_tunnel_keeps_event_loop_responsive_while_ending_creating_runtime_group(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_creating_runtime_with_stubborn_group(fake_ssh, forward, key_path)
+
+    # Assert
+    assert outcome.max_gap <= 0.2
+
+
+# ---------------------------------------------------------------- US1-TUN-12 ssh 自己結束,留下忽略 SIGTERM 的 ProxyCommand
+
+
+async def open_while_ssh_exits_leaving_stubborn_child(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> Outcome:
+    tunnel = Tunnel(term_wait=INJECTED_TERM_WAIT_SHORT, kill_wait=INJECTED_KILL_WAIT)
+    entry = {
+        "spawn_child": True,
+        "child_ignores_sigterm": True,
+        "stderr": "cgb-test unknown failure\n",
+        "exit": 255,
+    }
+    return await open_and_observe(fake_ssh, tunnel, key_path, forward.port, entry)
+
+
+async def test_open_tunnel_reports_failed_when_ssh_exits_with_unknown_stderr(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_while_ssh_exits_leaving_stubborn_child(fake_ssh, forward, key_path)
+
+    # Assert
+    assert outcome.code == "TUNNEL_FAILED"
+
+
+async def test_open_tunnel_returns_within_a_second_of_ssh_exiting(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_while_ssh_exits_leaving_stubborn_child(fake_ssh, forward, key_path)
+
+    # Assert:假 ssh 印完一行就結束,所以從它的啟動時間起算
+    assert outcome.returned_at - outcome.record["time"] <= 1.0
+
+
+async def test_open_tunnel_ends_orphaned_proxy_command_after_ssh_exits(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_while_ssh_exits_leaving_stubborn_child(fake_ssh, forward, key_path)
+
+    # Assert
+    assert outcome.running_at_return == set()
+
+
+async def test_open_tunnel_keeps_event_loop_responsive_while_ending_orphaned_proxy_command(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_while_ssh_exits_leaving_stubborn_child(fake_ssh, forward, key_path)
+
+    # Assert
+    assert outcome.max_gap <= 0.2
+
+
+# ---------------------------------------------------------------- US1-TUN-13 就緒期限到,收尾遇到忽略 SIGTERM 的行程
+
+INJECTED_SHORT_READY_DEADLINE = 0.5
+
+
+async def open_until_deadline_with_stubborn_group(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> Outcome:
+    forward.server.stop()  # localPort 一直拒絕連線(不用「不回應」,免得單次探測的逾時蓋過就緒期限)
+    tunnel = Tunnel(
+        ready_deadline=INJECTED_SHORT_READY_DEADLINE,
+        term_wait=INJECTED_TERM_WAIT_SHORT,
+        kill_wait=INJECTED_KILL_WAIT,
+    )
+    entry = {"daemon": True, "spawn_child": True, "ignore_sigterm": True}
+    return await open_and_observe(fake_ssh, tunnel, key_path, forward.port, entry)
+
+
+async def test_open_tunnel_times_out_at_deadline_even_when_group_ignores_sigterm(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_until_deadline_with_stubborn_group(fake_ssh, forward, key_path)
+
+    # Assert
+    assert outcome.code == "TUNNEL_TIMEOUT"
+
+
+async def test_open_tunnel_returns_soon_after_deadline_even_when_group_ignores_sigterm(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_until_deadline_with_stubborn_group(fake_ssh, forward, key_path)
+
+    # Assert
+    assert 0.5 <= outcome.elapsed <= 1.5
+
+
+async def test_open_tunnel_has_ended_stubborn_group_when_deadline_passes(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_until_deadline_with_stubborn_group(fake_ssh, forward, key_path)
+
+    # Assert
+    assert outcome.running_at_return == set()
+
+
+async def test_open_tunnel_keeps_event_loop_responsive_while_ending_group_at_deadline(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    outcome = await open_until_deadline_with_stubborn_group(fake_ssh, forward, key_path)
+
+    # Assert
+    assert outcome.max_gap <= 0.2
+
+
+# ---------------------------------------------------------------- US1-TUN-14 找不到執行檔
+
+
+async def outcome_code(call: Awaitable[Any]) -> str:
+    """像 `code_of`,但其他例外也轉成它的型別名稱,讓「丟出 FileNotFoundError」成為斷言比對得到的值。"""
+    try:
+        return await code_of(call)
+    except Exception as error:  # noqa: BLE001 - 測試要把任何例外都變成可比對的值
+        return type(error).__name__
+
+
+@pytest.fixture
+def path_with_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """把 PATH 換成只有 `tests/fixtures/bin/` 裡指定那幾個假執行檔的資料夾。"""
+
+    def use(*programs: str) -> None:
+        bin_dir = tmp_path / "only-bin"
+        bin_dir.mkdir(exist_ok=True)
+        for program in programs:
+            (bin_dir / program).symlink_to(FAKE_BIN_DIR / program)
+        monkeypatch.setenv("PATH", str(bin_dir))
+
+    return use
+
+
+async def test_open_tunnel_reports_not_installed_when_ssh_is_missing(
+    fake_cli: FakeCli, path_with_only: Any, key_path: str
+) -> None:
+    # Arrange:ProxyCommand 要的 colab 在,ssh 不在
+    path_with_only("colab")
+
+    # Act
+    code = await outcome_code(Tunnel().open_tunnel(SESSION, key_path, free_port()))
+
+    # Assert
+    assert code == "TUNNEL_NOT_INSTALLED"
+
+
+async def test_ensure_key_reports_not_installed_when_ssh_keygen_is_missing(
+    path_with_only: Any, tmp_path: Path
+) -> None:
+    # Arrange
+    path_with_only()
+
+    # Act
+    code = await outcome_code(Tunnel().ensure_key(str(tmp_path / "id_ed25519")))
+
+    # Assert
+    assert code == "TUNNEL_NOT_INSTALLED"
+
+
+# ---------------------------------------------------------------- US1-TUN-15 ssh-keygen 逾時
+
+INJECTED_KEYGEN_TIMEOUT = 0.3
+
+
+def keygen_create_argv(key_path: str) -> list[str]:
+    """ensureTunnelKey 的 x-argv 第一行(產生金鑰的那一段),去掉程式名。"""
+    return ["-q", "-t", "ed25519", "-N", "", "-C", "cgb-tunnel", "-f", key_path]
+
+
+def script_keygen(fake_cli: FakeCli, scripts: dict[str, dict[str, Any]]) -> None:
+    fake_cli.script({"ssh-keygen": scripts})
+
+
+async def ensure_key_with_hanging_keygen(fake_cli: FakeCli, tmp_path: Path) -> tuple[str, float]:
+    key_path = str(tmp_path / "id_ed25519")
+    script_keygen(fake_cli, {shlex.join(keygen_create_argv(key_path)): {"sleep": 30}})
+    started = time.monotonic()
+    code = await outcome_code(Tunnel(keygen_timeout=INJECTED_KEYGEN_TIMEOUT).ensure_key(key_path))
+    return code, time.monotonic() - started
+
+
+async def test_ensure_key_reports_failed_when_ssh_keygen_hangs(fake_cli: FakeCli, tmp_path: Path) -> None:
+    # Act
+    code, _ = await ensure_key_with_hanging_keygen(fake_cli, tmp_path)
+
+    # Assert
+    assert code == "TUNNEL_FAILED"
+
+
+async def test_ensure_key_gives_up_on_hanging_ssh_keygen_after_the_injected_limit(
+    fake_cli: FakeCli, tmp_path: Path
+) -> None:
+    # Act
+    _, elapsed = await ensure_key_with_hanging_keygen(fake_cli, tmp_path)
+
+    # Assert
+    assert 0.3 <= elapsed <= 1.3
+
+
+async def test_ensure_key_has_ended_hanging_ssh_keygen_when_returning(fake_cli: FakeCli, tmp_path: Path) -> None:
+    # Act
+    await ensure_key_with_hanging_keygen(fake_cli, tmp_path)
+
+    # Assert
+    pids = [record["pid"] for record in fake_cli.calls("ssh-keygen")]
+    assert pids
+    assert [pid for pid in pids if _alive(pid)] == []
+
+
+# ---------------------------------------------------------------- US1-TUN-16 ssh-keygen 的輸出不合規格
+
+FINGERPRINT_WARNING = "warning see https://cgb-test-fake-endpoint.example/k\n"
+
+
+async def test_ensure_key_reports_failed_when_key_file_is_missing_after_generating(
+    fake_cli: FakeCli, tmp_path: Path
+) -> None:
+    # Arrange:產生金鑰的那一行 exit 0,卻沒有寫出檔案
+    key_path = str(tmp_path / "id_ed25519")
+    script_keygen(fake_cli, {shlex.join(keygen_create_argv(key_path)): {"exit": 0}})
+
+    # Act
+    code = await outcome_code(Tunnel().ensure_key(key_path))
+
+    # Assert
+    assert code == "TUNNEL_FAILED"
+
+
+async def ensure_key_with_malformed_fingerprint(fake_cli: FakeCli, key_path: str) -> AdapterError:
+    public_line = Path(f"{key_path}.pub").read_text(encoding="utf-8")
+    script_keygen(
+        fake_cli,
+        {
+            shlex.join(["-y", "-P", "", "-f", key_path]): {"stdout": public_line},
+            shlex.join(["-l", "-E", "sha256", "-f", key_path]): {
+                "stdout": "not a fingerprint\n",
+                "stderr": FINGERPRINT_WARNING,
+            },
+        },
+    )
+    try:
+        await Tunnel().ensure_key(key_path)
+    except AdapterError as error:
+        return error
+    return AdapterError(NO_ERROR, NO_ERROR)
+
+
+async def test_ensure_key_reports_failed_when_fingerprint_is_malformed(fake_cli: FakeCli, key_path: str) -> None:
+    # Act
+    error = await ensure_key_with_malformed_fingerprint(fake_cli, key_path)
+
+    # Assert
+    assert error.code == "TUNNEL_FAILED"
+
+
+async def test_ensure_key_failure_carries_masked_last_stderr_line(fake_cli: FakeCli, key_path: str) -> None:
+    # Act
+    error = await ensure_key_with_malformed_fingerprint(fake_cli, key_path)
+
+    # Assert
+    assert error.stderr_last_line == "warning see <url>"
+
+
+# ---------------------------------------------------------------- US1-TUN-17 close_tunnel 後 port 仍有人聽
+
+
+async def close_while_port_stays_occupied(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> tuple[str, float, dict[str, Any]]:
+    forward.keep_listening_after_ssh_ends = True
+    forward.reply_version(JsonReply({"version": REMOTE_VERSION}))
+    script_ssh(fake_ssh, spec_ssh_argv(key_path, SESSION, forward.port), {"daemon": True})
+    tunnel = Tunnel(term_wait=INJECTED_TERM_WAIT_SHORT, kill_wait=INJECTED_KILL_WAIT)
+    await tunnel.open_tunnel(SESSION, key_path, forward.port)
+    started = time.monotonic()
+    code = await outcome_code(tunnel.close_tunnel(SESSION))
+    return code, time.monotonic() - started, fake_ssh.calls("ssh")[0]
+
+
+async def test_close_tunnel_reports_failed_when_local_port_is_still_listening(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    code, _, _ = await close_while_port_stays_occupied(fake_ssh, forward, key_path)
+
+    # Assert
+    assert code == "TUNNEL_FAILED"
+
+
+async def test_close_tunnel_gives_up_on_occupied_port_within_limit(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    _, elapsed, _ = await close_while_port_stays_occupied(fake_ssh, forward, key_path)
+
+    # Assert
+    assert elapsed <= 1.5
+
+
+async def test_close_tunnel_has_ended_ssh_even_when_port_stays_occupied(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Act
+    _, _, record = await close_while_port_stays_occupied(fake_ssh, forward, key_path)
+
+    # Assert
+    assert still_running(record) == set()
+
+
+# ---------------------------------------------------------------- US1-TUN-18 check_health:本機轉發沒人聽
+
+
+async def test_check_health_reports_unreachable_when_local_port_is_not_listening(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Arrange:假 ssh 照常常駐,只有轉發的另一端不見了
+    tunnel = await open_then(fake_ssh, forward, key_path, {"daemon": True})
+    forward.server.stop()
+
+    # Act
+    code = await outcome_code(tunnel.check_health(SESSION))
+
+    # Assert
+    assert code == "TUNNEL_UNREACHABLE"
+
+
+# ---------------------------------------------------------------- US1-TUN-19 check_health:遠端 Ollama 不在
+
+
+async def test_check_health_reports_remote_refused_when_remote_ollama_is_not_listening(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Arrange
+    entry = {"stderr": "channel 2: open failed: connect failed: Connection refused\n", "daemon": True}
+    tunnel = await open_then(fake_ssh, forward, key_path, entry)
+    forward.server.clear()
+    forward.close_version_without_reply()
+
+    # Act
+    code = await outcome_code(tunnel.check_health(SESSION))
+
+    # Assert
+    assert code == "TUNNEL_REMOTE_REFUSED"
+
+
+# ---------------------------------------------------------------- US1-TUN-20 check_health:沒有這條轉發
+
+
+async def test_check_health_reports_not_found_for_session_without_tunnel() -> None:
+    # Act
+    code = await outcome_code(Tunnel().check_health("cgb-test-9999"))
+
+    # Assert
+    assert code == "TUNNEL_NOT_FOUND"
+
+
+async def test_check_health_reports_not_found_after_tunnel_is_closed(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    # Arrange
+    tunnel = await open_then(fake_ssh, forward, key_path, {"daemon": True})
+    await tunnel.close_tunnel(SESSION)
+
+    # Act
+    code = await outcome_code(tunnel.check_health(SESSION))
+
+    # Assert
+    assert code == "TUNNEL_NOT_FOUND"

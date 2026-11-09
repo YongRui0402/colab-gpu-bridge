@@ -831,87 +831,87 @@
 
 > testplan § 2.3 依 Q141、Q142 補的 US1-TUN-11~US1-TUN-20,照 testplan 交給 `/tdd` 的順序排在 US1-TUN-09 之後;上一節的重構 T108 已經做過,這一節另有自己的重構。和上一節改的是同一個 `src/cgb/adapters/tunnel.py`,整節依賴 T108,不和上一節平行。決定:`ssh-keygen` 逾時回 `TUNNEL_FAILED`(Q147);`ensure_key` 以「第一行跑完 `keyPath` 仍不存在」判定失敗(Q148);`Tunnel` 加建構參數 `keygen_timeout`(Q149)。各案例需要的 fixture 寫在它的紅燈任務裡,改 `tests/fixtures/bin/` 與 `tests/integration/test_tunnel.py` 的 helper,不另排 Setup 任務。紅燈若一開始就通過,照 E5 補充節的做法先對故意改壞的對照組確認測試抓得到(待決問題 Q145)
 
-- [ ] T110a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-11 的測試(以 `cgb-test-0001` 呼叫),執行確認它因為「收尾只送 SIGTERM、沒有接著 SIGKILL,忽略 SIGTERM 的行程一直留著(`colab ssh` 意外開出的連線不放)」這類實作而失敗;同一個任務在 `tests/fixtures/bin/ssh` 的劇本加上「自己與分出的子行程都忽略 SIGTERM」欄位(仍依收到的參數選劇本、對不到劇本就 exit 2),測試裡另跑每 0.05 秒記一次時間的 task
+- [X] T110a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-11 的測試(以 `cgb-test-0001` 呼叫),執行確認它因為「收尾只送 SIGTERM、沒有接著 SIGKILL,忽略 SIGTERM 的行程一直留著(`colab ssh` 意外開出的連線不放)」這類實作而失敗;同一個任務在 `tests/fixtures/bin/ssh` 的劇本加上「自己與分出的子行程都忽略 SIGTERM」欄位(仍依收到的參數選劇本、對不到劇本就 exit 2),測試裡另跑每 0.05 秒記一次時間的 task
   - 🧪 `testplan.md` § US1-TUN-11
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-007;`plan.md` § 待決問題 Q141
-- [ ] T110b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T110a、T108)
+- [X] T110b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T110a、T108)
   - 🧪 `testplan.md` § US1-TUN-11
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-007;`plan.md` § 待決問題 Q141
-- [ ] T111a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-12 的測試(以 `cgb-test-0001` 呼叫),執行確認它因為「ssh 自己結束就以為整組都結束了,沒有對 process group 收尾,留下孤兒的 ProxyCommand」這類實作而失敗;同一個任務在 `tests/fixtures/bin/ssh` 的劇本加上「先分出一個忽略 SIGTERM 的子行程、自己印完 stderr 後結束」欄位
+- [X] T111a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-12 的測試(以 `cgb-test-0001` 呼叫),執行確認它因為「ssh 自己結束就以為整組都結束了,沒有對 process group 收尾,留下孤兒的 ProxyCommand」這類實作而失敗;同一個任務在 `tests/fixtures/bin/ssh` 的劇本加上「先分出一個忽略 SIGTERM 的子行程、自己印完 stderr 後結束」欄位
   - 🧪 `testplan.md` § US1-TUN-12
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q141
-- [ ] T111b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T111a)
+- [X] T111b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T111a)
   - 🧪 `testplan.md` § US1-TUN-12
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q141
-- [ ] T112a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-13 的測試(以 `cgb-test-0001` 呼叫),執行確認它因為「就緒期限到了只回錯誤沒有關掉 ssh」這類實作而失敗;沿用 T110a 加的「自己與子行程都忽略 SIGTERM」欄位,測試先呼叫 `ForwardStandIn.server.stop()` 讓 `localPort` 一直拒絕連線
+- [X] T112a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-13 的測試(以 `cgb-test-0001` 呼叫),執行確認它因為「就緒期限到了只回錯誤沒有關掉 ssh」這類實作而失敗;沿用 T110a 加的「自己與子行程都忽略 SIGTERM」欄位,測試先呼叫 `ForwardStandIn.server.stop()` 讓 `localPort` 一直拒絕連線
   - 🧪 `testplan.md` § US1-TUN-13
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q141
-- [ ] T112b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T112a)
+- [X] T112b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T112a)
   - 🧪 `testplan.md` § US1-TUN-13
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q141
-- [ ] T113a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-14 的測試(情況 A 呼叫 `open_tunnel`,情況 B 呼叫 `ensure_key`),執行確認它因為「啟動子行程時找不到執行檔就拋例外,開啟流程以 500 中止、UI 沒有原因」這類實作而失敗;以測試自己組的 `PATH`(只放 `tests/fixtures/bin/` 裡需要的那一個假執行檔)造出找不到 `ssh` 與 `ssh-keygen` 的情況
+- [X] T113a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-14 的測試(情況 A 呼叫 `open_tunnel`,情況 B 呼叫 `ensure_key`),執行確認它因為「啟動子行程時找不到執行檔就拋例外,開啟流程以 500 中止、UI 沒有原因」這類實作而失敗;以測試自己組的 `PATH`(只放 `tests/fixtures/bin/` 裡需要的那一個假執行檔)造出找不到 `ssh` 與 `ssh-keygen` 的情況
   - 🧪 `testplan.md` § US1-TUN-14
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`paths./key.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T113b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T113a)
+- [X] T113b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T113a)
   - 🧪 `testplan.md` § US1-TUN-14
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`paths./key.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T114a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-15 的測試(以不存在的 `<keyPath>` 呼叫),執行確認它因為「`ssh-keygen` 沒有時限(例如停下來等輸入密碼),後端啟動卡住」這類實作而失敗;同一個任務新增 `tests/fixtures/bin/ssh-keygen` 假執行檔(Python,`chmod 755`),依收到的參數產生輸出:照 `CGB_FAKE_SCRIPT` 劇本以 argv 為鍵選 stdout、stderr、exit code 與睡多久,對不到劇本時印 `fake ssh-keygen: 沒有對應這組參數的劇本` 並 exit 2,每次執行把 argv 附加到 `CGB_FAKE_LOG`;`Tunnel` 以建構參數 `keygen_timeout` 注入 0.3 秒(Q149)
+- [X] T114a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-15 的測試(以不存在的 `<keyPath>` 呼叫),執行確認它因為「`ssh-keygen` 沒有時限(例如停下來等輸入密碼),後端啟動卡住」這類實作而失敗;同一個任務新增 `tests/fixtures/bin/ssh-keygen` 假執行檔(Python,`chmod 755`),依收到的參數產生輸出:照 `CGB_FAKE_SCRIPT` 劇本以 argv 為鍵選 stdout、stderr、exit code 與睡多久,對不到劇本時印 `fake ssh-keygen: 沒有對應這組參數的劇本` 並 exit 2,每次執行把 argv 附加到 `CGB_FAKE_LOG`;`Tunnel` 以建構參數 `keygen_timeout` 注入 0.3 秒(Q149)
   - 🧪 `testplan.md` § US1-TUN-15
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./key.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q141、Q147、Q149
-- [ ] T114b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T114a)
+- [X] T114b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T114a)
   - 🧪 `testplan.md` § US1-TUN-15
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./key.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q141、Q147、Q149
-- [ ] T115a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-16 的測試(各呼叫一次),執行確認它因為「指紋格式不對時照樣回成功並帶出亂碼」這類實作而失敗;同一個任務在 `tests/fixtures/bin/ssh-keygen` 的劇本加上「產生金鑰時 exit 0 卻不寫出檔案」,以及對 `-y` 與 `-l` 分別回應(`-l` 可在 stdout 印不合格式的指紋、在 stderr 印含網址的警告)
+- [X] T115a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-16 的測試(各呼叫一次),執行確認它因為「指紋格式不對時照樣回成功並帶出亂碼」這類實作而失敗;同一個任務在 `tests/fixtures/bin/ssh-keygen` 的劇本加上「產生金鑰時 exit 0 卻不寫出檔案」,以及對 `-y` 與 `-l` 分別回應(`-l` 可在 stdout 印不合格式的指紋、在 stderr 印含網址的警告)
   - 🧪 `testplan.md` § US1-TUN-16
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./key.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、NFR-010;`plan.md` § 待決問題 Q141、Q148
-- [ ] T115b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T115a)
+- [X] T115b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T115a)
   - 🧪 `testplan.md` § US1-TUN-16
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./key.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、NFR-010;`plan.md` § 待決問題 Q141、Q148
-- [ ] T116a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-17 的測試(呼叫 `close_tunnel`),執行確認它因為「送完訊號就回成功,沒確認 port 已經沒人聽,下一次建立通道撞 `TUNNEL_PORT_IN_USE`」這類實作而失敗;同一個任務在 `tests/integration/test_tunnel.py` 的 `ForwardStandIn` 加上「假 `ssh` 結束後仍繼續聽 `localPort`」的選項(代表別的行程占用)
+- [X] T116a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-17 的測試(呼叫 `close_tunnel`),執行確認它因為「送完訊號就回成功,沒確認 port 已經沒人聽,下一次建立通道撞 `TUNNEL_PORT_IN_USE`」這類實作而失敗;同一個任務在 `tests/integration/test_tunnel.py` 的 `ForwardStandIn` 加上「假 `ssh` 結束後仍繼續聽 `localPort`」的選項(代表別的行程占用)
   - 🧪 `testplan.md` § US1-TUN-17
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}.delete`、`components.schemas.Error`
   - 📎 `spec.md` § FR-002;`plan.md` § 待決問題 Q141
-- [ ] T116b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T116a)
+- [X] T116b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T116a)
   - 🧪 `testplan.md` § US1-TUN-17
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}.delete`、`components.schemas.Error`
   - 📎 `spec.md` § FR-002;`plan.md` § 待決問題 Q141
-- [ ] T117a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-18 的測試(測試呼叫 `ForwardStandIn.server.stop()` 讓 `localPort` 沒人聽,再呼叫 `check_health`),執行確認它因為「連線被拒當成 `TUNNEL_TIMEOUT` 或丟出 `httpx.ConnectError`」這類實作而失敗;以 `ForwardStandIn.server.stop()` 讓 `localPort` 沒人聽,假 `ssh` 照常常駐
+- [X] T117a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-18 的測試(測試呼叫 `ForwardStandIn.server.stop()` 讓 `localPort` 沒人聽,再呼叫 `check_health`),執行確認它因為「連線被拒當成 `TUNNEL_TIMEOUT` 或丟出 `httpx.ConnectError`」這類實作而失敗;以 `ForwardStandIn.server.stop()` 讓 `localPort` 沒人聽,假 `ssh` 照常常駐
   - 🧪 `testplan.md` § US1-TUN-18
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T117b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T117a)
+- [X] T117b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T117a)
   - 🧪 `testplan.md` § US1-TUN-18
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T118a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-19 的測試(呼叫 `check_health`),執行確認它因為「把遠端 Ollama 不在當成通道斷了(`TUNNEL_UNREACHABLE`),重建通道永遠不會好」這類實作而失敗;同一個任務在 `tests/integration/test_tunnel.py` 的 `ForwardStandIn` 加上「`/api/version` 連上後不回應就關閉連線」的選項,假 `ssh` 劇本同時在 stderr 印 `channel 2: open failed: connect failed: Connection refused`
+- [X] T118a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-19 的測試(呼叫 `check_health`),執行確認它因為「把遠端 Ollama 不在當成通道斷了(`TUNNEL_UNREACHABLE`),重建通道永遠不會好」這類實作而失敗;同一個任務在 `tests/integration/test_tunnel.py` 的 `ForwardStandIn` 加上「`/api/version` 連上後不回應就關閉連線」的選項,假 `ssh` 劇本同時在 stderr 印 `channel 2: open failed: connect failed: Connection refused`
   - 🧪 `testplan.md` § US1-TUN-19
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T118b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T118a)
+- [X] T118b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T118a)
   - 🧪 `testplan.md` § US1-TUN-19
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T119a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-20 的測試(情況 A 以 `cgb-test-9999`、情況 B 以 `cgb-test-0001` 呼叫),執行確認它因為「沒有這條轉發時丟出 `KeyError`」這類實作而失敗
+- [X] T119a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US1-TUN-20 的測試(情況 A 以 `cgb-test-9999`、情況 B 以 `cgb-test-0001` 呼叫),執行確認它因為「沒有這條轉發時丟出 `KeyError`」這類實作而失敗
   - 🧪 `testplan.md` § US1-TUN-20
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T119b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T119a)
+- [X] T119b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US1-TUN-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T119a)
   - 🧪 `testplan.md` § US1-TUN-20
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T120 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T110b~T119b 記下的重構清單(範圍限 `src/cgb/adapters/tunnel.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T119b)
+- [X] T120 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T110b~T119b 記下的重構清單(範圍限 `src/cgb/adapters/tunnel.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T119b)
   - 🧪 `testplan.md` § US1-TUN-11~US1-TUN-20
   - 📎 `testplan.md` § 2.3;`plan.md` § 待決問題 Q141、Q142、Q147、Q148、Q149
 

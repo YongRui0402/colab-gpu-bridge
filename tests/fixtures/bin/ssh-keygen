@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""假的 `ssh-keygen` 執行檔:與假的 `colab` 同一份實作,以程式名 `ssh-keygen` 讀劇本的 `ssh-keygen` 節(說明見同資料夾的 `colab`)。
+
+依 argv(`shlex.join`)選 stdout、stderr、exit code 與睡多久;對不到劇本時印
+`fake ssh-keygen: 沒有對應這組參數的劇本` 並 exit 2;每次執行把 argv 附加到 `CGB_FAKE_LOG`。
+不會真的產生或讀取任何金鑰檔(劇本要「產生金鑰卻沒寫出檔案」時,就是什麼都不寫)。
+"""
+
+import os
+import runpy
+
+runpy.run_path(os.path.join(os.path.dirname(os.path.realpath(__file__)), "colab"), run_name="__main__", init_globals={"FAKE_PROGRAM": "ssh-keygen"})
