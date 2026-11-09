@@ -230,7 +230,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q114 | tasks | G-03、G-04、G-08 紅燈可能一開始就綠。(a)紅燈先對故意改壞的對照組確認抓得到,再對實物執行(先採用);(b)全域綠燈才搬入 | — | (a)(kevin-twin 代為決定) |
 | Q115 | tasks | 外部程式參數交給真工具解讀。(a)E5 在 T061a 以真 `colab` 0.7.5(空暫存 HOME、無授權)只斷言無參數錯誤;E6 在 T100a 以 `ssh -G` 解讀(先採用);(b)只靠實跑 | — | (a)(kevin-twin 代為決定) |
 | Q116 | tasks | 📏 實跑任務排法。(a)照規範排在各故事,Checkpoint 註明整批延到全域測試區後依 P9 執行(先採用);(b)全部標 ⏸;(c)全部移到全域 | — | (a)(kevin-twin 代為決定) |
-| Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T249b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
+| Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T250b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
 | Q118 | tasks | Q85 搬遷後的位置。(a)Dockerfile、dockerignore、compose、.env.example 放根目錄,prepare-data.sh、healthcheck.py 放 repo 的 `deploy/`(先採用);(b)全放 `deploy/` | — | (a)(kevin-twin 代為決定) |
 | Q119 | tasks | 〔testplan 提出〕讀過用量但最近一次失敗時 `GET /api/usage`。(a)回最後快照,超過 15 分鐘標 `stale` 並說明讀取失敗,`unknown` 只用在從沒讀到過(先採用);(b)一律 `unknown`(會使 NFR-008 做不到) | — | (a)(kevin-twin 代為決定) |
 | Q120 | tasks | 〔testplan 提出〕餘額 ≤ 0 時估計可用時數。(a)回 0(先採用);(b)負數;(c)null | — | (a)(kevin-twin 代為決定) |
@@ -273,3 +273,6 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q157 | implement T039 | `unmanagedRuntimes` 在 `state: none` 時也附上(合約說 none 時其他欄位都沒有,但 US1-API-25 要看得到)。(a)放寬合約描述;(b)另設欄位 | — | (a);合約說明於下次 api-plan 修訂時一併放寬(kevin-twin 代為決定) |
 | Q158 | implement T015 | 工作階段名稱 `<前綴><yyyymmdd>-<hhmmss>-<4 碼十六進位>`,同秒開兩次 1/65536 撞名。(a)維持;(b)加長亂數 | — | (a);FR-006 一次只有一個工作階段,同秒連開已被 409 擋下(kevin-twin 代為決定) |
 | Q159 | implement T055 | **替身擋住了呼叫端與真 adapter 的參數不一致**:`health_monitor.py` 重連呼叫 `open_tunnel(session_name=)`,真 `Tunnel.open_tunnel` 必填 `key_path`、`local_port`,實跑必丟 TypeError;另 `recovery.py` 釋放遺留失敗時沒有警告(FR-007)。(a)testplan 補全域案例「每個替身方法簽章與真 adapter 相同」與跨端點案例「recovery 釋放失敗要警告」,照 TDD 修;(b)直接修兩處;(c)留給實跑 | — | (a)(kevin-twin 代為決定) |
+| Q160 | tasks | 〔testplan 提出〕G-09 比對範圍。(a)只比真 adapter 有的公開方法,替身另有的測試控制成員不比;(b)替身不得有真 adapter 沒有的公開成員 | — | (a)(kevin-twin 代為決定) |
+| Q161 | tasks | 〔testplan 提出〕重啟接回時釋放遺留失敗,`releaseWarning` 掛在哪。(a)掛在 `GET /api/session` 回的那筆工作階段的 `release_warning_*`;(b)另立欄位(S5 要改) | — | (a)(kevin-twin 代為決定) |
+| Q162 | tasks | 〔tasks 提出〕Q159 補 US1-AJ-23(T147a/b)與 G-09(T290a/b),原 T147–T288 加 1、原 T289–T292 加 2,最後一個任務成為 T294(第三次平移,只動未勾選的任務);plan.md 引用已同步 | — | 已同步(本列為紀錄)(kevin-twin 代為決定) |

@@ -309,6 +309,7 @@
 | US1-AJ-14 | 首頁 › 「開啟」 → 後端行程 › 重新啟動 | 工作階段就緒 | 停掉 uvicorn,以同一個 SQLite 檔與替身狀態重新起,重新整理首頁 | 則1:首頁顯示「就緒」,`#r-name` 與重建前相同<br>則2:`create_session` 總共只被呼叫 1 次 | 前端重新整理後顯示「未開啟」;或後端重建後另開一台 | FR-005 |
 | US1-AJ-15 | 首頁 › 「開啟」 | 沒有工作階段;`list_sessions` 有一台 `[?]`、硬體 T4 | 打開首頁 | 則1:出現「不是本系統開啟的執行環境」提示(`[data-state="foreign"]`),含硬體 T4<br>則2:提示裡沒有結束那台的按鈕 | 把它顯示成本系統的工作階段,或提供結束按鈕 | 邊界情況 |
 | US1-AJ-16 | 首頁 › 「停止開啟」 | 按「開啟」後 `create_session` 還沒放行 | 按「停止開啟」(`#cancel-open`),再放行 `create_session` | 則1:出現「結束中」<br>則2:放行後出現「已結束」<br>則3:`stop_session` 以這次的名稱被呼叫 | 開啟中沒有停止的入口;或停止後沒釋放已配置的執行環境 | 邊界情況、FR-007 |
+| US1-AJ-23 | 首頁 › 「開啟」 → 後端行程 › 重新啟動 → 排程 › 健康檢查 | 測試行程內的 uvicorn(UI 8781),轉接層用替身;`CGB_SSH_IDENTITY_PATH`、`CGB_TUNNEL_LOCAL_PORT` 在重啟前後相同;SQLite 有目前 `ready` 的 `cgb-test-0001` 與已 `ended` 的 `cgb-test-0002`;`list_sessions` 列出 `[cgb-test-0001]` 與 `[cgb-test-0002]`;`stop_session(cgb-test-0002)` 回 `COLAB_STOP_UNCONFIRMED`;替身照 G-09 以真 adapter 的簽章綁定參數 | 首頁開到就緒後記下 `FakeTunnel.open_tunnel` 第一次收到的參數;停掉 uvicorn,以同一個 SQLite 檔與替身狀態重新起;接回就緒後讓 `check_health` 失敗 1 次、重連第 1 輪成功;再打開首頁 | 則1:重啟接回後 `GET /api/session` 的 `releaseWarning.message` 不為 null(Q161 先採用:掛在目前那筆工作階段)<br>則2:`releaseWarning.reasonCode` 為 `COLAB_STOP_UNCONFIRMED`<br>則3:首頁出現釋放警告(`[data-state="release-failed"]`)<br>則4:重啟接回與重連時 `open_tunnel` 收到的 `key_path` 都和第一次相同<br>則5:重啟接回與重連時 `open_tunnel` 收到的 `local_port` 都和第一次相同<br>則6:`state` 最後為 `ready`,`name` 仍是 `cgb-test-0001` | 重啟接回時釋放遺留失敗就默默略過,使用者不知道舊的那台還在扣點(FR-007);或重連只帶 `session_name`,真 adapter 會丟 TypeError、替身照單全收(Q159) | FR-004、FR-005、FR-007 |
 
 #### 非功能案例
 
@@ -331,7 +332,7 @@
 4. E9 Google OAuth:US1-OA-01 → US1-OA-02 → … → US1-OA-05 → 重構;US1-OA-06 為 📏 任務
 5. E4 資料庫:US1-DB-01 → US1-DB-02 → 重構
 6. E1 前端 UI、E3、E7、E8、E10、E11:本故事沒有案例
-7. 跨端點驗收(2.1~2.5 完成後):US1-AJ-01 → US1-AJ-02 → … → US1-AJ-16 → 重構;US1-AJ-17~US1-AJ-22 為 📏 任務
+7. 跨端點驗收(2.1~2.5 完成後):US1-AJ-01 → US1-AJ-02 → … → US1-AJ-16 → US1-AJ-23 → 重構;US1-AJ-17~US1-AJ-22 為 📏 任務
 
 ## 3. 使用者故事 2 - 透過固定的 Ollama 相容端點使用遠端模型(P1)
 
@@ -711,6 +712,7 @@
 | G-06 | 在地化 | 🔴🟢 行為測試 | 首頁 › 「開啟」 → Ollama 端點 › `POST /api/generate` | 測試行程內的 uvicorn,轉接層用替身;簡體字與大陸用語清單:会话、服务器、默认、用户、数据、设置、登录、网络、内存、信息、程序、文件、接口、支持(Q105 先採用) | 用 Playwright 打開首頁、登入頁、紀錄頁、模型頁、下載模型頁、用量頁(Q111)的每個 `data-state`,取可見文字;觸發 UI API 每一個錯誤代碼一次與 Ollama 相容端點本系統自己產生的每一種錯誤一次 | 則1:每一頁的可見文字都不含清單裡的字詞<br>則2:每一個 UI API 錯誤的 `message` 至少含一個中文字<br>則3:Ollama 相容端點本系統自己產生的每一個 `error` 至少含一個中文字<br>則4:每一頁的 `<html lang>` 是 `zh-Hant-TW` 或 `zh-TW` | 錯誤訊息直接用 Python 例外的英文;或從其他專案搬來的簡體字串 | NFR-011 | — | — |
 | G-07 | 部署與持久化 | 📏 量測 | compose › 起 → compose › 重建 | 整批實跑的最後(P3 之後),`<暫存目錄>/.env` 只有 `CGB_HOST_DATA`、`CGB_HOST_UI_PORT=8780`、`CGB_HOST_OLLAMA_PORT=11436`、`CGB_BIND_ADDR=127.0.0.1`;資料夾裡已有複製來的授權與 US1-AJ-17~US1-AJ-22、US4-AJ-09 的紀錄 | `docker compose -p cgb-test --env-file <暫存目錄>/.env down`,再 `up -d --force-recreate`(沿用已建好的映像);等健康;讀 `GET /api/auth`、`GET /api/sessions`;`docker exec` 讀 `/data` 底下的權限 | 則1:`up` 後 90 秒內容器狀態為 healthy<br>則2:`GET /api/auth` 的 `state` 為 `logged_in`<br>則3:`GET /api/sessions` 的筆數與重建前相同<br>則4:`/data/cgb.sqlite3`、`/data/colab-cli/token.json`、`/data/ssh/id_ed25519` 的權限是 0600<br>則5:`/data/colab-cli/history` 是 tmpfs,重建後是空的 | 授權或紀錄寫在容器內沒掛載的路徑,重建後要重新登入;或健康檢查一直不過 | NFR-012、NFR-010 | P3、P5、P6、P8;不開執行環境,0 compute units,約 3 分鐘;只操作 `-p cgb-test`,不碰 named volume `cgb-data`;重建後不按「開啟」 | 判定者:腳本;樣本:整批實跑留下的資料(未用於調整) |
 | G-08 | 部署(健康檢查不影響閒置) | 🔴🟢 行為測試 | `cgb-healthcheck` › 執行 | 測試行程在 127.0.0.1 隨機 port 起一個假 UI(`GET /api/session` 回 200)與一個假 Ollama 相容端點(只 accept 連線、記錄收到的位元組);`CGB_UI_PORT`、`CGB_OLLAMA_PORT` 指到它們 | 以子行程跑 `deploy/healthcheck.py`;再把假 UI 改成回 503 跑一次 | 則1:第一次 exit code 為 0<br>則2:假 Ollama 相容端點收到 0 位元組<br>則3:假 UI 收到 1 個 `GET /api/session`<br>則4:第二次 exit code 不為 0 | 健康檢查對 Ollama 相容 port 送 HTTP,每 30 秒重設閒置計時,工作階段永遠不會閒置結束(Q89) | NFR-012 | — | — |
+| G-09 | 可測試性(替身與真轉接層一致) | 🔴🟢 行為測試 | `ColabControl` › `<方法>` → `Tunnel` › `<方法>` → `GoogleOAuth` › `<方法>` | 比對清單目前是 `FakeColabControl` 對 `ColabControl`(`colab_cli.py`)、`FakeTunnel` 對 `Tunnel`(`tunnel.py`)、`FakeGoogleOAuth` 對 `GoogleOAuth`(`google_oauth.py`);`RemoteOllama`(E7)與 `ModelLibrary`(E8)的 adapter 還沒建立,各自的端點節完成時把配對加進清單 | 對清單裡每一對,列出真 adapter 的每個公開方法(不以 `_` 開頭),比對替身同名方法;再對每個方法少帶一個必填參數、多帶一個真方法沒有的參數名,各呼叫替身一次 | 則1:真 adapter 的每個公開方法,替身都有同名方法<br>則2:每個同名方法 `inspect.signature` 的參數名、順序、有沒有預設值都和真方法相同<br>則3:真方法是 async 時,替身方法的呼叫結果是 awaitable;真方法不是 async 時不是<br>則4:少帶必填參數時替身丟 `TypeError`<br>則5:多帶真方法沒有的參數名時替身丟 `TypeError`<br>則6:`src/cgb/adapters/` 裡每個定義了轉接層類別的模組都在比對清單裡(E7、E8 的檔一出現就要加入,否則這條不過) | 替身用 `*args, **kwargs` 照單全收,呼叫端少帶參數(例如重連只傳 `session_name` 給 `open_tunnel`)自動化測試全綠、接上真 adapter 才丟 TypeError | FR-004、FR-005、FR-007 | — | — |
 
 ## 7. 需求覆蓋
 
@@ -721,10 +723,10 @@
 | FR-001 一鍵開啟 | 故事 1 | — | US1-API-01、US1-API-15 | — | — | US1-CLI-01、US1-CLI-02、US1-CLI-06、US1-CLI-07、US1-CLI-11~US1-CLI-14、US1-CLI-21、US1-CLI-22~US1-CLI-24、US1-CLI-29、US1-CLI-30、US1-CLI-37~US1-CLI-41 | US1-TUN-01、US1-TUN-02、US1-TUN-05、US1-TUN-13~US1-TUN-16 | — | — | — | — | — | US1-AJ-01、US1-AJ-17 | — | 🔴🟢、📏 量測 |
 | FR-002 結束與確認 | 故事 1 | — | US1-API-07、US1-API-09 | — | — | US1-CLI-15、US1-CLI-21、US1-CLI-25 | US1-TUN-07、US1-TUN-17 | — | — | — | — | — | US1-AJ-02、US1-AJ-21 | — | 🔴🟢、📏 量測 |
 | FR-003 狀態追蹤與結束原因 | 故事 1 | — | US1-API-01、US1-API-07、US1-API-10、US1-API-17、US1-API-36、US1-API-38 | — | — | US1-CLI-03、US1-CLI-04、US1-CLI-36 | — | — | — | — | — | — | US1-AJ-01~US1-AJ-04 | — | 🔴🟢 |
-| FR-004 健康檢查、重連與失聯 | 故事 1 | — | US1-API-17~US1-API-22、US1-API-37 | US2-OC-11 | — | US1-CLI-05、US1-CLI-20、US1-CLI-28、US1-CLI-32、US1-CLI-39 | US1-TUN-02、US1-TUN-04、US1-TUN-06、US1-TUN-07、US1-TUN-10、US1-TUN-12、US1-TUN-18~US1-TUN-20 | — | — | — | — | — | US1-AJ-04~US1-AJ-06、US1-AJ-18、US1-AJ-22 | — | 🔴🟢、📏 量測 |
-| FR-005 後端重啟接回 | 故事 1 | — | US1-API-23、US1-API-24 | — | US1-DB-02 | US1-CLI-03 | US1-TUN-08、US1-TUN-10 | — | — | — | — | — | US1-AJ-14、US1-AJ-19 | — | 🔴🟢、📏 量測 |
+| FR-004 健康檢查、重連與失聯 | 故事 1 | — | US1-API-17~US1-API-22、US1-API-37 | US2-OC-11 | — | US1-CLI-05、US1-CLI-20、US1-CLI-28、US1-CLI-32、US1-CLI-39 | US1-TUN-02、US1-TUN-04、US1-TUN-06、US1-TUN-07、US1-TUN-10、US1-TUN-12、US1-TUN-18~US1-TUN-20 | — | — | — | — | — | US1-AJ-04~US1-AJ-06、US1-AJ-18、US1-AJ-22、US1-AJ-23 | G-09 | 🔴🟢、📏 量測 |
+| FR-005 後端重啟接回 | 故事 1 | — | US1-API-23、US1-API-24 | — | US1-DB-02 | US1-CLI-03 | US1-TUN-08、US1-TUN-10 | — | — | — | — | — | US1-AJ-14、US1-AJ-19、US1-AJ-23 | G-09 | 🔴🟢、📏 量測 |
 | FR-006 最多一個工作階段 | 故事 1 | — | US1-API-04、US1-API-05、US1-API-15、US1-API-16 | — | US1-DB-01 | — | US1-TUN-03、US1-TUN-11 | — | — | — | — | — | US1-AJ-07 | — | 🔴🟢 |
-| FR-007 不留遺留、釋放不了要警告 | 故事 1 | — | US1-API-08、US1-API-10~US1-API-14、US1-API-16、US1-API-22、US1-API-26、US1-API-40 | — | — | US1-CLI-07、US1-CLI-14~US1-CLI-18、US1-CLI-21、US1-CLI-23、US1-CLI-25、US1-CLI-26、US1-CLI-35 | US1-TUN-11 | — | — | — | — | — | US1-AJ-06、US1-AJ-16、US1-AJ-21 | — | 🔴🟢、📏 量測 |
+| FR-007 不留遺留、釋放不了要警告 | 故事 1 | — | US1-API-08、US1-API-10~US1-API-14、US1-API-16、US1-API-22、US1-API-26、US1-API-40 | — | — | US1-CLI-07、US1-CLI-14~US1-CLI-18、US1-CLI-21、US1-CLI-23、US1-CLI-25、US1-CLI-26、US1-CLI-35 | US1-TUN-11 | — | — | — | — | — | US1-AJ-06、US1-AJ-16、US1-AJ-21、US1-AJ-23 | G-09 | 🔴🟢、📏 量測 |
 | FR-008 UI 內登入 | 故事 1 | — | US1-API-06、US1-API-30~US1-API-34 | — | — | US1-CLI-10、US1-CLI-19、US1-CLI-32~US1-CLI-35 | — | — | — | US1-OA-01~US1-OA-06 | — | — | US1-AJ-08、US1-AJ-09 | — | 🔴🟢、📏 人工 |
 | FR-009 選擇執行階段類型 | 故事 1 | — | US1-API-02、US1-API-03 | — | — | US1-CLI-06、US1-CLI-08、US1-CLI-09、US1-CLI-36 | — | — | — | — | — | — | US1-AJ-01、US1-AJ-10 | — | 🔴🟢 |
 | FR-010 變更類型重開 | 故事 1 | — | US1-API-27~US1-API-29 | — | — | — | — | — | — | — | — | — | US1-AJ-11、US1-AJ-12、US1-AJ-20 | — | 🔴🟢、📏 量測 |
@@ -802,3 +804,5 @@ Q95~Q107 已登記到 plan.md 並決定(本計劃照決定寫:Q100 以資料庫�
 | Q147 | `ssh-keygen` 超過時限回哪個代碼:合約 `ensureTunnelKey` 的 `x-timeout` 寫「每個命令 10 秒;逾時視為 `TUNNEL_FAILED`」,修訂指示寫 `TUNNEL_TIMEOUT`。(a)照合約回 `TUNNEL_FAILED`;(b)改合約為 `TUNNEL_TIMEOUT`(`TUNNEL_TIMEOUT` 的說明目前只有就緒期限、健康檢查、keepalive、重連時限) | (a);US1-TUN-15 照 (a) 斷言 |
 | Q148 | `ensureTunnelKey` 判定寫「第一行或第三行 stdout 為空 → `TUNNEL_FAILED`」,但第一行是 `ssh-keygen -q`,成功時 stdout 本來就是空的,照字面永遠失敗。(a)第一行改讀成「跑完後 `<keyPath>` 仍不存在」;(b)照字面 | (a);S9 合約補改這句,US1-TUN-16 情況 A 照 (a) 斷言 |
 | Q149 | `ssh-keygen` 的 10 秒時限要能在測試縮短:(a)`Tunnel` 建構參數加 `keygen_timeout`(和 `term_wait`、`kill_wait` 同一種做法);(b)不縮短,測試等 10 秒 | (a) |
+| Q160 | G-09 比對替身與真 adapter 簽章的範圍:(a)只比真 adapter 有的公開方法,替身另有的測試控制成員(例如 `method()`、`local_port`)不比;(b)替身不得有真 adapter 沒有的公開成員 | (a) |
+| Q161 | 後端重啟接回時,釋放資料庫記錄過的遺留失敗,`releaseWarning` 掛在哪:(a)掛在 `GET /api/session` 回的那筆工作階段(目前或最近一筆),寫進它的 `release_warning_*` 欄位;(b)另立一個不屬於工作階段的警告欄位(S5 要改) | (a);US1-AJ-23 照 (a) 斷言 |
