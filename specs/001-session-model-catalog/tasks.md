@@ -1852,39 +1852,39 @@
 
 ### E8 Ollama 官方模型庫(ollama.com 與 registry.ollama.ai)
 
-- [ ] T223a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US3-LIB-01 的測試(以 `q=qwen2.5` 呼叫第 1 頁與第 2 頁),執行確認它因為「把社群模型也列出(Q9)」這類實作而失敗
+- [X] T223a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US3-LIB-01 的測試(以 `q=qwen2.5` 呼叫第 1 頁與第 2 頁),執行確認它因為「把社群模型也列出(Q9)」這類實作而失敗
   - 🧪 `testplan.md` § US3-LIB-01
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./search.get`
   - 📎 `spec.md` § FR-020;`plan.md` § 待決問題 Q9
-- [ ] T223b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py` 只寫讓 US3-LIB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T223a)
+- [X] T223b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py` 只寫讓 US3-LIB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T223a)
   - 🧪 `testplan.md` § US3-LIB-01
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./search.get`
   - 📎 `spec.md` § FR-020;`plan.md` § 待決問題 Q9
-- [ ] T224a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US3-LIB-02 的測試(各呼叫一次第 1 頁),執行確認它因為「以「滿 20 筆」推斷有下一頁(Q54 已改)」這類實作而失敗
+- [X] T224a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US3-LIB-02 的測試(各呼叫一次第 1 頁),執行確認它因為「以「滿 20 筆」推斷有下一頁(Q54 已改)」這類實作而失敗
   - 🧪 `testplan.md` § US3-LIB-02
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./search.get`
   - 📎 `spec.md` § FR-020;`plan.md` § 待決問題 Q54
-- [ ] T224b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py` 只寫讓 US3-LIB-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T224a)
+- [X] T224b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py` 只寫讓 US3-LIB-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T224a)
   - 🧪 `testplan.md` § US3-LIB-02
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./search.get`
   - 📎 `spec.md` § FR-020;`plan.md` § 待決問題 Q54
-- [ ] T225a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US3-LIB-03 的測試(以 `qwen2.5` 呼叫),執行確認它因為「名稱含 cloud 沒標出」這類實作而失敗
+- [X] T225a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US3-LIB-03 的測試(以 `qwen2.5` 呼叫),執行確認它因為「名稱含 cloud 沒標出」這類實作而失敗
   - 🧪 `testplan.md` § US3-LIB-03
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./library/{name}/tags.get`
   - 📎 `spec.md` § FR-020
-- [ ] T225b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py` 只寫讓 US3-LIB-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T225a)
+- [X] T225b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py` 只寫讓 US3-LIB-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T225a)
   - 🧪 `testplan.md` § US3-LIB-03
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./library/{name}/tags.get`
   - 📎 `spec.md` § FR-020
-- [ ] T226a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US3-LIB-04 的測試(各呼叫一次),執行確認它因為「大小加進 config」這類實作而失敗
+- [X] T226a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US3-LIB-04 的測試(各呼叫一次),執行確認它因為「大小加進 config」這類實作而失敗
   - 🧪 `testplan.md` § US3-LIB-04
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-022
-- [ ] T226b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py` 只寫讓 US3-LIB-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T226a)
+- [X] T226b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py` 只寫讓 US3-LIB-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T226a)
   - 🧪 `testplan.md` § US3-LIB-04
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-022
-- [ ] T227 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T223b~T226b 記下的重構清單(範圍限 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T226b)
+- [X] T227 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T223b~T226b 記下的重構清單(範圍限 `src/cgb/adapters/model_library.py`、`src/cgb/domain/library_html.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T226b)
   - 🧪 `testplan.md` § US3-LIB-01~US3-LIB-04
   - 📎 `testplan.md` § 4.4
 - [ ] T228 [US3] 📏 量測:撰寫 `tests/realrun/test_us3_lib_05.py`(`-m realrun`),照 US3-LIB-05 量測。假如:主機階段,真的 ollama.com 與 registry.ollama.ai。當:呼叫 `search_library(q="qwen2.5")` 第 1、2 頁、`list_model_tags("qwen2.5")`、`get_manifest("qwen2.5","7b")`、`get_manifest("qwen2.5","cgb-test-nonexistent")`、版本頁上任一個名稱含 `cloud` 的版本的 `get_manifest`(沒有就記下沒有)。記下的數字與門檻:則1:第 1 頁含 `qwen2.5`,`hasMore` 為 true;則2:版本頁含 `0.5b` 與 `7b`,`7b` 的大小顯示值在 4.6GB 到 4.8GB 之間;則3:`qwen2.5:7b` 的大小在 4,600,000,000 到 4,800,000,000 位元組之間;則4:`cgb-test-nonexistent` 回 `LIBRARY_NOT_FOUND`;則5:雲端版本(若有)回 `LIBRARY_CLOUD_ONLY`;則6:`tests/fixtures/library/` 存的頁面與這次抓到的頁面,用同一組解析規則得到相同的欄位。副作用與護欄:P5、P8;不開執行環境,0 compute units,約 1 分鐘;只送 GET,總共不超過 10 個請求,請求間隔 1 秒(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本;樣本:2026 年 11 月的 ollama.com 一次(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
