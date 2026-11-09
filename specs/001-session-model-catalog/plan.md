@@ -279,7 +279,13 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q163 | implement T045 | 〔任務 T045b〕授權碼去掉空白後為空字串時,合約要回 400 `INVALID_AUTH_CODE`,testplan 沒有案例、未實作。(a)列為未覆蓋;(b)補案例 | — | (a);無花費風險,同 Q131 列入完成報告的未覆蓋(kevin-twin 代為決定) |
 | Q164 | implement T081 | 〔任務 T081a,E5 補充〕`test_stop_that_times_out_is_still_judged_by_session_list` 平行時約 1/13 會紅(斷言耗時 ≤ 1.5 秒)。主 agent 在無平行時全部測試連跑 3 次皆 205 passed、單獨 10 次皆過。(a)放寬時間餘裕;(b)維持,實跑時留意 | — | (b)(kevin-twin 代為決定) |
 | Q165 | implement T111 | 〔任務 T111b〕`_ended` 先等 stderr 讀完(最多 1 秒)再收尾整個 group;真 ProxyCommand 佔著 stderr,失敗回報固定多等 1 秒,不卡事件迴圈。(a)先收尾再讀 stderr;(b)維持 | — | (b)(kevin-twin 代為決定) |
-| Q166 | implement T140 | 〔任務 T140a〕US1-AJ-10 要「L4 勾高 RAM」,但原型與 colab-cli 合約 L4 不支援高 RAM、勾選框停用。(a)testplan 改用 G4 加高 RAM;(b)原型改成 L4 也能勾 | T140a、T140b | (a)(kevin-twin 代為決定) |
-| Q167 | implement T144 | 〔任務 T144b〕`[data-state="resuming"]` 接回期間 API 無欄位可分辨。(a)recovery 接回期間報 reconnecting;(b)照 Q117 留給 G-06(T250b);(c)接受 ⚙ 不完整 | T250b | (b)(kevin-twin 代為決定) |
+| Q166 | implement T140 | 〔任務 T140a〕US1-AJ-10 要「L4 勾高 RAM」,但原型與 colab-cli 合約 L4 不支援高 RAM、勾選框停用。(a)testplan 改用 G4 加高 RAM;(b)原型改成 L4 也能勾 | — | (a)(kevin-twin 代為決定) |
+| Q167 | implement T144 | 〔任務 T144b〕`[data-state="resuming"]` 接回期間 API 無欄位可分辨。(a)recovery 接回期間報 reconnecting;(b)照 Q117 留給 G-06(T250b);(c)接受 ⚙ 不完整 | — | (b)(kevin-twin 代為決定) |
 | Q168 | implement T138 | 〔任務 T138b、T141b〕越界改檔:T138b 在 `static/index.html` 加 `needs-login` 區塊(⚙ 列的元素);T141b 在 `api/__init__.py` 掛 `models.router`。(a)追認;(b)撤回另開任務 | — | (a);照 Q155(a) 前例(kevin-twin 代為決定) |
 | Q169 | implement T147 | 〔任務 T147b〕服務層寫死 `TUNNEL_LOCAL_PORT = 11435`,`CGB_TUNNEL_LOCAL_PORT` 不生效;`HealthMonitor` 自讀 `CGB_SSH_IDENTITY_PATH`,預設值寫兩份。(a)Phase 6 重構時從 `AppState` 注入;(b)列入完成報告,compose 先用預設值 | — | (b);compose 的值與預設一致,不影響本次迭代(kevin-twin 代為決定) |
+| Q170 | implement T170 | 〔任務 T165b,E3 回報〕`Recovery` 重啟接回、`HealthMonitor` 重連後都沒寫回 `lifecycle.base_url`,Ollama 相容端點一直回 503(FR-005、FR-011);E3 全綠沒抓到。(a)照 Q134:testplan 補 US2-AJ-05→tasks 補任務→TDD;(b)列入完成報告 | — | (a)(kevin-twin 代為決定) |
+| Q171 | implement T172 | 〔任務 T172b,E7 回報〕合約 remote-ollama 的 `OLLAMA_UNREACHABLE`/`OLLAMA_TIMEOUT`/串流非 JSON/表外狀態碼 testplan 無案例未實作(`generate` 連線失敗時 client 未關);E3 只有一組逾時(規格 `/api/version` 5 秒、tags/ps/show 10 秒、504)。(a)補案例再 TDD;(b)同 Q131、Q163 列為未覆蓋 | — | (b)(kevin-twin 代為決定) |
+| Q172 | implement T170 | 〔任務 T156b,E3 回報〕回應標頭 `date`、`server` 各兩份(uvicorn 與上游)。(a)去掉上游的並補回歸案例;(b)原樣轉送 | — | (b);列入完成報告(kevin-twin 代為決定) |
+| Q173 | implement T170 | 〔任務 T165b,E3 回報〕`check_now()` 與排程 `_check` 可能並行、重連兩次。(a)HealthMonitor 加鎖;(b)先接受 | — | (b);列入完成報告(kevin-twin 代為決定) |
+| Q174 | implement T155 | 〔任務 T155b、T165b〕越界改檔:`app.py` 改呼叫 `ollama_compat.install`;`api/__init__.py` 的 `Services` 加 `monitor`。(a)追認;(b)撤回 | — | (a);同 Q155(a)、Q168(kevin-twin 代為決定) |
+| Q175 | implement T172 | 〔任務 T172b〕`RemoteOllama.generate(base_url, body)` 參數名;`FakeRemoteOllama` 簽章配對尚未加入 G-09 清單。(a)維持 `body`,配對由 T290a/b 建清單時加入;(b)改簽章 | — | (a)(kevin-twin 代為決定) |
