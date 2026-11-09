@@ -1406,23 +1406,23 @@
 
 ### E7 遠端 Ollama(Colab 執行環境上,Ollama API)
 
-- [ ] T171a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-01 的測試(各呼叫一次),執行確認它因為「不檢查 JSON 就回成功」這類實作而失敗
+- [X] T171a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-01 的測試(各呼叫一次),執行確認它因為「不檢查 JSON 就回成功」這類實作而失敗
   - 🧪 `testplan.md` § US2-RO-01
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/version.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-011
-- [ ] T171b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T171a)
+- [X] T171b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T171a)
   - 🧪 `testplan.md` § US2-RO-01
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/version.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-011
-- [ ] T172a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-02 的測試(各呼叫一次),執行確認它因為「串流中斷當成正常結束」這類實作而失敗
+- [X] T172a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-02 的測試(各呼叫一次),執行確認它因為「串流中斷當成正常結束」這類實作而失敗
   - 🧪 `testplan.md` § US2-RO-02
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/generate.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-011
-- [ ] T172b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T172a)
+- [X] T172b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T172a)
   - 🧪 `testplan.md` § US2-RO-02
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/generate.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-011
-- [ ] T173 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T171b~T172b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T172b)
+- [X] T173 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T171b~T172b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T172b)
   - 🧪 `testplan.md` § US2-RO-01~US2-RO-02
   - 📎 `testplan.md` § 3.2
 - [ ] T174 [US2] 📏 量測:撰寫 `tests/realrun/test_us2_ro_03.py`(`-m realrun`),照 US2-RO-03 量測。假如:主機階段,US1-CLI-21 開好並啟動 Ollama 的 `cgb-test-<時間>-adapter`,經 `Tunnel.open_tunnel` 建立本機轉發(真的遠端 Ollama 0.40.x)。當:依序呼叫 `get_version`、`list_local_models`、`pull_model qwen2.5:0.5b`、`pull_model qwen2.5:cgb-test-nonexistent`、`generate`(非串流與串流各一次,`num_predict` 8)、`list_loaded_models`、帶 `Origin: http://192.168.0.50:3000` 的 `chat`、`generate` 指名 `qwen2.5:7b`(還沒下載)。記下的數字與門檻:則1:`get_version` 回含 `version` 的 JSON;則2:`pull qwen2.5:0.5b` 的每一行都符合 `components.schemas.PullProgress`,最後一行 `status` 為 `success`;則3:`pull qwen2.5:cgb-test-nonexistent` 回 HTTP 200,串流裡的 error 含 `file does not exist`,轉接層回 `OLLAMA_NOT_FOUND`(Q3);則4:兩次 `generate` 都成功,串流的最後一行 `done` 為 true;則5:`list_loaded_models` 有 `qwen2.5:0.5b`;則6:帶 `Origin` 的 `chat` 回 200(`OLLAMA_ORIGINS=*` 生效,Q20);則7:指名 `qwen2.5:7b` 回 404,轉接層回 `OLLAMA_NOT_FOUND`,`list_local_models` 仍沒有 `qwen2.5:7b`;則8:假伺服器劇本裡每一種回應,和這次錄到的對應回應有相同的欄位名稱。副作用與護欄:P1~P9;與 US1-CLI-21 共用同一台 T4,本案例約 3 分鐘,占用算在 US1-CLI-21 的 0.21 compute units 之內;只下載 `qwen2.5:0.5b`;本機轉發只綁 127.0.0.1(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本;樣本:一次實跑(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
