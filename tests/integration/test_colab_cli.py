@@ -1011,3 +1011,52 @@ async def test_probe_resources_without_a_valid_result_line_is_bad_response(fake_
 
     # Assert
     assert code_of(error) == "COLAB_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------- US2-CLI-01 遠端 Ollama 只聽執行環境本機(NFR-003)
+
+PUBLIC_EXPOSURE_WORDS = ("0.0.0.0", "cloudflared", "ngrok", "localtunnel")
+
+
+def env_values(argv, name):
+    """argv 裡每個 `--env <name>=<值>` 的值。"""
+    prefix = f"{name}="
+    return [
+        argv[i + 1].removeprefix(prefix)
+        for i in range(len(argv) - 1)
+        if argv[i] == "--env" and argv[i + 1].startswith(prefix)
+    ]
+
+
+def uploaded_script_of(argv):
+    """`colab exec -f <路徑>` 送出的那份初始化腳本的內容(以本系統實際帶的路徑讀,不另外指定)。"""
+    paths = [argv[i + 1] for i in range(len(argv) - 1) if argv[i] == "-f"]
+    assert len(paths) == 1, f"argv 裡 `-f` 應該剛好一個:{argv}"
+    return Path(paths[0]).read_text(encoding="utf-8")
+
+
+async def start_ollama_argv(fake_cli):
+    fake_cli.script(start_ollama_script({"stdout": START_OLLAMA_OK}))
+    await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+    calls = fake_cli.calls("colab")
+    assert len(calls) == 1
+    return calls[0]["argv"]
+
+
+async def test_start_ollama_binds_remote_ollama_to_runtime_loopback_only(fake_cli):
+    # Act
+    argv = await start_ollama_argv(fake_cli)
+
+    # Assert
+    assert env_values(argv, "OLLAMA_HOST") == ["127.0.0.1:11434"]
+
+
+async def test_start_ollama_script_neither_binds_all_interfaces_nor_opens_a_public_tunnel(fake_cli):
+    # Arrange
+    argv = await start_ollama_argv(fake_cli)
+
+    # Act
+    script = uploaded_script_of(argv).lower()
+
+    # Assert
+    assert [word for word in PUBLIC_EXPOSURE_WORDS if word in script] == []

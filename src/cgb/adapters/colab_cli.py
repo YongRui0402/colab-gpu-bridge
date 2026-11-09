@@ -38,6 +38,8 @@ RESULT_PREFIX = "CGB-RESULT "
 # `colab exec` 偶發、執行環境仍在(research.md R1);同一個命令列重跑一次(共用約定 6)
 CONNECTION_LOST = "Connection was lost"
 SCRIPTS = files("cgb.adapters.scripts")
+# 遠端 Ollama 只聽執行環境本機(NFR-003,SSH 轉發接到這個位址);`OLLAMA_ORIGINS=*` 見 Q18、Q20
+START_OLLAMA_ENV = ("--env", "OLLAMA_HOST=127.0.0.1:11434", "--env", "OLLAMA_ORIGINS=*")
 TRACEBACK = "Traceback (most recent call last)"
 # 網址一律換成 `<網址>`(網址裡有執行環境的 endpoint,NFR-010);結尾的標點不算網址的一部分
 URL = re.compile(r"https?://\S*[^\s:,.;)\]'\"]")
@@ -167,8 +169,7 @@ class ColabControl:
     async def start_ollama(self, name: str) -> dict[str, Any]:
         stdout, stderr = await self._exec_script(
             self.timeouts.start_ollama,
-            "-s", name, "-f", str(SCRIPTS / "start_ollama.py"), "--timeout", "240",
-            "--env", "OLLAMA_HOST=127.0.0.1:11434", "--env", "OLLAMA_ORIGINS=*",
+            "-s", name, "-f", str(SCRIPTS / "start_ollama.py"), "--timeout", "240", *START_OLLAMA_ENV,
         )  # fmt: skip
         # 安裝程式等其他輸出一律忽略,取最後一個結果行(共用約定 5)
         if not any(line.startswith(RESULT_PREFIX) for line in stdout.splitlines()) and TRACEBACK in stderr:

@@ -1432,29 +1432,29 @@
 
 ### E6 SSH 通道(OpenSSH 與 `colab ssh --proxy-mode`)
 
-- [ ] T175a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US2-TUN-01 的測試(以 `localPort=11435` 呼叫),執行確認它因為「轉發綁 `0.0.0.0` 或加 `-g`,區網任何裝置都能繞過本系統直連遠端 Ollama」這類實作而失敗
+- [X] T175a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_tunnel.py` 寫 US2-TUN-01 的測試(以 `localPort=11435` 呼叫),執行確認它因為「轉發綁 `0.0.0.0` 或加 `-g`,區網任何裝置都能繞過本系統直連遠端 Ollama」這類實作而失敗
   - 🧪 `testplan.md` § US2-TUN-01
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`
   - 📎 `spec.md` § NFR-003
-- [ ] T175b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US2-TUN-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T175a)
+- [X] T175b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/tunnel.py` 只寫讓 US2-TUN-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T175a)
   - 🧪 `testplan.md` § US2-TUN-01
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels.post`
   - 📎 `spec.md` § NFR-003
-- [ ] T176 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T175b~T175b 記下的重構清單(範圍限 `src/cgb/adapters/tunnel.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T175b)
+- [X] T176 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T175b~T175b 記下的重構清單(範圍限 `src/cgb/adapters/tunnel.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T175b)
   - 🧪 `testplan.md` § US2-TUN-01
   - 📎 `testplan.md` § 3.3
 
 ### E5 Colab CLI(google-colab-cli,外部程式)
 
-- [ ] T177a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US2-CLI-01 的測試(呼叫;讀本系統提供的初始化腳本內容),執行確認它因為「為了方便除錯把 Ollama 綁 `0.0.0.0`,或在腳本裡開公開通道」這類實作而失敗
+- [X] T177a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US2-CLI-01 的測試(呼叫;讀本系統提供的初始化腳本內容),執行確認它因為「為了方便除錯把 Ollama 綁 `0.0.0.0`,或在腳本裡開公開通道」這類實作而失敗
   - 🧪 `testplan.md` § US2-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-003
-- [ ] T177b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US2-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T177a)
+- [X] T177b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US2-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T177a)
   - 🧪 `testplan.md` § US2-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-003
-- [ ] T178 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T177b~T177b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/adapters/scripts/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T177b)
+- [X] T178 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T177b~T177b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/adapters/scripts/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T177b)
   - 🧪 `testplan.md` § US2-CLI-01
   - 📎 `testplan.md` § 3.4
 

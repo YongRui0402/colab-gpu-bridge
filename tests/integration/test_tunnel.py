@@ -1372,3 +1372,41 @@ async def test_check_health_reports_not_found_after_tunnel_is_closed(
 
     # Assert
     assert code == "TUNNEL_NOT_FOUND"
+
+
+# ---------------------------------------------------------------- US2-TUN-01 轉發只綁 127.0.0.1(NFR-003)
+
+US2_LOCAL_PORT = 11435
+EXPOSING_FLAGS = ("-g", "-R", "-D")
+
+
+async def open_on_11435(fake_ssh: FakeCli, key_path: str) -> list[str]:
+    """以 `localPort=11435` 呼叫(假 ssh 常駐);只看假 ssh 收到的 argv,就緒與否不在這個案例的範圍。"""
+    script_ssh(fake_ssh, spec_ssh_argv(key_path, SESSION, US2_LOCAL_PORT), {"daemon": True})
+    await code_of(Tunnel(ready_deadline=INJECTED_READY_DEADLINE).open_tunnel(SESSION, key_path, US2_LOCAL_PORT))
+    return ssh_argv(fake_ssh)
+
+
+async def test_open_tunnel_binds_every_local_forward_to_loopback(fake_ssh: FakeCli, key_path: str) -> None:
+    # Act
+    argv = await open_on_11435(fake_ssh, key_path)
+
+    # Assert:`-L` 的值是 `<綁定位址>:<localPort>:<遠端主機>:<遠端 port>`,第一段就是綁定位址
+    forwards = [argv[i + 1] for i, arg in enumerate(argv[:-1]) if arg == "-L"]
+    assert [spec.split(":", 1)[0] for spec in forwards] == ["127.0.0.1"]
+
+
+async def test_open_tunnel_never_adds_gateway_remote_or_dynamic_forwarding(fake_ssh: FakeCli, key_path: str) -> None:
+    # Act
+    argv = await open_on_11435(fake_ssh, key_path)
+
+    # Assert
+    assert [arg for arg in argv if arg in EXPOSING_FLAGS] == []
+
+
+async def test_open_tunnel_never_sets_gateway_ports(fake_ssh: FakeCli, key_path: str) -> None:
+    # Act
+    argv = await open_on_11435(fake_ssh, key_path)
+
+    # Assert
+    assert [arg for arg in argv if "gatewayports" in arg.lower()] == []

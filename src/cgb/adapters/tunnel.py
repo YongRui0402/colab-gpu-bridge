@@ -32,6 +32,7 @@ FINGERPRINT_LINE = re.compile(r"^\d+ (SHA256:[A-Za-z0-9+/]{43}) .*\(\S+\)$")
 READY_DEADLINE = 30.0  # openTunnel 的 x-readiness.deadline
 READY_INTERVAL = 0.5  # openTunnel 的 x-readiness.interval
 PROBE_TIMEOUT = 5.0  # `/api/version` 的逾時(S1 getVersion,plan.md Q5)
+LOOPBACK = "127.0.0.1"  # 本機轉發只綁這個位址,不加 `-g`(NFR-003:不經公開網址)
 REMOTE_OLLAMA = "127.0.0.1:11434"
 ALARM_POLL = 0.02  # 等 `/api/version` 回應時,多久看一次 stderr 有沒有要立即處理的行
 # `colab ssh` 找不到名稱、自己開了新的執行環境(Q64):立即關閉,回 TUNNEL_NOT_FOUND
@@ -115,7 +116,7 @@ def classify_stderr(lines: list[str]) -> str | None:
 
 def base_url_of(local_port: int) -> str:
     """本機轉發的 base URL(S1 遠端 Ollama 的 base URL)。"""
-    return f"http://127.0.0.1:{local_port}"
+    return f"http://{LOOPBACK}:{local_port}"
 
 
 def ssh_argv(session_name: str, key_path: str, local_port: int) -> list[str]:
@@ -126,7 +127,7 @@ def ssh_argv(session_name: str, key_path: str, local_port: int) -> list[str]:
         "-o", f"ProxyCommand=colab ssh --proxy-mode -s {session_name} --identity {key_path}",
         "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=3", "-o", "ExitOnForwardFailure=yes",
         "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
-        "-L", f"127.0.0.1:{local_port}:{REMOTE_OLLAMA}", "root@colab-runtime",
+        "-L", f"{LOOPBACK}:{local_port}:{REMOTE_OLLAMA}", "root@colab-runtime",
     ]  # fmt: skip
 
 
@@ -428,7 +429,7 @@ async def _port_closed(port: int, timeout: float) -> bool:
     deadline = time.monotonic() + timeout
     while True:
         try:
-            _, writer = await asyncio.open_connection("127.0.0.1", port)
+            _, writer = await asyncio.open_connection(LOOPBACK, port)
         except OSError:
             return True
         writer.close()
