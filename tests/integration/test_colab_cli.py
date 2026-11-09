@@ -1060,3 +1060,59 @@ async def test_start_ollama_script_neither_binds_all_interfaces_nor_opens_a_publ
 
     # Assert
     assert [word for word in PUBLIC_EXPOSURE_WORDS if word in script] == []
+
+
+# ---------------------------------------------------------------- US3-CLI-01
+
+PROBE_OK = (
+    'CGB-RESULT {"ok": true, "diskFreeBytes": 225485783040, "diskTotalBytes": 253338115072, '
+    '"gpuName": "Tesla T4", "vramTotalBytes": 16106127360, "vramFreeBytes": 15727591424}\n'
+)
+
+
+async def test_probe_resources_reports_free_disk_and_total_vram(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(PROBE_ARGV): {"stdout": PROBE_OK}}})
+
+    # Act
+    result = await failure_of_or_result(ColabControl().probe_resources(name="cgb-test-0001"))
+
+    # Assert
+    assert isinstance(result, dict), f"回了錯誤:{result!r}"
+    assert result.get("diskFreeBytes") == 225485783040
+    assert result.get("vramTotalBytes") == 16106127360
+    argvs = [call["argv"] for call in fake_cli.calls("colab")]
+    assert any(argv[i : i + 2] == ["--timeout", "30"] for argv in argvs for i in range(len(argv)))
+
+
+# ---------------------------------------------------------------- US3-CLI-02
+
+PROBE_NO_GPU = (
+    'CGB-RESULT {"ok": true, "diskFreeBytes": 225485783040, "diskTotalBytes": 253338115072, '
+    '"gpuName": null, "vramTotalBytes": null, "vramFreeBytes": null}\n'
+)
+PROBE_DISK_FAILED = 'CGB-RESULT {"ok": false, "detail": "disk_usage(/root) failed: [Errno 5] Input/output error"}\n'
+
+
+async def test_probe_resources_without_gpu_still_reports_free_disk(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(PROBE_ARGV): {"stdout": PROBE_NO_GPU}}})
+
+    # Act
+    result = await failure_of_or_result(ColabControl().probe_resources(name="cgb-test-0001"))
+
+    # Assert
+    assert isinstance(result, dict), f"回了錯誤:{result!r}"
+    assert result.get("diskFreeBytes") == 225485783040
+    assert "vramTotalBytes" in result and result["vramTotalBytes"] is None
+
+
+async def test_probe_resources_that_cannot_read_disk_is_remote_error(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(PROBE_ARGV): {"stdout": PROBE_DISK_FAILED}}})
+
+    # Act
+    error = await failure_of(ColabControl().probe_resources(name="cgb-test-0001"))
+
+    # Assert
+    assert code_of(error) == "COLAB_REMOTE_ERROR"

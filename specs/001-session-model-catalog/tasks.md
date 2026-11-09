@@ -1814,39 +1814,39 @@
 
 ### E7 遠端 Ollama(Colab 執行環境上,Ollama API)
 
-- [ ] T218a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US3-RO-01 的測試(呼叫並收集進度),執行確認它因為「把沒有 `total` 的狀態行當成 0% 進度」這類實作而失敗
+- [X] T218a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US3-RO-01 的測試(呼叫並收集進度),執行確認它因為「把沒有 `total` 的狀態行當成 0% 進度」這類實作而失敗
   - 🧪 `testplan.md` § US3-RO-01
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`
   - 📎 `spec.md` § FR-017
-- [ ] T218b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US3-RO-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T218a)
+- [X] T218b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US3-RO-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T218a)
   - 🧪 `testplan.md` § US3-RO-01
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`
   - 📎 `spec.md` § FR-017
-- [ ] T219a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US3-RO-02 的測試(各呼叫一次),執行確認它因為「只看 HTTP 狀態碼,200 就當成功」這類實作而失敗
+- [X] T219a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US3-RO-02 的測試(各呼叫一次),執行確認它因為「只看 HTTP 狀態碼,200 就當成功」這類實作而失敗
   - 🧪 `testplan.md` § US3-RO-02
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017
-- [ ] T219b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US3-RO-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T219a)
+- [X] T219b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US3-RO-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T219a)
   - 🧪 `testplan.md` § US3-RO-02
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017
-- [ ] T220a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US3-RO-03 的測試(呼叫 `list_local_models` 與 `list_loaded_models`),執行確認它因為「欄位名稱拼錯(`model` 與 `name` 混用)而解析成空清單」這類實作而失敗
+- [X] T220a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US3-RO-03 的測試(呼叫 `list_local_models` 與 `list_loaded_models`),執行確認它因為「欄位名稱拼錯(`model` 與 `name` 混用)而解析成空清單」這類實作而失敗
   - 🧪 `testplan.md` § US3-RO-03
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/tags.get`
   - 📎 `spec.md` § FR-014
-- [ ] T220b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US3-RO-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T220a)
+- [X] T220b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US3-RO-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T220a)
   - 🧪 `testplan.md` § US3-RO-03
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/tags.get`
   - 📎 `spec.md` § FR-014
-- [ ] T221a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US3-RO-04 的測試(以 `qwen2.5:7b` 呼叫),執行確認它因為「預先載入帶了 `prompt`,或 `keep_alive` 不是 -1」這類實作而失敗
+- [X] T221a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US3-RO-04 的測試(以 `qwen2.5:7b` 呼叫),執行確認它因為「預先載入帶了 `prompt`,或 `keep_alive` 不是 -1」這類實作而失敗
   - 🧪 `testplan.md` § US3-RO-04
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § FR-015
-- [ ] T221b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US3-RO-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T221a)
+- [X] T221b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US3-RO-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T221a)
   - 🧪 `testplan.md` § US3-RO-04
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § FR-015
-- [ ] T222 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T218b~T221b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T221b)
+- [X] T222 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T218b~T221b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T221b)
   - 🧪 `testplan.md` § US3-RO-01~US3-RO-04
   - 📎 `testplan.md` § 4.3
 
@@ -1894,23 +1894,23 @@
 
 ### E5 Colab CLI(google-colab-cli,外部程式)
 
-- [ ] T229a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-01 的測試(呼叫),執行確認它因為「欄位對錯(把總容量當剩餘)」這類實作而失敗
+- [X] T229a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-01 的測試(呼叫),執行確認它因為「欄位對錯(把總容量當剩餘)」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/probe-resources.post`
   - 📎 `spec.md` § FR-022
-- [ ] T229b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/probe_resources.py` 只寫讓 US3-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T229a)
+- [X] T229b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/probe_resources.py` 只寫讓 US3-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T229a)
   - 🧪 `testplan.md` § US3-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/probe-resources.post`
   - 📎 `spec.md` § FR-022
-- [ ] T230a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-02 的測試(各呼叫一次),執行確認它因為「沒有 GPU 資訊就當成失敗,連剩餘磁碟都拿不到」這類實作而失敗
+- [X] T230a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-02 的測試(各呼叫一次),執行確認它因為「沒有 GPU 資訊就當成失敗,連剩餘磁碟都拿不到」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/probe-resources.post`
   - 📎 `spec.md` § FR-022、NFR-006
-- [ ] T230b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/probe_resources.py` 只寫讓 US3-CLI-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T230a)
+- [X] T230b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`、`src/cgb/adapters/scripts/probe_resources.py` 只寫讓 US3-CLI-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T230a)
   - 🧪 `testplan.md` § US3-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/probe-resources.post`
   - 📎 `spec.md` § FR-022、NFR-006
-- [ ] T231 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T229b~T230b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/adapters/scripts/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T230b)
+- [X] T231 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T229b~T230b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/adapters/scripts/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T230b)
   - 🧪 `testplan.md` § US3-CLI-01~US3-CLI-02
   - 📎 `testplan.md` § 4.5
 

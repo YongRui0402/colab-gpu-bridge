@@ -57,6 +57,8 @@ USAGE_LINES = {
     "ratePerHour": re.compile(r"^Usage rate: (-?\d+\.\d{2})/hr$"),
     "activeAssignments": re.compile(r"^Active assignments: (\d+)$"),
 }
+# `ProbeScriptResult` 原樣交出的欄位(`RuntimeResources` 再加上 checkedAt)
+RESOURCE_FIELDS = ("diskFreeBytes", "diskTotalBytes", "gpuName", "vramTotalBytes", "vramFreeBytes")
 # `GpuType`;CLI 對認不得的 GPU 名稱不報錯、直接當成 A100,所以只有這幾個值能放進命令列
 GPU_TYPES = frozenset({"T4", "L4", "G4", "A100", "H100"})
 
@@ -187,8 +189,11 @@ class ColabControl:
         stdout, _ = await self._exec_script(
             self.timeouts.probe_resources, "-s", name, "-f", str(SCRIPTS / "probe_resources.py"), "--timeout", "30"
         )
-        result_line(stdout)
-        return {}
+        result = result_line(stdout)
+        if result.get("ok") is not True:
+            raise AdapterError("COLAB_REMOTE_ERROR", f"在執行環境上讀不到剩餘磁碟:{result.get('detail')}")
+        # 剩餘磁碟是 diskFreeBytes(不是總容量);顯示記憶體讀不到時為 null
+        return {**{key: result[key] for key in RESOURCE_FIELDS}, "checkedAt": datetime.now(UTC).isoformat()}
 
     async def stop_session(self, name: str) -> dict[str, Any]:
         # `colab stop` 的 exit code 與輸出都不反映結果(research.md R1),一律以回讀為準
