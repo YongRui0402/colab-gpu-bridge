@@ -1952,7 +1952,7 @@
   - 🧪 `testplan.md` § US4-API-17
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § 邊界情況、FR-024
-- [ ] T231a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-18 的測試(時鐘從 T 推進到 T+20 分鐘,記下每次 `get_usage` 被呼叫的時間;在 T+14 分 59 秒與 T+15 分 01 秒各送一次 `GET /api/usage`),執行確認它因為「只在 UI 打開時才讀用量」這類實作而失敗
+- [ ] T231a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-18 的測試(時鐘從 T 推進到 T+20 分鐘,記下每次 `get_usage` 被呼叫的時間;在 T+14 分 59 秒與 T+15 分 01 秒各送一次 `GET /api/usage`;T+20 分之後讓 `get_usage` 恢復成功,推進到 T+25 分讓下一次排程讀取發生,T+25 分 30 秒再送一次),執行確認它因為「只在 UI 打開時才讀用量」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `components.schemas.Usage`;`contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § NFR-008;`plan.md` § 待決問題 Q119、Q123

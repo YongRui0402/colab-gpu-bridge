@@ -4,9 +4,9 @@
 
 ## 判定
 
-**最新一輪:第 2 輪(2026-11-10)— ✅ 可以進 `/implement`**
+**最新一輪:第 3 輪(2026-11-10)— ⛔ 不能進 `/implement`**
 
-第 1 輪的 CRITICAL(A1)與 HIGH(A2–A5)都已修正,沒有未解決的 CRITICAL 或 HIGH;剩 1 個 MEDIUM(A10)與 1 個 LOW(A7),不擋實作,建議實作前順手修掉。
+A7、A10 已修正;修 A10 時 US4-API-18 新增的則6 帶出一個 HIGH(A11):照規格檔「至少每 5 分鐘讀一次」做出來的實作過不了這個案例。另有 1 個 LOW(A12)不擋實作。
 
 ## 檢查範圍
 
@@ -129,3 +129,43 @@
 2. `/testplan` 在 US4-API-18 補斷言:失敗後 `reasonCode`、`message`、`lastFailedAt` 不為 null,下一次讀取成功後回到 null(A10)
 3. `/tasks` 依第 2 步改過的 US4-API-18 更新 T231a、T231b 的描述與 ⚙(補 `components.schemas.Usage`)
 4. 重跑 `/analyze`
+
+---
+
+## 第 3 輪(2026-11-10)
+
+### 前置檢查
+
+| 腳本 | 結果 |
+|---|---|
+| `specify/scripts/check_spec.py` | ✅ 通過 |
+| `system-analysis/scripts/check_plan.py` | ✅ 通過 |
+| `tasks/scripts/check_tasks.py` | ✅ 通過(同第 1 輪,preflight 不帶 `--testplan`) |
+
+### 上一輪的問題
+
+| ID | 狀態 | 依據 |
+|---|---|---|
+| A7 | ✅ 已修正 | `techstack.md` § 一覽前端列改為「工作階段、登入、模型目錄、下載模型、用量與設定、紀錄 6 頁加狀態總覽」,與 `research.md` § R9 及原型一致;R9 修訂紀錄的連帶說明改正,開頭殘留的「無(初版)」已刪 |
+| A10 | ✅ 已修正 | `testplan.md` § US4-API-18 補則5(失敗時 `reasonCode` 為 `COLAB_UNREACHABLE`、`lastFailedAt` 不為 null)與則6(恢復成功後三欄皆 null、`stale` 為 false)與對應的要抓的錯;`tasks.md` § T231a、T231b 的 ⚙ 補 `components.schemas.Usage`、📎 補 Q123 |
+
+### 新問題
+
+| ID | 類別 | 嚴重度 | 位置 | 摘要 | 回哪一步 |
+|---|---|---|---|---|---|
+| A11 | 無法實作 | HIGH | `testplan.md` § US4-API-18;`contracts/ui.openapi.yaml` § `paths./usage.get`;`testplan.md` § US4-API-05 | 修 A10 時新增的則6:時鐘推進到 T+20 分鐘(這段期間 `get_usage` 一直失敗)之後才讓 `get_usage` 恢復成功,T+20 分 30 秒就斷言 `reasonCode`、`message`、`lastFailedAt` 都是 null、`stale` 為 false。`getUsage` 只規定「後端至少每 5 分鐘自動讀一次」、「這裡回傳最後一次的結果」,`GET /api/usage` 不觸發讀取;US4-API-05 也以「時鐘推進 5 分鐘,讓下一次讀用量發生」當作讀取節奏。照規格檔每 5 分鐘讀一次的實作,T+20 分那次讀取已經失敗、下一次在 T+25 分,T+20 分 30 秒時還沒有任何成功的讀取,則6 必定不過;要過就得讀取間隔小於 30 秒,或失敗後另有規格檔沒寫的提前重試。應改成時鐘推進到恢復後的下一次讀用量(例如 T+25 分)之後再查 | `/testplan` |
+| A12 | 矛盾 | LOW | `tasks.md` § T231a;`testplan.md` § US4-API-18 | T231a 括號裡的「當」仍是修改前的寫法(時鐘推進到 T+20 分鐘、在 T+14 分 59 秒與 T+15 分 01 秒各查一次),沒有 testplan 新增的「之後讓 `get_usage` 恢復成功,再送一次 `GET /api/usage`」;🧪 指到同一個案例,紅燈照 testplan 寫,行為一樣 | `/tasks` |
+
+### 追溯缺口
+
+只列有缺口的需求;其餘需求從規格檔到任務都接得上。
+
+| 需求 | 規格檔元素 | 任務 | 缺口 |
+|---|---|---|---|
+| NFR-008 恢復讀取後清掉失敗說明(Q123) | `ui.openapi.yaml` § `components.schemas.Usage`(下一次讀取成功時三欄回到 null) | T231a、T231b(則6 的時間點做不出來) | A11、A12 |
+
+### 修正順序
+
+1. `/testplan` 把 US4-API-18 則6 的查詢時間點改到恢復成功之後的下一次讀用量(例如時鐘推進到 T+25 分讓讀取發生後再送 `GET /api/usage`),「當」欄寫明推進多少(A11)
+2. `/tasks` 依第 1 步更新 T231a 括號裡的「當」(A12)
+3. 重跑 `/analyze`
