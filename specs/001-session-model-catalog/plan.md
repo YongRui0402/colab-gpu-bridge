@@ -230,7 +230,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q114 | tasks | G-03、G-04、G-08 紅燈可能一開始就綠。(a)紅燈先對故意改壞的對照組確認抓得到,再對實物執行(先採用);(b)全域綠燈才搬入 | — | (a)(kevin-twin 代為決定) |
 | Q115 | tasks | 外部程式參數交給真工具解讀。(a)E5 在 T061a 以真 `colab` 0.7.5(空暫存 HOME、無授權)只斷言無參數錯誤;E6 在 T100a 以 `ssh -G` 解讀(先採用);(b)只靠實跑 | — | (a)(kevin-twin 代為決定) |
 | Q116 | tasks | 📏 實跑任務排法。(a)照規範排在各故事,Checkpoint 註明整批延到全域測試區後依 P9 執行(先採用);(b)全部標 ⏸;(c)全部移到全域 | — | (a)(kevin-twin 代為決定) |
-| Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T250b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
+| Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T289b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
 | Q118 | tasks | Q85 搬遷後的位置。(a)Dockerfile、dockerignore、compose、.env.example 放根目錄,prepare-data.sh、healthcheck.py 放 repo 的 `deploy/`(先採用);(b)全放 `deploy/` | — | (a)(kevin-twin 代為決定) |
 | Q119 | tasks | 〔testplan 提出〕讀過用量但最近一次失敗時 `GET /api/usage`。(a)回最後快照,超過 15 分鐘標 `stale` 並說明讀取失敗,`unknown` 只用在從沒讀到過(先採用);(b)一律 `unknown`(會使 NFR-008 做不到) | — | (a)(kevin-twin 代為決定) |
 | Q120 | tasks | 〔testplan 提出〕餘額 ≤ 0 時估計可用時數。(a)回 0(先採用);(b)負數;(c)null | — | (a)(kevin-twin 代為決定) |
@@ -280,7 +280,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q164 | implement T081 | 〔任務 T081a,E5 補充〕`test_stop_that_times_out_is_still_judged_by_session_list` 平行時約 1/13 會紅(斷言耗時 ≤ 1.5 秒)。主 agent 在無平行時全部測試連跑 3 次皆 205 passed、單獨 10 次皆過。(a)放寬時間餘裕;(b)維持,實跑時留意 | — | (b)(kevin-twin 代為決定) |
 | Q165 | implement T111 | 〔任務 T111b〕`_ended` 先等 stderr 讀完(最多 1 秒)再收尾整個 group;真 ProxyCommand 佔著 stderr,失敗回報固定多等 1 秒,不卡事件迴圈。(a)先收尾再讀 stderr;(b)維持 | — | (b)(kevin-twin 代為決定) |
 | Q166 | implement T140 | 〔任務 T140a〕US1-AJ-10 要「L4 勾高 RAM」,但原型與 colab-cli 合約 L4 不支援高 RAM、勾選框停用。(a)testplan 改用 G4 加高 RAM;(b)原型改成 L4 也能勾 | — | (a)(kevin-twin 代為決定) |
-| Q167 | implement T144 | 〔任務 T144b〕`[data-state="resuming"]` 接回期間 API 無欄位可分辨。(a)recovery 接回期間報 reconnecting;(b)照 Q117 留給 G-06(T250b);(c)接受 ⚙ 不完整 | — | (b)(kevin-twin 代為決定) |
+| Q167 | implement T144 | 〔任務 T144b〕`[data-state="resuming"]` 接回期間 API 無欄位可分辨。(a)recovery 接回期間報 reconnecting;(b)照 Q117 留給 G-06(T289b);(c)接受 ⚙ 不完整 | — | (b)(kevin-twin 代為決定) |
 | Q168 | implement T138 | 〔任務 T138b、T141b〕越界改檔:T138b 在 `static/index.html` 加 `needs-login` 區塊(⚙ 列的元素);T141b 在 `api/__init__.py` 掛 `models.router`。(a)追認;(b)撤回另開任務 | — | (a);照 Q155(a) 前例(kevin-twin 代為決定) |
 | Q169 | implement T147 | 〔任務 T147b〕服務層寫死 `TUNNEL_LOCAL_PORT = 11435`,`CGB_TUNNEL_LOCAL_PORT` 不生效;`HealthMonitor` 自讀 `CGB_SSH_IDENTITY_PATH`,預設值寫兩份。(a)Phase 6 重構時從 `AppState` 注入;(b)列入完成報告,compose 先用預設值 | — | (b);compose 的值與預設一致,不影響本次迭代(kevin-twin 代為決定) |
 | Q170 | implement T170 | 〔任務 T165b,E3 回報〕`Recovery` 重啟接回、`HealthMonitor` 重連後都沒寫回 `lifecycle.base_url`,Ollama 相容端點一直回 503(FR-005、FR-011);E3 全綠沒抓到。(a)照 Q134:testplan 補 US2-AJ-05→tasks 補任務→TDD;(b)列入完成報告 | — | (a)(kevin-twin 代為決定) |
@@ -288,4 +288,4 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q172 | implement T170 | 〔任務 T156b,E3 回報〕回應標頭 `date`、`server` 各兩份(uvicorn 與上游)。(a)去掉上游的並補回歸案例;(b)原樣轉送 | — | (b);列入完成報告(kevin-twin 代為決定) |
 | Q173 | implement T170 | 〔任務 T165b,E3 回報〕`check_now()` 與排程 `_check` 可能並行、重連兩次。(a)HealthMonitor 加鎖;(b)先接受 | — | (b);列入完成報告(kevin-twin 代為決定) |
 | Q174 | implement T155 | 〔任務 T155b、T165b〕越界改檔:`app.py` 改呼叫 `ollama_compat.install`;`api/__init__.py` 的 `Services` 加 `monitor`。(a)追認;(b)撤回 | — | (a);同 Q155(a)、Q168(kevin-twin 代為決定) |
-| Q175 | implement T172 | 〔任務 T172b〕`RemoteOllama.generate(base_url, body)` 參數名;`FakeRemoteOllama` 簽章配對尚未加入 G-09 清單。(a)維持 `body`,配對由 T290a/b 建清單時加入;(b)改簽章 | — | (a)(kevin-twin 代為決定) |
+| Q175 | implement T172 | 〔任務 T172b〕`RemoteOllama.generate(base_url, body)` 參數名;`FakeRemoteOllama` 簽章配對尚未加入 G-09 清單。(a)維持 `body`,配對由 T291a/b 建清單時加入;(b)改簽章 | — | (a)(kevin-twin 代為決定) |

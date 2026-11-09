@@ -414,6 +414,7 @@
 | ID | 受測操作 | 假如 | 當 | 則 | 要抓的錯 | 需求 |
 |---|---|---|---|---|---|---|
 | US2-AJ-01 | 首頁 › 「開啟」 → 區網程式 › `POST /api/generate` | 測試行程內的 uvicorn(UI 8781、Ollama 相容端點 11437),轉接層用替身;`FakeRemoteOllama` 對 `generate` 回 `{"response":"cgb-test-ok"}` | 在首頁按「開啟」到就緒,用 httpx 對 `127.0.0.1:11437` 送 `POST /api/generate {stream:false}`;在首頁結束工作階段後再送一次 | 則1:就緒時那一次回 200,`response` 為 `cgb-test-ok`<br>則2:結束後那一次在 1 秒內回 503,`error` 含「沒有可用的工作階段」 | UI 開啟的工作階段和 Ollama 相容端點看到的不是同一份狀態(兩個 uvicorn 各自一份) | FR-011、FR-013 |
+| US2-AJ-05 | 首頁 › 「開啟」 → 後端行程 › 重新啟動 → 排程 › 健康檢查 → 區網程式 › `POST /api/generate` | 測試行程內的 uvicorn(UI 8781、Ollama 相容端點 11437),轉接層用替身;`CGB_TUNNEL_LOCAL_PORT` 在重啟前後相同;轉發目標是可以回 `cgb-test-ok` 的假 Ollama(實作時依 US2-AJ-01 的做法) | 首頁開到就緒;停掉 uvicorn,以同一個 SQLite 檔與替身狀態重新起;接回就緒後用 httpx 對 `127.0.0.1:11437` 送 `POST /api/generate {stream:false}`;再讓 `check_health` 失敗 1 次、重連第 1 輪成功後再送一次 | 則1:重啟接回後那一次回 200,`response` 為 `cgb-test-ok`<br>則2:重連後那一次回 200<br>則3:兩次之間 `GET /api/session` 的 `state` 最後為 `ready` | 重啟接回或重連後沒寫回轉發位址,UI 顯示就緒、端點卻一直回 503(Q170) | FR-005、FR-011 |
 
 #### 非功能案例
 
@@ -432,7 +433,7 @@
 3. E6 SSH 通道:US2-TUN-01 → 重構
 4. E5 Colab CLI:US2-CLI-01 → 重構
 5. E1、E2、E4、E8、E9、E10、E11:本故事沒有案例
-6. 跨端點驗收(3.1~3.4 完成後):US2-AJ-01 → 重構;US2-AJ-02~US2-AJ-04 為 📏 任務
+6. 跨端點驗收(3.1~3.4 完成後):US2-AJ-01 → US2-AJ-05 → 重構;US2-AJ-02~US2-AJ-04 為 📏 任務
 
 ## 4. 使用者故事 3 - 挑選要下載的模型並使用執行環境上的模型目錄(P2)
 
@@ -724,7 +725,7 @@
 | FR-002 結束與確認 | 故事 1 | — | US1-API-07、US1-API-09 | — | — | US1-CLI-15、US1-CLI-21、US1-CLI-25 | US1-TUN-07、US1-TUN-17 | — | — | — | — | — | US1-AJ-02、US1-AJ-21 | — | 🔴🟢、📏 量測 |
 | FR-003 狀態追蹤與結束原因 | 故事 1 | — | US1-API-01、US1-API-07、US1-API-10、US1-API-17、US1-API-36、US1-API-38 | — | — | US1-CLI-03、US1-CLI-04、US1-CLI-36 | — | — | — | — | — | — | US1-AJ-01~US1-AJ-04 | — | 🔴🟢 |
 | FR-004 健康檢查、重連與失聯 | 故事 1 | — | US1-API-17~US1-API-22、US1-API-37 | US2-OC-11 | — | US1-CLI-05、US1-CLI-20、US1-CLI-28、US1-CLI-32、US1-CLI-39 | US1-TUN-02、US1-TUN-04、US1-TUN-06、US1-TUN-07、US1-TUN-10、US1-TUN-12、US1-TUN-18~US1-TUN-20 | — | — | — | — | — | US1-AJ-04~US1-AJ-06、US1-AJ-18、US1-AJ-22、US1-AJ-23 | G-09 | 🔴🟢、📏 量測 |
-| FR-005 後端重啟接回 | 故事 1 | — | US1-API-23、US1-API-24 | — | US1-DB-02 | US1-CLI-03 | US1-TUN-08、US1-TUN-10 | — | — | — | — | — | US1-AJ-14、US1-AJ-19、US1-AJ-23 | G-09 | 🔴🟢、📏 量測 |
+| FR-005 後端重啟接回 | 故事 1 | — | US1-API-23、US1-API-24 | — | US1-DB-02 | US1-CLI-03 | US1-TUN-08、US1-TUN-10 | — | — | — | — | — | US1-AJ-14、US1-AJ-19、US1-AJ-23、US2-AJ-05 | G-09 | 🔴🟢、📏 量測 |
 | FR-006 最多一個工作階段 | 故事 1 | — | US1-API-04、US1-API-05、US1-API-15、US1-API-16 | — | US1-DB-01 | — | US1-TUN-03、US1-TUN-11 | — | — | — | — | — | US1-AJ-07 | — | 🔴🟢 |
 | FR-007 不留遺留、釋放不了要警告 | 故事 1 | — | US1-API-08、US1-API-10~US1-API-14、US1-API-16、US1-API-22、US1-API-26、US1-API-40 | — | — | US1-CLI-07、US1-CLI-14~US1-CLI-18、US1-CLI-21、US1-CLI-23、US1-CLI-25、US1-CLI-26、US1-CLI-35 | US1-TUN-11 | — | — | — | — | — | US1-AJ-06、US1-AJ-16、US1-AJ-21、US1-AJ-23 | G-09 | 🔴🟢、📏 量測 |
 | FR-008 UI 內登入 | 故事 1 | — | US1-API-06、US1-API-30~US1-API-34 | — | — | US1-CLI-10、US1-CLI-19、US1-CLI-32~US1-CLI-35 | — | — | — | US1-OA-01~US1-OA-06 | — | — | US1-AJ-08、US1-AJ-09 | — | 🔴🟢、📏 人工 |
@@ -732,7 +733,7 @@
 | FR-010 變更類型重開 | 故事 1 | — | US1-API-27~US1-API-29 | — | — | — | — | — | — | — | — | — | US1-AJ-11、US1-AJ-12、US1-AJ-20 | — | 🔴🟢、📏 量測 |
 | NFR-001 開啟進度與時間 | 故事 1 | — | US1-API-39 | — | — | — | — | — | — | — | — | — | US1-AJ-17 | — | 🔴🟢、📏 量測 |
 | NFR-002 收回後失聯的時間 | 故事 1 | — | — | — | — | — | US1-TUN-10 | — | — | — | — | — | US1-AJ-18、US1-AJ-22 | — | 📏 量測 |
-| FR-011 固定位址轉送 | 故事 2 | — | — | US2-OC-01~US2-OC-03、US2-OC-06、US2-OC-09、US2-OC-13、US2-OC-14 | — | — | — | US2-RO-01~US2-RO-03 | — | — | — | — | US2-AJ-01、US2-AJ-02 | — | 🔴🟢、📏 量測 |
+| FR-011 固定位址轉送 | 故事 2 | — | — | US2-OC-01~US2-OC-03、US2-OC-06、US2-OC-09、US2-OC-13、US2-OC-14 | — | — | — | US2-RO-01~US2-RO-03 | — | — | — | — | US2-AJ-01、US2-AJ-02、US2-AJ-05 | — | 🔴🟢、📏 量測 |
 | FR-012 管理操作回錯誤 | 故事 2 | — | — | US2-OC-04、US2-OC-05 | — | — | — | — | — | — | — | — | — | — | 🔴🟢 |
 | FR-013 沒有工作階段時回錯誤 | 故事 2 | — | — | US2-OC-05、US2-OC-07、US2-OC-08、US2-OC-10、US2-OC-12 | — | — | — | — | — | — | — | — | US2-AJ-01、US2-AJ-03 | — | 🔴🟢、📏 量測 |
 | NFR-003 不經公開網址 | 故事 2 | — | — | US2-OC-15 | — | US2-CLI-01 | US2-TUN-01 | — | — | — | — | — | US2-AJ-04 | — | 🔴🟢、📏 量測 |
