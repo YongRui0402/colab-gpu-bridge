@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS download_jobs (
 
 
 def create_schema(conn: sqlite3.Connection) -> None:
+    # WAL 記在資料庫檔裡,之後新開的連線也沿用(research.md R10)
+    conn.execute("PRAGMA journal_mode=WAL")
     conn.execute(_SESSIONS)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_opened_at ON sessions (opened_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_state ON sessions (state)")

@@ -966,23 +966,23 @@
 
 ### E4 資料庫(SQLite)
 
-- [ ] T128a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-01 的測試(再插入一筆 `active_slot=1`;再插入一筆 `active_slot` 為 null 的 `ending`),執行確認它因為「`active_slot` 沒有 unique,兩個開啟中的工作階段寫得進去」這類實作而失敗
+- [X] T128a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-01 的測試(再插入一筆 `active_slot=1`;再插入一筆 `active_slot` 為 null 的 `ending`),執行確認它因為「`active_slot` 沒有 unique,兩個開啟中的工作階段寫得進去」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-01
   - ⚙ `contracts/store.dbml` § `Table sessions`
   - 📎 `spec.md` § FR-006
-- [ ] T128b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/db/schema.py` 由 E2 節的 T015b 建立,本節依序接著改,不另寫一份(依賴 T128a、T015b)
+- [X] T128b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/db/schema.py` 由 E2 節的 T015b 建立,本節依序接著改,不另寫一份(依賴 T128a、T015b)
   - 🧪 `testplan.md` § US1-DB-01
   - ⚙ `contracts/store.dbml` § `Table sessions`
   - 📎 `spec.md` § FR-006
-- [ ] T129a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-02 的測試(關閉連線,以新的連線開同一個檔),執行確認它因為「沒開 WAL」這類實作而失敗
+- [X] T129a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-02 的測試(關閉連線,以新的連線開同一個檔),執行確認它因為「沒開 WAL」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-02
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-005、FR-028
-- [ ] T129b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/db/schema.py` 與 `session_transitions` 表由 E2 節的 T015b、T049b 建立,本節依序接著改,不另寫一份(依賴 T129a、T015b、T049b)
+- [X] T129b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/db/schema.py` 與 `session_transitions` 表由 E2 節的 T015b、T049b 建立,本節依序接著改,不另寫一份(依賴 T129a、T015b、T049b)
   - 🧪 `testplan.md` § US1-DB-02
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-005、FR-028
-- [ ] T130 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T128b~T129b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T129b)
+- [X] T130 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T128b~T129b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T129b)
   - 🧪 `testplan.md` § US1-DB-01~US1-DB-02
   - 📎 `testplan.md` § 2.5
 
