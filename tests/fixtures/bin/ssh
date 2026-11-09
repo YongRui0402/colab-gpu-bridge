@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""假的 `ssh` 執行檔:與假的 `colab` 同一份實作,以程式名 `ssh` 讀劇本的 `ssh` 節(說明見同資料夾的 `colab`)。"""
+
+import os
+import runpy
+
+runpy.run_path(os.path.join(os.path.dirname(os.path.realpath(__file__)), "colab"), run_name="__main__", init_globals={"FAKE_PROGRAM": "ssh"})

@@ -1,0 +1,211 @@
+#!/usr/bin/env python3
+"""假的 `colab`(以及經 `ssh` 呼叫時的假 `ssh`)執行檔(plan.md Q96;testplan.md § 1. 待測端點 E5、E6)。
+
+劇本:`CGB_FAKE_SCRIPT` 指到的 JSON 檔,以程式名分節,節裡以 argv(去掉程式名)的 `shlex.join` 為鍵:
+
+    {
+      "colab": {
+        "version": {"stdout": "Version: 0.7.5\n"},
+        "new -s cgb-test-0001 --gpu T4": {"stderr": "...", "exit": 0, "sleep": 0.5},
+        "sessions": [{"stdout": "第 1 次的輸出"}, {"stdout": "第 2 次起的輸出"}]
+      },
+      "ssh": {
+        "-F none -N ...": {"steps": [{"stderr": "Warning: ...\n"}, {"sleep": 0.3}, {"stderr": "Timeout, ...\n"}], "exit": 255},
+        "-F none -N -i ...": {"daemon": true, "spawn_child": true}
+      }
+    }
+
+一條劇本的欄位(都可省略):
+- `stdout`、`stderr`:要印的字串;`sleep`:印之前先睡幾秒
+- `steps`:依序執行的步驟清單,每步是 `{"stdout": …}`、`{"stderr": …}` 或 `{"sleep": 秒}`(在 stdout/stderr 之後執行)
+- `exit`:結束碼(預設 0)
+- `daemon`:印完之後常駐,直到被殺掉
+- `spawn_child`:先分出一個常駐的子行程(同一個 process group,模擬 ProxyCommand 的 `colab ssh`)
+值是清單時,第 n 次呼叫用第 n 條,用完之後一直用最後一條(次數記在 `<劇本>.count.json`)。
+
+argv 只做逐字比對;對不到任何一條劇本時印 `fake <程式名>: 沒有對應這組參數的劇本` 到 stderr 並 exit 2,
+劇本寫錯的參數不會被當成正確。
+每次執行都把 argv、stdin(讀到的內容,或 EOF)與環境變數附加一行 JSON 到 `CGB_FAKE_LOG`;
+名稱像機密的環境變數(含 TOKEN、SECRET、PASSWORD、KEY、AUTH、CREDENTIAL)只記長度與 sha256 前 8 碼,不記原值。
+"""
+
+import fcntl
+import hashlib
+import json
+import os
+import re
+import select
+import shlex
+import stat
+import subprocess
+import sys
+import time
+
+NO_SCRIPT_EXIT = 2
+SECRET_NAME = re.compile(r"TOKEN|SECRET|PASSWORD|KEY|AUTH|CREDENTIAL", re.IGNORECASE)
+STDIN_IDLE_SECONDS = 0.5
+
+
+def program_name() -> str:
+    # 經 ssh 包裝呼叫時 runpy 會把 sys.argv[0] 換成這個檔的路徑,程式名改由包裝傳入
+    return globals().get("FAKE_PROGRAM") or os.path.basename(sys.argv[0])
+
+
+def fail(prog: str, message: str) -> None:
+    sys.stderr.write(f"fake {prog}: {message}\n")
+    sys.stderr.flush()
+    sys.exit(NO_SCRIPT_EXIT)
+
+
+def read_stdin() -> dict:
+    """記下 stdin 的種類與內容;是 /dev/null 時就是 EOF,不會卡住。"""
+    try:
+        info = os.fstat(0)
+    except OSError:
+        return {"stdin_kind": "closed", "stdin": None, "stdin_eof": True}
+    if stat.S_ISCHR(info.st_mode):
+        try:
+            null = os.stat(os.devnull)
+            if info.st_rdev == null.st_rdev:
+                data = sys.stdin.buffer.read()
+                return {"stdin_kind": "devnull", "stdin": data.decode(errors="replace"), "stdin_eof": True}
+        except OSError:
+            pass
+        if os.isatty(0):
+            return {"stdin_kind": "tty", "stdin": None, "stdin_eof": False}
+        return {"stdin_kind": "char", "stdin": None, "stdin_eof": False}
+    kind = "pipe" if stat.S_ISFIFO(info.st_mode) else "file"
+    chunks = []
+    eof = False
+    while True:
+        ready, _, _ = select.select([0], [], [], STDIN_IDLE_SECONDS)
+        if not ready:
+            break
+        chunk = os.read(0, 65536)
+        if not chunk:
+            eof = True
+            break
+        chunks.append(chunk)
+    return {"stdin_kind": kind, "stdin": b"".join(chunks).decode(errors="replace"), "stdin_eof": eof}
+
+
+def safe_env() -> dict:
+    env = {}
+    for name, value in os.environ.items():
+        if SECRET_NAME.search(name):
+            digest = hashlib.sha256(value.encode()).hexdigest()[:8]
+            env[name] = f"<len={len(value)} sha256={digest}>"
+        else:
+            env[name] = value
+    return env
+
+
+def append_jsonl(path: str, record: dict) -> None:
+    line = (json.dumps(record, ensure_ascii=False) + "\n").encode()
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        os.write(fd, line)
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def next_index(script_path: str, prog: str, key: str) -> int:
+    """回傳這組參數這是第幾次呼叫(從 0 起算),並把次數加一。"""
+    count_path = script_path + ".count.json"
+    fd = os.open(count_path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        raw = b""
+        while chunk := os.read(fd, 65536):
+            raw += chunk
+        counts = json.loads(raw) if raw.strip() else {}
+        slot = f"{prog}\0{key}"
+        index = counts.get(slot, 0)
+        counts[slot] = index + 1
+        os.lseek(fd, 0, os.SEEK_SET)
+        os.ftruncate(fd, 0)
+        os.write(fd, json.dumps(counts).encode())
+        return index
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def emit(stream, text: str) -> None:
+    stream.write(text)
+    stream.flush()
+
+
+def main() -> None:
+    prog = program_name()
+    argv = sys.argv[1:]
+    key = shlex.join(argv)
+    record = {"program": prog, "argv": argv, "pid": os.getpid(), "pgid": os.getpgid(0), "time": time.time()}
+    record.update(read_stdin())
+    record["env"] = safe_env()
+
+    script_path = os.environ.get("CGB_FAKE_SCRIPT")
+    entry = None
+    problem = None
+    if not script_path:
+        problem = "沒有設定 CGB_FAKE_SCRIPT"
+    else:
+        try:
+            with open(script_path, encoding="utf-8") as f:
+                script = json.load(f)
+        except (OSError, ValueError) as error:
+            problem = f"讀不了劇本 {script_path}({type(error).__name__})"
+        else:
+            section = script.get(prog, {}) if isinstance(script, dict) else {}
+            value = section.get(key) if isinstance(section, dict) else None
+            if isinstance(value, list) and value:
+                entry = value[min(next_index(script_path, prog, key), len(value) - 1)]
+            elif isinstance(value, dict):
+                entry = value
+            if entry is None:
+                problem = "沒有對應這組參數的劇本"
+            elif not isinstance(entry, dict):
+                problem = "劇本格式不符(每一條必須是 JSON 物件)"
+                entry = None
+
+    record["matched"] = entry is not None
+    child = None
+    if entry is not None and entry.get("spawn_child"):
+        child = subprocess.Popen(
+            [sys.executable, "-c", "import time\nwhile True: time.sleep(3600)"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        record["child_pid"] = child.pid
+
+    log_path = os.environ.get("CGB_FAKE_LOG")
+    if log_path:
+        append_jsonl(log_path, record)
+
+    if entry is None:
+        fail(prog, problem or "沒有對應這組參數的劇本")
+
+    time.sleep(float(entry.get("sleep", 0)))
+    if "stdout" in entry:
+        emit(sys.stdout, entry["stdout"])
+    if "stderr" in entry:
+        emit(sys.stderr, entry["stderr"])
+    for step in entry.get("steps", []):
+        if "sleep" in step:
+            time.sleep(float(step["sleep"]))
+        if "stdout" in step:
+            emit(sys.stdout, step["stdout"])
+        if "stderr" in step:
+            emit(sys.stderr, step["stderr"])
+
+    if entry.get("daemon"):
+        while True:
+            time.sleep(3600)
+    sys.exit(int(entry.get("exit", 0)))
+
+
+if __name__ == "__main__":
+    main()

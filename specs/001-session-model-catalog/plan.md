@@ -237,3 +237,8 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q121 | tasks | 〔testplan 提出〕FR-025「低於警告門檻」含不含等於。(a)不含 `<`(先採用);(b)含 | — | (a)(kevin-twin 代為決定) |
 | Q122 | tasks | 〔testplan 提出〕Q100 的「資料庫不認得、CLI 記得」警告放哪。(a)`Session.unmanagedRuntimes` 加一筆(先採用);(b)併入 `releaseWarning` | S5 | (a)(kevin-twin 代為決定) |
 | Q123 | S5 | 讀取用量失敗的說明欄位。(a)沿用 `reasonCode`、`message`,新增 `lastFailedAt`(先採用);(b)巢狀 `lastReadError`。另:故事 4 驗收情境 5「讀不到 → 未知」與 Q119 不一致 | — | (a);spec 情境 5 改為「從來沒讀到過」(kevin-twin 代為決定) |
+| Q124 | implement T004 | 替身方法名與 operationId 不完全一致(`ensure_key`、`check_health`、`build_authorization_url`、`cleanup_residual`)。(a)維持任務列出、testplan 受測操作表使用的名稱;(b)改照 operationId | — | (a)(kevin-twin 代為決定) |
+| Q125 | implement T006 | 下一頁連結:任務寫 `hx-get="/search?page=2"`,合約寫含 `&q=<關鍵字>`。(a)照合約;(b)照任務原文 | — | (a)照合約(kevin-twin 代為決定) |
+| Q126 | implement T008 | P8「錄下的輸出 P3 之後刪除」與 G-05、G-07 要在 P3 之後讀取的順序。(a)`p3_cleanup()` 可中途呼叫,刪除只在整批結束時最後一次 P3 之後;(b)其他 | — | (a)(kevin-twin 代為決定) |
+| Q127 | implement T014 | spec 原檔 `healthcheck.py` 權限 0664,任務寫「保留可執行權限」。(a)複本設 755(Dockerfile 本來也 chmod 755);(b)照原檔 0664 | — | (a)(kevin-twin 代為決定) |
+| Q128 | implement T004 | 替身一律 async;真實的 `build_authorization_url` 可能是同步。(a)綠燈任務視需要調整替身或介面;(b)現在改 | — | (a)(kevin-twin 代為決定) |

@@ -1,0 +1,104 @@
+name: colab-gpu-bridge
+x-source: S10(E10 檔案系統)依 spec.md、plan.md、research.md(R2、R3、R10、R11)與前幾步的規格檔(S3 google-oauth、S7 store.dbml、S8 colab-cli、S9 tunnel)產出;S11(E11 部署與網路)依 spec.md(NFR-009、NFR-012、假設)、research.md R11 與 S5 ui.openapi、ui-events.asyncapi、S6 ollama-compat、S9 tunnel 補上對外 port、listen 位址、啟動指令與 HTTP 健康檢查
+# 對外入口。家中區網(含 VPN 連回)可連、不需要登入、不對外網公開(NFR-009);由這裡的 port 綁定處理,不經反向代理(spec 假設)。
+# 兩個入口是同一個後端行程(python -m cgb)裡的兩個 uvicorn 伺服器:工作階段狀態、閒置計時與下載佇列共用同一份記憶體,不能拆成兩個行程。
+x-ports:
+  - name: UI(前端靜態檔、S5 UI API `/api`、S5 SSE `/api/events`)
+    container: "0.0.0.0:8780"
+    host: ${CGB_BIND_ADDR:-0.0.0.0}:${CGB_HOST_UI_PORT:-8780}
+    published: 區網
+  - name: Ollama 相容端點(S6,路徑照 Ollama 原樣:`/`、`/api/generate`、`/api/chat` 等)
+    container: "0.0.0.0:11434"
+    host: ${CGB_BIND_ADDR:-0.0.0.0}:${CGB_HOST_OLLAMA_PORT:-11434}
+    published: 區網;預設 11434 是 Ollama 的慣例,區網程式只要把主機名稱換成本系統所在主機
+  - name: SSH 通道的本機轉發(S9)
+    container: "127.0.0.1:11435"
+    host: 不發布
+    published: 只在容器內部使用;不寫進 ports 與 expose(Q72)
+# /data 底下的配置。路徑是容器內的;主機那一側只有一個掛載點(${CGB_HOST_DATA})。
+# 權限:容器以 root 執行,cgb-prepare-data 以 umask 077 啟動後端,目錄 0700、檔案 0600(不跟隨符號連結)。
+x-data-layout:
+  - path: /data
+    mode: "0700"
+    persisted: true
+    owner: 掛載點;主機上的資料夾或 named volume(見 volumes)
+  - path: /data/cgb.sqlite3
+    mode: "0600"
+    persisted: true
+    owner: 本系統後端(S7 store.dbml);WAL 模式,同一層另有 cgb.sqlite3-wal、cgb.sqlite3-shm,三個檔必須在同一個資料夾、一起備份
+  - path: /data/colab-cli/
+    mode: "0700"
+    persisted: true
+    owner: Colab CLI;映像裡的 /root/.config/colab-cli 是指向這裡的符號連結(CLI 0.7.5 寫死 ~/.config/colab-cli/,不吃環境變數)
+  - path: /data/colab-cli/token.json
+    mode: "0600"
+    persisted: true
+    owner: 本系統後端寫入(S3 授權碼換到 token 後,寫到 CGB_COLAB_CONFIG_DIR/token.json);CLI 讀取並在 refresh 後覆寫(research.md R2)
+  - path: /data/colab-cli/sessions.json
+    mode: "0600"
+    persisted: true
+    owner: Colab CLI;必須持久化,否則 colab sessions 的名稱顯示 [?],後端重啟找不回自己開的執行環境(research.md R10、FR-005)。內含執行環境 endpoint 與 proxy token,只留在這個 0700 資料夾
+  - path: /data/colab-cli/settings.json
+    mode: "0600"
+    persisted: true
+    owner: Colab CLI;cgb-prepare-data 每次啟動把 enable_update_check 設為 false,其他欄位保留(Q59)
+  - path: /data/colab-cli/colab.log
+    mode: 符號連結
+    persisted: 不寫入任何資料
+    owner: cgb-prepare-data 每次啟動確保它是指向 /dev/null 的符號連結;原本若是一般檔(含 Authorization token 的 DEBUG 紀錄)直接刪除(Q59、NFR-010)
+  - path: /data/colab-cli/history/
+    mode: "0700"
+    persisted: false
+    owner: Colab CLI 的每台執行環境事件紀錄(含 endpoint 與 colab exec 的程式碼與輸出);掛 tmpfs,容器停止即消失,本系統不讀它
+  - path: /data/colab-cli/sessions.json.lock、/data/colab-cli/settings.json.lock
+    mode: "0600"
+    persisted: true
+    owner: Colab CLI 的檔案鎖;不含資料,刪掉無害
+  - path: /data/ssh/
+    mode: "0700"
+    persisted: true
+    owner: SSH 通道(S9)
+  - path: /data/ssh/id_ed25519、/data/ssh/id_ed25519.pub
+    mode: "0600"
+    persisted: true
+    owner: 本系統後端 ensureTunnelKey(S9)不存在才 ssh-keygen 產生、不覆寫既有;容器專用,不用主機的 ~/.ssh(Q72)
+  - path: (不存檔)PKCE code_verifier 與授權流程代號
+    mode: 不適用
+    persisted: false
+    owner: 只留在後端記憶體,後端重啟後失效(Q17)
+services:
+  cgb:
+    x-requirements: [NFR-009, NFR-010, NFR-012, FR-005, FR-008, FR-011, FR-026]
+    image: colab-gpu-bridge:0.1.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    command: ["python", "-m", "cgb"]
+    ports:
+      - "${CGB_BIND_ADDR:-0.0.0.0}:${CGB_HOST_UI_PORT:-8780}:8780"
+      - "${CGB_BIND_ADDR:-0.0.0.0}:${CGB_HOST_OLLAMA_PORT:-11434}:11434"
+    environment:
+      HOME: /root
+      CGB_DATA_DIR: /data
+      CGB_DB_PATH: /data/cgb.sqlite3
+      CGB_COLAB_CONFIG_DIR: /data/colab-cli
+      CGB_SSH_IDENTITY_PATH: /data/ssh/id_ed25519
+      CGB_LISTEN_HOST: 0.0.0.0
+      CGB_UI_PORT: 8780
+      CGB_OLLAMA_PORT: 11434
+      CGB_TUNNEL_LOCAL_PORT: 11435
+    volumes:
+      - ${CGB_HOST_DATA:-cgb-data}:/data
+    tmpfs:
+      - /data/colab-cli/history:mode=0700,size=16m
+    # 先照 S10 檢查 /data 的配置,再檢查兩個入口(見 healthcheck.py:Ollama 相容端點只連 TCP,不送 HTTP,免得重設閒置計時)
+    healthcheck:
+      test: ["CMD-SHELL", "cgb-prepare-data --check && cgb-healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+volumes:
+  cgb-data:

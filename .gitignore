@@ -1,1 +1,12 @@
+# Python 工具鏈
+.venv/
+__pycache__/
+.pytest_cache/
+
+# 機密與資料(不得進版本控制,NFR-010)
 .env
+data/
+*.sqlite3
+token.json
+sessions.json
+id_ed25519*
