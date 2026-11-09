@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>紀錄|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="js/history.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型</a>
+      <a href="library.html">下載模型</a>
+      <a href="usage.html">用量與設定</a>
+      <a href="history.html" aria-current="page">紀錄</a>
+    </nav>
+  </header>
+  <main>
+    <h1>紀錄</h1>
+
+    <section data-state="normal" class="panel" hidden>
+      <div class="panel-head">
+        <h2>最近的工作階段</h2>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>開啟時間</th>
+            <th>結束時間</th>
+            <th>類型</th>
+            <th>結束原因</th>
+            <th class="num">運行時長</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

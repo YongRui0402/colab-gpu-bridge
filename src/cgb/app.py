@@ -13,9 +13,16 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 # Q109:S5 `Session.name` 的 pattern 是 `^cgb-`,注入的前綴必須以它開頭(實跑用 `cgb-test-`)
 REQUIRED_NAME_PREFIX = "cgb-"
+
+# E1 前端 UI 的靜態檔(原生 HTML/CSS/JS),和 `/api` 同一個來源
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+# 本機轉發的 port 預設值(contracts/tunnel.openapi.yaml § OpenTunnelInput.localPort;CGB_TUNNEL_LOCAL_PORT)
+DEFAULT_TUNNEL_LOCAL_PORT = 11435
 
 
 class Clock(Protocol):
@@ -76,6 +83,7 @@ class AppState:
     remote_ollama: Any
     model_library: Any
     google_oauth: Any
+    tunnel_local_port: int = DEFAULT_TUNNEL_LOCAL_PORT
 
 
 @dataclass(frozen=True)
@@ -105,6 +113,7 @@ def create_app(
     remote_ollama: Any,
     model_library: Any,
     google_oauth: Any,
+    tunnel_local_port: int = DEFAULT_TUNNEL_LOCAL_PORT,
 ) -> AppPair:
     """建立兩個空的 app 與共用狀態;五個轉接層(Q96)由呼叫端注入。"""
     if not name_prefix.startswith(REQUIRED_NAME_PREFIX):
@@ -120,12 +129,15 @@ def create_app(
         remote_ollama=remote_ollama,
         model_library=model_library,
         google_oauth=google_oauth,
+        tunnel_local_port=tunnel_local_port,
     )
     ui = _empty_app("colab-gpu-bridge UI", state)
     # 延後匯入:cgb.api 往下依賴 services 與 db,app.py 只負責組裝
     from cgb.api import install as install_ui_api
 
     install_ui_api(ui)
+    # 掛在 `/api` 的路由之後:沒有對應路由的路徑才交給靜態檔
+    ui.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
     return AppPair(
         ui=ui,
         ollama=_empty_app("colab-gpu-bridge Ollama 相容端點", state),

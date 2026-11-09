@@ -1010,143 +1010,143 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(或區網程式)接測試行程內真的後端,轉接層用替身;📏 任務改接真的 Colab,照 P9 整批實跑
 
-- [ ] T131a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-01 的測試(打開首頁,不改類型,按「開啟」,依序放行三個步驟),執行確認它因為「前端沒有預選 T4,開啟送出空的 `runtimeType` 回 400」這類實作而失敗
+- [X] T131a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-01 的測試(打開首頁,不改類型,按「開啟」,依序放行三個步驟),執行確認它因為「前端沒有預選 T4,開啟送出空的 `runtimeType` 回 400」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `prototype/index.html` § `#open`、`#s-steps`、`#r-type`、`[data-state="normal"]`、`[data-state="starting"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./events.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-001、FR-003、FR-009
-- [ ] T131b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/style.css`、`src/cgb/static/js/api.js`、`src/cgb/server.py`、`src/cgb/__main__.py`、`src/cgb/app.py`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;同一個任務把 `prototype/style.css` 搬進 `src/cgb/static/style.css`(只用原型的 `var(--…)`,不帶 `prototype/mock.js`),在 `src/cgb/static/js/api.js` 寫共用的 API 呼叫與 SSE 訂閱(plan.md Structure Decision:共用的 SSE 訂閱與 API 呼叫放在同一支模組),在 `src/cgb/app.py` 掛上 `src/cgb/static/`;並建立 `src/cgb/server.py` 的 `serve()`(以同一個 `create_app` 結果在同一個行程起 UI 與 Ollama 相容端點兩個 uvicorn,Ollama 相容端點那一個 port 在本故事先掛空的 app,故事 2 的 T155b 補上路由)與 `src/cgb/__main__.py`(`python -m cgb`:讀 `CGB_LISTEN_HOST`、`CGB_UI_PORT`、`CGB_OLLAMA_PORT`、`CGB_TUNNEL_LOCAL_PORT`、`CGB_DB_PATH`、`CGB_COLAB_CONFIG_DIR`、`CGB_SSH_IDENTITY_PATH`,組出真的轉接層後呼叫 `serve()`;plan.md Q93),測試的 uvicorn fixture 也改走 `serve()`;首頁故事 4 的 `#usage-strip`、`#open-low`、`#r-countdown`、`#r-idle` 留給故事 4 的任務(依賴 T131a)
+- [X] T131b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/style.css`、`src/cgb/static/js/api.js`、`src/cgb/server.py`、`src/cgb/__main__.py`、`src/cgb/app.py`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;同一個任務把 `prototype/style.css` 搬進 `src/cgb/static/style.css`(只用原型的 `var(--…)`,不帶 `prototype/mock.js`),在 `src/cgb/static/js/api.js` 寫共用的 API 呼叫與 SSE 訂閱(plan.md Structure Decision:共用的 SSE 訂閱與 API 呼叫放在同一支模組),在 `src/cgb/app.py` 掛上 `src/cgb/static/`;並建立 `src/cgb/server.py` 的 `serve()`(以同一個 `create_app` 結果在同一個行程起 UI 與 Ollama 相容端點兩個 uvicorn,Ollama 相容端點那一個 port 在本故事先掛空的 app,故事 2 的 T155b 補上路由)與 `src/cgb/__main__.py`(`python -m cgb`:讀 `CGB_LISTEN_HOST`、`CGB_UI_PORT`、`CGB_OLLAMA_PORT`、`CGB_TUNNEL_LOCAL_PORT`、`CGB_DB_PATH`、`CGB_COLAB_CONFIG_DIR`、`CGB_SSH_IDENTITY_PATH`,組出真的轉接層後呼叫 `serve()`;plan.md Q93),測試的 uvicorn fixture 也改走 `serve()`;首頁故事 4 的 `#usage-strip`、`#open-low`、`#r-countdown`、`#r-idle` 留給故事 4 的任務(依賴 T131a)
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `prototype/index.html` § `#open`、`#s-steps`、`#r-type`、`[data-state="normal"]`、`[data-state="starting"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./events.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-001、FR-003、FR-009
-- [ ] T132a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-02 的測試(按「結束工作階段」,在確認畫面先按「取消」;再按一次並確認),執行確認它因為「沒有確認步驟,一按就結束」這類實作而失敗
+- [X] T132a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-02 的測試(按「結束工作階段」,在確認畫面先按「取消」;再按一次並確認),執行確認它因為「沒有確認步驟,一按就結束」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `prototype/index.html` § `#stop`、`#e-reason`、`[data-state="confirm-stop"]`、`[data-state="ready"]`、`[data-state="ended"]`;`contracts/ui.openapi.yaml` § `paths./session.delete`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-002、FR-003
-- [ ] T132b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T132a)
+- [X] T132b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T132a)
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `prototype/index.html` § `#stop`、`#e-reason`、`[data-state="confirm-stop"]`、`[data-state="ready"]`、`[data-state="ended"]`;`contracts/ui.openapi.yaml` § `paths./session.delete`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-002、FR-003
-- [ ] T133a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-03 的測試(按「開啟」),執行確認它因為「失敗後停在「開啟中」」這類實作而失敗
+- [X] T133a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-03 的測試(按「開啟」),執行確認它因為「失敗後停在「開啟中」」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `prototype/index.html` § `#open`、`#f-reason`、`[data-state="failed"]`;`contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-003
-- [ ] T133b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T133a)
+- [X] T133b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T133a)
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `prototype/index.html` § `#open`、`#f-reason`、`[data-state="failed"]`;`contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-003
-- [ ] T134a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-04 的測試(`check_health` 失敗且 `list_sessions` 不再列出它;再按「重新開啟」),執行確認它因為「收回後畫面仍顯示就緒」這類實作而失敗
+- [X] T134a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-04 的測試(`check_health` 失敗且 `list_sessions` 不再列出它;再按「重新開啟」),執行確認它因為「收回後畫面仍顯示就緒」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-04
   - ⚙ `prototype/index.html` § `#e-reason`、`[data-state="lost"]`、`[data-state="starting"]`;`contracts/ui.openapi.yaml` § `paths./session.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-003、FR-004
-- [ ] T134b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T134a)
+- [X] T134b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T134a)
   - 🧪 `testplan.md` § US1-AJ-04
   - ⚙ `prototype/index.html` § `#e-reason`、`[data-state="lost"]`、`[data-state="starting"]`;`contracts/ui.openapi.yaml` § `paths./session.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-003、FR-004
-- [ ] T135a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-05 的測試(`check_health` 失敗 1 次,重連第 2 輪成功),執行確認它因為「重連中沒有顯示,使用者以為還在就緒」這類實作而失敗
+- [X] T135a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-05 的測試(`check_health` 失敗 1 次,重連第 2 輪成功),執行確認它因為「重連中沒有顯示,使用者以為還在就緒」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-05
   - ⚙ `prototype/index.html` § `#r-name`、`[data-state="reconnecting"]`、`[data-state="ready"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-004
-- [ ] T135b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T135a)
+- [X] T135b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T135a)
   - 🧪 `testplan.md` § US1-AJ-05
   - ⚙ `prototype/index.html` § `#r-name`、`[data-state="reconnecting"]`、`[data-state="ready"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-004
-- [ ] T136a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-06 的測試(讓重連逾時),執行確認它因為「釋放失敗的警告只在 API 有、畫面沒顯示,使用者不知道還在扣點」這類實作而失敗
+- [X] T136a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-06 的測試(讓重連逾時),執行確認它因為「釋放失敗的警告只在 API 有、畫面沒顯示,使用者不知道還在扣點」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-06
   - ⚙ `prototype/index.html` § `[data-state="lost-timeout"]`、`[data-state="release-failed"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-004、FR-007
-- [ ] T136b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T136a)
+- [X] T136b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T136a)
   - 🧪 `testplan.md` § US1-AJ-06
   - ⚙ `prototype/index.html` § `[data-state="lost-timeout"]`、`[data-state="release-failed"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-004、FR-007
-- [ ] T137a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-07 的測試(第二個分頁按「開啟」),執行確認它因為「前端只靠自己的狀態擋,另一個分頁照樣送出」這類實作而失敗
+- [X] T137a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-07 的測試(第二個分頁按「開啟」),執行確認它因為「前端只靠自己的狀態擋,另一個分頁照樣送出」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-07
   - ⚙ `prototype/index.html` § `#open`、`[data-state="already-open"]`;`contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006
-- [ ] T137b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T137a)
+- [X] T137b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T137a)
   - 🧪 `testplan.md` § US1-AJ-07
   - ⚙ `prototype/index.html` § `#open`、`[data-state="already-open"]`;`contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006
-- [ ] T138a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_login.py` 寫 US1-AJ-08 的測試(在首頁按「開啟」;依引導到登入頁,按「取得授權連結」,在輸入框貼上 `4/cgb-test-code` 送出),執行確認它因為「未登入時「開啟」照送,等 CLI 失敗才回報」這類實作而失敗
+- [X] T138a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_login.py` 寫 US1-AJ-08 的測試(在首頁按「開啟」;依引導到登入頁,按「取得授權連結」,在輸入框貼上 `4/cgb-test-code` 送出),執行確認它因為「未登入時「開啟」照送,等 CLI 失敗才回報」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-08
   - ⚙ `prototype/index.html` § `#open`、`[data-state="needs-login"]`;`prototype/login.html` § `#auth-link`、`#code-form`、`#code`、`#auth-chip`、`[data-state="normal"]`、`[data-state="link"]`、`[data-state="signed-in"]`;`contracts/ui.openapi.yaml` § `paths./auth.get`、`paths./auth/authorizations.post`、`paths./auth/authorizations/{flowId}/code.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendAuthUpdated`
   - 📎 `spec.md` § FR-008
-- [ ] T138b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/login.html`、`src/cgb/static/js/login.js`、`src/cgb/static/js/header.js`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;頁首的 `#auth-chip`、`#session-pill` 寫在 `src/cgb/static/js/header.js`,之後每一頁共用(依賴 T138a)
+- [X] T138b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/login.html`、`src/cgb/static/js/login.js`、`src/cgb/static/js/header.js`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;頁首的 `#auth-chip`、`#session-pill` 寫在 `src/cgb/static/js/header.js`,之後每一頁共用(依賴 T138a)
   - 🧪 `testplan.md` § US1-AJ-08
   - ⚙ `prototype/index.html` § `#open`、`[data-state="needs-login"]`;`prototype/login.html` § `#auth-link`、`#code-form`、`#code`、`#auth-chip`、`[data-state="normal"]`、`[data-state="link"]`、`[data-state="signed-in"]`;`contracts/ui.openapi.yaml` § `paths./auth.get`、`paths./auth/authorizations.post`、`paths./auth/authorizations/{flowId}/code.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendAuthUpdated`
   - 📎 `spec.md` § FR-008
-- [ ] T139a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_login.py` 寫 US1-AJ-09 的測試(送出 `4/wrong`;再讓後端重建後以舊連結送出),執行確認它因為「兩種失敗顯示同一句話,使用者不知道要重新取連結還是重貼授權碼」這類實作而失敗
+- [X] T139a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_login.py` 寫 US1-AJ-09 的測試(送出 `4/wrong`;再讓後端重建後以舊連結送出),執行確認它因為「兩種失敗顯示同一句話,使用者不知道要重新取連結還是重貼授權碼」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-09
   - ⚙ `prototype/login.html` § `#code-form`、`[data-state="failed"]`、`[data-state="link-expired"]`;`contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T139b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/login.html`、`src/cgb/static/js/login.js`、`src/cgb/static/js/header.js` 只寫讓 US1-AJ-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T139a)
+- [X] T139b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/login.html`、`src/cgb/static/js/login.js`、`src/cgb/static/js/header.js` 只寫讓 US1-AJ-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T139a)
   - 🧪 `testplan.md` § US1-AJ-09
   - ⚙ `prototype/login.html` § `#code-form`、`[data-state="failed"]`、`[data-state="link-expired"]`;`contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T140a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-10 的測試(類型選 L4、勾高 RAM,按「開啟」並放行),執行確認它因為「選擇器的值沒帶進請求」這類實作而失敗
+- [X] T140a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-10 的測試(類型選 G4、勾高 RAM,按「開啟」並放行),執行確認它因為「選擇器的值沒帶進請求」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-10
   - ⚙ `prototype/index.html` § `#open`、`#r-type`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-009
-- [ ] T140b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T140a)
+- [X] T140b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T140a)
   - 🧪 `testplan.md` § US1-AJ-10
   - ⚙ `prototype/index.html` § `#open`、`#r-type`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-009
-- [ ] T141a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-11 的測試(選 L4,按「變更類型」,在確認畫面按「確認,結束並重開」,放行全部步驟),執行確認它因為「沒有確認就直接重開」這類實作而失敗
+- [X] T141a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-11 的測試(選 L4,按「變更類型」,在確認畫面按「確認,結束並重開」,放行全部步驟),執行確認它因為「沒有確認就直接重開」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-11
   - ⚙ `prototype/index.html` § `#switch`、`#r-type`、`[data-state="confirm-switch"]`、`[data-state="switching"]`、`[data-state="ready"]`;`prototype/models.html` § `#catalog`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./session/restart.post`、`paths./models.get`
   - 📎 `spec.md` § FR-010
-- [ ] T141b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/models.html`、`src/cgb/static/js/models.js`、`src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US1-AJ-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;模型頁 `#catalog` 與 `GET /api/models` 只做到讓這個案例看得到已載入的模型(故事 3 的 T184b 擴充)(依賴 T141a)
+- [X] T141b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/models.html`、`src/cgb/static/js/models.js`、`src/cgb/api/models.py`、`src/cgb/services/catalog.py` 只寫讓 US1-AJ-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;模型頁 `#catalog` 與 `GET /api/models` 只做到讓這個案例看得到已載入的模型(故事 3 的 T184b 擴充)(依賴 T141a)
   - 🧪 `testplan.md` § US1-AJ-11
   - ⚙ `prototype/index.html` § `#switch`、`#r-type`、`[data-state="confirm-switch"]`、`[data-state="switching"]`、`[data-state="ready"]`;`prototype/models.html` § `#catalog`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./session/restart.post`、`paths./models.get`
   - 📎 `spec.md` § FR-010
-- [ ] T142a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-12 的測試(選 L4,確認變更),執行確認它因為「失敗後畫面回到舊的就緒狀態(實際上已經關掉)」這類實作而失敗
+- [X] T142a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-12 的測試(選 L4,確認變更),執行確認它因為「失敗後畫面回到舊的就緒狀態(實際上已經關掉)」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-12
   - ⚙ `prototype/index.html` § `#switch`、`#f-reason`、`[data-state="failed"]`;`contracts/ui.openapi.yaml` § `paths./session/restart.post`
   - 📎 `spec.md` § FR-010
-- [ ] T142b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T142a)
+- [X] T142b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T142a)
   - 🧪 `testplan.md` § US1-AJ-12
   - ⚙ `prototype/index.html` § `#switch`、`#f-reason`、`[data-state="failed"]`;`contracts/ui.openapi.yaml` § `paths./session/restart.post`
   - 📎 `spec.md` § FR-010
-- [ ] T143a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_history.py` 寫 US1-AJ-13 的測試(打開紀錄頁),執行確認它因為「紀錄頁只讀前端自己的狀態,重新整理就空了」這類實作而失敗
+- [X] T143a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_history.py` 寫 US1-AJ-13 的測試(打開紀錄頁),執行確認它因為「紀錄頁只讀前端自己的狀態,重新整理就空了」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-13
   - ⚙ `prototype/history.html` § `#rows`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./sessions.get`
   - 📎 `spec.md` § FR-028
-- [ ] T143b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/history.html`、`src/cgb/static/js/history.js` 只寫讓 US1-AJ-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T143a)
+- [X] T143b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/history.html`、`src/cgb/static/js/history.js` 只寫讓 US1-AJ-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T143a)
   - 🧪 `testplan.md` § US1-AJ-13
   - ⚙ `prototype/history.html` § `#rows`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./sessions.get`
   - 📎 `spec.md` § FR-028
-- [ ] T144a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-14 的測試(停掉 uvicorn,以同一個 SQLite 檔與替身狀態重新起,重新整理首頁),執行確認它因為「前端重新整理後顯示「未開啟」」這類實作而失敗
+- [X] T144a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-14 的測試(停掉 uvicorn,以同一個 SQLite 檔與替身狀態重新起,重新整理首頁),執行確認它因為「前端重新整理後顯示「未開啟」」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-14
   - ⚙ `prototype/index.html` § `#r-name`、`[data-state="resuming"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-005
-- [ ] T144b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T144a)
+- [X] T144b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T144a)
   - 🧪 `testplan.md` § US1-AJ-14
   - ⚙ `prototype/index.html` § `#r-name`、`[data-state="resuming"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-005
-- [ ] T145a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-15 的測試(打開首頁),執行確認它因為「把它顯示成本系統的工作階段,或提供結束按鈕」這類實作而失敗
+- [X] T145a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-15 的測試(打開首頁),執行確認它因為「把它顯示成本系統的工作階段,或提供結束按鈕」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-15
   - ⚙ `prototype/index.html` § `[data-state="foreign"]`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § 邊界情況
-- [ ] T145b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T145a)
+- [X] T145b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T145a)
   - 🧪 `testplan.md` § US1-AJ-15
   - ⚙ `prototype/index.html` § `[data-state="foreign"]`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § 邊界情況
-- [ ] T146a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-16 的測試(按「停止開啟」(`#cancel-open`),再放行 `create_session`),執行確認它因為「開啟中沒有停止的入口」這類實作而失敗
+- [X] T146a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-16 的測試(按「停止開啟」(`#cancel-open`),再放行 `create_session`),執行確認它因為「開啟中沒有停止的入口」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-16
   - ⚙ `prototype/index.html` § `#cancel-open`、`[data-state="stopping"]`、`[data-state="ended"]`;`contracts/ui.openapi.yaml` § `paths./session.delete`
   - 📎 `spec.md` § 邊界情況、FR-007
-- [ ] T146b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T146a)
+- [X] T146b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T146a)
   - 🧪 `testplan.md` § US1-AJ-16
   - ⚙ `prototype/index.html` § `#cancel-open`、`[data-state="stopping"]`、`[data-state="ended"]`;`contracts/ui.openapi.yaml` § `paths./session.delete`
   - 📎 `spec.md` § 邊界情況、FR-007
-- [ ] T147a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-23 的測試(首頁開到就緒後記下 `FakeTunnel.open_tunnel` 第一次收到的參數;停掉 uvicorn,以同一個 SQLite 檔與替身狀態重新起;接回就緒後讓 `check_health` 失敗 1 次、重連第 1 輪成功;再打開首頁),執行確認它因為「重啟接回時釋放遺留失敗就默默略過,使用者不知道舊的那台還在扣點(FR-007)」這類實作而失敗
+- [X] T147a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_us1_session.py` 寫 US1-AJ-23 的測試(首頁開到就緒後記下 `FakeTunnel.open_tunnel` 第一次收到的參數;停掉 uvicorn,以同一個 SQLite 檔與替身狀態重新起;接回就緒後讓 `check_health` 失敗 1 次、重連第 1 輪成功;再打開首頁),執行確認它因為「重啟接回時釋放遺留失敗就默默略過,使用者不知道舊的那台還在扣點(FR-007)」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-23
   - ⚙ `prototype/index.html` § `[data-state="release-failed"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./session.get`;`contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004、FR-005、FR-007;`plan.md` § 待決問題 Q159、Q161
-- [ ] T147b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/health_monitor.py`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;重啟接回時釋放遺留失敗,`releaseWarning` 掛在目前那筆工作階段(Q161);重啟接回與重連的 `open_tunnel` 帶和首次開啟相同的 `key_path`、`local_port`(Q159)(依賴 T147a)
+- [X] T147b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/health_monitor.py`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;重啟接回時釋放遺留失敗,`releaseWarning` 掛在目前那筆工作階段(Q161);重啟接回與重連的 `open_tunnel` 帶和首次開啟相同的 `key_path`、`local_port`(Q159)(依賴 T147a)
   - 🧪 `testplan.md` § US1-AJ-23
   - ⚙ `prototype/index.html` § `[data-state="release-failed"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./session.get`;`contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-004、FR-005、FR-007;`plan.md` § 待決問題 Q159、Q161
-- [ ] T148 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T131b~T147b 記下的重構清單(範圍限 `src/cgb/static/`、`src/cgb/server.py`、`src/cgb/__main__.py`、`src/cgb/app.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T147b)
+- [X] T148 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T131b~T147b 記下的重構清單(範圍限 `src/cgb/static/`、`src/cgb/server.py`、`src/cgb/__main__.py`、`src/cgb/app.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T147b)
   - 🧪 `testplan.md` § US1-AJ-01~US1-AJ-16、US1-AJ-23
   - 📎 `testplan.md` § 2.11
 - [ ] T149 [US1] 📏 量測:撰寫 `tests/realrun/test_us1_aj_17.py`(`-m realrun`),照 US1-AJ-17 量測。假如:容器 `docker compose -p cgb-test` 已起,UI 8780、Ollama 相容端點 11436;已登入(照 P9 複製來的 token.json);真的 Colab、CLI、ssh、遠端 Ollama;沒有 `cgb-test-` 執行環境。當:Playwright 打開 `http://127.0.0.1:8780`,類型 T4,按「開啟」,每秒記錄一次 `#s-steps` 的目前步驟,直到「就緒」。記下的數字與門檻:則1:從按下到「就緒」在 5 分鐘內(SC-001);則2:就緒前記錄到的步驟依序包含配置、安裝並啟動 Ollama、建立 SSH 通道、確認模型服務有回應;則3:就緒時 `curl http://127.0.0.1:11436/api/version` 回 200;則4:`colab sessions` 列出 `[cgb-test-…]`、硬體 T4。副作用與護欄:P1~P9;開 1 台 T4(之後的 US2-AJ-02 到 US1-AJ-19 都用這一台,不在本案例結束);本案例約 3 分鐘、約 0.06 compute units;`.env` 只設 `CGB_HOST_DATA=<暫存目錄>/data`、`CGB_HOST_UI_PORT=8780`、`CGB_HOST_OLLAMA_PORT=11436`、`CGB_BIND_ADDR=127.0.0.1`(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(5 分鐘門檻);樣本:一次實跑(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Colab 登入|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="js/login.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型</a>
+      <a href="library.html">下載模型</a>
+      <a href="usage.html">用量與設定</a>
+      <a href="history.html">紀錄</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Colab 登入</h1>
+
+    <!-- 未登入 -->
+    <section data-state="normal" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-warn">未登入</span>還沒有 Colab 帳號授權</h2>
+      <p>系統要用你的 Colab 帳號開關執行環境與讀取用量。按下面的按鈕取得 Google 授權連結,在瀏覽器登入後把授權碼貼回這裡;不必打開命令列。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-action="get-link">取得授權連結</button>
+      </div>
+    </section>
+
+    <!-- 已登入 -->
+    <section data-state="signed-in" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-ok">已登入</span>Colab 帳號授權有效</h2>
+      <div class="notice notice-ok" id="just-signed" hidden>登入完成,現在可以回到工作階段按「開啟」。</div>
+      <p class="muted">授權過期時系統會先自動更新,更新失敗才會請你重新登入。</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="index.html">回到工作階段</a>
+        <button type="button" class="btn" data-action="get-link">重新登入</button>
+      </div>
+    </section>
+
+    <!-- 顯示授權連結與輸入框 -->
+    <section data-state="link" class="panel" hidden>
+      <h2>在瀏覽器登入 Google</h2>
+      <ol class="auth-steps">
+        <li>
+          <a class="btn btn-primary" id="auth-link" href="#" target="_blank" rel="noopener">在新分頁開啟 Google 登入</a>
+          <span class="auth-link" id="auth-link-text"></span>
+        </li>
+        <li>用要使用 Colab 的 Google 帳號登入並同意授權。<strong>請保留「Colab」那一項的勾選</strong>,取消勾選會換不到授權。</li>
+        <li>頁面會顯示一段授權碼(以 <span class="mono">4/</span> 開頭),複製後貼到下面。</li>
+      </ol>
+      <form id="code-form">
+        <div class="field">
+          <label for="code">授權碼</label>
+          <input type="text" class="mono" id="code" autocomplete="off" spellcheck="false" placeholder="4/0Ab32j93kL…" required>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">送出授權碼</button>
+          <button type="button" class="btn" data-action="get-link">重新取得授權連結</button>
+        </div>
+      </form>
+      <p class="muted small">這組連結只對這一次登入有效;在 Google 頁面按了「取消」就拿不到授權碼,重新取得連結再來一次即可。</p>
+    </section>
+
+    <!-- 授權碼錯誤或失效 -->
+    <section data-state="failed" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-danger">登入失敗</span>授權碼換不到授權</h2>
+      <div class="notice notice-error">
+        <strong>授權碼錯誤、已經用過或已經過期</strong>
+        Google 拒絕了這組授權碼。授權碼只能用一次,而且幾分鐘內就會過期;請重新取得授權連結再登入一次。
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-action="get-link">重新取得授權連結</button>
+      </div>
+    </section>
+
+    <!-- 授權連結已失效(系統在登入途中重新啟動) -->
+    <section data-state="link-expired" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-danger">登入失敗</span>這組授權連結已經失效</h2>
+      <div class="notice notice-error">
+        <strong>系統在你登入的途中重新啟動過</strong>
+        剛才那組授權連結對應的登入流程已經不在了,貼回的授權碼換不到授權。請重新取得授權連結再登入一次。
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-action="get-link">重新取得授權連結</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

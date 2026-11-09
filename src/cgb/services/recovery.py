@@ -7,7 +7,7 @@ import asyncio
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
-from cgb.domain.session_state import TERMINAL_STATES, iso, listed_names, reclaimed_fields
+from cgb.domain.session_state import TERMINAL_STATES, iso, listed_names, reclaimed_fields, release_warning_fields
 from cgb.repos.sessions import SessionsRepo
 from cgb.services.session_lifecycle import TUNNEL_LOCAL_PORT
 
@@ -45,8 +45,11 @@ class Recovery:
         for leftover in leftovers:
             try:
                 await self._state.colab.stop_session(name=leftover)
-            except AdapterError:
-                pass
+            except AdapterError as error:
+                # FR-007:釋放不了就在 UI 警告;掛在目前那筆工作階段上(Q161)
+                latest = self._repo.latest()
+                if latest is not None:
+                    self._repo.update(latest["name"], **release_warning_fields(error.code, iso(self._state.clock.now())))
         unfinished = self._repo.latest_unfinished()
         if unfinished is None:
             return

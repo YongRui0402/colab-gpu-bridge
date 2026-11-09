@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from cgb.api import auth, downloads, events, history, session
+from cgb.api import auth, downloads, events, history, models, session
 from cgb.db.connection import connect
 from cgb.db.schema import create_schema
 from cgb.domain.errors import ApiError
@@ -82,4 +82,5 @@ def install(app: FastAPI) -> None:
     app.include_router(session.router, prefix="/api")
     app.include_router(history.router, prefix="/api")
     app.include_router(downloads.router, prefix="/api")
+    app.include_router(models.router, prefix="/api")
     app.include_router(events.router, prefix="/api")

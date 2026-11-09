@@ -25,9 +25,9 @@ from typing import Any
 
 import httpx
 import pytest
-import uvicorn
 
 from cgb.app import AppPair, Timeouts, create_app
+from cgb.server import Servers
 from fakes import (
     FakeColabControl,
     FakeGoogleOAuth,
@@ -239,15 +239,23 @@ class LiveServers:
     """兩個 uvicorn 伺服器跑在同一個背景執行緒的同一個事件迴圈裡(和正式的單一後端行程一樣共用記憶體)。"""
 
     START_TIMEOUT = 10.0
+    # 瀏覽器開著的 SSE 連線不會自己結束;停下時最多等這麼久就關掉(後端重新啟動的案例會在頁面開著時停)
+    GRACEFUL_SHUTDOWN = 0.5
 
     def __init__(self, pair: AppPair, ui_port: int = 0, ollama_port: int = 0) -> None:
         self.pair = pair
         self._sockets = (_bind(ui_port), _bind(ollama_port))
         self.ui_port = self._sockets[0].getsockname()[1]
         self.ollama_port = self._sockets[1].getsockname()[1]
-        self._servers = tuple(
-            uvicorn.Server(uvicorn.Config(app, log_level="warning", lifespan="on", access_log=False))
-            for app in (pair.ui, pair.ollama)
+        # 和 `python -m cgb` 走同一個 `cgb.server`(Q113);socket 事先綁好,host 與 port 只是記錄
+        self._servers = Servers(
+            pair,
+            host="127.0.0.1",
+            ui_port=self.ui_port,
+            ollama_port=self.ollama_port,
+            log_level="warning",
+            access_log=False,
+            timeout_graceful_shutdown=self.GRACEFUL_SHUTDOWN,
         )
         self._thread = threading.Thread(target=self._run, name="cgb-live-servers", daemon=True)
         self._error: BaseException | None = None
@@ -261,20 +269,15 @@ class LiveServers:
         return f"http://127.0.0.1:{self.ollama_port}"
 
     def _run(self) -> None:
-        async def serve_both() -> None:
-            await asyncio.gather(
-                *(server.serve(sockets=[sock]) for server, sock in zip(self._servers, self._sockets, strict=True))
-            )
-
         try:
-            asyncio.run(serve_both())
+            asyncio.run(self._servers.serve(sockets=self._sockets))
         except BaseException as error:  # 讓測試端看得到伺服器起不來的原因
             self._error = error
 
     def start(self) -> "LiveServers":
         self._thread.start()
         deadline = time.monotonic() + self.START_TIMEOUT
-        while not all(server.started for server in self._servers):
+        while not self._servers.started:
             if self._error is not None or not self._thread.is_alive():
                 raise RuntimeError(f"測試行程內的 uvicorn 起不來:{self._error!r}")
             if time.monotonic() > deadline:
@@ -283,8 +286,7 @@ class LiveServers:
         return self
 
     def stop(self) -> None:
-        for server in self._servers:
-            server.should_exit = True
+        self._servers.stop()
         self._thread.join(timeout=self.START_TIMEOUT)
         for sock in self._sockets:
             sock.close()
