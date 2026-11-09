@@ -73,7 +73,9 @@ paths:
 
         判定:執行檔找不到 → `TUNNEL_NOT_INSTALLED`;第二行 stdout 第一個欄位不是 `ssh-ed25519`(例如 `ssh-rsa`,伺服器會拒絕;
         或私鑰有密碼,stderr 含 `incorrect passphrase`、stdout 為空)→ `TUNNEL_KEY_REJECTED`;
-        第一行或第三行 stdout 為空、或第三行不符上述格式 → `TUNNEL_FAILED`(附遮蔽後的 stderr 最後一行)。
+        第一行跑完後 `<keyPath>` 仍不存在 → `TUNNEL_FAILED`(第一行的 `ssh-keygen -q` 成功時本來就沒有任何輸出,所以不看它的 stdout,只看檔案在不在);
+        第三行 stdout 不是剛好一行、或那一行不符上述格式(例如為空、沒有 `SHA256:` 欄位)→ `TUNNEL_FAILED`;
+        任一個命令逾時 → `TUNNEL_FAILED`(plan.md Q147)。以上 `TUNNEL_FAILED` 都附遮蔽後的 stderr 最後一行(stderr 為空時不附)。
       x-requirements: [NFR-010, NFR-012]
       x-callers: 本系統後端(啟動時與 openTunnel 之前);`<keyPath>` 所在的資料夾已掛載而且可寫
       x-argv:
@@ -81,7 +83,9 @@ paths:
         - ssh-keygen -y -P '' -f <keyPath>
         - ssh-keygen -l -E sha256 -f <keyPath>
       x-argv-note: 三個命令依序各自執行;stdin 一律接 `/dev/null`,避免 ssh-keygen 停下來等待輸入密碼
-      x-timeout: 每個命令 10 秒;逾時視為 `TUNNEL_FAILED`
+      x-timeout: >-
+        每個命令 10 秒;逾時時結束那個 ssh-keygen 子行程並回收,視為 `TUNNEL_FAILED`(plan.md Q147)。
+        這個時限由 `Tunnel` 轉接層的建構參數 `keygen_timeout` 注入,預設 10 秒(plan.md Q149),測試可以注入較短的值
       parameters:
         - name: keyPath
           in: query
@@ -133,8 +137,13 @@ paths:
         (S1 `getVersion`,逾時 5 秒),回 200 且本文是含 `version` 字串的 JSON 才算就緒,回傳 `Tunnel`。
         就緒期限 30 秒(實測重建 2.33 秒):期限內連線被拒(ssh 還沒開始聽)或 `TUNNEL_REMOTE_REFUSED`(遠端 Ollama 剛啟動還沒聽)都繼續等;
         期間 ssh 結束,就依 stderr 判定(`Error` 的 `x-stderr-patterns`),判不出來為 `TUNNEL_FAILED`;
-        期限到仍未就緒 → 關閉這條轉發(closeTunnel),最後一次觀察是遠端拒絕連線就回 `TUNNEL_REMOTE_REFUSED`,否則回 `TUNNEL_TIMEOUT`。
+        期限到仍未就緒 → 關閉這條轉發,最後一次觀察是遠端拒絕連線就回 `TUNNEL_REMOTE_REFUSED`,否則回 `TUNNEL_TIMEOUT`。
         回 200 但本文不是 JSON 或沒有 `version` → 關閉轉發,回 `TUNNEL_BAD_RESPONSE`。
+
+        失敗收尾(plan.md Q141):openTunnel 回報任何失敗之前,只要 ssh 子行程已經啟動,一律照 closeTunnel 的同一套流程收尾——
+        對整個 process group 送 SIGTERM、等最多 5 秒、還在就送 SIGKILL、再等最多 2 秒,並回收每個子行程(不留殭屍);
+        ssh 在期間已自己結束的,也要回收。等待一律以非同步方式進行(不得用會阻塞事件迴圈的同步 sleep 或 wait),
+        所以收尾期間 Ollama 相容端點與 UI API 照常回應。收尾本身失敗(SIGKILL 後仍在)不改變回報的代碼,另記一筆日誌。
 
         開啟工作階段時的重試:失敗是 `TUNNEL_NOT_FOUND`、`TUNNEL_NOT_INSTALLED`、`TUNNEL_KEY_REJECTED` 以外的代碼時,
         5 秒後重試一次(比照 S8 `colab exec` 的重試一次);仍失敗,S5 把工作階段標成 `open_failed`,`reasonCode` 帶最後一次的代碼。
@@ -379,7 +388,7 @@ paths:
         (ProxyCommand 沒有帶 `--rm`,見 info)。冪等:轉發已經不在也回成功。
 
         步驟:對 openTunnel 建立的整個 process group 送 SIGTERM(`x-argv` 第一行;ssh 結束時會再對 ProxyCommand 送 SIGHUP,`ssh.py` 查證),
-        等最多 5 秒;還有行程在就送 SIGKILL(第二行),再等最多 2 秒。之後確認 `127.0.0.1:<localPort>` 已沒有在聽
+        等最多 5 秒;還有行程在就送 SIGKILL(第二行),再等最多 2 秒。等待一律以非同步方式進行,不得阻塞事件迴圈(plan.md Q141;openTunnel 的失敗收尾用同一套流程)。之後確認 `127.0.0.1:<localPort>` 已沒有在聽
         (等價於 `x-argv` 第三行沒有輸出),才算關閉完成;否則回 `TUNNEL_FAILED`。不留下殭屍:每個子行程都要被 wait 回收。
 
         清除殘留:後端啟動時,在接回任何工作階段之前,關掉上一個後端行程留下、仍在跑的本系統轉發

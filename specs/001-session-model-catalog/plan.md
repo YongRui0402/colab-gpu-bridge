@@ -226,11 +226,11 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q110 | tasks | 故事 4 的 15 個介面元素(用量、設定、閒置相關)沒有任務,`check_tasks.py` 不過,implement Phase 1 Step 2 因此無法開工。(a)列為範疇外,接受不過;(b)故事 4 拉回本迭代範疇,testplan 補案例、tasks 補任務;(c)掛在 Setup 的 `§ 全檔` 讓檢查通過 | — | (b)範疇改為故事 1–4;推翻 testplan 範疇「故事 1、2、3」的決定(kevin-twin 代為決定) |
 | Q111 | tasks | G-06 要不要看用量頁。(a)只看範疇內畫面;(b)也看用量頁 | — | (b),因 Q110 故事 4 已納入範疇(kevin-twin 代為決定) |
 | Q112 | tasks | Setup 放 `create_app` 注入點與 `AdapterError`(只有簽章與空 app)。(a)放 Setup(先採用);(b)併入 US1-API-01 綠燈 | — | (a)(kevin-twin 代為決定) |
-| Q113 | tasks | `python -m cgb` 進入點。(a)放進 US1-AJ-01 綠燈 T099b,測試 uvicorn fixture 走同一個 `serve()`(先採用);(b)testplan 補子行程案例;(c)放 Setup | — | (a)(kevin-twin 代為決定) |
+| Q113 | tasks | `python -m cgb` 進入點。(a)放進 US1-AJ-01 綠燈 T131b,測試 uvicorn fixture 走同一個 `serve()`(先採用);(b)testplan 補子行程案例;(c)放 Setup | — | (a)(kevin-twin 代為決定) |
 | Q114 | tasks | G-03、G-04、G-08 紅燈可能一開始就綠。(a)紅燈先對故意改壞的對照組確認抓得到,再對實物執行(先採用);(b)全域綠燈才搬入 | — | (a)(kevin-twin 代為決定) |
-| Q115 | tasks | 外部程式參數交給真工具解讀。(a)E5 在 T061a 以真 `colab` 0.7.5(空暫存 HOME、無授權)只斷言無參數錯誤;E6 在 T079a 以 `ssh -G` 解讀(先採用);(b)只靠實跑 | — | (a)(kevin-twin 代為決定) |
+| Q115 | tasks | 外部程式參數交給真工具解讀。(a)E5 在 T061a 以真 `colab` 0.7.5(空暫存 HOME、無授權)只斷言無參數錯誤;E6 在 T100a 以 `ssh -G` 解讀(先採用);(b)只靠實跑 | — | (a)(kevin-twin 代為決定) |
 | Q116 | tasks | 📏 實跑任務排法。(a)照規範排在各故事,Checkpoint 註明整批延到全域測試區後依 P9 執行(先採用);(b)全部標 ⏸;(c)全部移到全域 | — | (a)(kevin-twin 代為決定) |
-| Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T217b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
+| Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T249b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
 | Q118 | tasks | Q85 搬遷後的位置。(a)Dockerfile、dockerignore、compose、.env.example 放根目錄,prepare-data.sh、healthcheck.py 放 repo 的 `deploy/`(先採用);(b)全放 `deploy/` | — | (a)(kevin-twin 代為決定) |
 | Q119 | tasks | 〔testplan 提出〕讀過用量但最近一次失敗時 `GET /api/usage`。(a)回最後快照,超過 15 分鐘標 `stale` 並說明讀取失敗,`unknown` 只用在從沒讀到過(先採用);(b)一律 `unknown`(會使 NFR-008 做不到) | — | (a)(kevin-twin 代為決定) |
 | Q120 | tasks | 〔testplan 提出〕餘額 ≤ 0 時估計可用時數。(a)回 0(先採用);(b)負數;(c)null | — | (a)(kevin-twin 代為決定) |
@@ -242,19 +242,25 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q126 | implement T008 | P8「錄下的輸出 P3 之後刪除」與 G-05、G-07 要在 P3 之後讀取的順序。(a)`p3_cleanup()` 可中途呼叫,刪除只在整批結束時最後一次 P3 之後;(b)其他 | — | (a)(kevin-twin 代為決定) |
 | Q127 | implement T014 | spec 原檔 `healthcheck.py` 權限 0664,任務寫「保留可執行權限」。(a)複本設 755(Dockerfile 本來也 chmod 755);(b)照原檔 0664 | — | (a)(kevin-twin 代為決定) |
 | Q128 | implement T004 | 替身一律 async;真實的 `build_authorization_url` 可能是同步。(a)綠燈任務視需要調整替身或介面;(b)現在改 | — | (a)(kevin-twin 代為決定) |
-| Q129 | implement T090b | 授權檔由誰寫:轉接層在換 token 時寫(US1-OA-02、04 在轉接層驗),但 E2 的 `FakeGoogleOAuth` 不寫檔、US1-API-31 則3 要 token.json 存在。(a)E2 測試用替身的 side_effect 寫檔;(b)轉接層回內容、service 寫檔 | — | (a)(kevin-twin 代為決定) |
-| Q130 | implement T090b | 換 token 用 httpx 而非 google-auth-oauthlib 的 `fetch_token`(後者走 requests,MockTransport 攔不到)。(a)授權網址用真 `InstalledAppFlow`、換 token 用 httpx、授權檔用 `Credentials.to_json()`;(b)改用 `fetch_token` 加假本機端點 | — | (a);CLI 讀檔由 US1-OA-06 實跑驗證(kevin-twin 代為決定) |
-| Q131 | implement T093b | 合約有、testplan 沒有案例的 OAuth 行為(本文非 JSON、200 缺 `access_token`/`expires_in`、轉接層去空白、缺 `scope`)。(a)本迭代不補,列入完成報告的未覆蓋;(b)補案例 | — | (a)(kevin-twin 代為決定) |
-| Q132 | implement T090b | 授權檔 expiry 用系統時間而非注入的 Clock,目前沒有測試看它。(a)記錄,不處理;(b)改用 Clock | — | (a)(kevin-twin 代為決定) |
-| Q133 | implement T056b | `src/cgb/domain/colab_output.py` 未建立(派工限制禁止動 domain/,由 E2 負責),解析全部放在 `colab_cli.py`。(a)維持;(b)之後搬到 domain | — | (a)(kevin-twin 代為決定) |
-| Q134 | implement T076 | **合約有、testplan 沒有案例而未實作的 E5 失敗規則**:new/exec/stop/usage/version 的子行程時限、stderr 判定的 `COLAB_UNREACHABLE`/`COLAB_TIMEOUT`、sessions/new/exec/stop 的 `AUTH_REQUIRED`、`COLAB_ALLOCATION_REFUSED`、`COLAB_ACCELERATOR_REJECTED`、非 0 結束的 `COLAB_FAILED`、new 缺 `Session READY.` 的 `COLAB_BAD_RESPONSE`、exec 的 `COLAB_NOT_FOUND`/`ok:false`/無結果行。(a)補 testplan 案例與 tasks 後照 TDD 實作;(b)直接照合約補程式;(c)列為未覆蓋 | T077 與跨端點驗收的實跑 | (a);逾時缺失會讓實跑卡住扣點,必須在實跑前補上(E9 的 Q131 維持不補)(kevin-twin 代為決定) |
-| Q135 | implement T063b | gpu 不在 GpuType 時丟 `ValueError`(合約無輸入錯誤代碼)。(a)維持;(b)另定代碼 | — | (a)(kevin-twin 代為決定) |
+| Q129 | implement T122 | 〔任務 T122b〕授權檔由誰寫:轉接層在換 token 時寫(US1-OA-02、04 在轉接層驗),但 E2 的 `FakeGoogleOAuth` 不寫檔、US1-API-31 則3 要 token.json 存在。(a)E2 測試用替身的 side_effect 寫檔;(b)轉接層回內容、service 寫檔 | — | (a)(kevin-twin 代為決定) |
+| Q130 | implement T122 | 〔任務 T122b〕換 token 用 httpx 而非 google-auth-oauthlib 的 `fetch_token`(後者走 requests,MockTransport 攔不到)。(a)授權網址用真 `InstalledAppFlow`、換 token 用 httpx、授權檔用 `Credentials.to_json()`;(b)改用 `fetch_token` 加假本機端點 | — | (a);CLI 讀檔由 US1-OA-06 實跑驗證(kevin-twin 代為決定) |
+| Q131 | implement T125 | 〔任務 T125b〕合約有、testplan 沒有案例的 OAuth 行為(本文非 JSON、200 缺 `access_token`/`expires_in`、轉接層去空白、缺 `scope`)。(a)本迭代不補,列入完成報告的未覆蓋;(b)補案例 | — | (a)(kevin-twin 代為決定) |
+| Q132 | implement T122 | 〔任務 T122b〕授權檔 expiry 用系統時間而非注入的 Clock,目前沒有測試看它。(a)記錄,不處理;(b)改用 Clock | — | (a)(kevin-twin 代為決定) |
+| Q133 | implement T056 | 〔任務 T056b〕`src/cgb/domain/colab_output.py` 未建立(派工限制禁止動 domain/,由 E2 負責),解析全部放在 `colab_cli.py`。(a)維持;(b)之後搬到 domain | — | (a)(kevin-twin 代為決定) |
+| Q134 | implement T076 | **合約有、testplan 沒有案例而未實作的 E5 失敗規則**:new/exec/stop/usage/version 的子行程時限、stderr 判定的 `COLAB_UNREACHABLE`/`COLAB_TIMEOUT`、sessions/new/exec/stop 的 `AUTH_REQUIRED`、`COLAB_ALLOCATION_REFUSED`、`COLAB_ACCELERATOR_REJECTED`、非 0 結束的 `COLAB_FAILED`、new 缺 `Session READY.` 的 `COLAB_BAD_RESPONSE`、exec 的 `COLAB_NOT_FOUND`/`ok:false`/無結果行。(a)補 testplan 案例與 tasks 後照 TDD 實作;(b)直接照合約補程式;(c)列為未覆蓋 | — | (a);擋住 T077 與跨端點驗收的實跑(實跑前必須完成);逾時缺失會讓實跑卡住扣點,必須在實跑前補上(E9 的 Q131 維持不補)(kevin-twin 代為決定) |
+| Q135 | implement T063 | 〔任務 T063b〕gpu 不在 GpuType 時丟 `ValueError`(合約無輸入錯誤代碼)。(a)維持;(b)另定代碼 | — | (a)(kevin-twin 代為決定) |
 | Q136 | implement T076 | 重構時 `_run` 統一處理找不到執行檔、`start_ollama` 連續兩次斷線改回 `COLAB_UNREACHABLE`,改動了沒有測試的路徑(與合約一致)。(a)接受;(b)撤回 | — | (a);由 Q134 補的案例覆蓋(kevin-twin 代為決定) |
-| Q137 | implement T066b | `start_ollama.py`、`probe_resources.py` 遠端腳本本節沒有測試實際執行。(a)由 US2-CLI-01 與實跑 US1-CLI-21 驗證;(b)另補 | — | (a)(kevin-twin 代為決定) |
+| Q137 | implement T066 | 〔任務 T066b〕`start_ollama.py`、`probe_resources.py` 遠端腳本本節沒有測試實際執行。(a)由 US2-CLI-01 與實跑 US1-CLI-21 驗證;(b)另補 | — | (a)(kevin-twin 代為決定) |
 | Q138 | tasks | 〔testplan 提出〕子行程逾時要不要清掉它分出的子行程(合約只寫「被終止」)。(a)以新 process group 啟動,逾時對整個 group 先 SIGTERM、等不到再 SIGKILL 並回收,S8 合約補這一句;(b)只終止 colab 本身 | S8 | (a)(kevin-twin 代為決定) |
 | Q139 | tasks | 〔testplan 提出〕`colab stop` 本身逾時。(a)終止後照常回讀,以回讀為準,只有回讀逾時才回 `COLAB_TIMEOUT`;(b)直接回 `COLAB_TIMEOUT` | — | (a)(kevin-twin 代為決定) |
 | Q140 | tasks | 〔testplan 提出〕exec 的 `appears to be lost (404/401)` 比對 stdout 或 stderr。(a)兩個都看;(b)只看 stdout | — | (a)(kevin-twin 代為決定) |
-| Q141 | implement T080b | **open_tunnel 失敗收尾可能卡死**:同步 `_stop_group` 只送 SIGTERM 再 `wait()`,子行程忽略 SIGTERM 就無限卡住並阻塞事件迴圈。(a)改用 close_tunnel 的 SIGTERM→等待→SIGKILL;(b)維持。行為改變,不屬重構 | — | (a);先補 testplan 案例再照 TDD 改(同 Q134)(kevin-twin 代為決定) |
-| Q142 | implement T085b | 合約有、testplan 沒有案例的 E6 分支:`TUNNEL_NOT_INSTALLED`(找不到 ssh/ssh-keygen,現在丟 FileNotFoundError)、ssh-keygen 10 秒逾時、close_tunnel/ensure_key 的 `TUNNEL_FAILED`;已實作但無測試:check_health 的 `TUNNEL_UNREACHABLE`/`TUNNEL_REMOTE_REFUSED`/`TUNNEL_NOT_FOUND`。開啟的「5 秒後重試一次」屬 services。(a)補 testplan 案例;(b)由 services 負責 | — | (a)補案例(重試仍歸 services/E2)(kevin-twin 代為決定) |
-| Q143 | implement T085a | US1-TUN-08 的假 ssh 由 python 執行,命令列不以 `ssh` 開頭;測試改寫 `/proc/self/cmdline`。(a)接受;(b)fixture 另提供命令列即 `ssh …` 的假行程 | — | (a)(kevin-twin 代為決定) |
-| Q144 | implement T079a | `ssh -G` 不給目的地會印 usage,所以保留目的地 `root@colab-runtime`、只把 `-N` 換 `-G`。(a)接受;(b)其他 | — | (a)(kevin-twin 代為決定) |
+| Q141 | implement T101 | 〔任務 T101b〕**open_tunnel 失敗收尾可能卡死**:同步 `_stop_group` 只送 SIGTERM 再 `wait()`,子行程忽略 SIGTERM 就無限卡住並阻塞事件迴圈。(a)改用 close_tunnel 的 SIGTERM→等待→SIGKILL;(b)維持。行為改變,不屬重構 | — | (a);先補 testplan 案例再照 TDD 改(同 Q134)(kevin-twin 代為決定) |
+| Q142 | implement T106 | 〔任務 T106b〕合約有、testplan 沒有案例的 E6 分支:`TUNNEL_NOT_INSTALLED`(找不到 ssh/ssh-keygen,現在丟 FileNotFoundError)、ssh-keygen 10 秒逾時、close_tunnel/ensure_key 的 `TUNNEL_FAILED`;已實作但無測試:check_health 的 `TUNNEL_UNREACHABLE`/`TUNNEL_REMOTE_REFUSED`/`TUNNEL_NOT_FOUND`。開啟的「5 秒後重試一次」屬 services。(a)補 testplan 案例;(b)由 services 負責 | — | (a)補案例(重試仍歸 services/E2)(kevin-twin 代為決定) |
+| Q143 | implement T106 | 〔任務 T106a〕US1-TUN-08 的假 ssh 由 python 執行,命令列不以 `ssh` 開頭;測試改寫 `/proc/self/cmdline`。(a)接受;(b)fixture 另提供命令列即 `ssh …` 的假行程 | — | (a)(kevin-twin 代為決定) |
+| Q144 | implement T100 | 〔任務 T100a〕`ssh -G` 不給目的地會印 usage,所以保留目的地 `root@colab-runtime`、只把 `-N` 換 `-G`。(a)接受;(b)其他 | — | (a)(kevin-twin 代為決定) |
+| Q145 | tasks | 〔tasks 提出〕補充的 20 個 E5 案例可能在既有實作下一開始就是綠的(逾時、stderr 判定)。(a)紅燈先對放入「要抓的錯」的對照組確認抓得到,再記「既有實作已滿足」,綠燈只跑全部測試;(b)照 tdd 原樣,不過就停下 | — | (a),同觀察 #23(kevin-twin 代為決定) |
+| Q146 | tasks | 〔tasks 提出〕Q134 在 E5 後新增一節 T078a–T098,為通過連號與紅綠成對檢查,原 T078–T260 整批改為 T099–T281;plan.md 的引用已同步加 21,已勾選的任務隨原行保留 | — | 已同步(本列為紀錄)(kevin-twin 代為決定) |
+| Q147 | tasks | 〔testplan 提出〕ssh-keygen 逾時回哪個代碼。(a)照合約 `TUNNEL_FAILED`;(b)改合約為 `TUNNEL_TIMEOUT` | — | (a)(kevin-twin 代為決定) |
+| Q148 | tasks | 〔testplan 提出〕`ensureTunnelKey`「第一行 stdout 為空 → `TUNNEL_FAILED`」照字面永遠失敗(`ssh-keygen -q` 成功時本來就沒輸出)。(a)讀成「第一行跑完後 keyPath 仍不存在」,S9 合約改寫;(b)照字面 | S9 | (a)(kevin-twin 代為決定) |
+| Q149 | tasks | 〔testplan 提出〕ssh-keygen 10 秒時限在測試中縮短。(a)`Tunnel` 建構參數加 `keygen_timeout`;(b)不縮短 | — | (a)(kevin-twin 代為決定) |
+| Q150 | tasks | 〔tasks 提出〕Q141、Q142 在 E6 後新增一節 T110a–T120,原 T110–T281 整批改為 T121–T292(Q146 那次之後的第二次平移);plan.md 的引用已同步加 11,Q146 保留當時的編號作為紀錄 | — | 已同步(本列為紀錄)(kevin-twin 代為決定) |

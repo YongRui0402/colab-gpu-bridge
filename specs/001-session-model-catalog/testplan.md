@@ -220,6 +220,16 @@
 | US1-TUN-06 | `Tunnel` › `check_health` | 通道已建立 | 情況 A 假伺服器回 200 與 version;情況 B 假 `ssh` 印 `Timeout, server colab-runtime not responding.` 後結束;情況 C 假伺服器 0.3 秒內不回應;情況 D 假伺服器回 200 與 `<html>` | 則1:情況 A 回健康<br>則2:情況 B 回 `TUNNEL_TIMEOUT`<br>則3:情況 C 回 `TUNNEL_TIMEOUT`<br>則4:情況 D 回 `TUNNEL_BAD_RESPONSE` | 只看 ssh 行程還在就算健康,沒打 `/api/version`;或 ssh 結束後仍回健康 | FR-004 |
 | US1-TUN-07 | `Tunnel` › `close_tunnel` | 通道已建立;假 `ssh` 會再分出一個忽略 SIGTERM 的子行程(代表 ProxyCommand);SIGTERM 後等待時間注入 0.5 秒 | 呼叫兩次 | 則1:第一次回成功時,`localPort` 已沒有在聽<br>則2:之後 `ps` 看不到假 `ssh` 與它的子行程,也沒有 defunct 行程<br>則3:第二次回成功(冪等) | 只對 ssh 的 pid 送訊號,ProxyCommand 留著;或沒有 `wait`,留下殭屍 | FR-002、FR-004 |
 | US1-TUN-08 | `Tunnel` › `cleanup_residual` | 主機上有一個命令列符合 `ssh -F none -N -i <keyPath> … ProxyCommand=colab ssh --proxy-mode -s cgb-test-0001 …` 的假行程,和一個命令列是 `ssh -N user@example` 的假行程 | 呼叫 | 則1:第一個行程已結束<br>則2:第二個行程仍在執行 | 用 `pkill ssh` 一類的寬鬆比對,關掉使用者自己的 ssh | FR-005 |
+| US1-TUN-11 | `Tunnel` › `open_tunnel` | `Tunnel` 建構時注入 `term_wait=0.3`、`kill_wait=0.2`(秒);假 `ssh` 劇本設定「自己與分出的子行程都忽略 SIGTERM」(需要的 fixture 欄位,Q141);假 `ssh` 啟動後在 stderr 印 `[colab] Creating runtime 'cgb-test-0001'...` 然後常駐;同一個事件迴圈上另跑一個每 0.05 秒記一次時間的 task | 以 `cgb-test-0001` 呼叫 | 則1:回 `TUNNEL_NOT_FOUND`<br>則2:這行出現後 1 秒內回傳(0.3 + 0.2 秒的等待加上餘裕)<br>則3:回傳時假 `ssh` 與它分出的子行程都已結束<br>則4:`ps` 看不到 defunct 行程<br>則5:記時 task 相鄰兩次的最大間隔不超過 0.2 秒 | 收尾只送 SIGTERM、沒有接著 SIGKILL,忽略 SIGTERM 的行程一直留著(`colab ssh` 意外開出的連線不放);或用同步的 `wait()` 等子行程,卡住整個事件迴圈 | FR-006、FR-007 |
+| US1-TUN-12 | `Tunnel` › `open_tunnel` | `Tunnel` 建構時注入 `term_wait=0.3`、`kill_wait=0.2`(秒);假 `ssh` 先分出一個忽略 SIGTERM 的子行程(代表 ProxyCommand,需要的 fixture 欄位,Q141),自己在 stderr 印 `cgb-test unknown failure` 後結束;同一個事件迴圈上另跑一個每 0.05 秒記一次時間的 task | 以 `cgb-test-0001` 呼叫 | 則1:回 `TUNNEL_FAILED`<br>則2:假 `ssh` 結束後 1 秒內回傳<br>則3:回傳時那個子行程已結束<br>則4:記時 task 相鄰兩次的最大間隔不超過 0.2 秒 | ssh 自己結束就以為整組都結束了,沒有對 process group 收尾,留下孤兒的 ProxyCommand | FR-004 |
+| US1-TUN-13 | `Tunnel` › `open_tunnel` | `Tunnel` 建構時注入 `term_wait=0.3`、`kill_wait=0.2`(秒);就緒期限注入 0.5 秒;假 `ssh` 劇本設定「自己與分出的子行程都忽略 SIGTERM」(需要的 fixture 欄位,Q141);假 `ssh` 常駐不印任何東西;測試先呼叫 `ForwardStandIn.server.stop()`,`localPort` 一直拒絕連線(不用「不回應」,免得單次探測的 5 秒逾時蓋過就緒期限);同一個事件迴圈上另跑一個每 0.05 秒記一次時間的 task | 以 `cgb-test-0001` 呼叫 | 則1:回 `TUNNEL_TIMEOUT`<br>則2:呼叫後 0.5 到 1.5 秒之間回傳<br>則3:回傳時假 `ssh` 與它分出的子行程都已結束<br>則4:記時 task 相鄰兩次的最大間隔不超過 0.2 秒 | 就緒期限到了只回錯誤沒有關掉 ssh;或關閉時忽略 SIGTERM 的行程讓呼叫卡住不回 | FR-001 |
+| US1-TUN-14 | `Tunnel` › `open_tunnel` → `Tunnel` › `ensure_key` | 情況 A:`PATH` 上沒有 `ssh`;情況 B:`PATH` 上沒有 `ssh-keygen`、`<keyPath>` 不存在 | 情況 A 呼叫 `open_tunnel`,情況 B 呼叫 `ensure_key` | 則1:情況 A 回 `TUNNEL_NOT_INSTALLED`,沒有丟出 `FileNotFoundError`<br>則2:情況 B 回 `TUNNEL_NOT_INSTALLED`,沒有丟出 `FileNotFoundError` | 啟動子行程時找不到執行檔就拋例外,開啟流程以 500 中止、UI 沒有原因 | FR-001 |
+| US1-TUN-15 | `Tunnel` › `ensure_key` | `Tunnel` 建構時注入 `ssh-keygen` 的時限 0.3 秒(合約 10 秒,Q149);`PATH` 上的假 `ssh-keygen` 睡 30 秒(需要的 fixture,Q141) | 以不存在的 `<keyPath>` 呼叫 | 則1:回 `TUNNEL_FAILED`(合約:逾時視為 `TUNNEL_FAILED`,Q147)<br>則2:呼叫後 0.3 到 1.3 秒之間回傳<br>則3:回傳時假 `ssh-keygen` 已結束 | `ssh-keygen` 沒有時限(例如停下來等輸入密碼),後端啟動卡住;或逾時後沒有終止子行程 | FR-001 |
+| US1-TUN-16 | `Tunnel` › `ensure_key` | 情況 A:`<keyPath>` 不存在,假 `ssh-keygen` 產生金鑰時 exit 0 卻沒有寫出檔案;情況 B:`<keyPath>` 是真的 ed25519 私鑰,假 `ssh-keygen` 對 `-y` 回正常的公鑰行,對 `-l` 的 stdout 印 `not a fingerprint`、stderr 印 `warning see https://cgb-test-fake-endpoint.example/k`(需要的 fixture,Q141) | 各呼叫一次 | 則1:情況 A 回 `TUNNEL_FAILED`(第一行之後金鑰不存在,Q148)<br>則2:情況 B 回 `TUNNEL_FAILED`<br>則3:情況 B 的 `stderrLastLine` 為 `warning see <url>` | 指紋格式不對時照樣回成功並帶出亂碼;或 `stderrLastLine` 沒遮蔽網址 | FR-001、NFR-010 |
+| US1-TUN-17 | `Tunnel` › `close_tunnel` | `Tunnel` 建構時注入 `term_wait=0.3`、`kill_wait=0.2`;通道已建立;`ForwardStandIn` 設定成假 `ssh` 結束後仍繼續聽 `localPort`(代表別的行程占用,需要的 fixture 選項,Q141) | 呼叫 `close_tunnel` | 則1:回 `TUNNEL_FAILED`<br>則2:呼叫後 1.5 秒內回傳<br>則3:回傳時假 `ssh` 已結束 | 送完訊號就回成功,沒確認 port 已經沒人聽,下一次建立通道撞 `TUNNEL_PORT_IN_USE` | FR-002 |
+| US1-TUN-18 | `Tunnel` › `check_health` | 通道已建立,假 `ssh` 仍常駐 | 測試呼叫 `ForwardStandIn.server.stop()` 讓 `localPort` 沒人聽,再呼叫 `check_health` | 則1:回 `TUNNEL_UNREACHABLE` | 連線被拒當成 `TUNNEL_TIMEOUT` 或丟出 `httpx.ConnectError` | FR-004 |
+| US1-TUN-19 | `Tunnel` › `check_health` | 通道已建立,假 `ssh` 仍常駐;`ForwardStandIn` 的 `/api/version` 改成連上後不回應就關閉連線,同時假 `ssh` 在 stderr 印 `channel 2: open failed: connect failed: Connection refused` | 呼叫 `check_health` | 則1:回 `TUNNEL_REMOTE_REFUSED` | 把遠端 Ollama 不在當成通道斷了(`TUNNEL_UNREACHABLE`),重建通道永遠不會好 | FR-004 |
+| US1-TUN-20 | `Tunnel` › `check_health` | 情況 A:從沒為 `cgb-test-9999` 建立通道;情況 B:`cgb-test-0001` 的通道已 `close_tunnel` | 情況 A 以 `cgb-test-9999`、情況 B 以 `cgb-test-0001` 呼叫 | 則1:情況 A 回 `TUNNEL_NOT_FOUND`<br>則2:情況 B 回 `TUNNEL_NOT_FOUND` | 沒有這條轉發時丟出 `KeyError`;或關閉後仍回健康 | FR-004 |
 
 #### 非功能案例
 
@@ -317,7 +327,7 @@
 
 1. E2 後端 UI API:US1-API-01 → US1-API-02 → … → US1-API-40 → 重構
 2. E5 Colab CLI:US1-CLI-01 → US1-CLI-02 → … → US1-CLI-20 → US1-CLI-22 → US1-CLI-23 → … → US1-CLI-41 → 重構;US1-CLI-21 為 📏 任務
-3. E6 SSH 通道:US1-TUN-01 → US1-TUN-02 → … → US1-TUN-09 → 重構;US1-TUN-10 為 📏 任務
+3. E6 SSH 通道:US1-TUN-01 → US1-TUN-02 → … → US1-TUN-09 → US1-TUN-11 → US1-TUN-12 → … → US1-TUN-20 → 重構;US1-TUN-10 為 📏 任務
 4. E9 Google OAuth:US1-OA-01 → US1-OA-02 → … → US1-OA-05 → 重構;US1-OA-06 為 📏 任務
 5. E4 資料庫:US1-DB-01 → US1-DB-02 → 重構
 6. E1 前端 UI、E3、E7、E8、E10、E11:本故事沒有案例
@@ -708,13 +718,13 @@
 
 | 需求 | 歸屬 | E1 前端 UI | E2 後端 UI API | E3 Ollama 相容端點 | E4 資料庫 | E5 Colab CLI | E6 SSH 通道 | E7 遠端 Ollama | E8 Ollama 官方模型庫 | E9 Google OAuth | E10 檔案系統 | E11 部署與網路 | 跨端點驗收 | 全域 | 驗證方式 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| FR-001 一鍵開啟 | 故事 1 | — | US1-API-01、US1-API-15 | — | — | US1-CLI-01、US1-CLI-02、US1-CLI-06、US1-CLI-07、US1-CLI-11~US1-CLI-14、US1-CLI-21、US1-CLI-22~US1-CLI-24、US1-CLI-29、US1-CLI-30、US1-CLI-37~US1-CLI-41 | US1-TUN-01、US1-TUN-02、US1-TUN-05 | — | — | — | — | — | US1-AJ-01、US1-AJ-17 | — | 🔴🟢、📏 量測 |
-| FR-002 結束與確認 | 故事 1 | — | US1-API-07、US1-API-09 | — | — | US1-CLI-15、US1-CLI-21、US1-CLI-25 | US1-TUN-07 | — | — | — | — | — | US1-AJ-02、US1-AJ-21 | — | 🔴🟢、📏 量測 |
+| FR-001 一鍵開啟 | 故事 1 | — | US1-API-01、US1-API-15 | — | — | US1-CLI-01、US1-CLI-02、US1-CLI-06、US1-CLI-07、US1-CLI-11~US1-CLI-14、US1-CLI-21、US1-CLI-22~US1-CLI-24、US1-CLI-29、US1-CLI-30、US1-CLI-37~US1-CLI-41 | US1-TUN-01、US1-TUN-02、US1-TUN-05、US1-TUN-13~US1-TUN-16 | — | — | — | — | — | US1-AJ-01、US1-AJ-17 | — | 🔴🟢、📏 量測 |
+| FR-002 結束與確認 | 故事 1 | — | US1-API-07、US1-API-09 | — | — | US1-CLI-15、US1-CLI-21、US1-CLI-25 | US1-TUN-07、US1-TUN-17 | — | — | — | — | — | US1-AJ-02、US1-AJ-21 | — | 🔴🟢、📏 量測 |
 | FR-003 狀態追蹤與結束原因 | 故事 1 | — | US1-API-01、US1-API-07、US1-API-10、US1-API-17、US1-API-36、US1-API-38 | — | — | US1-CLI-03、US1-CLI-04、US1-CLI-36 | — | — | — | — | — | — | US1-AJ-01~US1-AJ-04 | — | 🔴🟢 |
-| FR-004 健康檢查、重連與失聯 | 故事 1 | — | US1-API-17~US1-API-22、US1-API-37 | US2-OC-11 | — | US1-CLI-05、US1-CLI-20、US1-CLI-28、US1-CLI-32、US1-CLI-39 | US1-TUN-02、US1-TUN-04、US1-TUN-06、US1-TUN-07、US1-TUN-10 | — | — | — | — | — | US1-AJ-04~US1-AJ-06、US1-AJ-18、US1-AJ-22 | — | 🔴🟢、📏 量測 |
+| FR-004 健康檢查、重連與失聯 | 故事 1 | — | US1-API-17~US1-API-22、US1-API-37 | US2-OC-11 | — | US1-CLI-05、US1-CLI-20、US1-CLI-28、US1-CLI-32、US1-CLI-39 | US1-TUN-02、US1-TUN-04、US1-TUN-06、US1-TUN-07、US1-TUN-10、US1-TUN-12、US1-TUN-18~US1-TUN-20 | — | — | — | — | — | US1-AJ-04~US1-AJ-06、US1-AJ-18、US1-AJ-22 | — | 🔴🟢、📏 量測 |
 | FR-005 後端重啟接回 | 故事 1 | — | US1-API-23、US1-API-24 | — | US1-DB-02 | US1-CLI-03 | US1-TUN-08、US1-TUN-10 | — | — | — | — | — | US1-AJ-14、US1-AJ-19 | — | 🔴🟢、📏 量測 |
-| FR-006 最多一個工作階段 | 故事 1 | — | US1-API-04、US1-API-05、US1-API-15、US1-API-16 | — | US1-DB-01 | — | US1-TUN-03 | — | — | — | — | — | US1-AJ-07 | — | 🔴🟢 |
-| FR-007 不留遺留、釋放不了要警告 | 故事 1 | — | US1-API-08、US1-API-10~US1-API-14、US1-API-16、US1-API-22、US1-API-26、US1-API-40 | — | — | US1-CLI-07、US1-CLI-14~US1-CLI-18、US1-CLI-21、US1-CLI-23、US1-CLI-25、US1-CLI-26、US1-CLI-35 | — | — | — | — | — | — | US1-AJ-06、US1-AJ-16、US1-AJ-21 | — | 🔴🟢、📏 量測 |
+| FR-006 最多一個工作階段 | 故事 1 | — | US1-API-04、US1-API-05、US1-API-15、US1-API-16 | — | US1-DB-01 | — | US1-TUN-03、US1-TUN-11 | — | — | — | — | — | US1-AJ-07 | — | 🔴🟢 |
+| FR-007 不留遺留、釋放不了要警告 | 故事 1 | — | US1-API-08、US1-API-10~US1-API-14、US1-API-16、US1-API-22、US1-API-26、US1-API-40 | — | — | US1-CLI-07、US1-CLI-14~US1-CLI-18、US1-CLI-21、US1-CLI-23、US1-CLI-25、US1-CLI-26、US1-CLI-35 | US1-TUN-11 | — | — | — | — | — | US1-AJ-06、US1-AJ-16、US1-AJ-21 | — | 🔴🟢、📏 量測 |
 | FR-008 UI 內登入 | 故事 1 | — | US1-API-06、US1-API-30~US1-API-34 | — | — | US1-CLI-10、US1-CLI-19、US1-CLI-32~US1-CLI-35 | — | — | — | US1-OA-01~US1-OA-06 | — | — | US1-AJ-08、US1-AJ-09 | — | 🔴🟢、📏 人工 |
 | FR-009 選擇執行階段類型 | 故事 1 | — | US1-API-02、US1-API-03 | — | — | US1-CLI-06、US1-CLI-08、US1-CLI-09、US1-CLI-36 | — | — | — | — | — | — | US1-AJ-01、US1-AJ-10 | — | 🔴🟢 |
 | FR-010 變更類型重開 | 故事 1 | — | US1-API-27~US1-API-29 | — | — | — | — | — | — | — | — | — | US1-AJ-11、US1-AJ-12、US1-AJ-20 | — | 🔴🟢、📏 量測 |
@@ -745,7 +755,7 @@
 | NFR-008 用量至少 5 分鐘更新、15 分鐘未更新標過期 | 故事 4 | — | US4-API-18 | — | — | — | — | — | — | — | — | — | US4-AJ-08、US4-AJ-09 | — | 🔴🟢、📏 量測 |
 | FR-028 狀態變化與結束的紀錄 | 全域 | — | US1-API-35、US1-API-36、US4-API-12 | — | US1-DB-02 | — | — | — | — | — | — | — | US1-AJ-13 | — | 🔴🟢 |
 | NFR-009 區網開放、不對外網 | 全域 | — | — | — | — | — | — | — | — | — | — | — | — | G-01 | 📏 人工 |
-| NFR-010 機密不出現在 UI、日誌與版本控制 | 全域 | — | US1-API-40 | US2-OC-15 | — | US1-CLI-18、US1-CLI-37 | US1-TUN-09 | — | — | — | — | — | — | G-02~G-05 | 🔴🟢、📏 量測 |
+| NFR-010 機密不出現在 UI、日誌與版本控制 | 全域 | — | US1-API-40 | US2-OC-15 | — | US1-CLI-18、US1-CLI-37 | US1-TUN-09、US1-TUN-16 | — | — | — | — | — | — | G-02~G-05 | 🔴🟢、📏 量測 |
 | NFR-011 繁體中文介面 | 全域 | — | — | — | — | — | — | — | — | — | — | — | — | G-06 | 🔴🟢 |
 | NFR-012 容器交付與持久化 | 全域 | — | — | — | — | — | — | — | — | — | — | — | — | G-04、G-07、G-08 | 🔴🟢、📏 量測 |
 | SC-001 開啟到就緒 5 分鐘內 | 全域 | — | US1-API-12 | — | — | — | — | — | — | — | — | — | US1-AJ-17 | — | 🔴🟢、📏 量測 |
@@ -789,3 +799,6 @@ Q95~Q107 已登記到 plan.md 並決定(本計劃照決定寫:Q100 以資料庫�
 | Q138 | `colab-cli.openapi.yaml` 的子行程逾時只寫「被終止」,沒說要不要連它分出的子行程一起清掉。(a)每個 `colab` 子行程以新的 process group 啟動,逾時時對整個 group 送 SIGTERM、等不到再 SIGKILL,並 `wait` 回收(和 S9 `closeTunnel` 同樣的做法),S8 合約補這一句;(b)只終止 `colab` 本身 | (a);US1-CLI-22~US1-CLI-27 照 (a) 斷言 |
 | Q139 | `stopSession` 的 `x-failure-rules` 沒有「`colab stop` 本身超過 60 秒」這一條。(a)照合約共用約定(1)與「不論輸出是什麼都回讀」:終止 `colab stop` 後照常回讀,結果以回讀為準,不回 `COLAB_TIMEOUT`;只有回讀逾時才回 `COLAB_TIMEOUT`;(b)`colab stop` 逾時就回 `COLAB_TIMEOUT`、不回讀 | (a);US1-CLI-25、US1-CLI-26 照 (a) 斷言 |
 | Q140 | `startOllama` 等 exec 的 `COLAB_NOT_FOUND` 規則寫「stdout 含 `[colab] Session '<名稱>' not found.`,或含 `appears to be lost (404/401)`」,後一個字樣是在 stdout 還是 stderr 不明。(a)兩個都看;(b)只看 stdout | (a);US1-CLI-39 的假執行檔把它印在 stdout,兩種做法都會過 |
+| Q147 | `ssh-keygen` 超過時限回哪個代碼:合約 `ensureTunnelKey` 的 `x-timeout` 寫「每個命令 10 秒;逾時視為 `TUNNEL_FAILED`」,修訂指示寫 `TUNNEL_TIMEOUT`。(a)照合約回 `TUNNEL_FAILED`;(b)改合約為 `TUNNEL_TIMEOUT`(`TUNNEL_TIMEOUT` 的說明目前只有就緒期限、健康檢查、keepalive、重連時限) | (a);US1-TUN-15 照 (a) 斷言 |
+| Q148 | `ensureTunnelKey` 判定寫「第一行或第三行 stdout 為空 → `TUNNEL_FAILED`」,但第一行是 `ssh-keygen -q`,成功時 stdout 本來就是空的,照字面永遠失敗。(a)第一行改讀成「跑完後 `<keyPath>` 仍不存在」;(b)照字面 | (a);S9 合約補改這句,US1-TUN-16 情況 A 照 (a) 斷言 |
+| Q149 | `ssh-keygen` 的 10 秒時限要能在測試縮短:(a)`Tunnel` 建構參數加 `keygen_timeout`(和 `term_wait`、`kill_wait` 同一種做法);(b)不縮短,測試等 10 秒 | (a) |
