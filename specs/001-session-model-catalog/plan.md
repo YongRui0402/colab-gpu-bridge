@@ -242,3 +242,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q126 | implement T008 | P8「錄下的輸出 P3 之後刪除」與 G-05、G-07 要在 P3 之後讀取的順序。(a)`p3_cleanup()` 可中途呼叫,刪除只在整批結束時最後一次 P3 之後;(b)其他 | — | (a)(kevin-twin 代為決定) |
 | Q127 | implement T014 | spec 原檔 `healthcheck.py` 權限 0664,任務寫「保留可執行權限」。(a)複本設 755(Dockerfile 本來也 chmod 755);(b)照原檔 0664 | — | (a)(kevin-twin 代為決定) |
 | Q128 | implement T004 | 替身一律 async;真實的 `build_authorization_url` 可能是同步。(a)綠燈任務視需要調整替身或介面;(b)現在改 | — | (a)(kevin-twin 代為決定) |
+| Q129 | implement T090b | 授權檔由誰寫:轉接層在換 token 時寫(US1-OA-02、04 在轉接層驗),但 E2 的 `FakeGoogleOAuth` 不寫檔、US1-API-31 則3 要 token.json 存在。(a)E2 測試用替身的 side_effect 寫檔;(b)轉接層回內容、service 寫檔 | — | (a)(kevin-twin 代為決定) |
+| Q130 | implement T090b | 換 token 用 httpx 而非 google-auth-oauthlib 的 `fetch_token`(後者走 requests,MockTransport 攔不到)。(a)授權網址用真 `InstalledAppFlow`、換 token 用 httpx、授權檔用 `Credentials.to_json()`;(b)改用 `fetch_token` 加假本機端點 | — | (a);CLI 讀檔由 US1-OA-06 實跑驗證(kevin-twin 代為決定) |
+| Q131 | implement T093b | 合約有、testplan 沒有案例的 OAuth 行為(本文非 JSON、200 缺 `access_token`/`expires_in`、轉接層去空白、缺 `scope`)。(a)本迭代不補,列入完成報告的未覆蓋;(b)補案例 | — | (a)(kevin-twin 代為決定) |
+| Q132 | implement T090b | 授權檔 expiry 用系統時間而非注入的 Clock,目前沒有測試看它。(a)記錄,不處理;(b)改用 Clock | — | (a)(kevin-twin 代為決定) |

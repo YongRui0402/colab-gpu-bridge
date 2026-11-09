@@ -661,47 +661,47 @@
 
 ### E9 Google OAuth(授權碼流程)
 
-- [ ] T089a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-01 的測試(呼叫兩次),執行確認它因為「沒用 PKCE」這類實作而失敗
+- [X] T089a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-01 的測試(呼叫兩次),執行確認它因為「沒用 PKCE」這類實作而失敗
   - 🧪 `testplan.md` § US1-OA-01
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./o/oauth2/auth.get`
   - 📎 `spec.md` § FR-008
-- [ ] T089b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T089a)
+- [X] T089b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T089a)
   - 🧪 `testplan.md` § US1-OA-01
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./o/oauth2/auth.get`
   - 📎 `spec.md` § FR-008
-- [ ] T090a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-02 的測試(以授權碼與同一次的 `code_verifier` 呼叫),執行確認它因為「沒帶 `code_verifier`」這類實作而失敗
+- [X] T090a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-02 的測試(以授權碼與同一次的 `code_verifier` 呼叫),執行確認它因為「沒帶 `code_verifier`」這類實作而失敗
   - 🧪 `testplan.md` § US1-OA-02
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./token.post`
   - 📎 `spec.md` § FR-008
-- [ ] T090b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T090a)
+- [X] T090b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T090a)
   - 🧪 `testplan.md` § US1-OA-02
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./token.post`
   - 📎 `spec.md` § FR-008
-- [ ] T091a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-03 的測試(各呼叫一次),執行確認它因為「所有 4xx 都歸成同一個代碼,UI 分不出是授權碼錯還是設定錯」這類實作而失敗
+- [X] T091a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-03 的測試(各呼叫一次),執行確認它因為「所有 4xx 都歸成同一個代碼,UI 分不出是授權碼錯還是設定錯」這類實作而失敗
   - 🧪 `testplan.md` § US1-OA-03
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./token.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T091b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T091a)
+- [X] T091b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T091a)
   - 🧪 `testplan.md` § US1-OA-03
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./token.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T092a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-04 的測試(各呼叫一次),執行確認它因為「沒有 refresh token 也存檔,一小時後授權就過期」這類實作而失敗
+- [X] T092a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-04 的測試(各呼叫一次),執行確認它因為「沒有 refresh token 也存檔,一小時後授權就過期」這類實作而失敗
   - 🧪 `testplan.md` § US1-OA-04
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./token.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T092b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T092a)
+- [X] T092b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T092a)
   - 🧪 `testplan.md` § US1-OA-04
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./token.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T093a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-05 的測試(各呼叫一次),執行確認它因為「連不到時拋未處理的例外,API 回 500 沒有原因」這類實作而失敗
+- [X] T093a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_google_oauth.py` 寫 US1-OA-05 的測試(各呼叫一次),執行確認它因為「連不到時拋未處理的例外,API 回 500 沒有原因」這類實作而失敗
   - 🧪 `testplan.md` § US1-OA-05
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./token.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T093b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T093a)
+- [X] T093b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/google_oauth.py` 只寫讓 US1-OA-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T093a)
   - 🧪 `testplan.md` § US1-OA-05
   - ⚙ `contracts/google-oauth.openapi.yaml` § `paths./token.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-008
-- [ ] T094 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T089b~T093b 記下的重構清單(範圍限 `src/cgb/adapters/google_oauth.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T093b)
+- [X] T094 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T089b~T093b 記下的重構清單(範圍限 `src/cgb/adapters/google_oauth.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T093b)
   - 🧪 `testplan.md` § US1-OA-01~US1-OA-05
   - 📎 `testplan.md` § 2.4
 - [ ] T095 [US1] 📏 量測(人工):⏸ 延後:需要使用者本人在場,不在 P9 這一批(plan.md Q101 決定實跑授權改為複製既有 token.json、比對 sha256,US1-OA-06 與 G-01 延後到使用者回來;Q108),使用者回來並同意前不執行;撰寫 `tests/realrun/test_us1_oa_06.py`(`-m realrun`),照 US1-OA-06 量測。假如:延後到使用者在場時另跑(Q101、Q108),不在 P9 這一批;主機上直接跑本系統後端(uvicorn,UI 127.0.0.1:8780、Ollama 相容端點 127.0.0.1:11436),`CGB_DATA_DIR` 指到另一個新的暫存目錄(不沿用複製來的授權);真的 Google OAuth。當:使用者在自己的瀏覽器開連結、登入、貼回授權碼;再取一次連結,貼回 `4/cgb-test-invalid`。記下的數字與門檻:則1:貼回正確授權碼後 30 秒內登入頁顯示已登入;則2:`<暫存目錄>/data/colab-cli/token.json` 存在,權限 0600;則3:`HOME=<暫存目錄>/home colab usage` 印出三行用量(R2 待驗證:CLI 讀得到後端寫的授權檔);則4:貼回 `4/cgb-test-invalid` 後頁面顯示登入失敗與原因,`POST` 的回應 `code` 為 `OAUTH_INVALID_GRANT`;則5:失敗之後「重新取得授權連結」可以按。副作用與護欄:P5、P6、P8;不呼叫 Colab 執行環境,0 compute units,約 5 分鐘;token.json 不印出、不複製到暫存目錄以外,只記長度與 sha256 前 8 碼;使用者在場操作瀏覽器(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:使用者(登入是否完成、畫面是否顯示原因);腳本判定則2、則3;樣本:使用者的 Colab Pro 帳號一次(未用於調整)。使用者在場時另跑,不和 P9 那一批一起;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
