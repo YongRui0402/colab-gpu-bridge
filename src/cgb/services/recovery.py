@@ -9,14 +9,16 @@ from typing import Any
 from cgb.adapters.errors import AdapterError
 from cgb.domain.session_state import TERMINAL_STATES, iso, listed_names, reclaimed_fields, release_warning_fields
 from cgb.repos.sessions import SessionsRepo
-from cgb.services.session_lifecycle import TUNNEL_LOCAL_PORT
+from cgb.services.session_lifecycle import SessionLifecycle
 
 
 class Recovery:
-    def __init__(self, state: Any, repo: SessionsRepo, key_path: str) -> None:
+    def __init__(self, state: Any, repo: SessionsRepo, key_path: str, lifecycle: SessionLifecycle) -> None:
         self._state = state
         self._repo = repo
         self._key_path = key_path
+        # Q170:接回時經工作階段用例建立通道,轉發位址才會寫回
+        self._lifecycle = lifecycle
         self._task: asyncio.Task[None] | None = None
 
     def start(self) -> None:
@@ -59,5 +61,5 @@ class Recovery:
             self._repo.update(name, **reclaimed_fields(iso(self._state.clock.now())))
             return
         await self._state.tunnel.cleanup_residual(key_path=self._key_path)
-        await self._state.tunnel.open_tunnel(session_name=name, key_path=self._key_path, local_port=TUNNEL_LOCAL_PORT)
+        await self._lifecycle.open_tunnel(name)
         self._repo.update(name, state="ready", active_slot=1)

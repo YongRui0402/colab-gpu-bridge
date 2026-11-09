@@ -1470,23 +1470,23 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(或區網程式)接測試行程內真的後端,轉接層用替身;📏 任務改接真的 Colab,照 P9 整批實跑
 
-- [ ] T179a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_us2_endpoint.py` 寫 US2-AJ-01 的測試(在首頁按「開啟」到就緒,用 httpx 對 `127.0.0.1:11437` 送 `POST /api/generate {stream:false}`;在首頁結束工作階段後再送一次),執行確認它因為「UI 開啟的工作階段和 Ollama 相容端點看到的不是同一份狀態(兩個 uvicorn 各自一份)」這類實作而失敗
+- [X] T179a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_us2_endpoint.py` 寫 US2-AJ-01 的測試(在首頁按「開啟」到就緒,用 httpx 對 `127.0.0.1:11437` 送 `POST /api/generate {stream:false}`;在首頁結束工作階段後再送一次),執行確認它因為「UI 開啟的工作階段和 Ollama 相容端點看到的不是同一份狀態(兩個 uvicorn 各自一份)」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-01
   - ⚙ `prototype/index.html` § `#open`、`#stop`;`contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.delete`;`contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-011、FR-013
-- [ ] T179b [US2] 🟢 /tdd 綠燈:在 `src/cgb/server.py`、`src/cgb/app.py` 只寫讓 US2-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認 `src/cgb/server.py` 的兩個 uvicorn 共用同一份工作階段狀態(依賴 T179a)
+- [X] T179b [US2] 🟢 /tdd 綠燈:在 `src/cgb/server.py`、`src/cgb/app.py` 只寫讓 US2-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認 `src/cgb/server.py` 的兩個 uvicorn 共用同一份工作階段狀態(依賴 T179a)
   - 🧪 `testplan.md` § US2-AJ-01
   - ⚙ `prototype/index.html` § `#open`、`#stop`;`contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.delete`;`contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`、`components.schemas.OllamaError`
   - 📎 `spec.md` § FR-011、FR-013
-- [ ] T180a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_us2_endpoint.py` 寫 US2-AJ-05 的測試(首頁開到就緒;停掉 uvicorn,以同一個 SQLite 檔與替身狀態重新起;接回就緒後用 httpx 對 `127.0.0.1:11437` 送 `POST /api/generate {stream:false}`;再讓 `check_health` 失敗 1 次、重連第 1 輪成功後再送一次),執行確認它因為「重啟接回或重連後沒寫回轉發位址,UI 顯示就緒、端點卻一直回 503(Q170)」這類實作而失敗
+- [X] T180a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_us2_endpoint.py` 寫 US2-AJ-05 的測試(首頁開到就緒;停掉 uvicorn,以同一個 SQLite 檔與替身狀態重新起;接回就緒後用 httpx 對 `127.0.0.1:11437` 送 `POST /api/generate {stream:false}`;再讓 `check_health` 失敗 1 次、重連第 1 輪成功後再送一次),執行確認它因為「重啟接回或重連後沒寫回轉發位址,UI 顯示就緒、端點卻一直回 503(Q170)」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-05
   - ⚙ `prototype/index.html` § `#open`;`contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`;`contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`;`contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-005、FR-011;`plan.md` § 待決問題 Q170
-- [ ] T180b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/health_monitor.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認重啟接回與重連成功後都把轉發位址寫回 `lifecycle.base_url`(Q170)(依賴 T180a)
+- [X] T180b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/health_monitor.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認重啟接回與重連成功後都把轉發位址寫回 `lifecycle.base_url`(Q170)(依賴 T180a)
   - 🧪 `testplan.md` § US2-AJ-05
   - ⚙ `prototype/index.html` § `#open`;`contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`;`contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`;`contracts/tunnel.openapi.yaml` § `paths./tunnels.post`、`paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}/reconnect.post`
   - 📎 `spec.md` § FR-005、FR-011;`plan.md` § 待決問題 Q170
-- [ ] T181 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T179b~T180b 記下的重構清單(範圍限 `src/cgb/server.py`、`src/cgb/app.py`、`src/cgb/services/recovery.py`、`src/cgb/services/health_monitor.py`、`src/cgb/services/session_lifecycle.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T180b)
+- [X] T181 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T179b~T180b 記下的重構清單(範圍限 `src/cgb/server.py`、`src/cgb/app.py`、`src/cgb/services/recovery.py`、`src/cgb/services/health_monitor.py`、`src/cgb/services/session_lifecycle.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T180b)
   - 🧪 `testplan.md` § US2-AJ-01、US2-AJ-05
   - 📎 `testplan.md` § 3.7
 - [ ] T182 [US2] 📏 量測:撰寫 `tests/realrun/test_us2_aj_02.py`(`-m realrun`),照 US2-AJ-02 量測。假如:容器階段,US1-AJ-17 的工作階段就緒;經 UI 預先載入 `qwen2.5:0.5b`。當:交替送 20 次非串流 `POST /api/generate {model:"qwen2.5:0.5b",prompt:"你好",stream:false,options:{num_predict:8,seed:1,temperature:0}}`:10 次到 `127.0.0.1:11436`,10 次在容器內(`docker exec`)直接打轉發 `127.0.0.1:11435`;再以 `OLLAMA_HOST=http://127.0.0.1:11436 ollama list` 與 `ollama run qwen2.5:0.5b 你好` 各一次。記下的數字與門檻:則1:經本系統的平均延遲減直連的平均延遲不超過 0.5 秒(SC-005);則2:`ollama list` 列出 `qwen2.5:0.5b`;則3:`ollama run` 印出非空的回應。副作用與護欄:P1~P9;沿用 US1-AJ-17 的 T4,約 3 分鐘、約 0.06 compute units;`ollama` 指令一律帶 `OLLAMA_HOST=http://127.0.0.1:11436`,不連 11434(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(0.5 秒門檻);樣本:20 次請求(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`

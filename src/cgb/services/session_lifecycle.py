@@ -55,6 +55,14 @@ class SessionLifecycle:
         ended = self._ended_events.setdefault(latest["name"], asyncio.Event())
         return ForwardTarget(base_url=self.base_url, ended=ended)
 
+    async def open_tunnel(self, name: str, *, key_path: str | None = None) -> dict[str, Any]:
+        """建立通道並記下轉發位址;首次開啟、重啟接回與重連都走這裡,Ollama 相容端點才轉送得出去(Q170)。"""
+        opened = await self._state.tunnel.open_tunnel(
+            session_name=name, key_path=key_path if key_path is not None else self._key_path, local_port=TUNNEL_LOCAL_PORT
+        )
+        self.base_url = opened["baseUrl"]
+        return opened
+
     def _signal_ended(self) -> None:
         for name in list(self._ended_events):
             row = self._repo.get(name)
@@ -181,7 +189,7 @@ class SessionLifecycle:
             self._warn_release(name, "COLAB_STOP_UNCONFIRMED")
 
     async def _open_steps(self, name: str, runtime_type: dict[str, Any], progress: dict[str, bool]) -> None:
-        colab, tunnel, remote = self._state.colab, self._state.tunnel, self._state.remote_ollama
+        colab, remote = self._state.colab, self._state.remote_ollama
         # Q63:記下開啟前沒有名稱的執行環境,`colab new` 逾時後比對
         progress["unnamed_before"] = (await colab.list_sessions())["unnamed"]
         creating = asyncio.ensure_future(
@@ -197,8 +205,7 @@ class SessionLifecycle:
         listed = await colab.list_sessions()
         if name not in listed_names(listed):
             raise AdapterError("COLAB_NOT_FOUND", "colab sessions 沒有列出這個工作階段")
-        opened = await tunnel.open_tunnel(session_name=name, key_path=self._key_path, local_port=TUNNEL_LOCAL_PORT)
-        self.base_url = opened["baseUrl"]
+        opened = await self.open_tunnel(name)
         self._repo.update(name, step="verifying")
         await remote.get_version(base_url=opened["baseUrl"])
         self._repo.update(name, state="ready", step=None, ready_at=iso(self._state.clock.now()))

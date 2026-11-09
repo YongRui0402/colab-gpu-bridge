@@ -50,7 +50,7 @@ def install(app: FastAPI) -> None:
         auth_service = AuthService(state)
         lifecycle = SessionLifecycle(state, repo, auth_service, key_path)
         downloads_service = DownloadsService(state, DownloadsRepo(conn))
-        monitor = HealthMonitor(state, repo)
+        monitor = HealthMonitor(state, repo, lifecycle)
         app.state.services = Services(
             auth=auth_service,
             lifecycle=lifecycle,
@@ -62,7 +62,7 @@ def install(app: FastAPI) -> None:
         )
         repo.listeners.append(lambda: app.state.services.events.session_updated(lifecycle.current()))
         auth_service.listeners.append(lambda status: app.state.services.events.auth_updated(status))
-        recovery = Recovery(state, repo, key_path)
+        recovery = Recovery(state, repo, key_path, lifecycle)
         recovery.start()
         monitor.start()
         try:

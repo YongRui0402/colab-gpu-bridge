@@ -12,16 +12,18 @@ from datetime import timedelta
 
 from cgb.domain.session_state import RECONNECT_TIMEOUT_MESSAGE, iso, listed_names, reclaimed_fields, reconnect_offsets, release_warning_fields
 from cgb.repos.sessions import SessionsRepo
-from cgb.services.session_lifecycle import TUNNEL_LOCAL_PORT
+from cgb.services.session_lifecycle import SessionLifecycle
 
 # Q87:SSH 私鑰路徑由 CGB_SSH_IDENTITY_PATH 指定;沒有傳入時和 UI API 讀同一個環境變數與預設值
 DEFAULT_SSH_IDENTITY_PATH = "/data/ssh/id_ed25519"
 
 
 class HealthMonitor:
-    def __init__(self, state: Any, repo: SessionsRepo, key_path: str | None = None) -> None:
+    def __init__(self, state: Any, repo: SessionsRepo, lifecycle: SessionLifecycle, key_path: str | None = None) -> None:
         self._state = state
         self._repo = repo
+        # Q170:重連時經工作階段用例建立通道,轉發位址才會寫回
+        self._lifecycle = lifecycle
         # Q159:重連的 open_tunnel 帶和首次開啟相同的金鑰與本機 port
         self._key_path = key_path if key_path is not None else os.environ.get("CGB_SSH_IDENTITY_PATH", DEFAULT_SSH_IDENTITY_PATH)
         self._task: asyncio.Task[None] | None = None
@@ -84,7 +86,7 @@ class HealthMonitor:
                 self._mark_reclaimed(name)
                 return
             try:
-                await self._state.tunnel.open_tunnel(session_name=name, key_path=self._key_path, local_port=TUNNEL_LOCAL_PORT)
+                await self._lifecycle.open_tunnel(name, key_path=self._key_path)
             except AdapterError as error:
                 last_code = error.code
                 continue

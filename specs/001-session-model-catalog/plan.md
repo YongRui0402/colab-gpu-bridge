@@ -289,3 +289,5 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q173 | implement T170 | 〔任務 T165b,E3 回報〕`check_now()` 與排程 `_check` 可能並行、重連兩次。(a)HealthMonitor 加鎖;(b)先接受 | — | (b);列入完成報告(kevin-twin 代為決定) |
 | Q174 | implement T155 | 〔任務 T155b、T165b〕越界改檔:`app.py` 改呼叫 `ollama_compat.install`;`api/__init__.py` 的 `Services` 加 `monitor`。(a)追認;(b)撤回 | — | (a);同 Q155(a)、Q168(kevin-twin 代為決定) |
 | Q175 | implement T172 | 〔任務 T172b〕`RemoteOllama.generate(base_url, body)` 參數名;`FakeRemoteOllama` 簽章配對尚未加入 G-09 清單。(a)維持 `body`,配對由 T291a/b 建清單時加入;(b)改簽章 | — | (a)(kevin-twin 代為決定) |
+| Q176 | implement T180 | 〔任務 T180b〕US2-AJ-05 重啟前後本機 port 相同,重連回的 `baseUrl` 不變,`HealthMonitor` 不寫回也照樣轉送,則2 抓不到重連漏寫回。(a)維持:T181 把開通道與寫回收成 `SessionLifecycle.open_tunnel` 單一入口,從結構上擋住;(b)testplan 補重連換 `baseUrl` 的案例 | — | (a)(kevin-twin 代為決定) |
+| Q177 | implement T180 | 〔任務 T180b〕越界改檔:`api/__init__.py` 把 lifecycle 傳進 `Recovery` 與 `HealthMonitor`。(a)追認;(b)撤回 | — | (a);同 Q168、Q174(kevin-twin 代為決定) |
