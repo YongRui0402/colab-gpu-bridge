@@ -1776,39 +1776,39 @@
 
 ### E3 Ollama 相容端點(FastAPI 轉送)
 
-- [ ] T213a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US3-OC-01 的測試(送 `POST /api/generate {model:"qwen2.5:7b",prompt:"你好"}`),執行確認它因為「模型不存在時自動排下載」這類實作而失敗
+- [X] T213a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US3-OC-01 的測試(送 `POST /api/generate {model:"qwen2.5:7b",prompt:"你好"}`),執行確認它因為「模型不存在時自動排下載」這類實作而失敗
   - 🧪 `testplan.md` § US3-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`;`contracts/ui.openapi.yaml` § `paths./downloads.get`
   - 📎 `spec.md` § FR-016
-- [ ] T213b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US3-OC-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T213a)
+- [X] T213b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US3-OC-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T213a)
   - 🧪 `testplan.md` § US3-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`;`contracts/ui.openapi.yaml` § `paths./downloads.get`
   - 📎 `spec.md` § FR-016
-- [ ] T214a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US3-OC-02 的測試(送 `POST /api/chat {model:"qwen2.5:7b",stream:false}`),執行確認它因為「本系統自己先送預先載入再轉送,多一次往返」這類實作而失敗
+- [X] T214a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US3-OC-02 的測試(送 `POST /api/chat {model:"qwen2.5:7b",stream:false}`),執行確認它因為「本系統自己先送預先載入再轉送,多一次往返」這類實作而失敗
   - 🧪 `testplan.md` § US3-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/chat.post`
   - 📎 `spec.md` § FR-016
-- [ ] T214b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US3-OC-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T214a)
+- [X] T214b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US3-OC-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T214a)
   - 🧪 `testplan.md` § US3-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/chat.post`
   - 📎 `spec.md` § FR-016
-- [ ] T215a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US3-OC-03 的測試(送 `GET /api/tags`),執行確認它因為「把佇列裡下載中的名稱合併進清單,讓程式以為可用」這類實作而失敗
+- [X] T215a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US3-OC-03 的測試(送 `GET /api/tags`),執行確認它因為「把佇列裡下載中的名稱合併進清單,讓程式以為可用」這類實作而失敗
   - 🧪 `testplan.md` § US3-OC-03
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/tags.get`
   - 📎 `spec.md` § FR-016、FR-018
-- [ ] T215b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US3-OC-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T215a)
+- [X] T215b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US3-OC-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T215a)
   - 🧪 `testplan.md` § US3-OC-03
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/tags.get`
   - 📎 `spec.md` § FR-016、FR-018
-- [ ] T216a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US3-OC-04 的測試(同時送兩個指名 `qwen2.5:7b` 的 `generate`),執行確認它因為「本系統為了「只載入一次」自己排隊或另送預先載入,第二個請求被擋或多一次載入」這類實作而失敗
+- [X] T216a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US3-OC-04 的測試(同時送兩個指名 `qwen2.5:7b` 的 `generate`),執行確認它因為「本系統為了「只載入一次」自己排隊或另送預先載入,第二個請求被擋或多一次載入」這類實作而失敗
   - 🧪 `testplan.md` § US3-OC-04
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § 邊界情況
-- [ ] T216b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US3-OC-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T216a)
+- [X] T216b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US3-OC-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T216a)
   - 🧪 `testplan.md` § US3-OC-04
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § 邊界情況
-- [ ] T217 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T213b~T216b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T216b)
+- [X] T217 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T213b~T216b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T216b)
   - 🧪 `testplan.md` § US3-OC-01~US3-OC-04
   - 📎 `testplan.md` § 4.2
 

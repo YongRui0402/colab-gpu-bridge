@@ -560,3 +560,132 @@ async def test_不把轉發位址傳回用戶端_轉址與錯誤都不帶_port(b
         assert forward_port not in everything_of(response), everything_of(response)
     assert generate.status_code == 500
     assert "127.0.0.1" not in (generate.json().get("error") or "")
+
+
+# ================================================================ 故事 3(testplan.md § 4.1)
+
+BIG = "qwen2.5:7b"
+BIG_BYTES = 4_683_087_332
+
+
+def counts_of(fakes: Any) -> dict[str, int]:
+    """轉接層裡會讓遠端多一次載入或下載的方法,各被呼叫幾次(預先載入與下載不經假伺服器,另外看)。"""
+    remote = fakes.remote_ollama
+    return {"pull_model": remote.pull_model.call_count, "preload": remote.preload.call_count}
+
+
+def release_after(gate: Gate, seconds: float) -> None:
+    """假伺服器「回應前睡 N 秒」:N 秒後放行閘門(閘門是 threading 的,假伺服器在自己的執行緒等)。"""
+    asyncio.get_running_loop().call_later(seconds, gate.release)
+
+
+# ---------------------------------------------------------------- US3-OC-01
+
+
+async def test_指名沒下載的模型_原樣回_404_不自動排下載(bridge: Bridge) -> None:
+    # Arrange:工作階段就緒;假伺服器對 qwen2.5:7b 回 404
+    await bridge.ready()
+    not_found = json.dumps({"error": f"model '{BIG}' not found"}).encode()
+    bridge.server.add("POST", "/api/generate", JsonReply(not_found, status=404), json={"model": BIG})
+    jobs_before = (await bridge.ui.get("/api/downloads")).json().get("jobs")
+    counts_before = counts_of(bridge.fakes)
+
+    # Act
+    response = await bridge.ollama.post("/api/generate", json={"model": BIG, "prompt": "你好"})
+    await asyncio.sleep(0.1)  # 若有背景排下載,給它時間發生
+    jobs_after = (await bridge.ui.get("/api/downloads")).json().get("jobs")
+
+    # Assert
+    bridge.server.assert_all_matched()
+    assert (response.status_code, response.content) == (404, not_found)
+    assert bridge.server.requests_to("POST", "/api/pull") == []
+    assert counts_of(bridge.fakes)["pull_model"] == counts_before["pull_model"]
+    assert jobs_after == jobs_before
+
+
+# ---------------------------------------------------------------- US3-OC-02
+
+
+async def test_指名已下載未載入的模型_只轉送一次_不另外預先載入(bridge: Bridge) -> None:
+    # Arrange:tags 有 qwen2.5:7b、ps 沒有;假伺服器回應前睡 0.3 秒(代表載入)
+    await bridge.ready()
+    bridge.server.add("GET", "/api/tags", JsonReply({"models": [{"name": BIG, "model": BIG, "size": BIG_BYTES}]}))
+    bridge.server.add("GET", "/api/ps", JsonReply({"models": []}))
+    reply = {"model": BIG, "created_at": "2026-11-10T09:00:00Z", "message": {"role": "assistant", "content": "你好!"}, "done": True}
+    loading = Gate()
+    bridge.server.add("POST", "/api/chat", HangReply(release=loading, after=JsonReply(reply)), json={"model": BIG})
+    already = len(bridge.server.requests)
+    counts_before = counts_of(bridge.fakes)
+    body = {"model": BIG, "messages": [{"role": "user", "content": "你好"}], "stream": False}
+
+    # Act
+    release_after(loading, 0.3)
+    response = await bridge.ollama.post("/api/chat", json=body)
+
+    # Assert
+    bridge.server.assert_all_matched()
+    assert (response.status_code, response.content) == (200, json.dumps(reply).encode())
+    assert [(r.method, r.path) for r in bridge.server.requests[already:]] == [("POST", "/api/chat")]
+    assert counts_of(bridge.fakes) == counts_before
+
+
+# ---------------------------------------------------------------- US3-OC-03
+
+
+async def test_tags_原樣轉送_不把下載中的模型列為可用(bridge: Bridge) -> None:
+    # Arrange:工作階段就緒且 qwen2.5:7b 下載中(變更類型時重新下載原本載入的模型,下載停在閘門前)
+    from integration.test_api_session import wait_until
+
+    remote = bridge.fakes.remote_ollama
+    loaded = {"models": [{"name": BIG, "model": BIG, "size": BIG_BYTES}]}
+    remote.list_loaded_models.side_effect(lambda *a, **k: loaded)
+    remote.list_local_models.side_effect(lambda *a, **k: loaded)
+    remote.pull_model.side_effect(lambda *a, **k: [{"status": "success"}])
+    remote.preload.side_effect(lambda *a, **k: {"model": BIG, "done": True})
+    old = (await bridge.ready())["name"]
+    pulling = remote.pull_model.gate()
+    tags = {"models": [{"name": MODEL, "model": MODEL, "size": 397_821_319}]}
+    bridge.server.add("GET", "/api/tags", JsonReply(tags))
+    try:
+        await bridge.ui.post("/api/session/restart", json={"runtimeType": {"gpu": "L4", "highMem": False}})
+        await wait_until(bridge.ui, lambda s: s.get("state") == "ready" and s.get("name") != old)
+        await pulling.wait_entered_async()
+        queue = (await bridge.ui.get("/api/downloads")).json()
+        assert [(j.get("model"), j.get("state")) for j in queue.get("jobs", [])] == [(BIG, "downloading")], queue
+
+        # Act
+        response = await bridge.ollama.get("/api/tags")
+    finally:
+        pulling.release()
+
+    # Assert
+    bridge.server.assert_all_matched()
+    assert (response.status_code, response.content) == (200, json.dumps(tags).encode())
+    assert [m["name"] for m in response.json()["models"]] == [MODEL]
+
+
+# ---------------------------------------------------------------- US3-OC-04
+
+
+async def test_同時兩個請求指名同一個未載入的模型_都照轉送_不排隊不預先載入(bridge: Bridge) -> None:
+    # Arrange:ps 沒有 qwen2.5:7b;假伺服器回應前睡 0.5 秒
+    await bridge.ready()
+    reply = {"model": BIG, "created_at": "2026-11-10T09:00:00Z", "response": "你好!", "done": True}
+    loading = Gate()
+    bridge.server.add("GET", "/api/ps", JsonReply({"models": []}))
+    bridge.server.add("POST", "/api/generate", HangReply(release=loading, after=JsonReply(reply)), json={"model": BIG})
+    already = len(bridge.server.requests)
+    counts_before = counts_of(bridge.fakes)
+    body = {"model": BIG, "prompt": "你好", "stream": False}
+
+    # Act
+    release_after(loading, 0.5)
+    first, second = await asyncio.gather(
+        bridge.ollama.post("/api/generate", json=body), bridge.ollama.post("/api/generate", json=body)
+    )
+
+    # Assert
+    bridge.server.assert_all_matched()
+    assert [(r.status_code, r.content) for r in (first, second)] == [(200, json.dumps(reply).encode())] * 2
+    assert [(r.method, r.path) for r in bridge.server.requests[already:]] == [("POST", "/api/generate")] * 2
+    assert counts_of(bridge.fakes) == counts_before
