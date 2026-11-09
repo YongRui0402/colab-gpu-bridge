@@ -228,7 +228,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q112 | tasks | Setup 放 `create_app` 注入點與 `AdapterError`(只有簽章與空 app)。(a)放 Setup(先採用);(b)併入 US1-API-01 綠燈 | — | (a)(kevin-twin 代為決定) |
 | Q113 | tasks | `python -m cgb` 進入點。(a)放進 US1-AJ-01 綠燈 T099b,測試 uvicorn fixture 走同一個 `serve()`(先採用);(b)testplan 補子行程案例;(c)放 Setup | — | (a)(kevin-twin 代為決定) |
 | Q114 | tasks | G-03、G-04、G-08 紅燈可能一開始就綠。(a)紅燈先對故意改壞的對照組確認抓得到,再對實物執行(先採用);(b)全域綠燈才搬入 | — | (a)(kevin-twin 代為決定) |
-| Q115 | tasks | 外部程序參數交給真工具解讀。(a)E5 在 T061a 以真 `colab` 0.7.5(空暫存 HOME、無授權)只斷言無參數錯誤;E6 在 T079a 以 `ssh -G` 解讀(先採用);(b)只靠實跑 | — | (a)(kevin-twin 代為決定) |
+| Q115 | tasks | 外部程式參數交給真工具解讀。(a)E5 在 T061a 以真 `colab` 0.7.5(空暫存 HOME、無授權)只斷言無參數錯誤;E6 在 T079a 以 `ssh -G` 解讀(先採用);(b)只靠實跑 | — | (a)(kevin-twin 代為決定) |
 | Q116 | tasks | 📏 實跑任務排法。(a)照規範排在各故事,Checkpoint 註明整批延到全域測試區後依 P9 執行(先採用);(b)全部標 ⏸;(c)全部移到全域 | — | (a)(kevin-twin 代為決定) |
 | Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T217b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
 | Q118 | tasks | Q85 搬遷後的位置。(a)Dockerfile、dockerignore、compose、.env.example 放根目錄,prepare-data.sh、healthcheck.py 放 repo 的 `deploy/`(先採用);(b)全放 `deploy/` | — | (a)(kevin-twin 代為決定) |
@@ -236,3 +236,4 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q120 | tasks | 〔testplan 提出〕餘額 ≤ 0 時估計可用時數。(a)回 0(先採用);(b)負數;(c)null | — | (a)(kevin-twin 代為決定) |
 | Q121 | tasks | 〔testplan 提出〕FR-025「低於警告門檻」含不含等於。(a)不含 `<`(先採用);(b)含 | — | (a)(kevin-twin 代為決定) |
 | Q122 | tasks | 〔testplan 提出〕Q100 的「資料庫不認得、CLI 記得」警告放哪。(a)`Session.unmanagedRuntimes` 加一筆(先採用);(b)併入 `releaseWarning` | S5 | (a)(kevin-twin 代為決定) |
+| Q123 | S5 | 讀取用量失敗的說明欄位。(a)沿用 `reasonCode`、`message`,新增 `lastFailedAt`(先採用);(b)巢狀 `lastReadError`。另:故事 4 驗收情境 5「讀不到 → 未知」與 Q119 不一致 | — | (a);spec 情境 5 改為「從來沒讀到過」(kevin-twin 代為決定) |

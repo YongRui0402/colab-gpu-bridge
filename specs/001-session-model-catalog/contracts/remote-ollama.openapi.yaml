@@ -35,7 +35,7 @@ paths:
       x-requirements: [FR-011, NFR-005]
       x-callers: 本系統後端(健康檢查與開啟流程),經 SSH 本機轉發
       x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
-      x-timeout: 建議 5 秒(research.md 沒有定下,見待決問題)
+      x-timeout: 5 秒(plan.md Q5 已決定)
       responses:
         '200':
           description: Ollama 版本
@@ -51,12 +51,12 @@ paths:
       description: >-
         回傳 `OLLAMA_MODELS`(執行環境預設 `/root/.ollama/models`,research.md R4)底下已有 manifest 的模型。
         Ollama 在 pull 的所有層都下載並驗證完才寫入 manifest(Ollama 說明文件的 pull 進度最後是 `writing manifest`、`success`),
-        所以下載中的模型不會出現在這份清單(FR-018;執行環境上待驗證,見待決問題)。
+        所以下載中的模型不會出現在這份清單(FR-018)。plan.md Q2 已決定:直接信任這份清單,不另外排除下載佇列中未完成的名稱;執行環境上的行為列給 testplan 實跑驗證。
         UI 模型目錄的名稱與大小(FR-014)、Ollama 相容端點的列模型(FR-011、FR-016)都來自這裡。
       x-requirements: [FR-011, FR-014, FR-016, FR-018]
       x-callers: 本系統後端(模型目錄),以及 Ollama 相容端點原樣轉送的區網程式
       x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
-      x-timeout: 建議 10 秒(research.md 沒有定下,見待決問題)
+      x-timeout: 10 秒(plan.md Q5 已決定)
       responses:
         '200':
           description: 已下載完成的模型清單;執行環境剛開好時是空陣列
@@ -75,7 +75,7 @@ paths:
       x-requirements: [FR-014, FR-015]
       x-callers: 本系統後端(模型目錄)
       x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
-      x-timeout: 建議 10 秒(research.md 沒有定下,見待決問題)
+      x-timeout: 10 秒(plan.md Q5 已決定)
       responses:
         '200':
           description: 已載入的模型與各自佔用的記憶體與到期時間
@@ -93,13 +93,13 @@ paths:
         其中 416 行含進度),背景下載期間推論延遲不受影響。
         預設 `stream: true`,回應是 `application/x-ndjson`,每行一個 `PullProgress`;
         最後一行 `{"status":"success"}` 才算下載完成。
-        串流開始之後的失敗,Ollama 以 HTTP 200 加上一行 `{"error": "..."}` 回報(Ollama 說明文件,沒有實測,見待決問題)。
+        串流開始之後的失敗,Ollama 以 HTTP 200 加上一行 `{"error": "..."}` 回報(Ollama 說明文件,沒有實測)。plan.md Q3 已決定:依 error 行的文字分成 `OLLAMA_NOT_FOUND` 與 `OLLAMA_PULL_FAILED`(見 200 回應的說明)。
         桌機實測只做唯讀查詢,沒有呼叫這個操作。
         這個操作只由本系統後端呼叫;Ollama 相容端點對區網程式阻擋它(FR-012、research.md R8)。
       x-requirements: [FR-017, FR-018, NFR-005, SC-004]
       x-callers: 只有本系統後端(下載佇列),工作階段「就緒」時
       x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_STREAM_INTERRUPTED]
-      x-timeout: 建議只設連線逾時 10 秒與「兩行進度之間」逾時 60 秒,不設總時長(research.md 沒有定下,見待決問題)
+      x-timeout: 連線逾時 10 秒、兩行進度之間逾時 60 秒,不設總時長(plan.md Q5 已決定)
       requestBody:
         required: true
         content:
@@ -141,6 +141,7 @@ paths:
       x-requirements: [FR-011, FR-016]
       x-callers: 經 Ollama 相容端點原樣轉送的區網程式;本系統後端也可以呼叫
       x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      x-timeout: 10 秒(plan.md Q22 已決定)
       requestBody:
         required: true
         content:
@@ -182,13 +183,13 @@ paths:
 
         (2)預先載入(FR-015):本系統後端送只有 `model`(可加 `keep_alive`)、沒有 `prompt` 的請求,
         Ollama 載入模型後回一個 `done: true`、`done_reason: load`、`response` 為空字串的 JSON(Ollama 說明文件)。
-        載入後的保留時間由 `keep_alive` 決定,沒給時是 Ollama 的預設 5 分鐘(Ollama 說明文件,見待決問題)。
+        載入後的保留時間由 `keep_alive` 決定,沒給時是 Ollama 的預設 5 分鐘(Ollama 說明文件)。plan.md Q4 已決定:本系統預先載入一律帶 `keep_alive: -1`,模型留在記憶體直到工作階段結束或被其他模型擠掉;推論請求的 `keep_alive` 由區網程式自己決定,原樣轉送。
 
         記憶體或磁碟不足以載入時 Ollama 回 500,說明在 `error` 裡;已載入的其他模型不受影響(spec 邊界情況)。
       x-requirements: [FR-011, FR-015, FR-016]
       x-callers: 經 Ollama 相容端點原樣轉送的區網程式(推論);本系統後端(預先載入)
       x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_STREAM_INTERRUPTED]
-      x-timeout: 預先載入建議 300 秒(大模型首次載入;research.md R4 有 40 秒以上的載入,沒有定下,見待決問題)
+      x-timeout: 預先載入 300 秒(plan.md Q5 已決定);推論連線 10 秒、第一段與兩段之間各 300 秒,不設總時長(plan.md Q22 已決定)
       requestBody:
         required: true
         content:
@@ -241,6 +242,7 @@ paths:
       x-requirements: [FR-011, FR-016]
       x-callers: 經 Ollama 相容端點原樣轉送的區網程式
       x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_STREAM_INTERRUPTED]
+      x-timeout: 連線 10 秒、第一段與兩段之間各 300 秒,不設總時長(plan.md Q22 已決定)
       requestBody:
         required: true
         content:
@@ -289,6 +291,7 @@ paths:
       x-requirements: [FR-011, FR-016]
       x-callers: 經 Ollama 相容端點原樣轉送的區網程式
       x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      x-timeout: 連線 10 秒、第一段與兩段之間各 300 秒,不設總時長(plan.md Q22 已決定)
       requestBody:
         required: true
         content:
@@ -332,6 +335,7 @@ paths:
       x-requirements: [FR-011, FR-016]
       x-callers: 經 Ollama 相容端點原樣轉送的區網程式
       x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      x-timeout: 連線 10 秒、第一段與兩段之間各 300 秒,不設總時長(plan.md Q22 已決定)
       requestBody:
         required: true
         content:
@@ -714,6 +718,7 @@ components:
       description: >-
         本系統後端轉接層把遠端 Ollama 的失敗歸成的原因代碼,**不是 Ollama 回應的內容**;
         後端 UI API(S5)與 Ollama 相容端點(S6)據此決定要回什麼給它們的呼叫者。
+        `_BAD_REQUEST`、`_SERVER_ERROR`、`_PULL_FAILED`、`_STREAM_INTERRUPTED` 四個後綴是約定以外新增的,plan.md Q6 已決定保留,並成為各服務共用的後綴。
       properties:
         code:
           type: string

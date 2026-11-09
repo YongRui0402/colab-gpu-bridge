@@ -24,7 +24,7 @@
 **決策**:後端以子行程呼叫 `colab`(google-colab-cli 0.7.5),每個指令都解析文字輸出、不信任 exit code。
 
 - **開啟**:`colab new -s <名稱> [--gpu <類型>] [--high-mem]`,名稱固定前綴 `cgb-`,由本系統產生並記錄。
-- **遠端初始化**:`colab exec -s <名稱> -f <初始化腳本>`,腳本安裝 Ollama 並以 `OLLAMA_HOST=127.0.0.1:11434`、`start_new_session=True` 背景啟動。
+- **遠端初始化**:`colab exec -s <名稱> -f <初始化腳本>`,腳本安裝 Ollama 並以 `OLLAMA_HOST=127.0.0.1:11434`、`OLLAMA_ORIGINS=*`(plan.md Q20)、`start_new_session=True` 背景啟動。
 - **狀態**:`colab sessions` 每行一台,格式 `[<名稱>] <endpoint> | Hardware: <類型> | Shape: <形狀> | Variant: <變體>`;本機沒紀錄的那台顯示為 `[?]`。
 - **用量**:`colab usage` 三行固定格式 `Current balance: <x> compute units` / `Usage rate: <x>/hr` / `Active assignments: <n>`。
 - **結束**:`colab stop -s <名稱>` 之後,必須再以 `colab sessions` 確認該名稱已不在,才算結束(FR-007、SC-003)。
@@ -93,7 +93,7 @@
 - 查證(google-colab-cli 0.7.5 `commands/ssh.py`):目標是 `root@colab-runtime`,公鑰放在 `X-Colab-Ssh-Pubkey` header,伺服器拒絕 RSA;proxy token 只在連線建立時出示,長連線不會中途更新(模組說明)。
 - 查證(`client.py` 的 `token_expires_in_seconds`、本機 `sessions.json`):probe-t4 的 `token_expires_at` 為建立後 1 小時(22:17:28)。
 - 實測(桌機 → T4,21:28:14 建立的 ssh 轉發,建立時出示的是 22:17:28 到期的 token):每 15 秒檢查一次 `/api/version`,到 22:20:31 從未失敗;22:20:45 對 qwen2.5:7b 推論成功。期間其他 CLI 指令已把 `sessions.json` 的 token 換新為 23:10 到期,但不影響這條既有連線。
-- 判斷:健康檢查 15 秒加 ssh keepalive 45 秒,斷線最晚約 1 分鐘內進入「重連中」,符合 SC-002 的 2 分鐘。
+- 判斷:健康檢查 15 秒加 ssh keepalive 45 秒,斷線最晚約 1 分鐘內進入「重連中」,符合 SC-002(修訂後)的「斷線 1 分鐘內顯示重連中」。
 
 **考慮過的替代方案**:
 
@@ -194,13 +194,13 @@
 
 ## R8. Ollama 相容端點(FR-011、FR-012、FR-013、FR-016、SC-005、SC-007)
 
-**決策**:後端用 FastAPI + httpx,端點以串流原樣轉送(`client.send(..., stream=True)` + `StreamingResponse(r.aiter_raw())`);管理操作(`/api/pull`、`/api/delete`、`/api/create`、`/api/copy`、`/api/push`)直接回 403 與繁體中文說明;沒有就緒的工作階段時立即回 503。模型自動載入交給遠端 Ollama 本身(它收到指名的模型就會從 `OLLAMA_MODELS` 載入)。
+**決策**:後端用 FastAPI + httpx,端點以串流原樣轉送(`client.send(..., stream=True)` + `StreamingResponse(r.aiter_raw())`);管理操作(`/api/pull`、`/api/delete`、`/api/create`、`/api/copy`、`/api/push`、`/api/blobs/*`)直接回 403 與繁體中文說明;只轉送 FR-011 點名的推論與查詢路徑(白名單,plan.md Q18),白名單外回 404;沒有就緒的工作階段時 1 秒內回 503(SC-007)。模型自動載入交給遠端 Ollama 本身(它收到指名的模型就會從 `OLLAMA_MODELS` 載入)。
 
 **理由**:
 
 - 實測(桌機,fastapi 0.162.2、uvicorn 0.54.0、httpx 0.28.1,上游為本機 Ollama 0.32.15 的 qwen2.5:3b,非串流 8 token,每組 5 次):直連平均 0.105 / 0.097 秒,經代理 0.101 / 0.104 秒,差距在雜訊內(SC-005 門檻 0.5 秒);串流逐段轉送;`/api/pull` 回 403。
 - 查證(Ollama API:`/api/generate` 指名的模型不在記憶體時會先載入):遠端只要 `OLLAMA_MODELS` 指向模型所在,FR-016 不必由本系統實作載入。
-- 判斷:同類產品 LiteLLM(功能過多,要轉成 OpenAI 格式)、ollama-proxy-server(加的是金鑰與佇列,不需要);我們只需要原樣轉送加黑名單,自寫約 30 行。
+- 判斷:同類產品 LiteLLM(功能過多,要轉成 OpenAI 格式)、ollama-proxy-server(加的是金鑰與佇列,不需要);我們只需要原樣轉送加路徑白名單(plan.md Q18),自寫約 30 行。
 
 **考慮過的替代方案**:
 
@@ -214,7 +214,7 @@
 **理由**:
 
 - 查證(同類產品):Open WebUI 用 SvelteKit SPA(功能是聊天,遠比我們多);Dozzle(容器日誌)用 Vue SPA 但由後端內嵌靜態檔;Uptime Kuma 用 Vue + Socket.IO 推狀態。共通點是「狀態用伺服器推送」,不靠前端輪詢。
-- 判斷:畫面只有工作階段面板、模型目錄、下載佇列、設定、紀錄五塊,沒有複雜互動;ui-plan 交出的原型本身就是原生 HTML/CSS/JS,直接沿用可少一次轉寫。SSE 是單向推送,剛好對應狀態、進度、倒數。
+- 判斷:畫面規模小(原型最後交出工作階段、登入、模型目錄、下載模型、用量與設定、紀錄 6 頁,加上狀態總覽),沒有複雜互動;ui-plan 交出的原型本身就是原生 HTML/CSS/JS,直接沿用可少一次轉寫。SSE 是單向推送,剛好對應狀態、進度、倒數。
 
 **考慮過的替代方案**:
 
@@ -288,3 +288,10 @@
 ## 修訂紀錄
 
 無(2026-11-09 初版,尚未修訂)。
+
+### 2026-11-10
+
+- R8:轉送從「管理操作黑名單」改為「推論與查詢路徑白名單、白名單外回 404」,沒有工作階段時的回應改為「1 秒內回 503」。原因:system-analysis S6 發現黑名單會連帶提供 `/v1/*`(OpenAI 相容),與 spec 假設「不另外提供 OpenAI 相容 API」矛盾(plan.md Q18);SC-007 定下 1 秒門檻。連帶:techstack.md「自寫取代套件」同步改寫;R8 的代理延遲實測不受影響(只換判斷路徑的方式)。
+- R1:遠端初始化加上 `OLLAMA_ORIGINS=*`。原因:S6 實測帶非本機 `Origin` 的瀏覽器程式會被遠端 Ollama 回 403(plan.md Q20)。連帶:無。
+- R3:說明文字跟上 SC-002 的修訂(斷線 1 分鐘內顯示重連中)。原因:analyze 第 1 輪 A6。連帶:無。
+- R9:說明文字跟上原型實際的頁數(6 頁加狀態總覽)。原因:analyze 第 1 輪 A7。連帶:techstack.md 未提頁數,不必改。

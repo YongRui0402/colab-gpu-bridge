@@ -973,7 +973,10 @@ paths:
         FR-024、FR-025、NFR-008:後端至少每 5 分鐘自動讀一次帳號用量(S8 的 `colab usage`),這裡回傳最後一次的結果,
         有變化時推送 `usage.updated`。`readAt` 超過 15 分鐘時 `stale` 為 true,UI 標示為過期。
         餘額低於警告門檻時 `lowBalance` 為 true,只是警告,不阻止開啟、也不自動結束(FR-025)。
-        讀不到時 `state` 為 `unknown`,`reasonCode` 帶 S8 的 `COLAB_` 代碼、`message` 說明原因,不影響開啟與結束(使用者故事 4 驗收情境 5)。
+        讀取失敗時照 Q119:之前讀到過的,照樣回最後一次讀到的快照(`state` 為 `known`、原本的數值與 `readAt`),
+        `readAt` 超過 15 分鐘就 `stale` 為 true,並以 `reasonCode`、`message`、`lastFailedAt` 說明最近一次讀取失敗;
+        從來沒讀到過時 `state` 才是 `unknown`(數值與 `readAt` 都是 null),同樣以這三個欄位說明原因(使用者故事 4 驗收情境 5)。
+        兩種情況都不影響開啟與結束。下一次讀取成功時,這三個欄位回到 null。
       x-requirements: [FR-024, FR-025, NFR-008]
       x-callers: UI(家中區網的任何瀏覽器,不需登入)
       responses:
@@ -1672,7 +1675,9 @@ components:
         state:
           type: string
           enum: [known, unknown]
-          description: 讀得到,或讀不到(UI 顯示「未知」)
+          description: >-
+            `known`:至少讀到過一次,數值是最後一次讀到的快照(最近一次讀取失敗也照樣是 `known`,Q119);
+            `unknown`:從來沒讀到過(UI 顯示「未知」)
         balance:
           type: [number, 'null']
           description: compute units 餘額
@@ -1687,10 +1692,10 @@ components:
         readAt:
           type: [string, 'null']
           format: date-time
-          description: 讀取時間
+          description: 最後一次讀取成功的時間;讀取失敗時不更新;`unknown` 時為 null
         stale:
           type: boolean
-          description: NFR-008:readAt 超過 15 分鐘
+          description: NFR-008:readAt 超過 15 分鐘(包含之後的讀取一直失敗而沒有更新的情況);`unknown` 時為 false
         lowBalance:
           type: boolean
           description: 餘額低於警告門檻(FR-025)
@@ -1701,10 +1706,14 @@ components:
           oneOf:
             - $ref: '#/components/schemas/ReasonCode'
             - type: 'null'
-          description: 讀不到的原因(S8 的 `COLAB_` 代碼)
+          description: 最近一次讀取失敗的原因(S8 的 `COLAB_` 代碼,或 `AUTH_REQUIRED`);最近一次讀取成功時為 null
         message:
           type: [string, 'null']
-          description: 給使用者看的繁體中文說明
+          description: 給使用者看的繁體中文說明,說明最近一次讀取失敗;最近一次讀取成功時為 null
+        lastFailedAt:
+          type: [string, 'null']
+          format: date-time
+          description: 最近一次讀取失敗的時間(Q119);最近一次讀取成功時為 null
     Settings:
       type: object
       required: [idleTimeoutMinutes, lowBalanceThreshold]

@@ -125,7 +125,8 @@ operations:
     summary: 用量變化
     x-requirements: [FR-024, FR-025, NFR-008]
     x-callers: >-
-      連上時送一次;每次自動讀取用量後(至少每 5 分鐘);讀取時間超過 15 分鐘變成過期時;餘額警告門檻改變時
+      連上時送一次;每次自動讀取用量後(至少每 5 分鐘),讀取失敗也推送(照 Q119:讀到過的仍是最後的快照,
+      加上 `reasonCode`、`message`、`lastFailedAt` 說明失敗;從沒讀到過才是 `unknown`);讀取時間超過 15 分鐘變成過期時;餘額警告門檻改變時
     x-error-codes: []
   sendSettingsUpdated:
     action: send

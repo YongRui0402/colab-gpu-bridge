@@ -449,7 +449,7 @@
   - 🧪 `testplan.md` § US1-CLI-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./sessions.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004
-- [ ] T061a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-06 的測試(以 `name=cgb-test-0001, gpu=T4, high_mem=false` 呼叫;再以 `high_mem=true` 呼叫一次),執行確認它因為「stdin 繼承後端的,CLI 等授權碼時整個開啟卡住」這類實作而失敗;另把 `create_session` 實際傳出的兩組 argv 交給真的 `colab` 0.7.5 解讀(Setup 的 T001 已裝進開發環境):`HOME` 指到空的暫存資料夾、其 `.config/colab-cli/settings.json` 為 `{"enable_update_check": false}`、stdin 接 `/dev/null`、不帶授權檔,斷言 stderr 沒有參數錯誤(`No such option`、`Usage:`、`Invalid value`),只出現未登入或要授權的訊息(不連網、不會配置執行環境;外部程序端點要有讓真的工具解讀參數的測試)
+- [ ] T061a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-06 的測試(以 `name=cgb-test-0001, gpu=T4, high_mem=false` 呼叫;再以 `high_mem=true` 呼叫一次),執行確認它因為「stdin 繼承後端的,CLI 等授權碼時整個開啟卡住」這類實作而失敗;另把 `create_session` 實際傳出的兩組 argv 交給真的 `colab` 0.7.5 解讀(Setup 的 T001 已裝進開發環境):`HOME` 指到空的暫存資料夾、其 `.config/colab-cli/settings.json` 為 `{"enable_update_check": false}`、stdin 接 `/dev/null`、不帶授權檔,斷言 stderr 沒有參數錯誤(`No such option`、`Usage:`、`Invalid value`),只出現未登入或要授權的訊息(不連網、不會配置執行環境;外部程式端點要有讓真的工具解讀參數的測試)
   - 🧪 `testplan.md` § US1-CLI-06
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./new.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、FR-009
