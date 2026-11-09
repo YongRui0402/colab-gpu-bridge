@@ -1,0 +1,729 @@
+openapi: 3.1.0
+info:
+  title: 遠端 Ollama API(Colab 執行環境上)
+  version: 0.1.0
+  description: >-
+    S1(E7 遠端 Ollama)依 spec.md 與 plan.md 產出。
+
+    這是第三方介面:Ollama 定好的 HTTP API 原樣,只列本系統後端會呼叫的操作;路徑、參數與回應欄位都是 Ollama 的,
+    本系統不能改。執行環境上的 Ollama 只聽 127.0.0.1:11434,本系統後端經 SSH 本機轉發呼叫它(research.md R3),
+    沒有任何公開網址。Ollama 不驗證呼叫者的身分。
+
+    版本:執行環境上安裝時取最新版,research.md 實測為 0.40.15;本檔回應欄位的形狀與錯誤本文以桌機 Ollama 0.32.15
+    實測(2026-11-09,唯讀查詢)為準,標「Ollama 說明文件」的是沒有實測、照 Ollama 說明文件寫的行為。
+
+    錯誤本文:Ollama 的錯誤一律回 `{"error": "<英文說明>"}`(schema `OllamaError`),沒有錯誤碼欄位。
+    各回應的 `x-error-codes` 與操作的 `x-adapter-error-codes` 是本系統後端轉接層把對方的失敗歸成的原因代碼
+    (schema `Error` 列出全部代碼),**不是 Ollama 回應的內容**;轉接層依 HTTP 狀態碼、串流內容與連線結果歸類。
+
+    不在本介面:執行環境剩餘磁碟空間(FR-022)與可用顯示記憶體總量(NFR-006),Ollama 的 API 沒有提供。
+servers:
+  - url: http://127.0.0.1:{localPort}
+    description: 本系統後端所在主機上的 SSH 本機轉發,另一端是執行環境的 127.0.0.1:11434
+    variables:
+      localPort:
+        default: '11435'
+        description: 本機轉發的 port(research.md R3 實測用 11435)
+paths:
+  /api/version:
+    get:
+      operationId: getVersion
+      summary: 查 Ollama 版本(健康檢查)
+      description: >-
+        research.md R3:通道建立後每 15 秒打一次,失敗即「重連中」;經通道 5 次平均 0.321 秒。
+        也用來確認開啟流程的「模型服務已可回應」。
+      x-requirements: [FR-011, NFR-005]
+      x-callers: 本系統後端(健康檢查與開啟流程),經 SSH 本機轉發
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      x-timeout: 建議 5 秒(research.md 沒有定下,見待決問題)
+      responses:
+        '200':
+          description: Ollama 版本
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionResponse'
+  /api/tags:
+    get:
+      operationId: listLocalModels
+      summary: 列出執行環境上已下載的模型
+      description: >-
+        回傳 `OLLAMA_MODELS`(執行環境預設 `/root/.ollama/models`,research.md R4)底下已有 manifest 的模型。
+        Ollama 在 pull 的所有層都下載並驗證完才寫入 manifest(Ollama 說明文件的 pull 進度最後是 `writing manifest`、`success`),
+        所以下載中的模型不會出現在這份清單(FR-018;執行環境上待驗證,見待決問題)。
+        UI 模型目錄的名稱與大小(FR-014)、Ollama 相容端點的列模型(FR-011、FR-016)都來自這裡。
+      x-requirements: [FR-011, FR-014, FR-016, FR-018]
+      x-callers: 本系統後端(模型目錄),以及 Ollama 相容端點原樣轉送的區網程式
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      x-timeout: 建議 10 秒(research.md 沒有定下,見待決問題)
+      responses:
+        '200':
+          description: 已下載完成的模型清單;執行環境剛開好時是空陣列
+          x-recipients: 呼叫者(本系統後端,或經 Ollama 相容端點轉送的區網程式;內容相同)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagsResponse'
+  /api/ps:
+    get:
+      operationId: listLoadedModels
+      summary: 列出目前已載入記憶體的模型
+      description: >-
+        模型目錄的「是否已載入」(FR-014)與預先載入完成的確認(FR-015)來自這裡。
+        research.md R3 實測斷線重連後 `/api/ps` 仍顯示 qwen2.5:7b。沒有載入任何模型時回 `{"models":[]}`(桌機實測)。
+      x-requirements: [FR-014, FR-015]
+      x-callers: 本系統後端(模型目錄)
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      x-timeout: 建議 10 秒(research.md 沒有定下,見待決問題)
+      responses:
+        '200':
+          description: 已載入的模型與各自佔用的記憶體與到期時間
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PsResponse'
+  /api/pull:
+    post:
+      operationId: pullModel
+      summary: 從 Ollama 官方模型庫下載模型到執行環境(串流進度)
+      description: >-
+        research.md R5:下載佇列一次一個,依序呼叫;經通道的串流進度完整穿過(qwen2.5:7b 4.68GB 48.7 秒、432 行,
+        其中 416 行含進度),背景下載期間推論延遲不受影響。
+        預設 `stream: true`,回應是 `application/x-ndjson`,每行一個 `PullProgress`;
+        最後一行 `{"status":"success"}` 才算下載完成。
+        串流開始之後的失敗,Ollama 以 HTTP 200 加上一行 `{"error": "..."}` 回報(Ollama 說明文件,沒有實測,見待決問題)。
+        桌機實測只做唯讀查詢,沒有呼叫這個操作。
+        這個操作只由本系統後端呼叫;Ollama 相容端點對區網程式阻擋它(FR-012、research.md R8)。
+      x-requirements: [FR-017, FR-018, NFR-005, SC-004]
+      x-callers: 只有本系統後端(下載佇列),工作階段「就緒」時
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_STREAM_INTERRUPTED]
+      x-timeout: 建議只設連線逾時 10 秒與「兩行進度之間」逾時 60 秒,不設總時長(research.md 沒有定下,見待決問題)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PullRequest'
+      responses:
+        '200':
+          description: >-
+            NDJSON 串流,每行一個 `PullProgress`。轉接層的判讀:最後一行 `status` 為 `success` → 完成;
+            出現 `error` 行且說明含 `file does not exist`(找不到該模型或版本) → `OLLAMA_NOT_FOUND`;
+            其他 `error` 行(例如磁碟不足、registry 失敗) → `OLLAMA_PULL_FAILED`;
+            串流在 `success` 之前斷線 → `OLLAMA_STREAM_INTERRUPTED`;某一行不是 JSON 或欄位型別不符 → `OLLAMA_BAD_RESPONSE`。
+          x-recipients: 呼叫者(本系統後端)
+          x-stream-error-codes: [OLLAMA_NOT_FOUND, OLLAMA_PULL_FAILED, OLLAMA_STREAM_INTERRUPTED, OLLAMA_BAD_RESPONSE]
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/PullProgress'
+        '400':
+          description: 請求本文不是合法 JSON,或缺少 `model`(Ollama 說明文件;同類錯誤在其他路徑已實測為 400)
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: 串流開始前 Ollama 內部失敗
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/show:
+    post:
+      operationId: showModel
+      summary: 查模型資訊
+      description: 經 Ollama 相容端點原樣轉送(FR-011 的「查模型資訊」);模型不在執行環境上回 404(桌機實測)。
+      x-requirements: [FR-011, FR-016]
+      x-callers: 經 Ollama 相容端點原樣轉送的區網程式;本系統後端也可以呼叫
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShowRequest'
+      responses:
+        '200':
+          description: 模型的 modelfile、參數、樣板、細節與能力
+          x-recipients: 呼叫者(經 Ollama 相容端點轉送的區網程式,或本系統後端;內容相同)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShowResponse'
+        '400':
+          description: 缺少 `model`(桌機實測:`{"error":"model is required"}`),或本文不是合法 JSON
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: 模型不在執行環境上(桌機實測:`{"error":"model '<名稱>' not found"}`)
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/generate:
+    post:
+      operationId: generate
+      summary: 產生文字;只帶 model 時為預先載入
+      description: >-
+        兩種用法。
+
+        (1)推論:經 Ollama 相容端點原樣轉送,預設串流(`application/x-ndjson`,每行一個 `GenerateResponse`,最後一行 `done: true`);
+        `stream: false` 時回一個 JSON。指名的模型在執行環境上但沒載入時,Ollama 自己先載入再回應(research.md R8,FR-016);
+        不在執行環境上回 404,不會自動下載(桌機實測)。
+
+        (2)預先載入(FR-015):本系統後端送只有 `model`(可加 `keep_alive`)、沒有 `prompt` 的請求,
+        Ollama 載入模型後回一個 `done: true`、`done_reason: load`、`response` 為空字串的 JSON(Ollama 說明文件)。
+        載入後的保留時間由 `keep_alive` 決定,沒給時是 Ollama 的預設 5 分鐘(Ollama 說明文件,見待決問題)。
+
+        記憶體或磁碟不足以載入時 Ollama 回 500,說明在 `error` 裡;已載入的其他模型不受影響(spec 邊界情況)。
+      x-requirements: [FR-011, FR-015, FR-016]
+      x-callers: 經 Ollama 相容端點原樣轉送的區網程式(推論);本系統後端(預先載入)
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_STREAM_INTERRUPTED]
+      x-timeout: 預先載入建議 300 秒(大模型首次載入;research.md R4 有 40 秒以上的載入,沒有定下,見待決問題)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+      responses:
+        '200':
+          description: >-
+            串流時是 NDJSON,每行一個 `GenerateResponse`;`stream: false` 或預先載入時是一個 `GenerateResponse`。
+            串流中途斷線 → `OLLAMA_STREAM_INTERRUPTED`(spec 邊界情況:這次串流中斷並回傳錯誤)。
+          x-recipients: 呼叫者(經 Ollama 相容端點轉送的區網程式,或預先載入時的本系統後端)
+          x-stream-error-codes: [OLLAMA_STREAM_INTERRUPTED, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+        '400':
+          description: 本文不是合法 JSON(桌機實測:`{"error":"invalid character ..."}`)
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: >-
+            模型不在執行環境上,或沒給 `model`(桌機實測:`{"error":"model '<名稱>' not found"}`,沒給時名稱是空字串)
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: 載入或推論失敗,例如顯示記憶體或系統記憶體不足(Ollama 說明文件,沒有實測)
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/chat:
+    post:
+      operationId: chat
+      summary: 對話
+      description: >-
+        經 Ollama 相容端點原樣轉送。預設串流(NDJSON,每行一個 `ChatResponse`);`stream: false` 時回一個 JSON。
+        指名的模型沒載入時 Ollama 先載入(FR-016);不在執行環境上回 404(桌機實測)。
+      x-requirements: [FR-011, FR-016]
+      x-callers: 經 Ollama 相容端點原樣轉送的區網程式
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_STREAM_INTERRUPTED]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: >-
+            串流時是 NDJSON,每行一個 `ChatResponse`;`stream: false` 時是一個 `ChatResponse`
+          x-recipients: 呼叫者(經 Ollama 相容端點轉送的區網程式)
+          x-stream-error-codes: [OLLAMA_STREAM_INTERRUPTED, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: 本文不是合法 JSON
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: 模型不在執行環境上(桌機實測:`{"error":"model '<名稱>' not found"}`)
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: 載入或推論失敗,例如記憶體不足(Ollama 說明文件,沒有實測)
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/embed:
+    post:
+      operationId: embed
+      summary: 產生 embeddings
+      description: 經 Ollama 相容端點原樣轉送;不串流。模型不在執行環境上回 404(桌機實測)。
+      x-requirements: [FR-011, FR-016]
+      x-callers: 經 Ollama 相容端點原樣轉送的區網程式
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbedRequest'
+      responses:
+        '200':
+          description: 每個輸入一個向量
+          x-recipients: 呼叫者(經 Ollama 相容端點轉送的區網程式)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedResponse'
+        '400':
+          description: 本文不是合法 JSON,或缺少必要欄位
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: 模型不在執行環境上(桌機實測:`{"error":"model \"<名稱>\" not found, try pulling it first"}`)
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: 載入或計算失敗(Ollama 說明文件,沒有實測)
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+  /api/embeddings:
+    post:
+      operationId: embeddingsLegacy
+      summary: 產生 embedding(舊版介面)
+      description: Ollama 保留的舊版介面,仍有用戶端使用;經 Ollama 相容端點原樣轉送。模型不在執行環境上回 404(桌機實測)。
+      x-requirements: [FR-011, FR-016]
+      x-callers: 經 Ollama 相容端點原樣轉送的區網程式
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingsRequest'
+      responses:
+        '200':
+          description: 一個向量
+          x-recipients: 呼叫者(經 Ollama 相容端點轉送的區網程式)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingsResponse'
+        '400':
+          description: 本文不是合法 JSON,或缺少必要欄位
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: 模型不在執行環境上(桌機實測:`{"error":"model \"<名稱>\" not found, try pulling it first"}`)
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: 載入或計算失敗(Ollama 說明文件,沒有實測)
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+components:
+  schemas:
+    VersionResponse:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: string
+          description: Ollama 版本,例如 0.40.15(執行環境)或 0.32.15(桌機實測)
+    ModelDetails:
+      type: object
+      description: 模型的格式與量化資訊(桌機 0.32.15 實測的欄位;`/api/show` 的 details 沒有 context_length 與 embedding_length)
+      properties:
+        parent_model:
+          type: string
+        format:
+          type: string
+          description: 例如 gguf
+        family:
+          type: string
+        families:
+          type: array
+          items:
+            type: string
+        parameter_size:
+          type: string
+          description: 例如 4.0B
+        quantization_level:
+          type: string
+          description: 例如 Q4_K_M
+        context_length:
+          type: integer
+        embedding_length:
+          type: integer
+    LocalModel:
+      type: object
+      required: [name, model, modified_at, size, digest]
+      properties:
+        name:
+          type: string
+          description: 模型名稱含版本,例如 qwen2.5:7b
+        model:
+          type: string
+          description: 和 name 相同
+        modified_at:
+          type: string
+          format: date-time
+          description: 下載完成(寫入 manifest)的時間
+        size:
+          type: integer
+          minimum: 0
+          description: 模型在磁碟上的大小,位元組
+        digest:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: manifest 的 sha256,不含 `sha256:` 前綴
+        details:
+          $ref: '#/components/schemas/ModelDetails'
+        capabilities:
+          type: array
+          description: 例如 completion、tools、vision、thinking(桌機 0.32.15 實測有這個欄位)
+          items:
+            type: string
+    TagsResponse:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocalModel'
+    LoadedModel:
+      type: object
+      required: [name, model, size, digest, expires_at, size_vram]
+      description: 欄位照 Ollama 說明文件;桌機實測時沒有已載入的模型,只確認了空清單
+      properties:
+        name:
+          type: string
+        model:
+          type: string
+        size:
+          type: integer
+          minimum: 0
+          description: 載入後佔用的記憶體,位元組
+        digest:
+          type: string
+        details:
+          $ref: '#/components/schemas/ModelDetails'
+        expires_at:
+          type: string
+          format: date-time
+          description: 沒有請求時預計卸載的時間(由 keep_alive 決定)
+        size_vram:
+          type: integer
+          minimum: 0
+          description: 在顯示記憶體裡的部分,位元組;等於 size 表示整個模型在 GPU 上
+        context_length:
+          type: integer
+    PsResponse:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoadedModel'
+    PullRequest:
+      type: object
+      required: [model]
+      properties:
+        model:
+          type: string
+          description: 要下載的模型名稱含版本,例如 qwen2.5:7b;沒寫版本時 Ollama 視為 latest
+        insecure:
+          type: boolean
+          description: 允許不安全的 registry 連線;本系統不使用
+        stream:
+          type: boolean
+          default: true
+          description: 本系統一律用串流,才拿得到進度
+    PullProgress:
+      type: object
+      description: >-
+        NDJSON 的一行。`status` 依序大致是 `pulling manifest`、`pulling <digest 前 12 碼>`(帶 digest、total、completed)、
+        `verifying sha256 digest`、`writing manifest`、`success`;失敗時這一行只有 `error`(Ollama 說明文件)。
+      properties:
+        status:
+          type: string
+        digest:
+          type: string
+          description: 正在下載的層,例如 `sha256:...`
+        total:
+          type: integer
+          minimum: 0
+          description: 這一層的總大小,位元組
+        completed:
+          type: integer
+          minimum: 0
+          description: 這一層已下載的位元組;沒開始時可能沒有這個欄位
+        error:
+          type: string
+          description: 失敗原因(英文);出現時表示下載失敗
+    ShowRequest:
+      type: object
+      required: [model]
+      properties:
+        model:
+          type: string
+        verbose:
+          type: boolean
+    ShowResponse:
+      type: object
+      description: 桌機 0.32.15 實測的欄位;本系統原樣轉送,不解讀內容
+      properties:
+        license:
+          type: string
+        modelfile:
+          type: string
+        parameters:
+          type: string
+        template:
+          type: string
+        details:
+          $ref: '#/components/schemas/ModelDetails'
+        model_info:
+          type: object
+          additionalProperties: true
+        projector_info:
+          type: object
+          additionalProperties: true
+        tensors:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        capabilities:
+          type: array
+          items:
+            type: string
+        modified_at:
+          type: string
+          format: date-time
+    KeepAlive:
+      description: >-
+        載入後保留在記憶體的時間:時間字串(例如 `30m`)或秒數;`0` 表示回應後立即卸載,負數表示一直保留
+        (Ollama 說明文件)。沒給時用 Ollama 的預設 5 分鐘,或執行環境的 `OLLAMA_KEEP_ALIVE`。
+      oneOf:
+        - type: string
+        - type: number
+    GenerateRequest:
+      type: object
+      required: [model]
+      description: 只列本系統會看或會送的欄位;其他欄位(images、format、options、system、template、raw、think…)原樣轉送
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        prompt:
+          type: string
+          description: 預先載入時不送
+        stream:
+          type: boolean
+          default: true
+        keep_alive:
+          $ref: '#/components/schemas/KeepAlive'
+    GenerateResponse:
+      type: object
+      required: [model, created_at, done]
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        response:
+          type: string
+          description: 這一段產生的文字;預先載入時是空字串
+        done:
+          type: boolean
+          description: 串流的最後一行是 true
+        done_reason:
+          type: string
+          description: 例如 stop、length;預先載入時是 load
+        total_duration:
+          type: integer
+          description: 總耗時,奈秒(只在 done 為 true 的那一行)
+        load_duration:
+          type: integer
+          description: 載入模型耗時,奈秒
+        prompt_eval_count:
+          type: integer
+        eval_count:
+          type: integer
+        eval_duration:
+          type: integer
+          description: 產生耗時,奈秒
+    ChatMessage:
+      type: object
+      required: [role]
+      additionalProperties: true
+      properties:
+        role:
+          type: string
+          description: system、user、assistant 或 tool
+        content:
+          type: string
+    ChatRequest:
+      type: object
+      required: [model]
+      additionalProperties: true
+      description: 只列本系統會看的欄位;其他欄位(tools、format、options、think…)原樣轉送
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        stream:
+          type: boolean
+          default: true
+        keep_alive:
+          $ref: '#/components/schemas/KeepAlive'
+    ChatResponse:
+      type: object
+      required: [model, created_at, done]
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+        done:
+          type: boolean
+        done_reason:
+          type: string
+        total_duration:
+          type: integer
+        load_duration:
+          type: integer
+        eval_count:
+          type: integer
+    EmbedRequest:
+      type: object
+      required: [model, input]
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        input:
+          description: 一段文字或文字陣列
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        keep_alive:
+          $ref: '#/components/schemas/KeepAlive'
+    EmbedResponse:
+      type: object
+      required: [model, embeddings]
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        embeddings:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+    EmbeddingsRequest:
+      type: object
+      required: [model, prompt]
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+        prompt:
+          type: string
+        keep_alive:
+          $ref: '#/components/schemas/KeepAlive'
+    EmbeddingsResponse:
+      type: object
+      required: [embedding]
+      properties:
+        embedding:
+          type: array
+          items:
+            type: number
+    OllamaError:
+      type: object
+      required: [error]
+      description: Ollama 回傳的錯誤本文(桌機實測),只有一個英文說明,沒有錯誤碼
+      properties:
+        error:
+          type: string
+    Error:
+      type: object
+      required: [code]
+      description: >-
+        本系統後端轉接層把遠端 Ollama 的失敗歸成的原因代碼,**不是 Ollama 回應的內容**;
+        後端 UI API(S5)與 Ollama 相容端點(S6)據此決定要回什麼給它們的呼叫者。
+      properties:
+        code:
+          type: string
+          enum: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_NOT_FOUND, OLLAMA_BAD_REQUEST, OLLAMA_SERVER_ERROR, OLLAMA_PULL_FAILED, OLLAMA_STREAM_INTERRUPTED]
+          x-enum-descriptions:
+            OLLAMA_UNREACHABLE: 連不到(本機轉發沒有在聽、連線被拒、ssh 通道斷了),還沒收到任何 HTTP 回應
+            OLLAMA_TIMEOUT: 連上了,但在逾時內沒有收到回應(或串流兩行之間超過逾時)
+            OLLAMA_BAD_RESPONSE: 回應不是預期的 JSON 或 NDJSON、缺少必要欄位、型別不符,或收到本檔沒列的狀態碼
+            OLLAMA_NOT_FOUND: 指名的模型不在執行環境上(404),或 pull 時官方模型庫沒有這個模型或版本(串流裡的 error 含 `file does not exist`)
+            OLLAMA_BAD_REQUEST: Ollama 回 400:本文不是合法 JSON 或缺少必要欄位
+            OLLAMA_SERVER_ERROR: Ollama 回 500:載入或推論失敗,例如記憶體或磁碟不足
+            OLLAMA_PULL_FAILED: pull 的串流裡出現 `file does not exist` 以外的 error 行(例如磁碟不足、registry 連線失敗)
+            OLLAMA_STREAM_INTERRUPTED: 串流已經開始,在最後一行(pull 的 success、推論的 done 為 true)之前連線中斷
