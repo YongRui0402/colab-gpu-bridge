@@ -1457,8 +1457,8 @@ components:
           type: string
           description: 名稱加版本,例如 qwen2.5:7b;加入下載時用這個
         sizeLabel:
-          type: string
-          description: 版本頁的大小顯示值,例如 4.7GB、398MB
+          type: [string, 'null']
+          description: 版本頁的大小顯示值,例如 4.7GB、398MB;只在雲端的版本(cloudOnly)版本頁沒有大小,為 null(plan.md Q182)
         approxSizeBytes:
           type: [integer, 'null']
           minimum: 0

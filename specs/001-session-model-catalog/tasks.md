@@ -1570,7 +1570,7 @@
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014
-- [X] T187a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-03 的測試(送 `POST /api/models/preload {model:"qwen2.5:7b"}`,再放行),執行確認它因為「用一個真的 prompt 預熱(多花時間、產生輸出)」這類實作而失敗
+- [X] T187a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-03 的測試(送 `POST /api/models/preload {name:"qwen2.5:7b"}`,再放行),執行確認它因為「用一個真的 prompt 預熱(多花時間、產生輸出)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015
@@ -1578,7 +1578,7 @@
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015
-- [X] T188a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-04 的測試(送 `POST /api/models/preload {model:"qwen2.5:7b"}`),執行確認它因為「目錄沒有的模型就順手下載」這類實作而失敗
+- [X] T188a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-04 的測試(送 `POST /api/models/preload {name:"qwen2.5:7b"}`),執行確認它因為「目錄沒有的模型就順手下載」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-015、FR-016
@@ -1586,7 +1586,7 @@
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-015、FR-016
-- [X] T189a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-05 的測試(送 `POST /api/models/preload {model:"qwen2.5:7b"}`),執行確認它因為「載入失敗時把整個目錄標成錯誤,或清掉其他模型的已載入狀態」這類實作而失敗
+- [X] T189a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US3-API-05 的測試(送 `POST /api/models/preload {name:"qwen2.5:7b"}`),執行確認它因為「載入失敗時把整個目錄標成錯誤,或清掉其他模型的已載入狀態」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models/preload.post`、`paths./models.get`
   - 📎 `spec.md` § 邊界情況、FR-015
