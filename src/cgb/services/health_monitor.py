@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import logging
 import os
 from typing import Any
 
@@ -16,6 +17,8 @@ from cgb.services.session_lifecycle import SessionLifecycle
 
 # Q87:SSH 私鑰路徑由 CGB_SSH_IDENTITY_PATH 指定;沒有傳入時和 UI API 讀同一個環境變數與預設值
 DEFAULT_SSH_IDENTITY_PATH = "/data/ssh/id_ed25519"
+
+logger = logging.getLogger(__name__)
 
 
 class HealthMonitor:
@@ -52,7 +55,11 @@ class HealthMonitor:
             await self._state.clock.sleep(self._state.timeouts.health_interval)
             latest = self._repo.latest()
             if latest is not None and latest["state"] == "ready":
-                await self._check(latest["name"])
+                try:
+                    await self._check(latest["name"])
+                except Exception:
+                    # Q194:非預期的例外不能讓健康檢查停掉(否則之後斷線或被收回都偵測不到),記下來,下一輪照常檢查
+                    logger.exception("健康檢查時發生非預期的錯誤,下一輪再試")
 
     async def _check(self, name: str) -> None:
         try:

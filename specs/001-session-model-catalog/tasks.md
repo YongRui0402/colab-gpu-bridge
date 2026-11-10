@@ -2267,11 +2267,11 @@
   - 🧪 `testplan.md` § US4-API-20
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.get`、`components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026、SC-006、NFR-008;`plan.md` § 待決問題 Q191
-- [ ] T268a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US4-API-21 的測試(開到就緒後等 `check_health` 丟出那次 `RuntimeError`;等它再被呼叫 1 次後,從 `colab sessions` 拿掉這台,讓 `check_health` 改成回 `TUNNEL_UNREACHABLE`),執行確認它因為「健康檢查的背景迴圈只接 `AdapterError`,其他例外讓迴圈靜靜結束,之後斷線或被收回都不會進入重連中或失聯(Q194)」這類實作而失敗
+- [X] T268a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US4-API-21 的測試(開到就緒後等 `check_health` 丟出那次 `RuntimeError`;等它再被呼叫 1 次後,從 `colab sessions` 拿掉這台,讓 `check_health` 改成回 `TUNNEL_UNREACHABLE`),執行確認它因為「健康檢查的背景迴圈只接 `AdapterError`,其他例外讓迴圈靜靜結束,之後斷線或被收回都不會進入重連中或失聯(Q194)」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-21
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q194
-- [ ] T268b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py` 只寫讓 US4-API-21 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認背景迴圈遇到非 `AdapterError` 的例外時記 log 後繼續下一輪,`CancelledError` 照樣能取消(Q194)(依賴 T268a)
+- [X] T268b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py` 只寫讓 US4-API-21 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認背景迴圈遇到非 `AdapterError` 的例外時記 log 後繼續下一輪,`CancelledError` 照樣能取消(Q194)(依賴 T268a)
   - 🧪 `testplan.md` § US4-API-21
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q194

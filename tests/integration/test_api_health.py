@@ -255,3 +255,36 @@ async def test_重連中時依最後讀到的餘額提示可能已經歸零(
     assert session.get("state") == "reconnecting", session
     # Assert:則2、則3
     assert session.get("balanceMayBeDepleted") is expected, session
+
+
+# ---------------------------------------------------------------- US4-API-21
+
+
+async def test_健康檢查遇到非預期的例外時下一輪照常檢查_之後失聯照樣判定(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:check_health 第一次丟 RuntimeError(不是 AdapterError),之後回健康
+    world = ColabWorld(fakes)
+
+    def check(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        if fakes.tunnel.check_health.call_count == 1:
+            raise RuntimeError("健康檢查時的非預期錯誤(測試注入)")
+        return {"sessionName": kwargs.get("session_name"), "healthy": True, "remoteOllamaVersion": "0.40.15", "checkedAt": "2026-11-09T09:00:00Z", "latencyMs": 1}
+
+    fakes.tunnel.check_health.side_effect(check)
+    name = (await open_ready(ui_client))["name"]
+
+    # Act:等丟例外之後又被呼叫 1 次;再從 colab sessions 拿掉這台,讓 check_health 改成回 TUNNEL_UNREACHABLE
+    seen: list[str] = []
+    deadline = time.monotonic() + 2.0
+    while fakes.tunnel.check_health.call_count < 2 and time.monotonic() < deadline:
+        seen.append((await get_session(ui_client)).get("state"))
+        await asyncio.sleep(0.02)
+    checks = fakes.tunnel.check_health.call_count
+    world.alive.remove(name)
+    fakes.tunnel.check_health.raises("TUNNEL_UNREACHABLE", "連不到")
+    final = await wait_until(ui_client, lambda s: s.get("state") == "lost", timeout=2.0)
+
+    # Assert:則1
+    assert checks >= 2, f"check_health 只被呼叫 {checks} 次"
+    assert set(seen) <= {"ready"}, seen
+    # Assert:則2
+    assert (final.get("state"), final.get("endReason")) == ("lost", "RECLAIMED_BY_COLAB"), final
