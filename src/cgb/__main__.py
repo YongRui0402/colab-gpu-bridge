@@ -13,6 +13,7 @@ from cgb.adapters.colab_cli import ColabControl
 from cgb.adapters.google_oauth import GoogleOAuth
 from cgb.adapters.tunnel import Tunnel
 from cgb.app import create_app
+from cgb.logging_setup import setup as setup_logging
 from cgb.server import serve
 
 
@@ -40,6 +41,7 @@ def read_settings(env: Mapping[str, str] = os.environ) -> Settings:
 
 
 def main() -> None:
+    setup_logging()
     settings = read_settings()
     # 授權檔的位置與 SSH 私鑰由轉接層與 UI API 從環境變數讀取(Q87);沒設時補上預設值,讓兩邊讀到同一個路徑
     os.environ.setdefault("CGB_COLAB_CONFIG_DIR", settings.colab_config_dir)

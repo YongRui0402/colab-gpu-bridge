@@ -2527,18 +2527,26 @@
   - 🧪 `testplan.md` § G-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./version.get`、`paths./sessions.get`、`paths./new.post`、`paths./exec/start-ollama.post`、`paths./exec/probe-resources.post`、`paths./stop.post`、`paths./usage.get`;`contracts/tunnel.openapi.yaml` § `paths./key.post`、`paths./tunnels.post`、`paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}.delete`;`contracts/google-oauth.openapi.yaml` § `paths./o/oauth2/auth.get`、`paths./token.post`
   - 📎 `spec.md` § FR-004、FR-005、FR-007
-- [ ] T295 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T289b、T290b、T291b、T292b、T293b、T294b 記下的重構清單(範圍限 `src/cgb/`、`deploy/`、`.gitignore`、`Dockerfile.dockerignore`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/e2e/` 的斷言(依賴 T294b)
-  - 🧪 `testplan.md` § G-02、G-03、G-04、G-06、G-08、G-09
+- [X] T295a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_logging.py` 寫 G-10 的測試(以子行程跑正式的 `python -m cgb`,`PATH` 只有 `tests/fixtures/bin` 與 `/usr/bin:/bin`,`HOME` 與各資料路徑指到暫存資料夾;等 UI 就緒後以記下本機 port 的連線對 Ollama 相容端點送一次帶 prompt 標記的 `POST /api/generate`,再以 SIGTERM 結束、收 stdout 與 stderr),執行確認它因為「正式啟動沒設定 logging,INFO 的請求紀錄被丟掉;或 uvicorn 的 access log 對 Ollama 相容端點開著」這類實作而失敗;不碰真的 Colab 與 `~/.config/colab-cli/`(Q199);則3 另寫一個測試函式,以子行程跑 `logging_setup.setup()` 加 `Servers`、轉接層用替身,開到就緒後經 Ollama 相容端點轉送一次,確認它因為「httpx 的 INFO 印出轉發位址與路徑」而失敗(Q200)
+  - 🧪 `testplan.md` § G-10
+  - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
+  - 📎 `spec.md` § NFR-010;`plan.md` § 待決問題 Q199
+- [X] T295b [G] 🟢 /tdd 綠燈:在 `src/cgb/logging_setup.py`、`src/cgb/__main__.py`、`src/cgb/server.py` 只寫讓 G-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;新增 `logging_setup.setup()`(INFO 起、formatter 含時間與 logger 名稱)由 `__main__.main()` 呼叫,`server.py` 對 Ollama 相容端點關掉 uvicorn 的 access log;`setup()` 把 `httpx`、`httpcore` 設成 WARNING(Q200)(依賴 T295a)
+  - 🧪 `testplan.md` § G-10
+  - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
+  - 📎 `spec.md` § NFR-010;`plan.md` § 待決問題 Q199
+- [ ] T296 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T289b、T290b、T291b、T292b、T293b、T294b、T295b 記下的重構清單(範圍限 `src/cgb/`、`deploy/`、`.gitignore`、`Dockerfile.dockerignore`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/e2e/` 的斷言(依賴 T295b)
+  - 🧪 `testplan.md` § G-02、G-03、G-04、G-06、G-08、G-09、G-10
   - 📎 `testplan.md` § 6.2
-- [ ] T296 [G] 📏 量測(人工):⏸ 延後:需要使用者本人在場,不在 P9 這一批(plan.md Q101 決定實跑授權改為複製既有 token.json、比對 sha256,US1-OA-06 與 G-01 延後到使用者回來;Q108),使用者回來並同意前不執行;撰寫 `tests/realrun/test_g_01.py`(`-m realrun`),照 G-01 量測。假如:延後到使用者在場時另跑(Q108),不在 P9 這一批;`docker compose -p cgb-test` 起在桌機,`.env` 的 `CGB_BIND_ADDR=0.0.0.0`(本案例暫時改,其他案例用 127.0.0.1)、UI 8780、Ollama 相容端點 11436;沒有工作階段。當:使用者用同一個區網的另一台裝置(手機連 Wi-Fi 或另一台電腦)打開 `http://<桌機區網 IP>:8780`,並對 `http://<桌機區網 IP>:11436/api/version` 送請求;再把手機切到行動網路,或用 check-host.net,對桌機的公網 IP 連 8780 與 11436。記下的數字與門檻:則1:區網裝置不需要任何登入就看到首頁;則2:區網裝置對 11436 收到 503 與「沒有可用的工作階段」;則3:行動網路或 check-host.net 對 8780 連不上;則4:行動網路或 check-host.net 對 11436 連不上。副作用與護欄:P5、P6;不開執行環境,0 compute units,約 5 分鐘;不改路由器設定,只觀察;不在區網內連公網 IP(NAT hairpin 結果不可信);測完把 `CGB_BIND_ADDR` 改回 127.0.0.1 並重建容器(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:使用者(則1、則2 看畫面與回應);腳本或 check-host.net 結果判定則3、則4;樣本:一台區網裝置與一個外網來源(未用於調整)。使用者在場時另跑,不和 P9 那一批一起;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
+- [ ] T297 [G] 📏 量測(人工):⏸ 延後:需要使用者本人在場,不在 P9 這一批(plan.md Q101 決定實跑授權改為複製既有 token.json、比對 sha256,US1-OA-06 與 G-01 延後到使用者回來;Q108),使用者回來並同意前不執行;撰寫 `tests/realrun/test_g_01.py`(`-m realrun`),照 G-01 量測。假如:延後到使用者在場時另跑(Q108),不在 P9 這一批;`docker compose -p cgb-test` 起在桌機,`.env` 的 `CGB_BIND_ADDR=0.0.0.0`(本案例暫時改,其他案例用 127.0.0.1)、UI 8780、Ollama 相容端點 11436;沒有工作階段。當:使用者用同一個區網的另一台裝置(手機連 Wi-Fi 或另一台電腦)打開 `http://<桌機區網 IP>:8780`,並對 `http://<桌機區網 IP>:11436/api/version` 送請求;再把手機切到行動網路,或用 check-host.net,對桌機的公網 IP 連 8780 與 11436。記下的數字與門檻:則1:區網裝置不需要任何登入就看到首頁;則2:區網裝置對 11436 收到 503 與「沒有可用的工作階段」;則3:行動網路或 check-host.net 對 8780 連不上;則4:行動網路或 check-host.net 對 11436 連不上。副作用與護欄:P5、P6;不開執行環境,0 compute units,約 5 分鐘;不改路由器設定,只觀察;不在區網內連公網 IP(NAT hairpin 結果不可信);測完把 `CGB_BIND_ADDR` 改回 127.0.0.1 並重建容器(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:使用者(則1、則2 看畫面與回應);腳本或 check-host.net 結果判定則3、則4;樣本:一台區網裝置與一個外網來源(未用於調整)。使用者在場時另跑,不和 P9 那一批一起;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
   - 🧪 `testplan.md` § G-01
   - ⚙ `deploy/compose.yaml` § `services.cgb.ports`;`prototype/index.html` § `[data-state="normal"]`;`contracts/ollama-compat.openapi.yaml` § `paths./api/version.get`、`components.schemas.OllamaError`
   - 📎 `spec.md` § NFR-009;`plan.md` § 待決問題 Q101、Q108
-- [ ] T297 [G] 📏 量測:撰寫 `tests/realrun/test_g_05.py`(`-m realrun`),照 G-05 量測。假如:整批實跑結束、P3 之後;`<暫存目錄>/data/colab-cli/token.json` 仍在。當:從 token.json 取出 access token 與 refresh token 寫進一個 0600 的暫存 pattern 檔(不印出);對 `docker compose -p cgb-test logs`、`<暫存目錄>/data` 底下 `token.json` 與 `sessions.json` 以外的每個檔、實跑錄下的所有 API 回應與 SSE 事件,執行 `grep -c -F -f <pattern 檔>`,只印每個來源的次數。記下的數字與門檻:則1:每個來源的次數都是 0;則2:`colab.log` 是指向 `/dev/null` 的符號連結;則3:`docker inspect` 的環境變數裡沒有 token。副作用與護欄:P6、P8;不開執行環境,0 compute units,約 2 分鐘;pattern 檔放 `<暫存目錄>`,用完立即刪除;先以一個已知的假 token 驗一次這條 grep 指令真的數得到(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(次數 0);樣本:整批實跑產生的日誌與檔案(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
+- [ ] T298 [G] 📏 量測:撰寫 `tests/realrun/test_g_05.py`(`-m realrun`),照 G-05 量測。假如:整批實跑結束、P3 之後;`<暫存目錄>/data/colab-cli/token.json` 仍在。當:從 token.json 取出 access token 與 refresh token 寫進一個 0600 的暫存 pattern 檔(不印出);對 `docker compose -p cgb-test logs`、`<暫存目錄>/data` 底下 `token.json` 與 `sessions.json` 以外的每個檔、實跑錄下的所有 API 回應與 SSE 事件,執行 `grep -c -F -f <pattern 檔>`,只印每個來源的次數。記下的數字與門檻:則1:每個來源的次數都是 0;則2:`colab.log` 是指向 `/dev/null` 的符號連結;則3:`docker inspect` 的環境變數裡沒有 token。副作用與護欄:P6、P8;不開執行環境,0 compute units,約 2 分鐘;pattern 檔放 `<暫存目錄>`,用完立即刪除;先以一個已知的假 token 驗一次這條 grep 指令真的數得到(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(次數 0);樣本:整批實跑產生的日誌與檔案(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
   - 🧪 `testplan.md` § G-05
   - ⚙ `deploy/compose.yaml` § `services.cgb`
   - 📎 `spec.md` § NFR-010;`plan.md` § 待決問題 Q101、Q108
-- [ ] T298 [G] 📏 量測:撰寫 `tests/realrun/test_g_07.py`(`-m realrun`),照 G-07 量測。假如:整批實跑的最後(P3 之後),`<暫存目錄>/.env` 只有 `CGB_HOST_DATA`、`CGB_HOST_UI_PORT=8780`、`CGB_HOST_OLLAMA_PORT=11436`、`CGB_BIND_ADDR=127.0.0.1`;資料夾裡已有複製來的授權與 US1-AJ-17~US1-AJ-22、US4-AJ-09 的紀錄。當:`docker compose -p cgb-test --env-file <暫存目錄>/.env down`,再 `up -d --force-recreate`(沿用已建好的映像);等健康;讀 `GET /api/auth`、`GET /api/sessions`;`docker exec` 讀 `/data` 底下的權限。記下的數字與門檻:則1:`up` 後 90 秒內容器狀態為 healthy;則2:`GET /api/auth` 的 `state` 為 `logged_in`;則3:`GET /api/sessions` 的筆數與重建前相同;則4:`/data/cgb.sqlite3`、`/data/colab-cli/token.json`、`/data/ssh/id_ed25519` 的權限是 0600;則5:`/data/colab-cli/history` 是 tmpfs,重建後是空的。副作用與護欄:P3、P5、P6、P8;不開執行環境,0 compute units,約 3 分鐘;只操作 `-p cgb-test`,不碰 named volume `cgb-data`;重建後不按「開啟」(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本;樣本:整批實跑留下的資料(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
+- [ ] T299 [G] 📏 量測:撰寫 `tests/realrun/test_g_07.py`(`-m realrun`),照 G-07 量測。假如:整批實跑的最後(P3 之後),`<暫存目錄>/.env` 只有 `CGB_HOST_DATA`、`CGB_HOST_UI_PORT=8780`、`CGB_HOST_OLLAMA_PORT=11436`、`CGB_BIND_ADDR=127.0.0.1`;資料夾裡已有複製來的授權與 US1-AJ-17~US1-AJ-22、US4-AJ-09 的紀錄。當:`docker compose -p cgb-test --env-file <暫存目錄>/.env down`,再 `up -d --force-recreate`(沿用已建好的映像);等健康;讀 `GET /api/auth`、`GET /api/sessions`;`docker exec` 讀 `/data` 底下的權限。記下的數字與門檻:則1:`up` 後 90 秒內容器狀態為 healthy;則2:`GET /api/auth` 的 `state` 為 `logged_in`;則3:`GET /api/sessions` 的筆數與重建前相同;則4:`/data/cgb.sqlite3`、`/data/colab-cli/token.json`、`/data/ssh/id_ed25519` 的權限是 0600;則5:`/data/colab-cli/history` 是 tmpfs,重建後是空的。副作用與護欄:P3、P5、P6、P8;不開執行環境,0 compute units,約 3 分鐘;只操作 `-p cgb-test`,不碰 named volume `cgb-data`;重建後不按「開啟」(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本;樣本:整批實跑留下的資料(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
   - 🧪 `testplan.md` § G-07
   - ⚙ `deploy/compose.yaml` § `services.cgb`、`services.cgb.volumes`、`services.cgb.tmpfs`、`services.cgb.healthcheck`;`contracts/ui.openapi.yaml` § `paths./auth.get`、`paths./sessions.get`
   - 📎 `spec.md` § NFR-012、NFR-010;`plan.md` § 待決問題 Q101、Q108
@@ -2562,20 +2570,22 @@
 | `colab-cli.openapi.yaml` § `paths./version.get`、`paths./sessions.get`、`paths./new.post`、`paths./exec/start-ollama.post`、`paths./exec/probe-resources.post`、`paths./stop.post`、`paths./usage.get`(擴充:G-09) | T294b | T294a |
 | `tunnel.openapi.yaml` § `paths./key.post`、`paths./tunnels.post`、`paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}.delete`(擴充:G-09) | T294b | T294a |
 | `google-oauth.openapi.yaml` § `paths./o/oauth2/auth.get`、`paths./token.post`(擴充:G-09) | T294b | T294a |
+| `ollama-compat.openapi.yaml` § `paths./api/generate.post`(擴充:G-10) | T295b | T295a |
 
 ### 測試案例覆蓋(全域)
 
 | testplan 案例 | 任務 |
 |---|---|
-| G-01 | T296 |
-| G-02 | T289a、T289b、T295 |
-| G-03 | T290a、T290b、T295 |
-| G-04 | T291a、T291b、T295 |
-| G-05 | T297 |
-| G-06 | T292a、T292b、T295 |
-| G-07 | T298 |
-| G-08 | T293a、T293b、T295 |
-| G-09 | T294a、T294b、T295 |
+| G-01 | T297 |
+| G-02 | T289a、T289b、T296 |
+| G-03 | T290a、T290b、T296 |
+| G-04 | T291a、T291b、T296 |
+| G-05 | T298 |
+| G-06 | T292a、T292b、T296 |
+| G-07 | T299 |
+| G-08 | T293a、T293b、T296 |
+| G-09 | T294a、T294b、T296 |
+| G-10 | T295a、T295b、T296 |
 
 **Checkpoint**: 全部測試綠燈;`specs/001-session-model-catalog/measurements.md` 每一項都寫了數字與是否過門檻,沒過的列為待決問題;⏸ 的 US1-OA-06、G-01 等使用者回來再跑
 

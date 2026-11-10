@@ -692,7 +692,7 @@
 |---|---|---|---|
 | FR-028 狀態變化與結束的紀錄 | 1、4 | US1-API-35、US1-API-36、US1-DB-02、US1-AJ-13、US4-API-12 | — |
 | NFR-009 區網開放、不需登入、不對外網 | 1、2、3、4 | — | G-01 |
-| NFR-010 機密只在權限受限的設定檔 | 1、2、3、4 | US1-API-40、US1-CLI-18、US1-TUN-09、US2-OC-15 | G-02、G-03、G-04、G-05 |
+| NFR-010 機密只在權限受限的設定檔 | 1、2、3、4 | US1-API-40、US1-CLI-18、US1-TUN-09、US2-OC-15 | G-02、G-03、G-04、G-05 、G-10 |
 | NFR-011 介面語言為繁體中文 | 1、2、3、4 | — | G-06 |
 | NFR-012 容器交付、資料夾持久化 | 1、2、3、4 | — | G-07、G-08 |
 | SC-001 開啟到就緒 5 分鐘內 | —(NFR-001 引用的門檻) | US1-API-12、US1-AJ-17 | — |
@@ -717,6 +717,7 @@
 | G-07 | 部署與持久化 | 📏 量測 | compose › 起 → compose › 重建 | 整批實跑的最後(P3 之後),`<暫存目錄>/.env` 只有 `CGB_HOST_DATA`、`CGB_HOST_UI_PORT=8780`、`CGB_HOST_OLLAMA_PORT=11436`、`CGB_BIND_ADDR=127.0.0.1`;資料夾裡已有複製來的授權與 US1-AJ-17~US1-AJ-22、US4-AJ-09 的紀錄 | `docker compose -p cgb-test --env-file <暫存目錄>/.env down`,再 `up -d --force-recreate`(沿用已建好的映像);等健康;讀 `GET /api/auth`、`GET /api/sessions`;`docker exec` 讀 `/data` 底下的權限 | 則1:`up` 後 90 秒內容器狀態為 healthy<br>則2:`GET /api/auth` 的 `state` 為 `logged_in`<br>則3:`GET /api/sessions` 的筆數與重建前相同<br>則4:`/data/cgb.sqlite3`、`/data/colab-cli/token.json`、`/data/ssh/id_ed25519` 的權限是 0600<br>則5:`/data/colab-cli/history` 是 tmpfs,重建後是空的 | 授權或紀錄寫在容器內沒掛載的路徑,重建後要重新登入;或健康檢查一直不過 | NFR-012、NFR-010 | P3、P5、P6、P8;不開執行環境,0 compute units,約 3 分鐘;只操作 `-p cgb-test`,不碰 named volume `cgb-data`;重建後不按「開啟」 | 判定者:腳本;樣本:整批實跑留下的資料(未用於調整) |
 | G-08 | 部署(健康檢查不影響閒置) | 🔴🟢 行為測試 | `cgb-healthcheck` › 執行 | 測試行程在 127.0.0.1 隨機 port 起一個假 UI(`GET /api/session` 回 200)與一個假 Ollama 相容端點(只 accept 連線、記錄收到的位元組);`CGB_UI_PORT`、`CGB_OLLAMA_PORT` 指到它們 | 以子行程跑 `deploy/healthcheck.py`;再把假 UI 改成回 503 跑一次 | 則1:第一次 exit code 為 0<br>則2:假 Ollama 相容端點收到 0 位元組<br>則3:假 UI 收到 1 個 `GET /api/session`<br>則4:第二次 exit code 不為 0 | 健康檢查對 Ollama 相容 port 送 HTTP,每 30 秒重設閒置計時,工作階段永遠不會閒置結束(Q89) | NFR-012 | — | — |
 | G-09 | 可測試性(替身與真轉接層一致) | 🔴🟢 行為測試 | `ColabControl` › `<方法>` → `Tunnel` › `<方法>` → `GoogleOAuth` › `<方法>` | 比對清單目前是 `FakeColabControl` 對 `ColabControl`(`colab_cli.py`)、`FakeTunnel` 對 `Tunnel`(`tunnel.py`)、`FakeGoogleOAuth` 對 `GoogleOAuth`(`google_oauth.py`);`RemoteOllama`(E7)與 `ModelLibrary`(E8)的 adapter 還沒建立,各自的端點節完成時把配對加進清單 | 對清單裡每一對,列出真 adapter 的每個公開方法(不以 `_` 開頭),比對替身同名方法;再對每個方法少帶一個必填參數、多帶一個真方法沒有的參數名,各呼叫替身一次 | 則1:真 adapter 的每個公開方法,替身都有同名方法<br>則2:每個同名方法 `inspect.signature` 的參數名、順序、有沒有預設值都和真方法相同<br>則3:真方法是 async 時,替身方法的呼叫結果是 awaitable;真方法不是 async 時不是<br>則4:少帶必填參數時替身丟 `TypeError`<br>則5:多帶真方法沒有的參數名時替身丟 `TypeError`<br>則6:`src/cgb/adapters/` 裡每個定義了轉接層類別的模組都在比對清單裡(E7、E8 的檔一出現就要加入,否則這條不過) | 替身用 `*args, **kwargs` 照單全收,呼叫端少帶參數(例如重連只傳 `session_name` 給 `open_tunnel`)自動化測試全綠、接上真 adapter 才丟 TypeError | FR-004、FR-005、FR-007 | — | — |
+| G-10 | 機密(請求紀錄) | 🔴🟢 行為測試 | 後端行程 › 正式啟動 → Ollama 端點 › `POST /api/generate` | 以子行程跑正式的啟動路徑 `python -m cgb`(`logging_setup.setup()` 與 `serve()`/`Servers`,Q199);`PATH` 只有 `tests/fixtures/bin`(假 `colab`、`ssh`,劇本為空)與系統路徑 `/usr/bin:/bin`,`HOME`、`CGB_DB_PATH`、`CGB_COLAB_CONFIG_DIR`、`CGB_SSH_IDENTITY_PATH` 都指到暫存資料夾,不碰真的 Colab 與 `~/.config/colab-cli/`;`CGB_LISTEN_HOST=127.0.0.1`,UI 與 Ollama 相容端點用隨機 port;沒有工作階段。則3 需要就緒的工作階段,正式路徑的真轉接層開不到,改以子行程跑 `logging_setup.setup()` 加 `Servers`(預設的 log 設定),轉接層用替身、轉發目標是假 Ollama(Q200) | 等 UI 的 `GET /api/session` 回 200;以一條記下本機 port 的連線,對 Ollama 相容端點送一次 `POST /api/generate {"model":"qwen2.5:0.5b","prompt":"cgb-test-prompt-…"}`(沒有工作階段,回 503);再以 SIGTERM 結束行程,收 stdout 與 stderr;則3 另起替身版的子行程,經 UI 開到就緒,對 Ollama 相容端點送一次 `POST /api/generate`(轉送到假 Ollama,回 200),再以 SIGTERM 結束 | 則1:輸出裡有一行 `cgb.ollama_compat.access_log` 的請求紀錄,含模型名稱、狀態碼 503 與時間(`HH:MM:SS`)<br>則2:輸出裡沒有這次請求的用戶端位址(`127.0.0.1:<用戶端 port>`)、沒有路徑 `/api/generate`、沒有 prompt 標記<br>則3:有轉送時,輸出裡沒有 httpx 或 httpcore 的請求行(沒有 `HTTP Request:`、轉發位址 `127.0.0.1:<假 Ollama port>` 與路徑 `/api/generate`) | 正式啟動沒設定 logging,INFO 的請求紀錄被丟掉;或 uvicorn 的 access log 對 Ollama 相容端點開著,記下用戶端位址與路徑(Q199);或 `setup()` 把根 logger 設成 INFO,httpx 的 INFO 印出轉送的轉發位址與路徑(Q200) | NFR-010 | — | — |
 
 ## 7. 需求覆蓋
 
@@ -761,7 +762,7 @@
 | NFR-008 用量至少 5 分鐘更新、15 分鐘未更新標過期 | 故事 4 | — | US4-API-18、US4-API-20 | — | — | — | — | — | — | — | — | — | US4-AJ-08、US4-AJ-09 | — | 🔴🟢、📏 量測 |
 | FR-028 狀態變化與結束的紀錄 | 全域 | — | US1-API-35、US1-API-36、US4-API-12 | — | US1-DB-02 | — | — | — | — | — | — | — | US1-AJ-13 | — | 🔴🟢 |
 | NFR-009 區網開放、不對外網 | 全域 | — | — | — | — | — | — | — | — | — | — | — | — | G-01 | 📏 人工 |
-| NFR-010 機密不出現在 UI、日誌與版本控制 | 全域 | — | US1-API-40 | US2-OC-15 | — | US1-CLI-18、US1-CLI-37 | US1-TUN-09、US1-TUN-16 | — | — | — | — | — | — | G-02~G-05 | 🔴🟢、📏 量測 |
+| NFR-010 機密不出現在 UI、日誌與版本控制 | 全域 | — | US1-API-40 | US2-OC-15 | — | US1-CLI-18、US1-CLI-37 | US1-TUN-09、US1-TUN-16 | — | — | — | — | — | — | G-02~G-05、G-10 | 🔴🟢、📏 量測 |
 | NFR-011 繁體中文介面 | 全域 | — | — | — | — | — | — | — | — | — | — | — | — | G-06 | 🔴🟢 |
 | NFR-012 容器交付與持久化 | 全域 | — | — | — | — | — | — | — | — | — | — | — | — | G-04、G-07、G-08 | 🔴🟢、📏 量測 |
 | SC-001 開啟到就緒 5 分鐘內 | 全域 | — | US1-API-12 | — | — | — | — | — | — | — | — | — | US1-AJ-17 | — | 🔴🟢、📏 量測 |

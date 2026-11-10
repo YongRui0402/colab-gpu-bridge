@@ -700,7 +700,9 @@ async def test_stop_that_times_out_is_still_judged_by_session_list(fake_cli):
     assert elapsed <= 10  # 沒有時限時要等滿 30 秒;10 秒以內就分得出來,不受機器負載影響(Q198)
     stop_calls, sessions_calls = calls_of(fake_cli, "stop"), calls_of(fake_cli, "sessions")
     assert len(stop_calls) == 1 and len(sessions_calls) == 1
-    assert sessions_calls[0]["time"] >= stop_calls[0]["time"] + SHORT
+    # 兩個時間戳由假 colab 子行程各自記下,高負載時 Python 啟動變慢會讓 stop 那筆晚記幾 ms;留 50ms 餘裕(Q201)。
+    # 錯的實作(不等時限就查 sessions)差距是 0,仍分得出來
+    assert sessions_calls[0]["time"] >= stop_calls[0]["time"] + SHORT - 0.05
     assert processes_still_present([stop_calls[0]["pid"]]) == []
 
 

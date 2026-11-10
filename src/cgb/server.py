@@ -40,7 +40,8 @@ class Servers:
                     host=host,
                     port=port,
                     log_level=log_level,
-                    access_log=access_log,
+                    # Ollama 相容端點不開 uvicorn 的 access log:它會記用戶端位址與路徑(Q199),請求紀錄由 AccessLog 負責
+                    access_log=access_log and app is not pair.ollama,
                     lifespan="on",
                     timeout_graceful_shutdown=timeout_graceful_shutdown,
                 )
