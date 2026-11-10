@@ -193,6 +193,26 @@ async def test_開啟立即受理_通道與模型服務就緒後才是就緒(ui_
     assert world.calls("create_session") == [created["name"]]
 
 
+async def test_建立通道前先準備通道金鑰_同一把金鑰給通道(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    """實跑發現:開啟流程從沒呼叫 ensureTunnelKey(tunnel 合約 openTunnel 的前置(1)),全新部署沒有金鑰,
+    每次開啟都在建立通道時 TUNNEL_KEY_REJECTED;整批實跑會過只是因為主機階段先在共用資料夾產生了金鑰。"""
+    # Arrange
+    ColabWorld(fakes)
+    key_gate = fakes.tunnel.ensure_key.gate()
+
+    # Act
+    await ui_client.post("/api/session", json={"runtimeType": T4})
+    await key_gate.wait_entered_async()
+    tunnel_calls_while_preparing_key = fakes.tunnel.open_tunnel.call_count
+    key_gate.release()
+    await wait_for_state(ui_client, "ready")
+
+    # Assert
+    key_path = fakes.tunnel.ensure_key.last_call.kwargs.get("key_path") or fakes.tunnel.ensure_key.last_call.args[0]
+    assert tunnel_calls_while_preparing_key == 0
+    assert fakes.tunnel.open_tunnel.last_call.kwargs["key_path"] == key_path
+
+
 # ---------------------------------------------------------------- US1-API-02
 
 

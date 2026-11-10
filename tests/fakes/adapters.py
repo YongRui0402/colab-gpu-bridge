@@ -249,6 +249,8 @@ class FakeTunnel(_FakeAdapter):
     def __init__(self, server: Any | None = None, remote_ollama_version: str = "0.40.15") -> None:
         super().__init__()
         self.server = server
+        # 開啟、接回與重連都先準備通道金鑰(SessionLifecycle.open_tunnel);預設回「已存在」,測試要看別的結果再覆寫
+        self.ensure_key.returns({"keyType": "ssh-ed25519", "fingerprint": "SHA256:cgb-test-fake-fingerprint", "created": False})
         if server is not None:
             def default_open(*args: Any, **kwargs: Any) -> dict[str, Any]:
                 name = kwargs.get("session_name", args[0] if args else None)

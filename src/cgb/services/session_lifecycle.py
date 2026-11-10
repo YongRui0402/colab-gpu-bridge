@@ -92,10 +92,13 @@ class SessionLifecycle:
         return ForwardTarget(base_url=self.base_url, ended=ended)
 
     async def open_tunnel(self, name: str, *, key_path: str | None = None) -> dict[str, Any]:
-        """建立通道並記下轉發位址;首次開啟、重啟接回與重連都走這裡,Ollama 相容端點才轉送得出去(Q170)。"""
-        opened = await self._state.tunnel.open_tunnel(
-            session_name=name, key_path=key_path if key_path is not None else self._key_path, local_port=TUNNEL_LOCAL_PORT
-        )
+        """建立通道並記下轉發位址;首次開啟、重啟接回與重連都走這裡,Ollama 相容端點才轉送得出去(Q170)。
+
+        先準備通道金鑰(tunnel 合約 openTunnel 的前置 (1));已存在就不覆寫,全新部署才有金鑰可用。
+        """
+        key = key_path if key_path is not None else self._key_path
+        await self._state.tunnel.ensure_key(key_path=key)
+        opened = await self._state.tunnel.open_tunnel(session_name=name, key_path=key, local_port=TUNNEL_LOCAL_PORT)
         self.base_url = opened["baseUrl"]
         return opened
 
