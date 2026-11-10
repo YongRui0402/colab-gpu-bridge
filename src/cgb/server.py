@@ -27,7 +27,10 @@ class Servers:
         access_log: bool = True,
         timeout_graceful_shutdown: float | None = None,
     ) -> None:
-        """`timeout_graceful_shutdown`:要求結束後最多等連線自己結束幾秒(None 是一直等)。
+        """`access_log`:要不要開 UI 那個 uvicorn 的 access log。只對 UI 有效;
+        Ollama 相容端點一律不開(它會記用戶端位址與路徑,Q199),請求紀錄由 `AccessLog` 負責,不受這個參數影響。
+
+        `timeout_graceful_shutdown`:要求結束後最多等連線自己結束幾秒(None 是一直等)。
 
         收到結束訊號時 sse-starlette 會自己收掉 SSE 連線;不經訊號、由 `stop()` 結束時(測試行程內),
         開著的 SSE 連線不會自己結束,要靠這個時限。

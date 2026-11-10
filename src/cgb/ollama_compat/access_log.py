@@ -14,11 +14,14 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
-# 解析模型名稱的本文上限;超過就不解析(帶圖片的請求本文可能很大)
-_MAX_PEEK_BYTES = 1 << 20
+# 解析模型名稱的本文上限:超過就不解析、記成 `-`(帶圖片的請求本文可能很大)。
+# 只限制 JSON 解析;本文本身不論大小都整份讀進來再重播給下游
+_MAX_PARSE_BYTES = 1 << 20
 
 
 def _model_of(body: bytes) -> str:
+    if len(body) > _MAX_PARSE_BYTES:
+        return "-"
     try:
         data: Any = json.loads(body) if body else None
     except ValueError:
@@ -64,6 +67,6 @@ class AccessLog:
             # 串流回應送完(或中斷)之後才回來,耗時含整段串流
             await self._app(scope, receive_replaying, send_watching)
         finally:
-            model = _model_of(body) if len(body) <= _MAX_PEEK_BYTES else "-"
+            model = _model_of(body)
             elapsed_ms = (time.monotonic() - started) * 1000
             logger.info("model=%s 耗時=%.0fms 狀態碼=%d", model, elapsed_ms, status)

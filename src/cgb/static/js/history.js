@@ -1,7 +1,7 @@
 // 紀錄頁:最近的工作階段,依開啟時間由新到舊(FR-028;prototype/history.html)
 import { request } from "./api.js";
 import { startHeader } from "./header.js";
-import { clock, showState, typeText } from "./view.js";
+import { clock, duration, showState, typeText } from "./view.js";
 
 // 結束原因(contracts/ui.openapi.yaml § EndReason);會失去執行環境的用醒目的顏色
 const END_REASON = {
@@ -16,14 +16,6 @@ const END_REASON = {
 const dateTime = (iso) => {
   const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()} ${clock(iso)}`;
-};
-const duration = (seconds) => {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h} 小時 ${m} 分`;
-  if (m > 0) return `${m} 分 ${String(s).padStart(2, "0")} 秒`;
-  return `${s} 秒`;
 };
 
 function row(record) {

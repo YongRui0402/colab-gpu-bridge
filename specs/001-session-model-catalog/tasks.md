@@ -2535,7 +2535,7 @@
   - 🧪 `testplan.md` § G-10
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`
   - 📎 `spec.md` § NFR-010;`plan.md` § 待決問題 Q199
-- [ ] T296 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T289b、T290b、T291b、T292b、T293b、T294b、T295b 記下的重構清單(範圍限 `src/cgb/`、`deploy/`、`.gitignore`、`Dockerfile.dockerignore`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/e2e/` 的斷言(依賴 T295b)
+- [X] T296 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T289b、T290b、T291b、T292b、T293b、T294b、T295b 記下的重構清單(範圍限 `src/cgb/`、`deploy/`、`.gitignore`、`Dockerfile.dockerignore`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/e2e/` 的斷言(依賴 T295b)
   - 🧪 `testplan.md` § G-02、G-03、G-04、G-06、G-08、G-09、G-10
   - 📎 `testplan.md` § 6.2
 - [ ] T297 [G] 📏 量測(人工):⏸ 延後:需要使用者本人在場,不在 P9 這一批(plan.md Q101 決定實跑授權改為複製既有 token.json、比對 sha256,US1-OA-06 與 G-01 延後到使用者回來;Q108),使用者回來並同意前不執行;撰寫 `tests/realrun/test_g_01.py`(`-m realrun`),照 G-01 量測。假如:延後到使用者在場時另跑(Q108),不在 P9 這一批;`docker compose -p cgb-test` 起在桌機,`.env` 的 `CGB_BIND_ADDR=0.0.0.0`(本案例暫時改,其他案例用 127.0.0.1)、UI 8780、Ollama 相容端點 11436;沒有工作階段。當:使用者用同一個區網的另一台裝置(手機連 Wi-Fi 或另一台電腦)打開 `http://<桌機區網 IP>:8780`,並對 `http://<桌機區網 IP>:11436/api/version` 送請求;再把手機切到行動網路,或用 check-host.net,對桌機的公網 IP 連 8780 與 11436。記下的數字與門檻:則1:區網裝置不需要任何登入就看到首頁;則2:區網裝置對 11436 收到 503 與「沒有可用的工作階段」;則3:行動網路或 check-host.net 對 8780 連不上;則4:行動網路或 check-host.net 對 11436 連不上。副作用與護欄:P5、P6;不開執行環境,0 compute units,約 5 分鐘;不改路由器設定,只觀察;不在區網內連公網 IP(NAT hairpin 結果不可信);測完把 `CGB_BIND_ADDR` 改回 127.0.0.1 並重建容器(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:使用者(則1、則2 看畫面與回應);腳本或 check-host.net 結果判定則3、則4;樣本:一台區網裝置與一個外網來源(未用於調整)。使用者在場時另跑,不和 P9 那一批一起;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
