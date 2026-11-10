@@ -2301,23 +2301,23 @@
 
 ### E5 Colab CLI(google-colab-cli,外部程式)
 
-- [ ] T273a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US4-CLI-01 的測試(呼叫),執行確認它因為「regex 沒允許負號,餘額歸零後變成負數時解析失敗」這類實作而失敗
+- [X] T273a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US4-CLI-01 的測試(呼叫),執行確認它因為「regex 沒允許負號,餘額歸零後變成負數時解析失敗」這類實作而失敗
   - 🧪 `testplan.md` § US4-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024、邊界情況
-- [ ] T273b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US4-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T273a)
+- [X] T273b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US4-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T273a)
   - 🧪 `testplan.md` § US4-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024、邊界情況
-- [ ] T274a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US4-CLI-02 的測試(呼叫),執行確認它因為「用寬鬆的 regex 照樣解析,CLI 改版後默默顯示錯的值」這類實作而失敗
+- [X] T274a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US4-CLI-02 的測試(呼叫),執行確認它因為「用寬鬆的 regex 照樣解析,CLI 改版後默默顯示錯的值」這類實作而失敗
   - 🧪 `testplan.md` § US4-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-024
-- [ ] T274b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US4-CLI-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T274a)
+- [X] T274b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US4-CLI-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T274a)
   - 🧪 `testplan.md` § US4-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-024
-- [ ] T275 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T273b~T274b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T274b)
+- [X] T275 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T273b~T274b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T274b)
   - 🧪 `testplan.md` § US4-CLI-01~US4-CLI-02
   - 📎 `testplan.md` § 5.4
 

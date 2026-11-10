@@ -1116,3 +1116,43 @@ async def test_probe_resources_that_cannot_read_disk_is_remote_error(fake_cli):
 
     # Assert
     assert code_of(error) == "COLAB_REMOTE_ERROR"
+
+
+# ---------------------------------------------------------------- US4-CLI-01
+
+USAGE_NEGATIVE_BALANCE_WITH_NOTICE = (
+    "[colab] A new version of colab-cli is available: 0.7.6 (you have 0.7.5).\n"
+    "Current balance: -0.50 compute units\n"
+    "Usage rate: 0.00/hr\n"
+    "Active assignments: 0\n"
+)
+
+
+async def test_usage_after_balance_runs_out_reports_negative_balance(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {"usage": {"stdout": USAGE_NEGATIVE_BALANCE_WITH_NOTICE}}})
+
+    # Act
+    result = await failure_of_or_result(ColabControl().get_usage())
+
+    # Assert
+    assert isinstance(result, dict), f"回了錯誤:{result!r}"
+    assert result.get("balance") == -0.5
+    assert result.get("ratePerHour") == 0
+    assert result.get("activeAssignments") == 0
+
+
+# ---------------------------------------------------------------- US4-CLI-02
+
+USAGE_ONE_DECIMAL_BALANCE = "Current balance: 381.7 compute units\nUsage rate: 1.15/hr\nActive assignments: 1\n"
+
+
+async def test_usage_in_unexpected_number_format_is_bad_response(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {"usage": {"stdout": USAGE_ONE_DECIMAL_BALANCE}}})
+
+    # Act
+    error = await failure_of(ColabControl().get_usage())
+
+    # Assert
+    assert code_of(error) == "COLAB_BAD_RESPONSE"
