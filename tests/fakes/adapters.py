@@ -13,12 +13,18 @@
 項目是 `Gate` 就等放行,是 `AdapterError` 就在那裡丟出(模擬串流中斷)。
 """
 
+import inspect
 import threading
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from cgb.adapters.colab_cli import ColabControl
 from cgb.adapters.errors import AdapterError
+from cgb.adapters.google_oauth import GoogleOAuth
+from cgb.adapters.model_library import ModelLibrary
+from cgb.adapters.remote_ollama import RemoteOllama
+from cgb.adapters.tunnel import Tunnel
 
 from .gate import Gate
 
@@ -82,6 +88,13 @@ class FakeMethod:
     _rules: list[_Rule] = field(default_factory=list)
     _gates: list[Gate] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock)
+    # 真 adapter 同名方法的簽章(不含 self);有的話呼叫時照它綁定參數,少帶、多帶都丟 TypeError(testplan § G-09)
+    signature: inspect.Signature | None = None
+
+    def __post_init__(self) -> None:
+        if self.signature is not None:
+            # `inspect.signature(替身方法)` 和真方法相同
+            self.__signature__ = self.signature
 
     # ---- 測試端的設定 ----
 
@@ -150,6 +163,9 @@ class FakeMethod:
         raise FakeNotConfigured(f"{self.name} 沒有設定回傳值就被呼叫:args={call.args!r} kwargs={call.kwargs!r}")
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        if self.signature is not None:
+            # 和呼叫真方法一樣,參數不對在呼叫當下就丟 TypeError
+            self.signature.bind(*args, **kwargs)
         return self.invoke(*args, **kwargs)
 
     async def invoke(self, *args: Any, **kwargs: Any) -> Any:
@@ -175,13 +191,29 @@ async def _stream(items: Any) -> AsyncIterator[Any]:
             yield item
 
 
+def _real_signature(real: type | None, name: str) -> inspect.Signature | None:
+    """真 adapter 同名方法去掉 `self` 的簽章;真 adapter 沒有這個方法時是 None(照單全收,Q160(a))。"""
+    method = getattr(real, name, None) if real is not None else None
+    if method is None:
+        return None
+    signature = inspect.signature(method)
+    return signature.replace(parameters=list(signature.parameters.values())[1:])
+
+
 class _FakeAdapter:
     METHODS: tuple[str, ...] = ()
     STREAMING: frozenset[str] = frozenset()
+    # 對應的真 adapter(testplan § G-09 的比對清單)
+    REAL: type | None = None
 
     def __init__(self) -> None:
         for name in self.METHODS:
-            setattr(self, name, FakeMethod(name=f"{type(self).__name__}.{name}", streaming=name in self.STREAMING))
+            method = FakeMethod(
+                name=f"{type(self).__name__}.{name}",
+                streaming=name in self.STREAMING,
+                signature=_real_signature(self.REAL, name),
+            )
+            setattr(self, name, method)
 
     def method(self, name: str) -> FakeMethod:
         if name not in self.METHODS:
@@ -192,6 +224,7 @@ class _FakeAdapter:
 class FakeColabControl(_FakeAdapter):
     """`contracts/colab-cli.openapi.yaml` 的 `ColabControl`。"""
 
+    REAL = ColabControl
     METHODS = (
         "get_cli_version",
         "list_sessions",
@@ -210,6 +243,7 @@ class FakeTunnel(_FakeAdapter):
     讓 Ollama 相容端點的轉送真的經過 httpx 的網路連線。
     """
 
+    REAL = Tunnel
     METHODS = ("ensure_key", "open_tunnel", "check_health", "close_tunnel", "cleanup_residual")
 
     def __init__(self, server: Any | None = None, remote_ollama_version: str = "0.40.15") -> None:
@@ -241,6 +275,7 @@ class FakeRemoteOllama(_FakeAdapter):
     Ollama 相容端點的原樣轉送直接打那台伺服器,這裡的方法給 services 用,一樣可由測試設定。
     """
 
+    REAL = RemoteOllama
     METHODS = (
         "get_version",
         "list_local_models",
@@ -268,10 +303,12 @@ class FakeRemoteOllama(_FakeAdapter):
 class FakeModelLibrary(_FakeAdapter):
     """`contracts/model-library.openapi.yaml` 的 `ModelLibrary`。"""
 
+    REAL = ModelLibrary
     METHODS = ("search_library", "list_model_tags", "get_manifest")
 
 
 class FakeGoogleOAuth(_FakeAdapter):
     """`contracts/google-oauth.openapi.yaml` 的 `GoogleOAuth`。"""
 
+    REAL = GoogleOAuth
     METHODS = ("build_authorization_url", "request_token")
