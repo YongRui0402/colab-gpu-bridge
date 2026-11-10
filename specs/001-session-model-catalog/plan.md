@@ -230,7 +230,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q114 | tasks | G-03、G-04、G-08 紅燈可能一開始就綠。(a)紅燈先對故意改壞的對照組確認抓得到,再對實物執行(先採用);(b)全域綠燈才搬入 | — | (a)(kevin-twin 代為決定) |
 | Q115 | tasks | 外部程式參數交給真工具解讀。(a)E5 在 T061a 以真 `colab` 0.7.5(空暫存 HOME、無授權)只斷言無參數錯誤;E6 在 T100a 以 `ssh -G` 解讀(先採用);(b)只靠實跑 | — | (a)(kevin-twin 代為決定) |
 | Q116 | tasks | 📏 實跑任務排法。(a)照規範排在各故事,Checkpoint 註明整批延到全域測試區後依 P9 執行(先採用);(b)全部標 ⏸;(c)全部移到全域 | — | (a)(kevin-twin 代為決定) |
-| Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T289b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
+| Q117 | tasks | 14 個範疇內畫面狀態只有 G-06 走得到。(a)由 G-06 綠燈 T291b 做出(先採用);(b)testplan 補故事內案例 | — | (a)(kevin-twin 代為決定) |
 | Q118 | tasks | Q85 搬遷後的位置。(a)Dockerfile、dockerignore、compose、.env.example 放根目錄,prepare-data.sh、healthcheck.py 放 repo 的 `deploy/`(先採用);(b)全放 `deploy/` | — | (a)(kevin-twin 代為決定) |
 | Q119 | tasks | 〔testplan 提出〕讀過用量但最近一次失敗時 `GET /api/usage`。(a)回最後快照,超過 15 分鐘標 `stale` 並說明讀取失敗,`unknown` 只用在從沒讀到過(先採用);(b)一律 `unknown`(會使 NFR-008 做不到) | — | (a)(kevin-twin 代為決定) |
 | Q120 | tasks | 〔testplan 提出〕餘額 ≤ 0 時估計可用時數。(a)回 0(先採用);(b)負數;(c)null | — | (a)(kevin-twin 代為決定) |
@@ -280,7 +280,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q164 | implement T081 | 〔任務 T081a,E5 補充〕`test_stop_that_times_out_is_still_judged_by_session_list` 平行時約 1/13 會紅(斷言耗時 ≤ 1.5 秒)。主 agent 在無平行時全部測試連跑 3 次皆 205 passed、單獨 10 次皆過。(a)放寬時間餘裕;(b)維持,實跑時留意 | — | (b)(kevin-twin 代為決定) |
 | Q165 | implement T111 | 〔任務 T111b〕`_ended` 先等 stderr 讀完(最多 1 秒)再收尾整個 group;真 ProxyCommand 佔著 stderr,失敗回報固定多等 1 秒,不卡事件迴圈。(a)先收尾再讀 stderr;(b)維持 | — | (b)(kevin-twin 代為決定) |
 | Q166 | implement T140 | 〔任務 T140a〕US1-AJ-10 要「L4 勾高 RAM」,但原型與 colab-cli 合約 L4 不支援高 RAM、勾選框停用。(a)testplan 改用 G4 加高 RAM;(b)原型改成 L4 也能勾 | — | (a)(kevin-twin 代為決定) |
-| Q167 | implement T144 | 〔任務 T144b〕`[data-state="resuming"]` 接回期間 API 無欄位可分辨。(a)recovery 接回期間報 reconnecting;(b)照 Q117 留給 G-06(T289b);(c)接受 ⚙ 不完整 | — | (b)(kevin-twin 代為決定) |
+| Q167 | implement T144 | 〔任務 T144b〕`[data-state="resuming"]` 接回期間 API 無欄位可分辨。(a)recovery 接回期間報 reconnecting;(b)照 Q117 留給 G-06(T291b);(c)接受 ⚙ 不完整 | — | (b)(kevin-twin 代為決定) |
 | Q168 | implement T138 | 〔任務 T138b、T141b〕越界改檔:T138b 在 `static/index.html` 加 `needs-login` 區塊(⚙ 列的元素);T141b 在 `api/__init__.py` 掛 `models.router`。(a)追認;(b)撤回另開任務 | — | (a);照 Q155(a) 前例(kevin-twin 代為決定) |
 | Q169 | implement T147 | 〔任務 T147b〕服務層寫死 `TUNNEL_LOCAL_PORT = 11435`,`CGB_TUNNEL_LOCAL_PORT` 不生效;`HealthMonitor` 自讀 `CGB_SSH_IDENTITY_PATH`,預設值寫兩份。(a)Phase 6 重構時從 `AppState` 注入;(b)列入完成報告,compose 先用預設值 | — | (b);compose 的值與預設一致,不影響本次迭代(kevin-twin 代為決定) |
 | Q170 | implement T170 | 〔任務 T165b,E3 回報〕`Recovery` 重啟接回、`HealthMonitor` 重連後都沒寫回 `lifecycle.base_url`,Ollama 相容端點一直回 503(FR-005、FR-011);E3 全綠沒抓到。(a)照 Q134:testplan 補 US2-AJ-05→tasks 補任務→TDD;(b)列入完成報告 | — | (a)(kevin-twin 代為決定) |
@@ -288,7 +288,7 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q172 | implement T170 | 〔任務 T156b,E3 回報〕回應標頭 `date`、`server` 各兩份(uvicorn 與上游)。(a)去掉上游的並補回歸案例;(b)原樣轉送 | — | (b);列入完成報告(kevin-twin 代為決定) |
 | Q173 | implement T170 | 〔任務 T165b,E3 回報〕`check_now()` 與排程 `_check` 可能並行、重連兩次。(a)HealthMonitor 加鎖;(b)先接受 | — | (b);列入完成報告(kevin-twin 代為決定) |
 | Q174 | implement T155 | 〔任務 T155b、T165b〕越界改檔:`app.py` 改呼叫 `ollama_compat.install`;`api/__init__.py` 的 `Services` 加 `monitor`。(a)追認;(b)撤回 | — | (a);同 Q155(a)、Q168(kevin-twin 代為決定) |
-| Q175 | implement T172 | 〔任務 T172b〕`RemoteOllama.generate(base_url, body)` 參數名;`FakeRemoteOllama` 簽章配對尚未加入 G-09 清單。(a)維持 `body`,配對由 T291a/b 建清單時加入;(b)改簽章 | — | (a)(kevin-twin 代為決定) |
+| Q175 | implement T172 | 〔任務 T172b〕`RemoteOllama.generate(base_url, body)` 參數名;`FakeRemoteOllama` 簽章配對尚未加入 G-09 清單。(a)維持 `body`,配對由 T293a/b 建清單時加入;(b)改簽章 | — | (a)(kevin-twin 代為決定) |
 | Q176 | implement T180 | 〔任務 T180b〕US2-AJ-05 重啟前後本機 port 相同,重連回的 `baseUrl` 不變,`HealthMonitor` 不寫回也照樣轉送,則2 抓不到重連漏寫回。(a)維持:T181 把開通道與寫回收成 `SessionLifecycle.open_tunnel` 單一入口,從結構上擋住;(b)testplan 補重連換 `baseUrl` 的案例 | — | (a)(kevin-twin 代為決定) |
 | Q177 | implement T180 | 〔任務 T180b〕越界改檔:`api/__init__.py` 把 lifecycle 傳進 `Recovery` 與 `HealthMonitor`。(a)追認;(b)撤回 | — | (a);同 Q168、Q174(kevin-twin 代為決定) |
 | Q178 | implement T212 | 〔任務 T185b–T231,故事 3 端點節回報〕合約有、testplan 無案例未實作:E7/E8/E5 轉接層的連不到、逾時、格式不符;E2 的 400 驗證、`DOWNLOAD_NOT_FOUND`、`CURATED_NOT_FOUND`、PUT 重複名稱回 500、工作階段 `lost` 時沒中斷下載、ollama.com 連不到時搜尋回 500;`RemoteOllama` 沒有 `show_model`;E3 的預先載入請求、500 原樣傳回、embed 先載入沒專屬案例。(a)全部補案例再 TDD;(b)同 Q131、Q163、Q171 列為未覆蓋;(c)只補 lost 與 ollama.com 兩項 | — | (b);下一迭代處理(kevin-twin 代為決定) |
@@ -302,3 +302,9 @@ deploy/                      # E10 檔案系統、E11 部署與網路
 | Q186 | implement T245 | 〔任務 T235b〕`POST /models/preload` 的 202 比 `models.updated` 晚到時,會把已載入那一列蓋回載入中。(a)補案例再 TDD;(b)列入完成報告 | — | (b);只影響畫面,不留殭屍(kevin-twin 代為決定) |
 | Q187 | implement T245 | 〔任務 T245〕追認:重構把 `bytes`、`clock`、`duration`、`escape` 收進 `view.js`,改到檔案清單外的 `view.js`、`history.js`。(a)追認;(b)撤回 | — | (a)(kevin-twin 代為決定) |
 | Q188 | implement T245 | 〔任務 T234a–T245〕合約有、後端沒做:SSE 連上時沒送 `downloads.snapshot`、`auth.updated`、`usage.updated`、`settings.updated` 快照;下載完成與工作階段結束時沒推 `models.updated`;`search_library` 只回 `name`。原型有、案例沒有:精選清單編輯、`no-results`、`library-down`、`cloud-only`、`no-session` 覆蓋層、`preload-failed`、清除已完成、`#queue-count`、剩餘時間、`#cat-meta`、完成 toast。(a)同 Q178 列未覆蓋;(b)現在補案例 | — | (a);寫進完成報告(kevin-twin 代為決定) |
+| Q189 | implement T248 | 〔任務 T248b、T265b〕讀用量的間隔設 `POLL_SECONDS = 240`;「讀完才睡 300 秒」實際間隔會超過 5 分鐘(NFR-008)。(a)維持 240;(b)300 秒固定節拍 | — | (a)(kevin-twin 代為決定) |
+| Q190 | implement T262 | 〔任務 T262b〕`Recovery._run` 先等 `list_sessions` 才讀 `latest_unfinished()`;啟動期間開啟的新工作階段會被誤標 `RECLAIMED_BY_COLAB`,Colab 端仍在扣點。(a)補案例,先取未結束的那筆再列 sessions;(b)維持,測試先等 | — | (a);補 US4-API 案例照 TDD 修,比照 Q170(kevin-twin 代為決定) |
+| Q191 | implement T259 | 〔任務 T252b、T259b〕`UsageService`、`IdleMonitor` 的背景迴圈只接 `AdapterError`,其他例外會讓迴圈靜靜結束,閒置自動結束失效。(a)補案例,迴圈接 `Exception` 記 log 後繼續;(b)conftest 給預設值 | — | (a);補 US4-API 案例照 TDD 修(kevin-twin 代為決定) |
+| Q192 | implement T268 | 〔任務 T248b–T270b〕追認越界:`api/__init__.py`(組裝與掛路由)、`ollama_compat/__init__.py`(掛 `IdleHook`)、`domain/errors.py`、`services/event_bus.py`。合約有、案例沒有:SSE 連上時送 `usage.updated`/`settings.updated` 快照、過期時主動推送、閒置重設每 5 秒節流、用量讀到 `AUTH_REQUIRED` 不回饋登入狀態、`ratePerHour` 負值未擋、`ending` 階段 `endReason` 為 null、`session_state._idle` 與 `domain/idle.py` 重複。(a)追認並列未覆蓋;(b)撤回 | — | (a);同 Q178 寫進完成報告(kevin-twin 代為決定) |
+| Q193 | implement T267 | 〔任務 T267a〕US4-API-20 情況 B:閒置檢查 `_check` 的同步路徑沒有轉接層呼叫,改由注入的時鐘(`NowFailsOnceClock`,`FakeClock` 子類別)丟一次 `RuntimeError`。(a)追認用時鐘注入;(b)改成資料面的錯誤 | — | (a);時鐘是 `cgb.app.Clock` 注入邊界(kevin-twin 代為決定) |
+| Q194 | implement T267 | 〔任務 T267b〕`HealthMonitor._loop` 同樣只接 `AdapterError`,`check_health` 丟其他例外時健康檢查永遠停止,失聯偵測失效,Colab 繼續扣點。(a)比照 Q191 補案例照 TDD 修;(b)列入完成報告 | — | (a)(kevin-twin 代為決定) |

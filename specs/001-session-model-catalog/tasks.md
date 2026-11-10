@@ -69,7 +69,7 @@
 
 | 介面元素 | 綠燈 | 紅燈 |
 |---|---|---|
-| `compose.yaml` § `services.cgb` | T011 | T288a、T290a |
+| `compose.yaml` § `services.cgb` | T011 | T290a、T292a |
 
 **Checkpoint**: `uv sync`、`uv run pytest`(0 個測試)與 `docker compose config` 都成功;`git status` 沒有 `.env` 或資料夾被追蹤
 
@@ -2251,73 +2251,89 @@
   - 🧪 `testplan.md` § US4-API-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `components.schemas.Usage`;`contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § NFR-008;`plan.md` § 待決問題 Q119、Q123
-- [X] T266 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T248b~T265b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`、`src/cgb/repos/`、`src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T265b)
-  - 🧪 `testplan.md` § US4-API-01~US4-API-18
+- [ ] T266a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US4-API-19 的測試(app 啟動時接回的那次 `list_sessions` 停在閘門前;送 `POST /api/session`,等開啟流程的 `list_sessions` 也停在閘門前;放行 `list_sessions`,在 `create_session` 仍停住期間一直查 `GET /api/session`;再放行 `create_session` 開到就緒),執行確認它因為「接回先等 `colab sessions` 回來才讀資料庫裡未結束的那筆,把啟動期間剛開啟的工作階段誤標 `RECLAIMED_BY_COLAB`(Q190)」這類實作而失敗
+  - 🧪 `testplan.md` § US4-API-19
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./sessions.get`;`contracts/colab-cli.openapi.yaml` § `paths./sessions.get`
+  - 📎 `spec.md` § FR-005、FR-007;`plan.md` § 待決問題 Q190
+- [ ] T266b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py` 只寫讓 US4-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認接回只判定列 `colab sessions` 之前就存在的那筆未結束工作階段(Q190)(依賴 T266a)
+  - 🧪 `testplan.md` § US4-API-19
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./sessions.get`;`contracts/colab-cli.openapi.yaml` § `paths./sessions.get`
+  - 📎 `spec.md` § FR-005、FR-007;`plan.md` § 待決問題 Q190
+- [ ] T267a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-20 的測試(情況 A:等 `get_usage` 被呼叫 1 次後時鐘推進 5 分鐘,送 `GET /api/usage`;情況 B:時鐘推進到 `idle.deadline` 加 1 秒,等閒置檢查讀時間時丟出那次例外,再一直查 `GET /api/session`),執行確認它因為「背景迴圈只接 `AdapterError`,其他例外讓迴圈靜靜結束,用量不再更新、閒置到期不再自動結束(Q191)」這類實作而失敗
+  - 🧪 `testplan.md` § US4-API-20
+  - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.get`、`components.schemas.IdleCountdown`
+  - 📎 `spec.md` § FR-026、SC-006、NFR-008;`plan.md` § 待決問題 Q191
+- [ ] T267b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/usage.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認兩個背景迴圈遇到非 `AdapterError` 的例外時記 log 後繼續下一輪(Q191)(依賴 T267a)
+  - 🧪 `testplan.md` § US4-API-20
+  - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.get`、`components.schemas.IdleCountdown`
+  - 📎 `spec.md` § FR-026、SC-006、NFR-008;`plan.md` § 待決問題 Q191
+- [X] T268 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T248b~T267b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`、`src/cgb/repos/`、`src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T267b)
+  - 🧪 `testplan.md` § US4-API-01~US4-API-20
   - 📎 `testplan.md` § 5.1
 
 ### E3 Ollama 相容端點(FastAPI 轉送)
 
-- [X] T267a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US4-OC-01 的測試(時鐘在 T+20 秒送 `POST /api/pull`(被擋下),在 T+40 秒送 `GET /v1/models`(白名單外)),執行確認它因為「只有轉送出去的請求才重設計時,被擋下的請求不算(與 FR-026「任何經 Ollama 相容端點的請求」不符,Q52)」這類實作而失敗
+- [X] T269a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US4-OC-01 的測試(時鐘在 T+20 秒送 `POST /api/pull`(被擋下),在 T+40 秒送 `GET /v1/models`(白名單外)),執行確認它因為「只有轉送出去的請求才重設計時,被擋下的請求不算(與 FR-026「任何經 Ollama 相容端點的請求」不符,Q52)」這類實作而失敗
   - 🧪 `testplan.md` § US4-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`、`components.schemas.Error`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026;`plan.md` § 待決問題 Q52
-- [X] T267b [US4] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/idle_hook.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-OC-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/services/idle_monitor.py` 與 `src/cgb/ollama_compat/idle_hook.py` 由 E2 節的 T256b、T260b 建立,本節依序接著改,不另寫一份(依賴 T267a、T256b、T260b)
+- [X] T269b [US4] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/idle_hook.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-OC-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/services/idle_monitor.py` 與 `src/cgb/ollama_compat/idle_hook.py` 由 E2 節的 T256b、T260b 建立,本節依序接著改,不另寫一份(依賴 T269a、T256b、T260b)
   - 🧪 `testplan.md` § US4-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`、`components.schemas.Error`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026;`plan.md` § 待決問題 Q52
-- [X] T268a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US4-OC-02 的測試(時鐘在 T 開始串流讀 `POST /api/generate`,串流進行中推進到 T+90 秒,再讀完最後一行(T+100 秒)),執行確認它因為「只在請求開始時重設,長串流跑超過閒置時限就被自動結束,回應被切斷」這類實作而失敗
+- [X] T270a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US4-OC-02 的測試(時鐘在 T 開始串流讀 `POST /api/generate`,串流進行中推進到 T+90 秒,再讀完最後一行(T+100 秒)),執行確認它因為「只在請求開始時重設,長串流跑超過閒置時限就被自動結束,回應被切斷」這類實作而失敗
   - 🧪 `testplan.md` § US4-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026
-- [X] T268b [US4] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/idle_hook.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-OC-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/services/idle_monitor.py` 與 `src/cgb/ollama_compat/idle_hook.py` 由 E2 節的 T256b、T260b 建立,本節依序接著改,不另寫一份(依賴 T268a、T256b、T260b)
+- [X] T270b [US4] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/idle_hook.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-OC-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/services/idle_monitor.py` 與 `src/cgb/ollama_compat/idle_hook.py` 由 E2 節的 T256b、T260b 建立,本節依序接著改,不另寫一份(依賴 T270a、T256b、T260b)
   - 🧪 `testplan.md` § US4-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026
-- [X] T269 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T267b~T268b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`、`src/cgb/services/idle_monitor.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T268b)
+- [X] T271 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T269b~T270b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`、`src/cgb/services/idle_monitor.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T270b)
   - 🧪 `testplan.md` § US4-OC-01~US4-OC-02
   - 📎 `testplan.md` § 5.2
 
 ### E4 資料庫(SQLite)
 
-- [X] T270a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US4-DB-01 的測試(讀 `settings`;把 `idle_timeout_minutes` 改成 10;再呼叫一次建立 schema(第二次啟動);再讀),執行確認它因為「每次啟動都以預設值覆寫使用者改過的設定」這類實作而失敗
+- [X] T272a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US4-DB-01 的測試(讀 `settings`;把 `idle_timeout_minutes` 改成 10;再呼叫一次建立 schema(第二次啟動);再讀),執行確認它因為「每次啟動都以預設值覆寫使用者改過的設定」這類實作而失敗
   - 🧪 `testplan.md` § US4-DB-01
   - ⚙ `contracts/store.dbml` § `Table settings`
   - 📎 `spec.md` § FR-027
-- [X] T270b [US4] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US4-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`settings` 表由 E2 節的 T253b 建立,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T270a、T253b)
+- [X] T272b [US4] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US4-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`settings` 表由 E2 節的 T253b 建立,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T272a、T253b)
   - 🧪 `testplan.md` § US4-DB-01
   - ⚙ `contracts/store.dbml` § `Table settings`
   - 📎 `spec.md` § FR-027
-- [X] T271a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US4-DB-02 的測試(寫入一次用量(381.66、1.15、T),再寫入一次(380.00、1.15、T+5 分鐘),關閉連線後重新開啟再讀),執行確認它因為「每次讀用量都插入新列,表無限成長(Q76 只留最後一筆)」這類實作而失敗
+- [X] T273a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US4-DB-02 的測試(寫入一次用量(381.66、1.15、T),再寫入一次(380.00、1.15、T+5 分鐘),關閉連線後重新開啟再讀),執行確認它因為「每次讀用量都插入新列,表無限成長(Q76 只留最後一筆)」這類實作而失敗
   - 🧪 `testplan.md` § US4-DB-02
   - ⚙ `contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § FR-024;`plan.md` § 待決問題 Q76
-- [X] T271b [US4] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US4-DB-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`usage_snapshots` 表由 E2 節的 T248b 建立,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T271a、T248b)
+- [X] T273b [US4] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US4-DB-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`usage_snapshots` 表由 E2 節的 T248b 建立,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T273a、T248b)
   - 🧪 `testplan.md` § US4-DB-02
   - ⚙ `contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § FR-024;`plan.md` § 待決問題 Q76
-- [X] T272 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T270b~T271b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T271b)
+- [X] T274 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T272b~T273b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T273b)
   - 🧪 `testplan.md` § US4-DB-01~US4-DB-02
   - 📎 `testplan.md` § 5.3
 
 ### E5 Colab CLI(google-colab-cli,外部程式)
 
-- [X] T273a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US4-CLI-01 的測試(呼叫),執行確認它因為「regex 沒允許負號,餘額歸零後變成負數時解析失敗」這類實作而失敗
+- [X] T275a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US4-CLI-01 的測試(呼叫),執行確認它因為「regex 沒允許負號,餘額歸零後變成負數時解析失敗」這類實作而失敗
   - 🧪 `testplan.md` § US4-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024、邊界情況
-- [X] T273b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US4-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T273a)
+- [X] T275b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US4-CLI-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T275a)
   - 🧪 `testplan.md` § US4-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024、邊界情況
-- [X] T274a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US4-CLI-02 的測試(呼叫),執行確認它因為「用寬鬆的 regex 照樣解析,CLI 改版後默默顯示錯的值」這類實作而失敗
+- [X] T276a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US4-CLI-02 的測試(呼叫),執行確認它因為「用寬鬆的 regex 照樣解析,CLI 改版後默默顯示錯的值」這類實作而失敗
   - 🧪 `testplan.md` § US4-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-024
-- [X] T274b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US4-CLI-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T274a)
+- [X] T276b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py` 只寫讓 US4-CLI-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T276a)
   - 🧪 `testplan.md` § US4-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-024
-- [X] T275 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T273b~T274b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T274b)
+- [X] T277 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T275b~T276b 記下的重構清單(範圍限 `src/cgb/adapters/colab_cli.py`、`src/cgb/domain/colab_output.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T276b)
   - 🧪 `testplan.md` § US4-CLI-01~US4-CLI-02
   - 📎 `testplan.md` § 5.4
 
@@ -2329,74 +2345,74 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(或區網程式)接測試行程內真的後端,轉接層用替身;📏 任務改接真的 Colab,照 P9 整批實跑
 
-- [ ] T276a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-01 的測試(打開用量頁),執行確認它因為「畫面只顯示餘額,缺耗用、可用時數或讀取時間」這類實作而失敗
+- [ ] T278a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-01 的測試(打開用量頁),執行確認它因為「畫面只顯示餘額,缺耗用、可用時數或讀取時間」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-01
   - ⚙ `prototype/usage.html` § `#n-balance`、`#n-rate`、`#n-hours`、`#n-read`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024
-- [ ] T276b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T276a)
+- [ ] T278b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T278a)
   - 🧪 `testplan.md` § US4-AJ-01
   - ⚙ `prototype/usage.html` § `#n-balance`、`#n-rate`、`#n-hours`、`#n-read`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024
-- [ ] T277a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-02 的測試(打開用量頁,過 1 秒再放行),執行確認它因為「第一次讀到之前顯示 0 或空白的數字,看起來像餘額為 0」這類實作而失敗
+- [ ] T279a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-02 的測試(打開用量頁,過 1 秒再放行),執行確認它因為「第一次讀到之前顯示 0 或空白的數字,看起來像餘額為 0」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-02
   - ⚙ `prototype/usage.html` § `[data-state="loading"]`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-024
-- [ ] T277b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T277a)
+- [ ] T279b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T279a)
   - 🧪 `testplan.md` § US4-AJ-02
   - ⚙ `prototype/usage.html` § `[data-state="loading"]`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-024
-- [ ] T278a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-03 的測試(打開用量頁;再到首頁按「開啟」並放行全部步驟),執行確認它因為「讀不到用量時首頁的「開啟」被停用」這類實作而失敗
+- [ ] T280a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-03 的測試(打開用量頁;再到首頁按「開啟」並放行全部步驟),執行確認它因為「讀不到用量時首頁的「開啟」被停用」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-03
   - ⚙ `prototype/usage.html` § `[data-state="unknown"]`;`prototype/index.html` § `#open`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-024
-- [ ] T278b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T278a)
+- [ ] T280b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T280a)
   - 🧪 `testplan.md` § US4-AJ-03
   - ⚙ `prototype/usage.html` § `[data-state="unknown"]`;`prototype/index.html` § `#open`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-024
-- [ ] T279a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-04 的測試(打開用量頁;再打開首頁,按「開啟」並放行),執行確認它因為「低餘額警告只在用量頁有」這類實作而失敗
+- [ ] T281a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-04 的測試(打開用量頁;再打開首頁,按「開啟」並放行),執行確認它因為「低餘額警告只在用量頁有」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-04
   - ⚙ `prototype/usage.html` § `#l-warn`、`[data-state="low"]`;`prototype/index.html` § `#open`、`#open-low`、`[data-state="low-balance"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-025
-- [ ] T279b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T279a)
+- [ ] T281b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T281a)
   - 🧪 `testplan.md` § US4-AJ-04
   - ⚙ `prototype/usage.html` § `#l-warn`、`[data-state="low"]`;`prototype/index.html` § `#open`、`#open-low`、`[data-state="low-balance"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-025
-- [ ] T280a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-05 的測試(在用量頁 `#settings-form` 把閒置時限改成 10、警告門檻改成 400 並儲存;打開首頁),執行確認它因為「儲存後要重新整理才生效」這類實作而失敗
+- [ ] T282a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-05 的測試(在用量頁 `#settings-form` 把閒置時限改成 10、警告門檻改成 400 並儲存;打開首頁),執行確認它因為「儲存後要重新整理才生效」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-05
   - ⚙ `prototype/usage.html` § `#settings-form`、`#idle`、`#warn`、`#saved`、`[data-state="low"]`;`prototype/index.html` § `#r-countdown`;`contracts/ui.openapi.yaml` § `paths./settings.put`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSettingsUpdated`、`operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-027
-- [ ] T280b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T280a)
+- [ ] T282b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T282a)
   - 🧪 `testplan.md` § US4-AJ-05
   - ⚙ `prototype/usage.html` § `#settings-form`、`#idle`、`#warn`、`#saved`、`[data-state="low"]`;`prototype/index.html` § `#r-countdown`;`contracts/ui.openapi.yaml` § `paths./settings.put`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSettingsUpdated`、`operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-027
-- [ ] T281a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_idle.py` 寫 US4-AJ-06 的測試(打開首頁,時鐘推進 30 秒;再推進到超過 `deadline`),執行確認它因為「倒數不跟著時間走」這類實作而失敗
+- [ ] T283a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_idle.py` 寫 US4-AJ-06 的測試(打開首頁,時鐘推進 30 秒;再推進到超過 `deadline`),執行確認它因為「倒數不跟著時間走」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-06
   - ⚙ `prototype/index.html` § `#r-countdown`、`#e-reason`、`[data-state="ended-idle"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-026
-- [ ] T281b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T281a)
+- [ ] T283b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T283a)
   - 🧪 `testplan.md` § US4-AJ-06
   - ⚙ `prototype/index.html` § `#r-countdown`、`#e-reason`、`[data-state="ended-idle"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-026
-- [ ] T282a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_idle.py` 寫 US4-AJ-07 的測試(`check_health` 失敗、`list_sessions` 不再列出這台),執行確認它因為「失聯時沒有提示可能是餘額歸零,使用者只看到一般的失聯」這類實作而失敗
+- [ ] T284a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_idle.py` 寫 US4-AJ-07 的測試(`check_health` 失敗、`list_sessions` 不再列出這台),執行確認它因為「失聯時沒有提示可能是餘額歸零,使用者只看到一般的失聯」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-07
   - ⚙ `prototype/index.html` § `[data-state="lost-zero"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § 邊界情況
-- [ ] T282b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T282a)
+- [ ] T284b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T284a)
   - 🧪 `testplan.md` § US4-AJ-07
   - ⚙ `prototype/index.html` § `[data-state="lost-zero"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § 邊界情況
-- [ ] T283a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-08 的測試(打開用量頁,把時鐘推進 16 分鐘),執行確認它因為「後端標了 `stale`,前端沒有顯示」這類實作而失敗
+- [ ] T285a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-08 的測試(打開用量頁,把時鐘推進 16 分鐘),執行確認它因為「後端標了 `stale`,前端沒有顯示」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-08
   - ⚙ `prototype/usage.html` § `#n-read`、`[data-state="stale"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § NFR-008
-- [ ] T283b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T283a)
+- [ ] T285b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T285a)
   - 🧪 `testplan.md` § US4-AJ-08
   - ⚙ `prototype/usage.html` § `#n-read`、`[data-state="stale"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § NFR-008
-- [ ] T284 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T276b~T283b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T283b)
+- [ ] T286 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T278b~T285b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T285b)
   - 🧪 `testplan.md` § US4-AJ-01~US4-AJ-08
   - 📎 `testplan.md` § 5.6
-- [ ] T285 [US4] 📏 量測:撰寫 `tests/realrun/test_us4_aj_09.py`(`-m realrun`),照 US4-AJ-09 量測。假如:容器階段,US1-AJ-21 之後,沒有工作階段;真的 Colab、CLI、ssh、遠端 Ollama。當:開一台 T4 到就緒;在用量頁把閒置時限設成 1 分鐘並儲存;記下用量頁的餘額與耗用,同一分鐘內在終端機執行 `HOME=<暫存目錄>/home colab usage`;之後不送任何 Ollama 相容端點的請求,每 5 秒讀一次 `GET /api/session` 與 `colab sessions`。記下的數字與門檻:則1:用量頁的餘額和 `colab usage` 的差不超過 0.05 compute units;則2:用量頁的每小時耗用和 `colab usage` 的差不超過 0.05;則3:`idle.deadline` 到了之後 1 分鐘內 `endReason` 為 `IDLE_TIMEOUT`(SC-006);則4:自動結束後 1 分鐘內 `colab sessions` 沒有這個名稱(SC-003);則5:案例期間 `GET /api/usage` 的 `readAt` 至少更新過 1 次,相鄰兩次的間隔不超過 5 分鐘。副作用與護欄:P1~P9;開 1 台 T4,約 6 分鐘、約 0.12 compute units;閒置時限只在 `cgb-test` 這個實例改,結束後改回 30;不送任何 Ollama 相容端點的請求(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(0.05 差距與 1 分鐘門檻);樣本:一次實跑(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
+- [ ] T287 [US4] 📏 量測:撰寫 `tests/realrun/test_us4_aj_09.py`(`-m realrun`),照 US4-AJ-09 量測。假如:容器階段,US1-AJ-21 之後,沒有工作階段;真的 Colab、CLI、ssh、遠端 Ollama。當:開一台 T4 到就緒;在用量頁把閒置時限設成 1 分鐘並儲存;記下用量頁的餘額與耗用,同一分鐘內在終端機執行 `HOME=<暫存目錄>/home colab usage`;之後不送任何 Ollama 相容端點的請求,每 5 秒讀一次 `GET /api/session` 與 `colab sessions`。記下的數字與門檻:則1:用量頁的餘額和 `colab usage` 的差不超過 0.05 compute units;則2:用量頁的每小時耗用和 `colab usage` 的差不超過 0.05;則3:`idle.deadline` 到了之後 1 分鐘內 `endReason` 為 `IDLE_TIMEOUT`(SC-006);則4:自動結束後 1 分鐘內 `colab sessions` 沒有這個名稱(SC-003);則5:案例期間 `GET /api/usage` 的 `readAt` 至少更新過 1 次,相鄰兩次的間隔不超過 5 分鐘。副作用與護欄:P1~P9;開 1 台 T4,約 6 分鐘、約 0.12 compute units;閒置時限只在 `cgb-test` 這個實例改,結束後改回 30;不送任何 Ollama 相容端點的請求(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(0.05 差距與 1 分鐘門檻);樣本:一次實跑(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
   - 🧪 `testplan.md` § US4-AJ-09
   - ⚙ `prototype/index.html` § `#open`、`[data-state="ready"]`;`prototype/usage.html` § `#settings-form`、`#n-balance`、`#n-rate`;`contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./usage.get`、`paths./session.get`;`contracts/colab-cli.openapi.yaml` § `paths./usage.get`、`paths./sessions.get`
   - 📎 `spec.md` § FR-024、FR-026、NFR-008、SC-003、SC-006;`plan.md` § 待決問題 Q89、Q101、Q108
@@ -2405,33 +2421,34 @@
 
 | 介面元素 | 綠燈 | 紅燈 |
 |---|---|---|
-| `ui.openapi.yaml` § `paths./usage.get` | T248b、T249b、T250b、T251b、T252b、T258b、T261b、T265b、T276b、T277b、T278b、T279b、T283b | T248a、T249a、T250a、T251a、T252a、T258a、T261a、T265a、T276a、T277a、T278a、T279a、T283a |
-| `store.dbml` § `Table usage_snapshots` | T248b、T265b、T271b | T248a、T265a、T271a |
-| `ui.openapi.yaml` § `paths./session.post`(擴充:US4-API-03、US4-API-04、US4-AJ-03、US4-AJ-04) | T250b、T251b、T278b、T279b | T250a、T251a、T278a、T279a |
+| `ui.openapi.yaml` § `paths./usage.get` | T248b、T249b、T250b、T251b、T252b、T258b、T261b、T265b、T267b、T278b、T279b、T280b、T281b、T285b | T248a、T249a、T250a、T251a、T252a、T258a、T261a、T265a、T267a、T278a、T279a、T280a、T281a、T285a |
+| `store.dbml` § `Table usage_snapshots` | T248b、T265b、T273b | T248a、T265a、T273a |
+| `ui.openapi.yaml` § `paths./session.post`(擴充:US4-API-03、US4-API-04、US4-API-19、US4-AJ-03、US4-AJ-04) | T250b、T251b、T266b、T280b、T281b | T250a、T251a、T266a、T280a、T281a |
 | `ui.openapi.yaml` § `paths./session.delete`(擴充:US4-API-03) | T250b | T250a |
-| `colab-cli.openapi.yaml` § `paths./usage.get`(擴充:US4-API-05、US4-API-18、US4-CLI-01、US4-CLI-02) | T252b、T265b、T273b、T274b | T252a、T265a、T273a、T274a |
-| `ui-events.asyncapi.yaml` § `operations.sendUsageUpdated` | T252b、T258b、T277b、T280b | T252a、T258a、T277a、T280a |
+| `colab-cli.openapi.yaml` § `paths./usage.get`(擴充:US4-API-05、US4-API-18、US4-API-20、US4-CLI-01、US4-CLI-02) | T252b、T265b、T267b、T275b、T276b | T252a、T265a、T267a、T275a、T276a |
+| `ui-events.asyncapi.yaml` § `operations.sendUsageUpdated` | T252b、T258b、T279b、T282b | T252a、T258a、T279a、T282a |
 | `ui.openapi.yaml` § `paths./settings.get` | T253b、T254b、T255b | T253a、T254a、T255a |
-| `store.dbml` § `Table settings` | T253b、T254b、T270b | T253a、T254a、T270a |
-| `ui.openapi.yaml` § `paths./settings.put` | T254b、T255b、T256b、T257b、T258b、T280b | T254a、T255a、T256a、T257a、T258a、T280a |
-| `ui-events.asyncapi.yaml` § `operations.sendSettingsUpdated` | T254b、T280b | T254a、T280a |
-| `ui.openapi.yaml` § `paths./session.get`(擴充:US4-API-09、US4-API-10、US4-API-12、US4-API-13、US4-API-14、US4-API-15、US4-API-16、US4-API-17) | T256b、T257b、T259b、T260b、T261b、T262b、T263b、T264b | T256a、T257a、T259a、T260a、T261a、T262a、T263a、T264a |
-| `ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`(擴充:US4-API-09、US4-AJ-06、US4-AJ-07) | T256b、T281b、T282b | T256a、T281a、T282a |
-| `ui.openapi.yaml` § `paths./sessions.get`(擴充:US4-API-12) | T259b | T259a |
+| `store.dbml` § `Table settings` | T253b、T254b、T272b | T253a、T254a、T272a |
+| `ui.openapi.yaml` § `paths./settings.put` | T254b、T255b、T256b、T257b、T258b、T282b | T254a、T255a、T256a、T257a、T258a、T282a |
+| `ui-events.asyncapi.yaml` § `operations.sendSettingsUpdated` | T254b、T282b | T254a、T282a |
+| `ui.openapi.yaml` § `paths./session.get`(擴充:US4-API-09、US4-API-10、US4-API-12、US4-API-13、US4-API-14、US4-API-15、US4-API-16、US4-API-17、US4-API-19、US4-API-20) | T256b、T257b、T259b、T260b、T261b、T262b、T263b、T264b、T266b、T267b | T256a、T257a、T259a、T260a、T261a、T262a、T263a、T264a、T266a、T267a |
+| `ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`(擴充:US4-API-09、US4-AJ-06、US4-AJ-07) | T256b、T283b、T284b | T256a、T283a、T284a |
+| `ui.openapi.yaml` § `paths./sessions.get`(擴充:US4-API-12、US4-API-19) | T259b、T266b | T259a、T266a |
+| `colab-cli.openapi.yaml` § `paths./sessions.get`(擴充:US4-API-19) | T266b | T266a |
 | `ollama-compat.openapi.yaml` § `paths./api/tags.get`(擴充:US4-API-13) | T260b | T260a |
 | `ui.openapi.yaml` § `paths./models.get`(擴充:US4-API-14) | T261b | T261a |
 | `tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`(擴充:US4-API-17) | T264b | T264a |
-| `ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`(擴充:US4-OC-01) | T267b | T267a |
-| `ollama-compat.openapi.yaml` § `paths./api/generate.post`(擴充:US4-OC-02) | T268b | T268a |
-| `usage.html` § `[data-state="normal"]` | T276b、T277b | T276a、T277a |
-| `usage.html` § `[data-state="loading"]` | T277b | T277a |
-| `usage.html` § `[data-state="unknown"]` | T278b | T278a |
-| `index.html` § `[data-state="ready"]`(擴充:US4-AJ-03、US4-AJ-04) | T278b、T279b | T278a、T279a |
-| `usage.html` § `[data-state="low"]` | T279b、T280b | T279a、T280a |
-| `index.html` § `[data-state="low-balance"]` | T279b | T279a |
-| `index.html` § `[data-state="ended-idle"]` | T281b | T281a |
-| `index.html` § `[data-state="lost-zero"]` | T282b | T282a |
-| `usage.html` § `[data-state="stale"]` | T283b | T283a |
+| `ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`(擴充:US4-OC-01) | T269b | T269a |
+| `ollama-compat.openapi.yaml` § `paths./api/generate.post`(擴充:US4-OC-02) | T270b | T270a |
+| `usage.html` § `[data-state="normal"]` | T278b、T279b | T278a、T279a |
+| `usage.html` § `[data-state="loading"]` | T279b | T279a |
+| `usage.html` § `[data-state="unknown"]` | T280b | T280a |
+| `index.html` § `[data-state="ready"]`(擴充:US4-AJ-03、US4-AJ-04) | T280b、T281b | T280a、T281a |
+| `usage.html` § `[data-state="low"]` | T281b、T282b | T281a、T282a |
+| `index.html` § `[data-state="low-balance"]` | T281b | T281a |
+| `index.html` § `[data-state="ended-idle"]` | T283b | T283a |
+| `index.html` § `[data-state="lost-zero"]` | T284b | T284a |
+| `usage.html` § `[data-state="stale"]` | T285b | T285a |
 
 ### 測試案例覆蓋(US4)
 
@@ -2439,12 +2456,12 @@
 
 | testplan 案例 | 紅燈 | 綠燈 | 重構 |
 |---|---|---|---|
-| US4-API-01~US4-API-18 | T248a~T265a | T248b~T265b | T266 |
-| US4-OC-01~US4-OC-02 | T267a~T268a | T267b~T268b | T269 |
-| US4-DB-01~US4-DB-02 | T270a~T271a | T270b~T271b | T272 |
-| US4-CLI-01~US4-CLI-02 | T273a~T274a | T273b~T274b | T275 |
-| US4-AJ-01~US4-AJ-08 | T276a~T283a | T276b~T283b | T284 |
-| US4-AJ-09 | — | — | T285(📏) |
+| US4-API-01~US4-API-20 | T248a~T267a | T248b~T267b | T268 |
+| US4-OC-01~US4-OC-02 | T269a~T270a | T269b~T270b | T271 |
+| US4-DB-01~US4-DB-02 | T272a~T273a | T272b~T273b | T274 |
+| US4-CLI-01~US4-CLI-02 | T275a~T276a | T275b~T276b | T277 |
+| US4-AJ-01~US4-AJ-08 | T278a~T285a | T278b~T285b | T286 |
+| US4-AJ-09 | — | — | T287(📏) |
 
 **Checkpoint**: `uv run pytest tests/integration tests/e2e` 全綠(不含 `-m realrun`);重構任務前後的測試結果相同;本故事的 📏 任務留給全部故事完成後依 P9 整批實跑
 
@@ -2454,66 +2471,66 @@
 
 **Purpose**: 照 `testplan.md` § 6.2 驗證跨故事的 NFR 與 SC(NFR-009~NFR-012)
 
-- [ ] T286a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_secrets.py` 寫 G-02 的測試(依序走過:登入成功、開啟成功、開啟失敗、重連逾時、結束;擷取所有日誌(caplog 與 stdout、stderr)、所有 API 回應與 SSE 事件),執行確認它因為「用 DEBUG 等級記下子行程的 stdout、stderr 全文」這類實作而失敗
+- [ ] T288a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_secrets.py` 寫 G-02 的測試(依序走過:登入成功、開啟成功、開啟失敗、重連逾時、結束;擷取所有日誌(caplog 與 stdout、stderr)、所有 API 回應與 SSE 事件),執行確認它因為「用 DEBUG 等級記下子行程的 stdout、stderr 全文」這類實作而失敗
   - 🧪 `testplan.md` § G-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`paths./session.post`、`paths./session.delete`、`components.schemas.Error`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendAuthUpdated`
   - 📎 `spec.md` § NFR-010
-- [ ] T286b [G] 🟢 /tdd 綠燈:在 `src/cgb/logging_setup.py`、`src/cgb/ollama_compat/access_log.py`、`src/cgb/domain/errors.py` 只寫讓 G-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T286a)
+- [ ] T288b [G] 🟢 /tdd 綠燈:在 `src/cgb/logging_setup.py`、`src/cgb/ollama_compat/access_log.py`、`src/cgb/domain/errors.py` 只寫讓 G-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T288a)
   - 🧪 `testplan.md` § G-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`paths./session.post`、`paths./session.delete`、`components.schemas.Error`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendAuthUpdated`
   - 📎 `spec.md` § NFR-010
-- [ ] T287a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_repo_hygiene.py` 寫 G-03 的測試(列出 `git ls-files`,讀 `.gitignore` 與 `deploy/Dockerfile.dockerignore`),執行確認它因為「實跑後把暫存資料或 `.env` 誤 commit 進 repo」這類實作而失敗;testplan 寫的 `deploy/Dockerfile.dockerignore` 依 plan.md Q85 搬遷後是 repo 根目錄的 `Dockerfile.dockerignore`(plan.md Q118);先對一份故意拿掉 `.env` 排除行的 `.gitignore` 複本(對照組)執行,確認測試抓得到;再對 repo 的實物執行,實物已經通過時在任務備註記下「Setup 已滿足」
+- [ ] T289a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_repo_hygiene.py` 寫 G-03 的測試(列出 `git ls-files`,讀 `.gitignore` 與 `deploy/Dockerfile.dockerignore`),執行確認它因為「實跑後把暫存資料或 `.env` 誤 commit 進 repo」這類實作而失敗;testplan 寫的 `deploy/Dockerfile.dockerignore` 依 plan.md Q85 搬遷後是 repo 根目錄的 `Dockerfile.dockerignore`(plan.md Q118);先對一份故意拿掉 `.env` 排除行的 `.gitignore` 複本(對照組)執行,確認測試抓得到;再對 repo 的實物執行,實物已經通過時在任務備註記下「Setup 已滿足」
   - 🧪 `testplan.md` § G-03
   - ⚙ `deploy/Dockerfile.dockerignore` § 全檔
   - 📎 `spec.md` § NFR-010
-- [ ] T287b [G] 🟢 /tdd 綠燈:在 `.gitignore`、`Dockerfile.dockerignore` 只寫讓 G-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`.gitignore` 補上 `.env`、`data/`、`*.sqlite3`、`token.json`、`sessions.json`、`id_ed25519*`,`Dockerfile.dockerignore` 確認排除 `.env` 與 `data/`;Setup 已經寫進的就不重寫(依賴 T287a)
+- [ ] T289b [G] 🟢 /tdd 綠燈:在 `.gitignore`、`Dockerfile.dockerignore` 只寫讓 G-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`.gitignore` 補上 `.env`、`data/`、`*.sqlite3`、`token.json`、`sessions.json`、`id_ed25519*`,`Dockerfile.dockerignore` 確認排除 `.env` 與 `data/`;Setup 已經寫進的就不重寫(依賴 T289a)
   - 🧪 `testplan.md` § G-03
   - ⚙ `deploy/Dockerfile.dockerignore` § 全檔
   - 📎 `spec.md` § NFR-010
-- [ ] T288a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_prepare_data.py` 寫 G-04 的測試(以子行程跑 `prepare-data.sh true`,再跑 `prepare-data.sh --check`),執行確認它因為「把舊的 `colab.log` 改名保留(含 token 的 DEBUG 紀錄還在)」這類實作而失敗;先對一份故意改成「把舊 `colab.log` 改名保留」的 `prepare-data.sh` 複本(對照組)執行,確認測試抓得到;再對 T013 搬來的 `deploy/prepare-data.sh` 執行,實物已經通過時在任務備註記下「Setup 原樣複製的腳本已滿足」
+- [ ] T290a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_prepare_data.py` 寫 G-04 的測試(以子行程跑 `prepare-data.sh true`,再跑 `prepare-data.sh --check`),執行確認它因為「把舊的 `colab.log` 改名保留(含 token 的 DEBUG 紀錄還在)」這類實作而失敗;先對一份故意改成「把舊 `colab.log` 改名保留」的 `prepare-data.sh` 複本(對照組)執行,確認測試抓得到;再對 T013 搬來的 `deploy/prepare-data.sh` 執行,實物已經通過時在任務備註記下「Setup 原樣複製的腳本已滿足」
   - 🧪 `testplan.md` § G-04
   - ⚙ `deploy/compose.yaml` § `services.cgb.volumes`、`services.cgb.tmpfs`
   - 📎 `spec.md` § NFR-010、NFR-012
-- [ ] T288b [G] 🟢 /tdd 綠燈:在 `deploy/prepare-data.sh` 只寫讓 G-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T288a)
+- [ ] T290b [G] 🟢 /tdd 綠燈:在 `deploy/prepare-data.sh` 只寫讓 G-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T290a)
   - 🧪 `testplan.md` § G-04
   - ⚙ `deploy/compose.yaml` § `services.cgb.volumes`、`services.cgb.tmpfs`
   - 📎 `spec.md` § NFR-010、NFR-012
-- [ ] T289a [G] 🔴 /tdd 紅燈:在 `tests/e2e/test_locale.py` 寫 G-06 的測試(用 Playwright 打開首頁、登入頁、紀錄頁、模型頁、下載模型頁、用量頁(Q111)的每個 `data-state`,取可見文字;觸發 UI API 每一個錯誤代碼一次與 Ollama 相容端點本系統自己產生的每一種錯誤一次),執行確認它因為「錯誤訊息直接用 Python 例外的英文」這類實作而失敗
+- [ ] T291a [G] 🔴 /tdd 紅燈:在 `tests/e2e/test_locale.py` 寫 G-06 的測試(用 Playwright 打開首頁、登入頁、紀錄頁、模型頁、下載模型頁、用量頁(Q111)的每個 `data-state`,取可見文字;觸發 UI API 每一個錯誤代碼一次與 Ollama 相容端點本系統自己產生的每一種錯誤一次),執行確認它因為「錯誤訊息直接用 Python 例外的英文」這類實作而失敗
   - 🧪 `testplan.md` § G-06
   - ⚙ `prototype/history.html` § `[data-state="normal"]`、`[data-state="empty"]`;`prototype/index.html` § `[data-state="normal"]`、`[data-state="low-balance"]`、`[data-state="needs-login"]`、`[data-state="starting"]`、`[data-state="ready"]`、`[data-state="confirm-stop"]`、`[data-state="confirm-switch"]`、`[data-state="stopping"]`、`[data-state="switching"]`、`[data-state="ended"]`、`[data-state="ended-idle"]`、`[data-state="failed"]`、`[data-state="already-open"]`、`[data-state="reconnecting"]`、`[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="lost-zero"]`、`[data-state="release-failed"]`、`[data-state="resuming"]`、`[data-state="foreign"]`;`prototype/library.html` § `[data-state="normal"]`、`[data-state="searching"]`、`[data-state="results"]`、`[data-state="no-results"]`、`[data-state="library-down"]`、`[data-state="checking"]`、`[data-state="confirm"]`、`[data-state="no-space"]`、`[data-state="not-found"]`、`[data-state="cloud-only"]`、`[data-state="no-session"]`;`prototype/login.html` § `[data-state="normal"]`、`[data-state="signed-in"]`、`[data-state="loading"]`、`[data-state="link"]`、`[data-state="verifying"]`、`[data-state="failed"]`、`[data-state="link-expired"]`、`[data-state="scope-missing"]`、`[data-state="unreachable"]`;`prototype/models.html` § `[data-state="normal"]`、`[data-state="empty"]`、`[data-state="loading"]`、`[data-state="no-session"]`、`[data-state="preload-warn"]`、`[data-state="preloading"]`、`[data-state="preload-failed"]`;`prototype/usage.html` § `[data-state="normal"]`、`[data-state="low"]`、`[data-state="unknown"]`、`[data-state="stale"]`、`[data-state="loading"]`;`contracts/ui.openapi.yaml` § `components.schemas.Error`;`contracts/ollama-compat.openapi.yaml` § `components.schemas.OllamaError`
   - 📎 `spec.md` § NFR-011;`plan.md` § 待決問題 Q105、Q111
-- [ ] T289b [G] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/login.html`、`src/cgb/static/history.html`、`src/cgb/static/models.html`、`src/cgb/static/library.html`、`src/cgb/static/usage.html`、`src/cgb/static/js/`、`src/cgb/domain/errors.py` 只寫讓 G-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;補齊各故事都沒有做到的畫面狀態(登入頁 `loading`、`verifying`、`scope-missing`、`unreachable`,下載模型頁 `searching`、`checking`、`no-results`、`library-down`、`cloud-only`、`no-session`,模型頁 `empty`、`loading`、`preload-failed`,紀錄頁 `empty`),每一個都照原型的繁體中文文字;`<html lang="zh-Hant-TW">`(依賴 T289a)
+- [ ] T291b [G] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/login.html`、`src/cgb/static/history.html`、`src/cgb/static/models.html`、`src/cgb/static/library.html`、`src/cgb/static/usage.html`、`src/cgb/static/js/`、`src/cgb/domain/errors.py` 只寫讓 G-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;補齊各故事都沒有做到的畫面狀態(登入頁 `loading`、`verifying`、`scope-missing`、`unreachable`,下載模型頁 `searching`、`checking`、`no-results`、`library-down`、`cloud-only`、`no-session`,模型頁 `empty`、`loading`、`preload-failed`,紀錄頁 `empty`),每一個都照原型的繁體中文文字;`<html lang="zh-Hant-TW">`(依賴 T291a)
   - 🧪 `testplan.md` § G-06
   - ⚙ `prototype/history.html` § `[data-state="normal"]`、`[data-state="empty"]`;`prototype/index.html` § `[data-state="normal"]`、`[data-state="low-balance"]`、`[data-state="needs-login"]`、`[data-state="starting"]`、`[data-state="ready"]`、`[data-state="confirm-stop"]`、`[data-state="confirm-switch"]`、`[data-state="stopping"]`、`[data-state="switching"]`、`[data-state="ended"]`、`[data-state="ended-idle"]`、`[data-state="failed"]`、`[data-state="already-open"]`、`[data-state="reconnecting"]`、`[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="lost-zero"]`、`[data-state="release-failed"]`、`[data-state="resuming"]`、`[data-state="foreign"]`;`prototype/library.html` § `[data-state="normal"]`、`[data-state="searching"]`、`[data-state="results"]`、`[data-state="no-results"]`、`[data-state="library-down"]`、`[data-state="checking"]`、`[data-state="confirm"]`、`[data-state="no-space"]`、`[data-state="not-found"]`、`[data-state="cloud-only"]`、`[data-state="no-session"]`;`prototype/login.html` § `[data-state="normal"]`、`[data-state="signed-in"]`、`[data-state="loading"]`、`[data-state="link"]`、`[data-state="verifying"]`、`[data-state="failed"]`、`[data-state="link-expired"]`、`[data-state="scope-missing"]`、`[data-state="unreachable"]`;`prototype/models.html` § `[data-state="normal"]`、`[data-state="empty"]`、`[data-state="loading"]`、`[data-state="no-session"]`、`[data-state="preload-warn"]`、`[data-state="preloading"]`、`[data-state="preload-failed"]`;`prototype/usage.html` § `[data-state="normal"]`、`[data-state="low"]`、`[data-state="unknown"]`、`[data-state="stale"]`、`[data-state="loading"]`;`contracts/ui.openapi.yaml` § `components.schemas.Error`;`contracts/ollama-compat.openapi.yaml` § `components.schemas.OllamaError`
   - 📎 `spec.md` § NFR-011;`plan.md` § 待決問題 Q105、Q111
-- [ ] T290a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_healthcheck.py` 寫 G-08 的測試(以子行程跑 `deploy/healthcheck.py`;再把假 UI 改成回 503 跑一次),執行確認它因為「健康檢查對 Ollama 相容 port 送 HTTP,每 30 秒重設閒置計時,工作階段永遠不會閒置結束(Q89)」這類實作而失敗;先對一份故意改成對 Ollama 相容 port 送 `GET /api/version` 的 `healthcheck.py` 複本(對照組)執行,確認測試抓得到;再對 T014 搬來的 `deploy/healthcheck.py` 執行,實物已經通過時在任務備註記下「Setup 原樣複製的腳本已滿足」
+- [ ] T292a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_healthcheck.py` 寫 G-08 的測試(以子行程跑 `deploy/healthcheck.py`;再把假 UI 改成回 503 跑一次),執行確認它因為「健康檢查對 Ollama 相容 port 送 HTTP,每 30 秒重設閒置計時,工作階段永遠不會閒置結束(Q89)」這類實作而失敗;先對一份故意改成對 Ollama 相容 port 送 `GET /api/version` 的 `healthcheck.py` 複本(對照組)執行,確認測試抓得到;再對 T014 搬來的 `deploy/healthcheck.py` 執行,實物已經通過時在任務備註記下「Setup 原樣複製的腳本已滿足」
   - 🧪 `testplan.md` § G-08
   - ⚙ `deploy/compose.yaml` § `services.cgb.healthcheck`
   - 📎 `spec.md` § NFR-012;`plan.md` § 待決問題 Q89
-- [ ] T290b [G] 🟢 /tdd 綠燈:在 `deploy/healthcheck.py` 只寫讓 G-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T290a)
+- [ ] T292b [G] 🟢 /tdd 綠燈:在 `deploy/healthcheck.py` 只寫讓 G-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T292a)
   - 🧪 `testplan.md` § G-08
   - ⚙ `deploy/compose.yaml` § `services.cgb.healthcheck`
   - 📎 `spec.md` § NFR-012;`plan.md` § 待決問題 Q89
-- [ ] T291a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_fake_signatures.py` 寫 G-09 的測試(對清單裡每一對,列出真 adapter 的每個公開方法(不以 `_` 開頭),比對替身同名方法;再對每個方法少帶一個必填參數、多帶一個真方法沒有的參數名,各呼叫替身一次),執行確認它因為「替身用 `*args, **kwargs` 照單全收,呼叫端少帶參數(例如重連只傳 `session_name` 給 `open_tunnel`)自動化測試全綠、接上真 adapter 才丟 TypeError」這類實作而失敗;在 `tests/integration/test_fake_signatures.py` 另斷言 `src/cgb/adapters/` 裡每個定義了轉接層類別的模組都在比對清單裡
+- [ ] T293a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_fake_signatures.py` 寫 G-09 的測試(對清單裡每一對,列出真 adapter 的每個公開方法(不以 `_` 開頭),比對替身同名方法;再對每個方法少帶一個必填參數、多帶一個真方法沒有的參數名,各呼叫替身一次),執行確認它因為「替身用 `*args, **kwargs` 照單全收,呼叫端少帶參數(例如重連只傳 `session_name` 給 `open_tunnel`)自動化測試全綠、接上真 adapter 才丟 TypeError」這類實作而失敗;在 `tests/integration/test_fake_signatures.py` 另斷言 `src/cgb/adapters/` 裡每個定義了轉接層類別的模組都在比對清單裡
   - 🧪 `testplan.md` § G-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./version.get`、`paths./sessions.get`、`paths./new.post`、`paths./exec/start-ollama.post`、`paths./exec/probe-resources.post`、`paths./stop.post`、`paths./usage.get`;`contracts/tunnel.openapi.yaml` § `paths./key.post`、`paths./tunnels.post`、`paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}.delete`;`contracts/google-oauth.openapi.yaml` § `paths./o/oauth2/auth.get`、`paths./token.post`
   - 📎 `spec.md` § FR-004、FR-005、FR-007
-- [ ] T291b [G] 🟢 /tdd 綠燈:在 `tests/fakes/adapters.py`、`src/cgb/services/health_monitor.py` 只寫讓 G-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`tests/fakes/adapters.py` 的替身改成以真 adapter 的 `inspect.signature` 綁定參數(少帶、多帶都丟 `TypeError`,async 與否和真方法一致);同一個任務修正因此暴露的呼叫端錯誤,例如 `src/cgb/services/health_monitor.py` 重連時少帶 `key_path`、`local_port`;比對清單目前是 `FakeColabControl`、`FakeTunnel`、`FakeGoogleOAuth`,E7、E8 的 adapter 建立時由那一節的綠燈把配對加進清單(Q160)(依賴 T291a)
+- [ ] T293b [G] 🟢 /tdd 綠燈:在 `tests/fakes/adapters.py`、`src/cgb/services/health_monitor.py` 只寫讓 G-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`tests/fakes/adapters.py` 的替身改成以真 adapter 的 `inspect.signature` 綁定參數(少帶、多帶都丟 `TypeError`,async 與否和真方法一致);同一個任務修正因此暴露的呼叫端錯誤,例如 `src/cgb/services/health_monitor.py` 重連時少帶 `key_path`、`local_port`;比對清單目前是 `FakeColabControl`、`FakeTunnel`、`FakeGoogleOAuth`,E7、E8 的 adapter 建立時由那一節的綠燈把配對加進清單(Q160)(依賴 T293a)
   - 🧪 `testplan.md` § G-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./version.get`、`paths./sessions.get`、`paths./new.post`、`paths./exec/start-ollama.post`、`paths./exec/probe-resources.post`、`paths./stop.post`、`paths./usage.get`;`contracts/tunnel.openapi.yaml` § `paths./key.post`、`paths./tunnels.post`、`paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}.delete`;`contracts/google-oauth.openapi.yaml` § `paths./o/oauth2/auth.get`、`paths./token.post`
   - 📎 `spec.md` § FR-004、FR-005、FR-007
-- [ ] T292 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T286b、T287b、T288b、T289b、T290b、T291b 記下的重構清單(範圍限 `src/cgb/`、`deploy/`、`.gitignore`、`Dockerfile.dockerignore`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/e2e/` 的斷言(依賴 T291b)
+- [ ] T294 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T288b、T289b、T290b、T291b、T292b、T293b 記下的重構清單(範圍限 `src/cgb/`、`deploy/`、`.gitignore`、`Dockerfile.dockerignore`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/e2e/` 的斷言(依賴 T293b)
   - 🧪 `testplan.md` § G-02、G-03、G-04、G-06、G-08、G-09
   - 📎 `testplan.md` § 6.2
-- [ ] T293 [G] 📏 量測(人工):⏸ 延後:需要使用者本人在場,不在 P9 這一批(plan.md Q101 決定實跑授權改為複製既有 token.json、比對 sha256,US1-OA-06 與 G-01 延後到使用者回來;Q108),使用者回來並同意前不執行;撰寫 `tests/realrun/test_g_01.py`(`-m realrun`),照 G-01 量測。假如:延後到使用者在場時另跑(Q108),不在 P9 這一批;`docker compose -p cgb-test` 起在桌機,`.env` 的 `CGB_BIND_ADDR=0.0.0.0`(本案例暫時改,其他案例用 127.0.0.1)、UI 8780、Ollama 相容端點 11436;沒有工作階段。當:使用者用同一個區網的另一台裝置(手機連 Wi-Fi 或另一台電腦)打開 `http://<桌機區網 IP>:8780`,並對 `http://<桌機區網 IP>:11436/api/version` 送請求;再把手機切到行動網路,或用 check-host.net,對桌機的公網 IP 連 8780 與 11436。記下的數字與門檻:則1:區網裝置不需要任何登入就看到首頁;則2:區網裝置對 11436 收到 503 與「沒有可用的工作階段」;則3:行動網路或 check-host.net 對 8780 連不上;則4:行動網路或 check-host.net 對 11436 連不上。副作用與護欄:P5、P6;不開執行環境,0 compute units,約 5 分鐘;不改路由器設定,只觀察;不在區網內連公網 IP(NAT hairpin 結果不可信);測完把 `CGB_BIND_ADDR` 改回 127.0.0.1 並重建容器(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:使用者(則1、則2 看畫面與回應);腳本或 check-host.net 結果判定則3、則4;樣本:一台區網裝置與一個外網來源(未用於調整)。使用者在場時另跑,不和 P9 那一批一起;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
+- [ ] T295 [G] 📏 量測(人工):⏸ 延後:需要使用者本人在場,不在 P9 這一批(plan.md Q101 決定實跑授權改為複製既有 token.json、比對 sha256,US1-OA-06 與 G-01 延後到使用者回來;Q108),使用者回來並同意前不執行;撰寫 `tests/realrun/test_g_01.py`(`-m realrun`),照 G-01 量測。假如:延後到使用者在場時另跑(Q108),不在 P9 這一批;`docker compose -p cgb-test` 起在桌機,`.env` 的 `CGB_BIND_ADDR=0.0.0.0`(本案例暫時改,其他案例用 127.0.0.1)、UI 8780、Ollama 相容端點 11436;沒有工作階段。當:使用者用同一個區網的另一台裝置(手機連 Wi-Fi 或另一台電腦)打開 `http://<桌機區網 IP>:8780`,並對 `http://<桌機區網 IP>:11436/api/version` 送請求;再把手機切到行動網路,或用 check-host.net,對桌機的公網 IP 連 8780 與 11436。記下的數字與門檻:則1:區網裝置不需要任何登入就看到首頁;則2:區網裝置對 11436 收到 503 與「沒有可用的工作階段」;則3:行動網路或 check-host.net 對 8780 連不上;則4:行動網路或 check-host.net 對 11436 連不上。副作用與護欄:P5、P6;不開執行環境,0 compute units,約 5 分鐘;不改路由器設定,只觀察;不在區網內連公網 IP(NAT hairpin 結果不可信);測完把 `CGB_BIND_ADDR` 改回 127.0.0.1 並重建容器(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:使用者(則1、則2 看畫面與回應);腳本或 check-host.net 結果判定則3、則4;樣本:一台區網裝置與一個外網來源(未用於調整)。使用者在場時另跑,不和 P9 那一批一起;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
   - 🧪 `testplan.md` § G-01
   - ⚙ `deploy/compose.yaml` § `services.cgb.ports`;`prototype/index.html` § `[data-state="normal"]`;`contracts/ollama-compat.openapi.yaml` § `paths./api/version.get`、`components.schemas.OllamaError`
   - 📎 `spec.md` § NFR-009;`plan.md` § 待決問題 Q101、Q108
-- [ ] T294 [G] 📏 量測:撰寫 `tests/realrun/test_g_05.py`(`-m realrun`),照 G-05 量測。假如:整批實跑結束、P3 之後;`<暫存目錄>/data/colab-cli/token.json` 仍在。當:從 token.json 取出 access token 與 refresh token 寫進一個 0600 的暫存 pattern 檔(不印出);對 `docker compose -p cgb-test logs`、`<暫存目錄>/data` 底下 `token.json` 與 `sessions.json` 以外的每個檔、實跑錄下的所有 API 回應與 SSE 事件,執行 `grep -c -F -f <pattern 檔>`,只印每個來源的次數。記下的數字與門檻:則1:每個來源的次數都是 0;則2:`colab.log` 是指向 `/dev/null` 的符號連結;則3:`docker inspect` 的環境變數裡沒有 token。副作用與護欄:P6、P8;不開執行環境,0 compute units,約 2 分鐘;pattern 檔放 `<暫存目錄>`,用完立即刪除;先以一個已知的假 token 驗一次這條 grep 指令真的數得到(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(次數 0);樣本:整批實跑產生的日誌與檔案(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
+- [ ] T296 [G] 📏 量測:撰寫 `tests/realrun/test_g_05.py`(`-m realrun`),照 G-05 量測。假如:整批實跑結束、P3 之後;`<暫存目錄>/data/colab-cli/token.json` 仍在。當:從 token.json 取出 access token 與 refresh token 寫進一個 0600 的暫存 pattern 檔(不印出);對 `docker compose -p cgb-test logs`、`<暫存目錄>/data` 底下 `token.json` 與 `sessions.json` 以外的每個檔、實跑錄下的所有 API 回應與 SSE 事件,執行 `grep -c -F -f <pattern 檔>`,只印每個來源的次數。記下的數字與門檻:則1:每個來源的次數都是 0;則2:`colab.log` 是指向 `/dev/null` 的符號連結;則3:`docker inspect` 的環境變數裡沒有 token。副作用與護欄:P6、P8;不開執行環境,0 compute units,約 2 分鐘;pattern 檔放 `<暫存目錄>`,用完立即刪除;先以一個已知的假 token 驗一次這條 grep 指令真的數得到(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(次數 0);樣本:整批實跑產生的日誌與檔案(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
   - 🧪 `testplan.md` § G-05
   - ⚙ `deploy/compose.yaml` § `services.cgb`
   - 📎 `spec.md` § NFR-010;`plan.md` § 待決問題 Q101、Q108
-- [ ] T295 [G] 📏 量測:撰寫 `tests/realrun/test_g_07.py`(`-m realrun`),照 G-07 量測。假如:整批實跑的最後(P3 之後),`<暫存目錄>/.env` 只有 `CGB_HOST_DATA`、`CGB_HOST_UI_PORT=8780`、`CGB_HOST_OLLAMA_PORT=11436`、`CGB_BIND_ADDR=127.0.0.1`;資料夾裡已有複製來的授權與 US1-AJ-17~US1-AJ-22、US4-AJ-09 的紀錄。當:`docker compose -p cgb-test --env-file <暫存目錄>/.env down`,再 `up -d --force-recreate`(沿用已建好的映像);等健康;讀 `GET /api/auth`、`GET /api/sessions`;`docker exec` 讀 `/data` 底下的權限。記下的數字與門檻:則1:`up` 後 90 秒內容器狀態為 healthy;則2:`GET /api/auth` 的 `state` 為 `logged_in`;則3:`GET /api/sessions` 的筆數與重建前相同;則4:`/data/cgb.sqlite3`、`/data/colab-cli/token.json`、`/data/ssh/id_ed25519` 的權限是 0600;則5:`/data/colab-cli/history` 是 tmpfs,重建後是空的。副作用與護欄:P3、P5、P6、P8;不開執行環境,0 compute units,約 3 分鐘;只操作 `-p cgb-test`,不碰 named volume `cgb-data`;重建後不按「開啟」(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本;樣本:整批實跑留下的資料(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
+- [ ] T297 [G] 📏 量測:撰寫 `tests/realrun/test_g_07.py`(`-m realrun`),照 G-07 量測。假如:整批實跑的最後(P3 之後),`<暫存目錄>/.env` 只有 `CGB_HOST_DATA`、`CGB_HOST_UI_PORT=8780`、`CGB_HOST_OLLAMA_PORT=11436`、`CGB_BIND_ADDR=127.0.0.1`;資料夾裡已有複製來的授權與 US1-AJ-17~US1-AJ-22、US4-AJ-09 的紀錄。當:`docker compose -p cgb-test --env-file <暫存目錄>/.env down`,再 `up -d --force-recreate`(沿用已建好的映像);等健康;讀 `GET /api/auth`、`GET /api/sessions`;`docker exec` 讀 `/data` 底下的權限。記下的數字與門檻:則1:`up` 後 90 秒內容器狀態為 healthy;則2:`GET /api/auth` 的 `state` 為 `logged_in`;則3:`GET /api/sessions` 的筆數與重建前相同;則4:`/data/cgb.sqlite3`、`/data/colab-cli/token.json`、`/data/ssh/id_ed25519` 的權限是 0600;則5:`/data/colab-cli/history` 是 tmpfs,重建後是空的。副作用與護欄:P3、P5、P6、P8;不開執行環境,0 compute units,約 3 分鐘;只操作 `-p cgb-test`,不碰 named volume `cgb-data`;重建後不按「開啟」(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本;樣本:整批實跑留下的資料(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
   - 🧪 `testplan.md` § G-07
   - ⚙ `deploy/compose.yaml` § `services.cgb`、`services.cgb.volumes`、`services.cgb.tmpfs`、`services.cgb.healthcheck`;`contracts/ui.openapi.yaml` § `paths./auth.get`、`paths./sessions.get`
   - 📎 `spec.md` § NFR-012、NFR-010;`plan.md` § 待決問題 Q101、Q108
@@ -2522,35 +2539,35 @@
 
 | 介面元素 | 綠燈 | 紅燈 |
 |---|---|---|
-| `ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`paths./session.post`、`paths./session.delete`(擴充:G-02) | T286b | T286a |
-| `ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendAuthUpdated`(擴充:G-02) | T286b | T286a |
-| `history.html` § `[data-state="normal"]`(擴充:G-06) | T289b | T289a |
-| `history.html` § `[data-state="empty"]` | T289b | T289a |
-| `index.html` § `[data-state="normal"]`、`[data-state="low-balance"]`、`[data-state="needs-login"]`、`[data-state="starting"]`、`[data-state="ready"]`、`[data-state="confirm-stop"]`、`[data-state="confirm-switch"]`、`[data-state="stopping"]`、`[data-state="switching"]`、`[data-state="ended"]`、`[data-state="ended-idle"]`、`[data-state="failed"]`、`[data-state="already-open"]`、`[data-state="reconnecting"]`、`[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="lost-zero"]`、`[data-state="release-failed"]`、`[data-state="resuming"]`、`[data-state="foreign"]`(擴充:G-06) | T289b | T289a |
-| `library.html` § `[data-state="normal"]`、`[data-state="results"]`、`[data-state="confirm"]`、`[data-state="no-space"]`、`[data-state="not-found"]`(擴充:G-06) | T289b | T289a |
-| `library.html` § `[data-state="searching"]`、`[data-state="no-results"]`、`[data-state="library-down"]`、`[data-state="checking"]`、`[data-state="cloud-only"]`、`[data-state="no-session"]` | T289b | T289a |
-| `login.html` § `[data-state="normal"]`、`[data-state="signed-in"]`、`[data-state="link"]`、`[data-state="failed"]`、`[data-state="link-expired"]`(擴充:G-06) | T289b | T289a |
-| `login.html` § `[data-state="loading"]`、`[data-state="verifying"]`、`[data-state="scope-missing"]`、`[data-state="unreachable"]` | T289b | T289a |
-| `models.html` § `[data-state="normal"]`、`[data-state="no-session"]`、`[data-state="preload-warn"]`、`[data-state="preloading"]`(擴充:G-06) | T289b | T289a |
-| `models.html` § `[data-state="empty"]`、`[data-state="loading"]`、`[data-state="preload-failed"]` | T289b | T289a |
-| `usage.html` § `[data-state="normal"]`、`[data-state="low"]`、`[data-state="unknown"]`、`[data-state="stale"]`、`[data-state="loading"]`(擴充:G-06) | T289b | T289a |
-| `colab-cli.openapi.yaml` § `paths./version.get`、`paths./sessions.get`、`paths./new.post`、`paths./exec/start-ollama.post`、`paths./exec/probe-resources.post`、`paths./stop.post`、`paths./usage.get`(擴充:G-09) | T291b | T291a |
-| `tunnel.openapi.yaml` § `paths./key.post`、`paths./tunnels.post`、`paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}.delete`(擴充:G-09) | T291b | T291a |
-| `google-oauth.openapi.yaml` § `paths./o/oauth2/auth.get`、`paths./token.post`(擴充:G-09) | T291b | T291a |
+| `ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`paths./session.post`、`paths./session.delete`(擴充:G-02) | T288b | T288a |
+| `ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendAuthUpdated`(擴充:G-02) | T288b | T288a |
+| `history.html` § `[data-state="normal"]`(擴充:G-06) | T291b | T291a |
+| `history.html` § `[data-state="empty"]` | T291b | T291a |
+| `index.html` § `[data-state="normal"]`、`[data-state="low-balance"]`、`[data-state="needs-login"]`、`[data-state="starting"]`、`[data-state="ready"]`、`[data-state="confirm-stop"]`、`[data-state="confirm-switch"]`、`[data-state="stopping"]`、`[data-state="switching"]`、`[data-state="ended"]`、`[data-state="ended-idle"]`、`[data-state="failed"]`、`[data-state="already-open"]`、`[data-state="reconnecting"]`、`[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="lost-zero"]`、`[data-state="release-failed"]`、`[data-state="resuming"]`、`[data-state="foreign"]`(擴充:G-06) | T291b | T291a |
+| `library.html` § `[data-state="normal"]`、`[data-state="results"]`、`[data-state="confirm"]`、`[data-state="no-space"]`、`[data-state="not-found"]`(擴充:G-06) | T291b | T291a |
+| `library.html` § `[data-state="searching"]`、`[data-state="no-results"]`、`[data-state="library-down"]`、`[data-state="checking"]`、`[data-state="cloud-only"]`、`[data-state="no-session"]` | T291b | T291a |
+| `login.html` § `[data-state="normal"]`、`[data-state="signed-in"]`、`[data-state="link"]`、`[data-state="failed"]`、`[data-state="link-expired"]`(擴充:G-06) | T291b | T291a |
+| `login.html` § `[data-state="loading"]`、`[data-state="verifying"]`、`[data-state="scope-missing"]`、`[data-state="unreachable"]` | T291b | T291a |
+| `models.html` § `[data-state="normal"]`、`[data-state="no-session"]`、`[data-state="preload-warn"]`、`[data-state="preloading"]`(擴充:G-06) | T291b | T291a |
+| `models.html` § `[data-state="empty"]`、`[data-state="loading"]`、`[data-state="preload-failed"]` | T291b | T291a |
+| `usage.html` § `[data-state="normal"]`、`[data-state="low"]`、`[data-state="unknown"]`、`[data-state="stale"]`、`[data-state="loading"]`(擴充:G-06) | T291b | T291a |
+| `colab-cli.openapi.yaml` § `paths./version.get`、`paths./sessions.get`、`paths./new.post`、`paths./exec/start-ollama.post`、`paths./exec/probe-resources.post`、`paths./stop.post`、`paths./usage.get`(擴充:G-09) | T293b | T293a |
+| `tunnel.openapi.yaml` § `paths./key.post`、`paths./tunnels.post`、`paths./tunnels/{sessionName}/health.get`、`paths./tunnels/{sessionName}.delete`(擴充:G-09) | T293b | T293a |
+| `google-oauth.openapi.yaml` § `paths./o/oauth2/auth.get`、`paths./token.post`(擴充:G-09) | T293b | T293a |
 
 ### 測試案例覆蓋(全域)
 
 | testplan 案例 | 任務 |
 |---|---|
-| G-01 | T293 |
-| G-02 | T286a、T286b、T292 |
-| G-03 | T287a、T287b、T292 |
-| G-04 | T288a、T288b、T292 |
-| G-05 | T294 |
-| G-06 | T289a、T289b、T292 |
-| G-07 | T295 |
-| G-08 | T290a、T290b、T292 |
-| G-09 | T291a、T291b、T292 |
+| G-01 | T295 |
+| G-02 | T288a、T288b、T294 |
+| G-03 | T289a、T289b、T294 |
+| G-04 | T290a、T290b、T294 |
+| G-05 | T296 |
+| G-06 | T291a、T291b、T294 |
+| G-07 | T297 |
+| G-08 | T292a、T292b、T294 |
+| G-09 | T293a、T293b、T294 |
 
 **Checkpoint**: 全部測試綠燈;`specs/001-session-model-catalog/measurements.md` 每一項都寫了數字與是否過門檻,沒過的列為待決問題;⏸ 的 US1-OA-06、G-01 等使用者回來再跑
 
@@ -2564,10 +2581,10 @@
 |---|---|---|
 | SC-001 | T149 | 桌機容器、真的 Colab T4;按下開啟到「就緒」(不含模型載入)≤ 5 分鐘,超過即開啟失敗並釋放 |
 | SC-002 | T150、T154 | 真的 Colab;`colab stop` 模擬收回後 ≤ 2 分鐘顯示失聯;SIGKILL ssh 模擬斷線後 ≤ 1 分鐘顯示重連中,重連時限到才失聯 |
-| SC-003 | T077、T152、T153、T285 | 真的 Colab;每次結束(使用者結束、閒置自動結束、開啟失敗)後 ≤ 1 分鐘,`colab sessions` 沒有本系統的遺留 |
+| SC-003 | T077、T152、T153、T287 | 真的 Colab;每次結束(使用者結束、閒置自動結束、開啟失敗)後 ≤ 1 分鐘,`colab sessions` 沒有本系統的遺留 |
 | SC-004 | T246 | 真的 Colab T4;qwen2.5:7b(約 4.7GB)從開始下載到可推論 ≤ 3 分鐘 |
 | SC-005 | T182 | 真的 Colab;單次非串流請求經 Ollama 相容端點與直連轉發 port 的延遲差 ≤ 0.5 秒 |
-| SC-006 | T285 | 真的 Colab;閒置時限設 1 分鐘,到期後 ≤ 1 分鐘自動結束 |
+| SC-006 | T287 | 真的 Colab;閒置時限設 1 分鐘,到期後 ≤ 1 分鐘自動結束 |
 | SC-007 | T183 | 不開執行環境;沒有就緒的工作階段時,Ollama 相容端點 ≤ 1 秒回「沒有可用的工作階段」 |
 | SC-008 | T247 | 真的 Colab;背景下載期間單次非串流請求的延遲比沒有下載時增加 ≤ 0.5 秒 |
 
