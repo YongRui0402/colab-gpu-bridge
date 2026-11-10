@@ -2353,71 +2353,71 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(或區網程式)接測試行程內真的後端,轉接層用替身;📏 任務改接真的 Colab,照 P9 整批實跑
 
-- [ ] T279a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-01 的測試(打開用量頁),執行確認它因為「畫面只顯示餘額,缺耗用、可用時數或讀取時間」這類實作而失敗
+- [X] T279a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-01 的測試(打開用量頁),執行確認它因為「畫面只顯示餘額,缺耗用、可用時數或讀取時間」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-01
   - ⚙ `prototype/usage.html` § `#n-balance`、`#n-rate`、`#n-hours`、`#n-read`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024
-- [ ] T279b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T279a)
+- [X] T279b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T279a)
   - 🧪 `testplan.md` § US4-AJ-01
   - ⚙ `prototype/usage.html` § `#n-balance`、`#n-rate`、`#n-hours`、`#n-read`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024
-- [ ] T280a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-02 的測試(打開用量頁,過 1 秒再放行),執行確認它因為「第一次讀到之前顯示 0 或空白的數字,看起來像餘額為 0」這類實作而失敗
+- [X] T280a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-02 的測試(打開用量頁,過 1 秒再放行),執行確認它因為「第一次讀到之前顯示 0 或空白的數字,看起來像餘額為 0」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-02
   - ⚙ `prototype/usage.html` § `[data-state="loading"]`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-024
-- [ ] T280b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T280a)
+- [X] T280b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T280a)
   - 🧪 `testplan.md` § US4-AJ-02
   - ⚙ `prototype/usage.html` § `[data-state="loading"]`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-024
-- [ ] T281a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-03 的測試(打開用量頁;再到首頁按「開啟」並放行全部步驟),執行確認它因為「讀不到用量時首頁的「開啟」被停用」這類實作而失敗
+- [X] T281a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-03 的測試(打開用量頁;再到首頁按「開啟」並放行全部步驟),執行確認它因為「讀不到用量時首頁的「開啟」被停用」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-03
   - ⚙ `prototype/usage.html` § `[data-state="unknown"]`;`prototype/index.html` § `#open`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-024
-- [ ] T281b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T281a)
+- [X] T281b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T281a)
   - 🧪 `testplan.md` § US4-AJ-03
   - ⚙ `prototype/usage.html` § `[data-state="unknown"]`;`prototype/index.html` § `#open`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-024
-- [ ] T282a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-04 的測試(打開用量頁;再打開首頁,按「開啟」並放行),執行確認它因為「低餘額警告只在用量頁有」這類實作而失敗
+- [X] T282a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-04 的測試(打開用量頁;再打開首頁,按「開啟」並放行),執行確認它因為「低餘額警告只在用量頁有」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-04
   - ⚙ `prototype/usage.html` § `#l-warn`、`[data-state="low"]`;`prototype/index.html` § `#open`、`#open-low`、`[data-state="low-balance"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-025
-- [ ] T282b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T282a)
+- [X] T282b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T282a)
   - 🧪 `testplan.md` § US4-AJ-04
   - ⚙ `prototype/usage.html` § `#l-warn`、`[data-state="low"]`;`prototype/index.html` § `#open`、`#open-low`、`[data-state="low-balance"]`、`[data-state="ready"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-025
-- [ ] T283a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-05 的測試(在用量頁 `#settings-form` 把閒置時限改成 10、警告門檻改成 400 並儲存;打開首頁),執行確認它因為「儲存後要重新整理才生效」這類實作而失敗
+- [X] T283a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-05 的測試(在用量頁 `#settings-form` 把閒置時限改成 10、警告門檻改成 400 並儲存;打開首頁),執行確認它因為「儲存後要重新整理才生效」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-05
   - ⚙ `prototype/usage.html` § `#settings-form`、`#idle`、`#warn`、`#saved`、`[data-state="low"]`;`prototype/index.html` § `#r-countdown`;`contracts/ui.openapi.yaml` § `paths./settings.put`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSettingsUpdated`、`operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-027
-- [ ] T283b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T283a)
+- [X] T283b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js`、`src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T283a)
   - 🧪 `testplan.md` § US4-AJ-05
   - ⚙ `prototype/usage.html` § `#settings-form`、`#idle`、`#warn`、`#saved`、`[data-state="low"]`;`prototype/index.html` § `#r-countdown`;`contracts/ui.openapi.yaml` § `paths./settings.put`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSettingsUpdated`、`operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-027
-- [ ] T284a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_idle.py` 寫 US4-AJ-06 的測試(打開首頁,時鐘推進 30 秒;再推進到超過 `deadline`),執行確認它因為「倒數不跟著時間走」這類實作而失敗
+- [X] T284a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_idle.py` 寫 US4-AJ-06 的測試(打開首頁,時鐘推進 30 秒;再推進到超過 `deadline`),執行確認它因為「倒數不跟著時間走」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-06
   - ⚙ `prototype/index.html` § `#r-countdown`、`#e-reason`、`[data-state="ended-idle"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-026
-- [ ] T284b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T284a)
+- [X] T284b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T284a)
   - 🧪 `testplan.md` § US4-AJ-06
   - ⚙ `prototype/index.html` § `#r-countdown`、`#e-reason`、`[data-state="ended-idle"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-026
-- [ ] T285a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_idle.py` 寫 US4-AJ-07 的測試(`check_health` 失敗、`list_sessions` 不再列出這台),執行確認它因為「失聯時沒有提示可能是餘額歸零,使用者只看到一般的失聯」這類實作而失敗
+- [X] T285a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_idle.py` 寫 US4-AJ-07 的測試(`check_health` 失敗、`list_sessions` 不再列出這台),執行確認它因為「失聯時沒有提示可能是餘額歸零,使用者只看到一般的失聯」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-07
   - ⚙ `prototype/index.html` § `[data-state="lost-zero"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § 邊界情況
-- [ ] T285b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T285a)
+- [X] T285b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US4-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T285a)
   - 🧪 `testplan.md` § US4-AJ-07
   - ⚙ `prototype/index.html` § `[data-state="lost-zero"]`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § 邊界情況
-- [ ] T286a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-08 的測試(打開用量頁,把時鐘推進 16 分鐘),執行確認它因為「後端標了 `stale`,前端沒有顯示」這類實作而失敗
+- [X] T286a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_us4_usage.py` 寫 US4-AJ-08 的測試(打開用量頁,把時鐘推進 16 分鐘),執行確認它因為「後端標了 `stale`,前端沒有顯示」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-08
   - ⚙ `prototype/usage.html` § `#n-read`、`[data-state="stale"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § NFR-008
-- [ ] T286b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T286a)
+- [X] T286b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/usage.html`、`src/cgb/static/js/usage.js` 只寫讓 US4-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T286a)
   - 🧪 `testplan.md` § US4-AJ-08
   - ⚙ `prototype/usage.html` § `#n-read`、`[data-state="stale"]`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § NFR-008
-- [ ] T287 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T279b~T286b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T286b)
+- [X] T287 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T279b~T286b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T286b)
   - 🧪 `testplan.md` § US4-AJ-01~US4-AJ-08
   - 📎 `testplan.md` § 5.6
 - [ ] T288 [US4] 📏 量測:撰寫 `tests/realrun/test_us4_aj_09.py`(`-m realrun`),照 US4-AJ-09 量測。假如:容器階段,US1-AJ-21 之後,沒有工作階段;真的 Colab、CLI、ssh、遠端 Ollama。當:開一台 T4 到就緒;在用量頁把閒置時限設成 1 分鐘並儲存;記下用量頁的餘額與耗用,同一分鐘內在終端機執行 `HOME=<暫存目錄>/home colab usage`;之後不送任何 Ollama 相容端點的請求,每 5 秒讀一次 `GET /api/session` 與 `colab sessions`。記下的數字與門檻:則1:用量頁的餘額和 `colab usage` 的差不超過 0.05 compute units;則2:用量頁的每小時耗用和 `colab usage` 的差不超過 0.05;則3:`idle.deadline` 到了之後 1 分鐘內 `endReason` 為 `IDLE_TIMEOUT`(SC-006);則4:自動結束後 1 分鐘內 `colab sessions` 沒有這個名稱(SC-003);則5:案例期間 `GET /api/usage` 的 `readAt` 至少更新過 1 次,相鄰兩次的間隔不超過 5 分鐘。副作用與護欄:P1~P9;開 1 台 T4,約 6 分鐘、約 0.12 compute units;閒置時限只在 `cgb-test` 這個實例改,結束後改回 30;不送任何 Ollama 相容端點的請求(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(0.05 差距與 1 分鐘門檻);樣本:一次實跑(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`

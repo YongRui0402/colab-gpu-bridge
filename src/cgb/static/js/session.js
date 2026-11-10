@@ -1,7 +1,7 @@
 // 首頁(工作階段面板):依後端推送的 `Session` 顯示對應的狀態區塊(prototype/index.html)
-import { request } from "./api.js";
+import { readThenFollow, request } from "./api.js";
 import { startHeader } from "./header.js";
-import { showState, typeText } from "./view.js";
+import { cu, duration, mmss, showState, typeText } from "./view.js";
 
 // 可選的類型與顯示記憶體(prototype/mock.js 的 runtimeTypes;FR-009 預設 T4、不開高 RAM)
 const RUNTIME_TYPES = [
@@ -24,6 +24,8 @@ const OPEN_STEPS = [
 // 結束原因(contracts/ui.openapi.yaml § EndReason)
 const END_REASON_TEXT = {
   USER_ENDED: "使用者結束",
+  RECLAIMED_BY_COLAB: "被 Colab 收回(Colab 上已經沒有這台執行環境)",
+  RECONNECT_TIMEOUT: "重連逾時(5 分鐘內接不回)",
 };
 
 // 占著唯一位子的狀態在畫面上的名稱(FR-003、FR-006)
@@ -34,8 +36,12 @@ const ACTIVE_STATE_PILL = {
 };
 
 let session = { state: "none" };
+// 帳號用量(contracts/ui.openapi.yaml § Usage);還沒讀到時是 null
+let usage = null;
 // 已經收到過推送:之後畫面只跟著推送走
 let pushed = false;
+// 已經知道目前的工作階段(推送或讀一次);之前只記下用量,不畫面,免得先閃一下「未開啟」
+let sessionKnown = false;
 // 工作階段名稱 → 變更類型前的類型(不是變更類型開的是 null;還沒查到的不在表裡)
 const switchedFrom = {};
 let picked = { gpu: "T4", highMem: false };
@@ -80,7 +86,11 @@ function viewOf(s) {
   if (s.state === "opening" && s.step === "ending_previous") return "switching";
   // 邊界情況:不接手、不關閉,只提示(Q100、Q122)
   if (s.state === "none" && s.unmanagedRuntimes?.length) return "foreign";
+  if (s.state === "none" && usage?.lowBalance) return "low-balance";
+  // 邊界情況:最後讀到的餘額小於等於 0 時,失聯多半是餘額歸零,另外提示
+  if (s.state === "lost" && s.balanceMayBeDepleted) return "lost-zero";
   if (s.state === "lost" && s.endReason === "RECONNECT_TIMEOUT") return "lost-timeout";
+  if (s.state === "ended" && s.endReason === "IDLE_TIMEOUT") return "ended-idle";
   return { none: "normal", opening: "starting", ready: "ready", ended: "ended", open_failed: "failed", lost: "lost", reconnecting: "reconnecting", ending: "stopping" }[s.state];
 }
 
@@ -92,9 +102,12 @@ function showView(name, releaseWarning) {
   });
 }
 
+// 狀態區塊 `view` 裡 `data-field` 為 `name` 的元素
+const field = (view, name) => document.querySelector(`[data-state="${view}"] [data-field="${name}"]`);
+
 // 只寫名稱的狀態區塊
 const fillName = (view) => () => {
-  document.querySelector(`[data-state="${view}"] [data-field="name"]`).textContent = session.name;
+  field(view, "name").textContent = session.name;
 };
 
 // 每個狀態區塊要填的內容
@@ -129,6 +142,10 @@ const RENDER = {
     const info = typeInfo(session.runtimeType.gpu);
     $("r-name").textContent = session.name;
     $("r-type").textContent = `${typeText(session.runtimeType)}(顯示記憶體約 ${Math.round(info.vramMiB / 1024)} GB)`;
+    renderCountdown();
+  },
+  "low-balance"() {
+    $("lb-text").textContent = `餘額 ${cu(usage.balance)},低於警告門檻 ${usage.warningThreshold} CU。仍然可以開啟,系統不會因為餘額擋下或自動結束工作階段。`;
   },
   foreign() {
     $("fo-count").textContent = session.unmanagedRuntimes.length;
@@ -152,6 +169,17 @@ const RENDER = {
     $("e-name").textContent = session.name;
     $("e-reason").textContent = END_REASON_TEXT[session.endReason];
   },
+  "ended-idle"() {
+    fillName("ended-idle")();
+    field("ended-idle", "type").textContent = typeText(session.runtimeType);
+    field("ended-idle", "duration").textContent = duration(session.durationSeconds);
+  },
+  "lost-zero"() {
+    fillName("lost-zero")();
+    field("lost-zero", "reason").textContent = END_REASON_TEXT[session.endReason] ?? "";
+    const last = usage?.state === "known" ? `最後讀到的餘額是 ${cu(usage.balance)}。` : "";
+    $("lz-text").textContent = `${last}餘額歸零時 Colab 會回到免費方案的限制,切斷這類連線;補充 compute units 後再重新開啟。`;
+  },
   lost: fillName("lost"),
   reconnecting: fillName("reconnecting"),
   "lost-timeout": fillName("lost-timeout"),
@@ -166,6 +194,19 @@ const RENDER = {
     if (from) $("f-switch-note").textContent = `原本的 ${typeText(from)} 執行環境在變更類型時已經結束,不會留著。`;
   },
 };
+
+// FR-026:閒置倒數以後端給的 `deadline` 自己倒數(contracts/ui.openapi.yaml § IdleCountdown)
+function renderCountdown() {
+  const idle = session.idle;
+  if (!idle) return;
+  $("r-countdown").textContent = idle.deadline ? mmss(Date.parse(idle.deadline) - Date.now()) : "不計時";
+  $("r-idle").textContent = idle.deadline
+    ? `閒置時限 ${idle.timeoutMinutes} 分鐘。Ollama 相容端點收到任何請求就重新計時。`
+    : `有 ${idle.activeRequests} 個請求進行中,不計閒置;閒置時限 ${idle.timeoutMinutes} 分鐘。`;
+}
+setInterval(() => {
+  if (viewOf(session) === "ready") renderCountdown();
+}, 1000);
 
 function render() {
   const view = viewOf(session);
@@ -211,12 +252,12 @@ async function openSession() {
   }
 }
 $("open").addEventListener("click", openSession);
-document.querySelector('[data-state="foreign"] [data-action="open"]').addEventListener("click", openSession);
+document.querySelectorAll('[data-action="open"]').forEach((button) => button.addEventListener("click", openSession));
 
 // 失聯後以同一個類型重新開啟
-document.querySelector('[data-action="reopen"]').addEventListener("click", async () => {
+document.querySelectorAll('[data-action="reopen"]').forEach((button) => button.addEventListener("click", async () => {
   await request("POST", "/session", { runtimeType: session.runtimeType });
-});
+}));
 
 document.querySelector('[data-action="retry-release"]').addEventListener("click", async () => {
   await request("DELETE", "/session");
@@ -239,17 +280,26 @@ $("stop").addEventListener("click", async () => {
   await request("DELETE", "/session");
 });
 
+// 帳號用量:自己讀一次,之後跟著 `usage.updated` 推送(FR-025 的低餘額警告)
+const usageUpdated = readThenFollow("/usage", (value) => {
+  usage = value;
+  if (sessionKnown) render();
+});
+
 renderPicker();
 startHeader({
   "session.updated": (payload) => {
     pushed = true;
+    sessionKnown = true;
     session = payload.session;
     render();
   },
+  "usage.updated": (payload) => usageUpdated(payload.usage),
 });
 // 推送還沒連上(或連不上)時,先照查到的現況顯示
 request("GET", "/session").then((response) => {
   if (pushed || !response.ok) return;
+  sessionKnown = true;
   session = response.data;
   render();
 });

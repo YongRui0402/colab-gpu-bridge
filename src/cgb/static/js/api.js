@@ -20,3 +20,16 @@ export function subscribe(handlers) {
   }
   return source;
 }
+
+// 連上推送時後端不送快照的資源(plan.md Q192):自己讀一次 `path`,之後跟著推送走。
+// 回傳收到推送時要呼叫的函式;讀一次的回應比推送晚到時是比較舊的,不拿來蓋掉畫面
+export function readThenFollow(path, apply) {
+  let pushed = false;
+  request("GET", path).then((response) => {
+    if (response.ok && !pushed) apply(response.data);
+  });
+  return (value) => {
+    pushed = true;
+    apply(value);
+  };
+}

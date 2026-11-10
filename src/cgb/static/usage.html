@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>用量與設定|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="js/usage.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型</a>
+      <a href="library.html">下載模型</a>
+      <a href="usage.html" aria-current="page">用量與設定</a>
+      <a href="history.html">紀錄</a>
+    </nav>
+  </header>
+  <main>
+    <h1>用量與設定</h1>
+
+    <!-- 用量 -->
+    <section data-state="normal" class="panel" hidden>
+      <div class="panel-head">
+        <h2>Colab compute units</h2>
+        <span class="small muted" id="n-read"></span>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="label">餘額</div><div class="value" id="n-balance"></div></div>
+        <div class="stat"><div class="label">每小時耗用</div><div class="value" id="n-rate"></div></div>
+        <div class="stat"><div class="label">估計還能用</div><div class="value" id="n-hours"></div></div>
+        <div class="stat"><div class="label">警告門檻</div><div class="value" id="n-warn"></div></div>
+      </div>
+      <p class="small muted">每小時耗用是 Colab 帳號下所有執行環境加總;估計時數是餘額除以目前的每小時耗用。</p>
+    </section>
+
+    <!-- 餘額低於警告門檻 -->
+    <section data-state="low" class="panel" hidden>
+      <div class="panel-head">
+        <h2>Colab compute units</h2>
+        <span class="small muted" id="l-read"></span>
+      </div>
+      <div class="notice notice-warn">
+        <strong>餘額低於警告門檻</strong>
+        <span id="l-text"></span>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="label">餘額</div><div class="value" id="l-balance"></div></div>
+        <div class="stat"><div class="label">每小時耗用</div><div class="value" id="l-rate"></div></div>
+        <div class="stat"><div class="label">估計還能用</div><div class="value" id="l-hours"></div></div>
+        <div class="stat"><div class="label">警告門檻</div><div class="value" id="l-warn"></div></div>
+      </div>
+    </section>
+
+    <!-- 用量過期(NFR-008:讀取時間超過 15 分鐘;數字照樣顯示) -->
+    <section data-state="stale" class="panel" hidden>
+      <div class="panel-head">
+        <h2>Colab compute units</h2>
+        <span class="pill pill-warn">已過期</span>
+      </div>
+      <div class="notice notice-warn">
+        <strong id="st-age"></strong>
+        <span id="st-text"></span>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="label">餘額</div><div class="value" id="st-balance"></div></div>
+        <div class="stat"><div class="label">每小時耗用</div><div class="value" id="st-rate"></div></div>
+        <div class="stat"><div class="label">估計還能用</div><div class="value" id="st-hours"></div></div>
+        <div class="stat"><div class="label">警告門檻</div><div class="value" id="st-warn"></div></div>
+      </div>
+    </section>
+
+    <!-- 讀不到用量(從來沒讀到過) -->
+    <section data-state="unknown" class="panel" hidden>
+      <div class="panel-head">
+        <h2>Colab compute units</h2>
+        <span class="small muted" id="u-read"></span>
+      </div>
+      <div class="notice">
+        <strong>讀不到帳號用量</strong>
+        <span id="u-reason"></span>開啟與結束工作階段不受影響。
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="label">餘額</div><div class="value unknown" id="u-balance">未知</div></div>
+        <div class="stat"><div class="label">每小時耗用</div><div class="value unknown">未知</div></div>
+        <div class="stat"><div class="label">估計還能用</div><div class="value unknown">未知</div></div>
+        <div class="stat"><div class="label">警告門檻</div><div class="value" id="u-warn"></div></div>
+      </div>
+    </section>
+
+    <!-- 讀取中:第一次讀到之前不顯示數字,免得看起來像餘額為 0 -->
+    <section data-state="loading" class="panel">
+      <h2>Colab compute units</h2>
+      <p class="empty">正在讀取帳號用量…</p>
+    </section>
+
+    <!-- 設定(不是狀態區塊,一直顯示);範圍照 contracts/ui.openapi.yaml § Settings(Q34) -->
+    <section class="panel">
+      <h2>設定</h2>
+      <form id="settings-form">
+        <div class="grid-2">
+          <div class="field">
+            <label for="idle">閒置時限(分鐘)
+              <span class="hint">Ollama 相容端點連續這麼久沒有請求,就自動結束工作階段</span>
+            </label>
+            <input type="number" id="idle" min="1" max="1440" step="1" required>
+          </div>
+          <div class="field">
+            <label for="warn">餘額警告門檻(compute units)
+              <span class="hint">餘額低於這個數字時顯示警告;只提醒,不會擋下開啟</span>
+            </label>
+            <input type="number" id="warn" min="0" max="10000" step="any" required>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">儲存</button>
+          <span class="small" id="saved" hidden></span>
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

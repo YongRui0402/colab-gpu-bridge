@@ -31,6 +31,19 @@
       </div>
     </section>
 
+    <!-- 未開啟,餘額低於警告門檻(FR-025:只提醒,照樣可以開啟) -->
+    <section data-state="low-balance" class="panel" hidden>
+      <h2 class="state-title"><span class="pill">未開啟</span>目前沒有工作階段</h2>
+      <div class="notice notice-warn">
+        <strong>compute units 快用完了</strong>
+        <span id="lb-text"></span>
+      </div>
+      <div data-picker="low"></div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-action="open">開啟</button>
+      </div>
+    </section>
+
     <!-- 發現不是本系統開的執行環境 -->
     <section data-state="foreign" class="panel" hidden>
       <h2 class="state-title"><span class="pill">未開啟</span>目前沒有工作階段</h2>
@@ -70,9 +83,16 @@
     <!-- 就緒 -->
     <section data-state="ready" class="panel" hidden>
       <h2 class="state-title"><span class="pill pill-ok">就緒</span><span class="mono" id="r-name"></span></h2>
-      <dl class="kv">
-        <dt>執行階段類型</dt><dd id="r-type"></dd>
-      </dl>
+      <div class="grid-2">
+        <dl class="kv">
+          <dt>執行階段類型</dt><dd id="r-type"></dd>
+        </dl>
+        <div class="stat">
+          <div class="label">距離閒置自動結束</div>
+          <div class="countdown" id="r-countdown"></div>
+          <p class="small muted" id="r-idle"></p>
+        </div>
+      </div>
       <div class="actions">
         <a class="btn" href="models.html">模型目錄</a>
         <button type="button" class="btn" data-go="confirm-switch">變更類型</button>
@@ -130,6 +150,20 @@
       <div class="notice notice-ok">已確認 Colab 帳號下沒有遺留的執行環境。</div>
     </section>
 
+    <!-- 已結束(閒置自動結束,FR-026) -->
+    <section data-state="ended-idle" class="panel" hidden>
+      <h2 class="state-title"><span class="pill">已結束</span><span class="mono" data-field="name"></span></h2>
+      <dl class="kv">
+        <dt>結束原因</dt><dd>閒置自動結束(Ollama 相容端點連續沒有請求超過閒置時限)</dd>
+        <dt>執行階段類型</dt><dd data-field="type"></dd>
+        <dt>運行時長</dt><dd data-field="duration"></dd>
+      </dl>
+      <div class="notice notice-ok">已確認 Colab 帳號下沒有遺留的執行環境。閒置時限可以在「用量與設定」調整。</div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-go="normal">開啟新的工作階段</button>
+      </div>
+    </section>
+
     <!-- 開啟失敗 -->
     <section data-state="failed" class="panel" hidden>
       <h2 class="state-title"><span class="pill pill-danger">開啟失敗</span><span class="mono" id="f-name"></span></h2>
@@ -181,6 +215,22 @@
         <dt>結束原因</dt><dd>重連逾時(5 分鐘內接不回)</dd>
       </dl>
       <div class="notice notice-ok" data-when="released">已釋放這台執行環境,Colab 帳號下沒有遺留。</div>
+    </section>
+
+    <!-- 失聯,最後讀到的餘額小於等於 0(spec 邊界情況:餘額可能已經歸零) -->
+    <section data-state="lost-zero" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-danger">失聯</span><span class="mono" data-field="name"></span></h2>
+      <dl class="kv">
+        <dt>結束原因</dt><dd data-field="reason"></dd>
+      </dl>
+      <div class="notice notice-warn">
+        <strong>餘額可能已經歸零</strong>
+        <span id="lz-text"></span>
+      </div>
+      <div class="actions">
+        <a class="btn" href="usage.html">看用量</a>
+        <button type="button" class="btn btn-primary" data-action="reopen">重新開啟</button>
+      </div>
     </section>
 
     <!-- 釋放不了 -->

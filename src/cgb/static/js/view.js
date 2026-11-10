@@ -15,6 +15,9 @@ export const typeText = (runtimeType) => `${runtimeType.gpu}${runtimeType.highMe
 // 位元組 → 「4.7 GB」「398 MB」
 export const bytes = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(n >= 100e9 ? 0 : 1)} GB` : `${Math.round(n / 1e6)} MB`);
 
+// compute units → 「381.66 CU」
+export const cu = (n) => `${n.toFixed(2)} CU`;
+
 // 時刻 → 「21:16」
 export const clock = (iso) => new Date(iso).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
 
@@ -26,6 +29,12 @@ export function duration(seconds) {
   if (h > 0) return `${h} 小時 ${m} 分`;
   if (m > 0) return `${m} 分 ${String(s).padStart(2, "0")} 秒`;
   return `${s} 秒`;
+}
+
+// 毫秒 → 倒數用的「分:秒」,例如「09:58」(不足一秒進位;已過的顯示 00:00)
+export function mmss(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 // 放進 HTML 前跳脫遠端或使用者給的文字
