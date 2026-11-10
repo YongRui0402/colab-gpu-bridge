@@ -1,0 +1,7 @@
+# 實跑容器階段疊在 compose.yaml 上的設定(tests/realrun/helpers_container.py 以 COMPOSE_FILE 帶入)。
+# 只設工作階段名稱前綴(testplan P1:只用 cgb-test- 開頭的工作階段);.env 仍只有那四個變數(P6、G-07)。
+# 前提:`python -m cgb` 會讀 CGB_NAME_PREFIX(目前的 src/cgb/__main__.py 還沒有,見回報);沒讀到時預檢擋下,不開執行環境。
+services:
+  cgb:
+    environment:
+      CGB_NAME_PREFIX: cgb-test-
