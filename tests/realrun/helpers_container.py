@@ -130,6 +130,9 @@ class Stack:
         image = subprocess.run(["docker", "image", "inspect", IMAGE], capture_output=True, text=True, timeout=30)
         if image.returncode != 0:
             raise AssertionError(f"找不到映像 {IMAGE}(容器階段沿用已建好的映像,不 build)")
+        # 先在主機跑一次 colab sessions:讓 sessions.json 等檔由主機使用者建立;容器(root)先建的話是 0600、
+        # 主機的 colab 讀不到,之後的 P2、P3 都會失敗(P9「主機階段先跑」的理由;單獨重跑容器案例時踩到)
+        self.realrun.colab("sessions", timeout=90)
         up = self.realrun.compose("up", "-d", "--no-build", timeout=240)
         self.realrun.record_raw("compose", f"$ docker compose up -d --no-build (exit {up.returncode})\n{up.stdout}{up.stderr}\n")
         if up.returncode != 0:

@@ -297,9 +297,27 @@ class Realrun:
     def colab(self, *args: str, timeout: float = 300) -> subprocess.CompletedProcess[str]:
         """以真的 colab 執行一個子指令;stdin 接 /dev/null。強制 P1(stop 只帶 cgb-test-)、P2(只用 T4)、P4(不掛 Drive)。"""
         check_colab_args(args)
-        return subprocess.run(
+        result = subprocess.run(
             ["colab", *args], env=self.env(), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout
         )
+        if result.returncode != 0 and "Permission" in result.stderr and self.reclaim_colab_dir():
+            # 容器(root)先建的 sessions.json 等檔是 0600、主機讀不到;擁有者改回主機使用者後重試一次
+            result = subprocess.run(
+                ["colab", *args], env=self.env(), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout
+            )
+        return result
+
+    def reclaim_colab_dir(self) -> bool:
+        """把 `<暫存目錄>/data/colab-cli` 的擁有者改回主機使用者(以映像的 root 執行 chown,只動暫存目錄)。"""
+        try:
+            done = subprocess.run(
+                ["docker", "run", "--rm", "--network", "none", "-v", f"{self.colab_dir}:/x", "--entrypoint", "chown",
+                 "colab-gpu-bridge:0.1.0", "-R", f"{os.getuid()}:{os.getgid()}", "/x"],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120,
+            )  # fmt: skip
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return False
+        return done.returncode == 0
 
     def compose(self, *args: str, timeout: float = 300) -> subprocess.CompletedProcess[str]:
         """P6:compose 一律 `-p cgb-test --env-file <暫存目錄>/.env`。"""

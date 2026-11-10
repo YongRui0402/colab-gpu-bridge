@@ -28,6 +28,9 @@ DOWNLOAD_DEADLINE = 300
 PRELOAD_DEADLINE = 300
 
 
+CATALOG_SECONDS: list[float] = []
+
+
 def download_and_preload(stack, model: str) -> tuple[float, float, str]:
     """經 UI API 下載並預先載入;回(下載秒數, 預先載入秒數, 說明)。"""
     started = time.monotonic()
@@ -49,7 +52,11 @@ def download_and_preload(stack, model: str) -> tuple[float, float, str]:
     if response.status_code != 202:
         return downloaded, -1, f"POST /api/models/preload 回 {response.status_code}:{response.text[:160]}"
     while time.monotonic() - started <= PRELOAD_DEADLINE:
-        items = [m for m in stack.ui("GET", "/api/models").json().get("items", []) if m["name"] == model]
+        # GET /api/models 每次都跑一次 probe_resources(colab exec,plan.md Q179),實跑超過 30 秒;放寬並記下耗時
+        asked = time.monotonic()
+        catalog = stack.ui("GET", "/api/models", timeout=180)
+        CATALOG_SECONDS.append(round(time.monotonic() - asked, 1))
+        items = [m for m in catalog.json().get("items", []) if m["name"] == model]
         if items and items[0]["loaded"]:
             return downloaded, time.monotonic() - started, ""
         if items and items[0]["preload"]["state"] == "failed":
@@ -76,22 +83,32 @@ def test_us2_aj_02(realrun):
 
     body = generate_body(SMALL, 8)
     via, direct, errors = [], [], []
-    for _ in range(10):
+
+    def send_via() -> None:
         response, seconds = stack.ollama("POST", "/api/generate", body, timeout=300)
         if response.status_code == 200:
             via.append(seconds)
         else:
             errors.append(f"11436 回 {response.status_code}")
+
+    def send_direct() -> None:
         result = stack.docker_exec("python", "-c", DIRECT, stdin=json.dumps(body), timeout=330)
         try:
             measured = json.loads(result.stdout.strip().splitlines()[-1])
         except (ValueError, IndexError):
             errors.append(f"直連沒有結果(exit {result.returncode})")
-            continue
+            return
         if measured.get("status") == 200:
             direct.append(measured["s"])
         else:
             errors.append(f"11435 回 {measured.get('status')}")
+
+    # 兩邊輪流先送:第一次 generate 若遇到模型冷載入,不會只算在其中一邊(第一次實跑每輪都先經 11436,差 9.3 秒)
+    for i in range(10):
+        for send in (send_direct, send_via) if i % 2 == 0 else (send_via, send_direct):
+            send()
+    extra.append(f"GET /api/models 每次耗時(秒,Q179):{CATALOG_SECONDS}")
+    extra.append("逐次(秒):經 11436 " + str([round(x, 3) for x in via]) + ";直連 " + str([round(x, 3) for x in direct]))
     diff = mean(via) - mean(direct)
 
     listed = ollama_cli("list")

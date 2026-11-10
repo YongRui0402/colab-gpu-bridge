@@ -19,8 +19,15 @@ DOCKER_PORT_LINE = re.compile(r"^(\d+)/tcp -> ([\d.:\[\]]+):(\d+)$")
 RUNTIME_HOST_HINTS = ("colab", "googleusercontent", "/tun/m/")
 
 
+# Colab 的公開官網(失聯畫面「打開 Colab 網頁」的連結,原型就有)不是執行環境的網址(實跑 US2-AJ-04 第一次誤判)
+PUBLIC_COLAB_SITE = "https://colab.research.google.com/"
+
+
 def runtime_urls(text: str) -> list[str]:
-    return [u for u in URL_PATTERN.findall(text) if any(h in u for h in RUNTIME_HOST_HINTS)]
+    return [
+        u for u in URL_PATTERN.findall(text)
+        if u != PUBLIC_COLAB_SITE and any(h in u for h in RUNTIME_HOST_HINTS)
+    ]  # fmt: skip
 
 
 def test_us2_aj_04(realrun):
