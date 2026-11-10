@@ -609,6 +609,7 @@
 | US4-API-17 | 排程 › 健康檢查 | 工作階段 `ready`;最後一次讀到的餘額為 0.00 | `check_health` 開始失敗,`list_sessions` 仍列出這台(重連中) | 則1:`state` 為 `reconnecting`<br>則2:`balanceMayBeDepleted` 為 true<br>則3:另一個測試在最後餘額為 50.00 時做同樣的事,`balanceMayBeDepleted` 為 false | 不看最後讀到的餘額,永遠不提示可能已經歸零;或餘額歸零就直接標失聯、不重連 | 邊界情況、FR-024 |
 | US4-API-19 | 後端行程 › 重新啟動 → `/api/session` › 開啟 | 資料庫沒有未結束的工作階段;`list_sessions` 停在 `Gate`(替身先記下呼叫再等放行,放行後才列出),`create_session` 也停在 `Gate` | app 啟動,啟動時接回的那次 `list_sessions` 走到閘門前;送 `POST /api/session`,等開啟流程的 `list_sessions` 也走到閘門前;放行 `list_sessions`,在 `create_session` 仍停住期間一直查 `GET /api/session`;再放行 `create_session` 開到就緒 | 則1:放行 `list_sessions` 之後、放行 `create_session` 之前,`state` 從沒出現 `lost`,`endReason` 都是 null<br>則2:放行 `create_session` 之後 `state` 為 `ready`,`endReason` 為 null<br>則3:`stop_session` 沒被呼叫,`GET /api/sessions` 那一筆的 `endReason` 不是 `RECLAIMED_BY_COLAB` | 接回先等 `colab sessions` 回來才讀資料庫裡未結束的那筆,把啟動期間剛開啟的工作階段當成上次留下、又不在列出的清單裡,誤標 `RECLAIMED_BY_COLAB`,UI 顯示失聯而 Colab 端仍在扣點(Q190) | FR-005、FR-007 |
 | US4-API-20 | 排程 › 讀用量 → 排程 › 閒置到期 | 情況 A:`get_usage` 第一次(app 啟動時那次)丟 `RuntimeError`(不是 `AdapterError`),之後回 `balance` 50.00;情況 B:工作階段 `ready`,閒置時限 1 分鐘,沒有任何請求;注入的時鐘推進到 `deadline` 之後,下一次被讀現在時間時丟一次 `RuntimeError`,之後恢復正常 | 情況 A:等 `get_usage` 被呼叫 1 次後,時鐘推進 5 分鐘,送 `GET /api/usage`;情況 B:時鐘推進到 `idle.deadline` 加 1 秒,等閒置檢查讀時間時丟出那次例外,再一直查 `GET /api/session` | 則1:情況 A 的 `get_usage` 在丟例外之後又被呼叫,`GET /api/usage` 的 `state` 為 `known`,`balance` 為 50.00<br>則2:情況 B 的 `state` 變成 `ended`,`endReason` 為 `IDLE_TIMEOUT`,時鐘不超過 `deadline` 加 1 分鐘(SC-006)<br>則3:情況 B 的 `stop_session(cgb-test-0001)` 被呼叫 | 背景迴圈只接 `AdapterError`,其他例外讓迴圈靜靜結束:用量不再更新,閒置到期不再自動結束,Colab 繼續扣點(Q191) | FR-026、SC-006、NFR-008 |
+| US4-API-21 | 排程 › 健康檢查 | 工作階段 `ready`;`check_health` 第一次丟 `RuntimeError`(不是 `AdapterError`),之後回健康 | 開到就緒後等 `check_health` 丟出那次例外;等它再被呼叫 1 次後,從 `colab sessions` 拿掉這台,讓 `check_health` 改成回 `TUNNEL_UNREACHABLE` | 則1:丟例外之後 `check_health` 仍被呼叫,期間 `state` 都是 `ready`<br>則2:改成失敗之後 `state` 變成 `lost`,`endReason` 為 `RECLAIMED_BY_COLAB`(照既有的重連規則判定) | 健康檢查的背景迴圈只接 `AdapterError`,其他例外讓迴圈靜靜結束:之後斷線或被收回都不會進入重連中或失聯,UI 一直顯示就緒而 Colab 繼續扣點(Q194) | FR-004 |
 
 #### 非功能案例
 
@@ -674,7 +675,7 @@
 
 每個案例在 `tasks.md` 是一組紅燈、綠燈任務;每一節的案例都做完後,接一個重構任務。同一個故事的端點節彼此平行,跨端點驗收在端點節都完成後才開始。
 
-1. E2 後端 UI API:US4-API-01 → US4-API-02 → … → US4-API-18 → US4-API-19 → US4-API-20 → 重構
+1. E2 後端 UI API:US4-API-01 → US4-API-02 → … → US4-API-18 → US4-API-19 → US4-API-20 → US4-API-21 → 重構
 2. E3 Ollama 相容端點:US4-OC-01 → US4-OC-02 → 重構
 3. E4 資料庫:US4-DB-01 → US4-DB-02 → 重構
 4. E5 Colab CLI:US4-CLI-01 → US4-CLI-02 → 重構
@@ -726,7 +727,7 @@
 | FR-001 一鍵開啟 | 故事 1 | — | US1-API-01、US1-API-15 | — | — | US1-CLI-01、US1-CLI-02、US1-CLI-06、US1-CLI-07、US1-CLI-11~US1-CLI-14、US1-CLI-21、US1-CLI-22~US1-CLI-24、US1-CLI-29、US1-CLI-30、US1-CLI-37~US1-CLI-41 | US1-TUN-01、US1-TUN-02、US1-TUN-05、US1-TUN-13~US1-TUN-16 | — | — | — | — | — | US1-AJ-01、US1-AJ-17 | — | 🔴🟢、📏 量測 |
 | FR-002 結束與確認 | 故事 1 | — | US1-API-07、US1-API-09 | — | — | US1-CLI-15、US1-CLI-21、US1-CLI-25 | US1-TUN-07、US1-TUN-17 | — | — | — | — | — | US1-AJ-02、US1-AJ-21 | — | 🔴🟢、📏 量測 |
 | FR-003 狀態追蹤與結束原因 | 故事 1 | — | US1-API-01、US1-API-07、US1-API-10、US1-API-17、US1-API-36、US1-API-38 | — | — | US1-CLI-03、US1-CLI-04、US1-CLI-36 | — | — | — | — | — | — | US1-AJ-01~US1-AJ-04 | — | 🔴🟢 |
-| FR-004 健康檢查、重連與失聯 | 故事 1 | — | US1-API-17~US1-API-22、US1-API-37 | US2-OC-11 | — | US1-CLI-05、US1-CLI-20、US1-CLI-28、US1-CLI-32、US1-CLI-39 | US1-TUN-02、US1-TUN-04、US1-TUN-06、US1-TUN-07、US1-TUN-10、US1-TUN-12、US1-TUN-18~US1-TUN-20 | — | — | — | — | — | US1-AJ-04~US1-AJ-06、US1-AJ-18、US1-AJ-22、US1-AJ-23 | G-09 | 🔴🟢、📏 量測 |
+| FR-004 健康檢查、重連與失聯 | 故事 1 | — | US1-API-17~US1-API-22、US1-API-37、US4-API-21 | US2-OC-11 | — | US1-CLI-05、US1-CLI-20、US1-CLI-28、US1-CLI-32、US1-CLI-39 | US1-TUN-02、US1-TUN-04、US1-TUN-06、US1-TUN-07、US1-TUN-10、US1-TUN-12、US1-TUN-18~US1-TUN-20 | — | — | — | — | — | US1-AJ-04~US1-AJ-06、US1-AJ-18、US1-AJ-22、US1-AJ-23 | G-09 | 🔴🟢、📏 量測 |
 | FR-005 後端重啟接回 | 故事 1 | — | US1-API-23、US1-API-24、US4-API-19 | — | US1-DB-02 | US1-CLI-03 | US1-TUN-08、US1-TUN-10 | — | — | — | — | — | US1-AJ-14、US1-AJ-19、US1-AJ-23、US2-AJ-05 | G-09 | 🔴🟢、📏 量測 |
 | FR-006 最多一個工作階段 | 故事 1 | — | US1-API-04、US1-API-05、US1-API-15、US1-API-16 | — | US1-DB-01 | — | US1-TUN-03、US1-TUN-11 | — | — | — | — | — | US1-AJ-07 | — | 🔴🟢 |
 | FR-007 不留遺留、釋放不了要警告 | 故事 1 | — | US1-API-08、US1-API-10~US1-API-14、US1-API-16、US1-API-22、US1-API-26、US1-API-40、US4-API-19 | — | — | US1-CLI-07、US1-CLI-14~US1-CLI-18、US1-CLI-21、US1-CLI-23、US1-CLI-25、US1-CLI-26、US1-CLI-35 | US1-TUN-11 | — | — | — | — | — | US1-AJ-06、US1-AJ-16、US1-AJ-21、US1-AJ-23 | G-09 | 🔴🟢、📏 量測 |
