@@ -697,7 +697,7 @@ async def test_stop_that_times_out_is_still_judged_by_session_list(fake_cli):
     # Assert
     assert isinstance(result, dict) and result.get("name") == "cgb-test-0001"
     # 要抓的錯是「colab stop 沒有時限」:沒有時限時要等滿 30 秒
-    assert elapsed <= 1.5
+    assert elapsed <= 10  # 沒有時限時要等滿 30 秒;10 秒以內就分得出來,不受機器負載影響(Q198)
     stop_calls, sessions_calls = calls_of(fake_cli, "stop"), calls_of(fake_cli, "sessions")
     assert len(stop_calls) == 1 and len(sessions_calls) == 1
     assert sessions_calls[0]["time"] >= stop_calls[0]["time"] + SHORT
