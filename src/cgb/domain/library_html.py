@@ -23,8 +23,9 @@ def has_next_page(page_html: str) -> bool:
     return _NEXT_PAGE_LINK.search(page_html) is not None
 
 
-# 版本頁的大小顯示值:`<digest 前 12 碼></span> • 398MB •`(雲端版本沒有大小)
-_TAG_SIZE_LABEL = re.compile(r'class="font-mono">[0-9a-f]+</span>\s*•\s*(\d+(?:\.\d+)?[KMGT]B)\s*•')
+# 版本頁的大小顯示值:`<digest 前 12 碼></span> • 398MB •`(雲端版本沒有大小);
+# 真的頁面在 digest 前後有換行與空白(實跑 US3-LIB-05,2026-11-10)
+_TAG_SIZE_LABEL = re.compile(r'class="font-mono">\s*[0-9a-f]+\s*</span>\s*•\s*(\d+(?:\.\d+)?[KMGT]B)\s*•')
 
 
 def parse_model_tags(page_html: str, name: str) -> list[dict[str, object]]:

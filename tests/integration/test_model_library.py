@@ -111,6 +111,17 @@ async def test_版本清單帶大小顯示值並標出雲端版本() -> None:
     assert str(recorder.requests[0].url) == "https://ollama.com/library/qwen2.5/tags"
 
 
+async def test_真的版本頁_digest_前後有空白時照樣讀得到大小() -> None:
+    """實跑 US3-LIB-05 發現:真的頁面是 `<span class="font-mono">⏎ 845dbda0ea48</span> • 4.7GB •`,
+    合成樣本沒有這段空白,正規式比對不到,133 個版本的大小全是 None。樣本取自 2026-11-10 的真頁面。"""
+    library = ModelLibrary(transport=httpx.MockTransport(lambda _: html(fixture_text("tags-qwen2.5-live-2026-11.html"))))
+
+    tags = await library.list_model_tags("qwen2.5")
+
+    by_tag = {tag["tag"]: tag["sizeLabel"] for tag in tags}
+    assert by_tag == {"latest": "4.7GB", "0.5b": "398MB", "1.5b": "986MB", "3b": "1.9GB"}
+
+
 # ---------------------------------------------------------------- US3-LIB-04 get_manifest
 
 MANIFEST_TYPE = "application/vnd.docker.distribution.manifest.v2+json"
