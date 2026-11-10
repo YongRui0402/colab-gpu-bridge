@@ -22,7 +22,7 @@ STEPS=[("0 前置:Colab 通道 spike",L('11-09 19:30')),
  ("10 implement Phase 3 故事 2",L('11-10 04:39')),
  ("11 implement Phase 4 故事 3",L('11-10 06:14')),
  ("12 implement Phase 5 故事 4",L('11-10 08:12')),
- ("13 本文件(耗時紀錄)",L('11-10 09:57')),]
+ ("13 implement Phase 6 全域測試區",L('11-10 10:30')),]
 END=datetime.now(TZ)
 def step_of(t):
     k=0
