@@ -2107,195 +2107,195 @@
 
 ### E2 後端 UI API(FastAPI REST 與 SSE)
 
-- [ ] T248a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-01 的測試(app 啟動後把時鐘推進 10 秒,送 `GET /api/usage`),執行確認它因為「估計時數用耗用 ÷ 餘額」這類實作而失敗
+- [X] T248a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-01 的測試(app 啟動後把時鐘推進 10 秒,送 `GET /api/usage`),執行確認它因為「估計時數用耗用 ÷ 餘額」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § FR-024
-- [ ] T248b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`usage_snapshots` 表(只留最後一筆,Q76)在 `src/cgb/db/schema.py` 建立(E4 節的 US4-DB-02 依賴它)(依賴 T248a)
+- [X] T248b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`usage_snapshots` 表(只留最後一筆,Q76)在 `src/cgb/db/schema.py` 建立(E4 節的 US4-DB-02 依賴它)(依賴 T248a)
   - 🧪 `testplan.md` § US4-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § FR-024
-- [ ] T249a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-02 的測試(各送一次 `GET /api/usage`),執行確認它因為「耗用為 0 時除以零丟出例外,`/api/usage` 回 500」這類實作而失敗
+- [X] T249a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-02 的測試(各送一次 `GET /api/usage`),執行確認它因為「耗用為 0 時除以零丟出例外,`/api/usage` 回 500」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024;`plan.md` § 待決問題 Q120
-- [ ] T249b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T249a)
+- [X] T249b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T249a)
   - 🧪 `testplan.md` § US4-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-024;`plan.md` § 待決問題 Q120
-- [ ] T250a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-03 的測試(送 `GET /api/usage`;再送 `POST /api/session` 開到就緒;再送 `DELETE /api/session`),執行確認它因為「讀不到用量就擋下開啟或結束」這類實作而失敗
+- [X] T250a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-03 的測試(送 `GET /api/usage`;再送 `POST /api/session` 開到就緒;再送 `DELETE /api/session`),執行確認它因為「讀不到用量就擋下開啟或結束」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`、`paths./session.delete`
   - 📎 `spec.md` § FR-024
-- [ ] T250b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T250a)
+- [X] T250b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T250a)
   - 🧪 `testplan.md` § US4-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`、`paths./session.delete`
   - 📎 `spec.md` § FR-024
-- [ ] T251a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-04 的測試(各送 `GET /api/usage`;情況 A 再送 `POST /api/session`),執行確認它因為「低餘額時擋下開啟(FR-025 只警告)」這類實作而失敗
+- [X] T251a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-04 的測試(各送 `GET /api/usage`;情況 A 再送 `POST /api/session`),執行確認它因為「低餘額時擋下開啟(FR-025 只警告)」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-025;`plan.md` § 待決問題 Q121
-- [ ] T251b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T251a)
+- [X] T251b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T251a)
   - 🧪 `testplan.md` § US4-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.post`
   - 📎 `spec.md` § FR-025;`plan.md` § 待決問題 Q121
-- [ ] T252a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-05 的測試(時鐘推進 5 分鐘,讓下一次讀用量發生),執行確認它因為「餘額過低時自動結束工作階段」這類實作而失敗
+- [X] T252a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-05 的測試(時鐘推進 5 分鐘,讓下一次讀用量發生),執行確認它因為「餘額過低時自動結束工作階段」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendUsageUpdated`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-025
-- [ ] T252b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T252a)
+- [X] T252b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T252a)
   - 🧪 `testplan.md` § US4-API-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendUsageUpdated`;`contracts/ui.openapi.yaml` § `paths./usage.get`
   - 📎 `spec.md` § FR-025
-- [ ] T253a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-06 的測試(啟動 app,送 `GET /api/settings`),執行確認它因為「預設值寫錯或沒有在第一次啟動時寫入,回 404 或 null」這類實作而失敗
+- [X] T253a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-06 的測試(啟動 app,送 `GET /api/settings`),執行確認它因為「預設值寫錯或沒有在第一次啟動時寫入,回 404 或 null」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.get`;`contracts/store.dbml` § `Table settings`
   - 📎 `spec.md` § FR-027
-- [ ] T253b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/settings.py`、`src/cgb/services/settings.py`、`src/cgb/repos/settings.py` 只寫讓 US4-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`settings` 表與預設值在 `src/cgb/db/schema.py` 建立(E4 節的 US4-DB-01 依賴它)(依賴 T253a)
+- [X] T253b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/settings.py`、`src/cgb/services/settings.py`、`src/cgb/repos/settings.py` 只寫讓 US4-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`settings` 表與預設值在 `src/cgb/db/schema.py` 建立(E4 節的 US4-DB-01 依賴它)(依賴 T253a)
   - 🧪 `testplan.md` § US4-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.get`;`contracts/store.dbml` § `Table settings`
   - 📎 `spec.md` § FR-027
-- [ ] T254a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-07 的測試(送 `PUT /api/settings {idleTimeoutMinutes:10,lowBalanceThreshold:5}`,再送 `GET /api/settings`,再重建 app 後送一次 `GET /api/settings`),執行確認它因為「只改記憶體沒寫進資料庫,重啟後回到預設」這類實作而失敗
+- [X] T254a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-07 的測試(送 `PUT /api/settings {idleTimeoutMinutes:10,lowBalanceThreshold:5}`,再送 `GET /api/settings`,再重建 app 後送一次 `GET /api/settings`),執行確認它因為「只改記憶體沒寫進資料庫,重啟後回到預設」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./settings.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSettingsUpdated`;`contracts/store.dbml` § `Table settings`
   - 📎 `spec.md` § FR-027
-- [ ] T254b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/settings.py`、`src/cgb/services/settings.py`、`src/cgb/repos/settings.py` 只寫讓 US4-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T254a)
+- [X] T254b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/settings.py`、`src/cgb/services/settings.py`、`src/cgb/repos/settings.py` 只寫讓 US4-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T254a)
   - 🧪 `testplan.md` § US4-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./settings.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSettingsUpdated`;`contracts/store.dbml` § `Table settings`
   - 📎 `spec.md` § FR-027
-- [ ] T255a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-08 的測試(分別送 `idleTimeoutMinutes` 為 0、1441、10.5,以及 `lowBalanceThreshold` 為 -1、10001 的 `PUT`(另一個欄位用合法值)),執行確認它因為「範圍檢查漏了邊界(1441 或 0 被接受)」這類實作而失敗
+- [X] T255a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-08 的測試(分別送 `idleTimeoutMinutes` 為 0、1441、10.5,以及 `lowBalanceThreshold` 為 -1、10001 的 `PUT`(另一個欄位用合法值)),執行確認它因為「範圍檢查漏了邊界(1441 或 0 被接受)」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./settings.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-027
-- [ ] T255b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/settings.py`、`src/cgb/services/settings.py`、`src/cgb/repos/settings.py` 只寫讓 US4-API-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T255a)
+- [X] T255b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/settings.py`、`src/cgb/services/settings.py`、`src/cgb/repos/settings.py` 只寫讓 US4-API-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T255a)
   - 🧪 `testplan.md` § US4-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./settings.get`、`components.schemas.Error`
   - 📎 `spec.md` § FR-027
-- [ ] T256a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-09 的測試(時鐘在 T+3 分鐘時送 `PUT /api/settings {idleTimeoutMinutes:10,lowBalanceThreshold:10}`),執行確認它因為「新時限要等下一個工作階段才生效」這類實作而失敗
+- [X] T256a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-09 的測試(時鐘在 T+3 分鐘時送 `PUT /api/settings {idleTimeoutMinutes:10,lowBalanceThreshold:10}`),執行確認它因為「新時限要等下一個工作階段才生效」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./session.get`、`components.schemas.IdleCountdown`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-027、FR-026
-- [ ] T256b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/settings.py`、`src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py` 只寫讓 US4-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;閒置倒數的計算建在 `src/cgb/services/idle_monitor.py`(E3 節的 US4-OC 依賴它)(依賴 T256a)
+- [X] T256b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/settings.py`、`src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py` 只寫讓 US4-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;閒置倒數的計算建在 `src/cgb/services/idle_monitor.py`(E3 節的 US4-OC 依賴它)(依賴 T256a)
   - 🧪 `testplan.md` § US4-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./session.get`、`components.schemas.IdleCountdown`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-027、FR-026
-- [ ] T257a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-10 的測試(送 `PUT /api/settings {idleTimeoutMinutes:10,lowBalanceThreshold:10}`),執行確認它因為「新時限已經到了卻等到下一次檢查(或從現在起算 10 分鐘)才結束」這類實作而失敗
+- [X] T257a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-10 的測試(送 `PUT /api/settings {idleTimeoutMinutes:10,lowBalanceThreshold:10}`),執行確認它因為「新時限已經到了卻等到下一次檢查(或從現在起算 10 分鐘)才結束」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./session.get`
   - 📎 `spec.md` § FR-027、FR-026
-- [ ] T257b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/settings.py`、`src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py` 只寫讓 US4-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T257a)
+- [X] T257b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/settings.py`、`src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py` 只寫讓 US4-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T257a)
   - 🧪 `testplan.md` § US4-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./session.get`
   - 📎 `spec.md` § FR-027、FR-026
-- [ ] T258a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-11 的測試(送 `PUT /api/settings {idleTimeoutMinutes:30,lowBalanceThreshold:20}`,不再讀用量,送 `GET /api/usage`),執行確認它因為「門檻變更要等下一次讀用量才反映在警告上」這類實作而失敗
+- [X] T258a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_settings.py` 寫 US4-API-11 的測試(送 `PUT /api/settings {idleTimeoutMinutes:30,lowBalanceThreshold:20}`,不再讀用量,送 `GET /api/usage`),執行確認它因為「門檻變更要等下一次讀用量才反映在警告上」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./usage.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-027、FR-025
-- [ ] T258b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/settings.py`、`src/cgb/services/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T258a)
+- [X] T258b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/settings.py`、`src/cgb/services/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T258a)
   - 🧪 `testplan.md` § US4-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./settings.put`、`paths./usage.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendUsageUpdated`
   - 📎 `spec.md` § FR-027、FR-025
-- [ ] T259a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-12 的測試(注入的時鐘推進到 `idle.deadline` 再加 1 分鐘(SC-006 的上限)),執行確認它因為「閒置計時沒有在背景檢查,要等下一個請求才發現逾時」這類實作而失敗
+- [X] T259a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-12 的測試(注入的時鐘推進到 `idle.deadline` 再加 1 分鐘(SC-006 的上限)),執行確認它因為「閒置計時沒有在背景檢查,要等下一個請求才發現逾時」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`、`paths./sessions.get`、`paths./session.get`
   - 📎 `spec.md` § FR-026、FR-028、SC-006
-- [ ] T259b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T259a)
+- [X] T259b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T259a)
   - 🧪 `testplan.md` § US4-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`、`paths./sessions.get`、`paths./session.get`
   - 📎 `spec.md` § FR-026、FR-028、SC-006
-- [ ] T260a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-13 的測試(時鐘在 T+50 秒時經 Ollama 相容端點送 `GET /api/tags`,再推進到 T+80 秒),執行確認它因為「請求沒有重設閒置計時,工作階段在 T+60 秒被結束」這類實作而失敗
+- [X] T260a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-13 的測試(時鐘在 T+50 秒時經 Ollama 相容端點送 `GET /api/tags`,再推進到 T+80 秒),執行確認它因為「請求沒有重設閒置計時,工作階段在 T+60 秒被結束」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-13
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/tags.get`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`、`paths./session.get`
   - 📎 `spec.md` § FR-026
-- [ ] T260b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/ollama_compat/idle_hook.py` 只寫讓 US4-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;經 Ollama 相容端點的請求重設閒置計時的掛點建在 `src/cgb/ollama_compat/idle_hook.py`(E3 節的 US4-OC 依賴它)(依賴 T260a)
+- [X] T260b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/ollama_compat/idle_hook.py` 只寫讓 US4-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;經 Ollama 相容端點的請求重設閒置計時的掛點建在 `src/cgb/ollama_compat/idle_hook.py`(E3 節的 US4-OC 依賴它)(依賴 T260a)
   - 🧪 `testplan.md` § US4-API-13
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/tags.get`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`、`paths./session.get`
   - 📎 `spec.md` § FR-026
-- [ ] T261a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-14 的測試(時鐘在 T+50 秒時送 `GET /api/session`、`GET /api/models`、`GET /api/usage`(都是 UI API),再推進到 T+70 秒),執行確認它因為「UI 的輪詢與 SSE 也重設閒置計時,開著 UI 的頁面就永遠不會自動結束(Q24)」這類實作而失敗
+- [X] T261a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-14 的測試(時鐘在 T+50 秒時送 `GET /api/session`、`GET /api/models`、`GET /api/usage`(都是 UI API),再推進到 T+70 秒),執行確認它因為「UI 的輪詢與 SSE 也重設閒置計時,開著 UI 的頁面就永遠不會自動結束(Q24)」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.IdleCountdown`、`paths./models.get`、`paths./usage.get`
   - 📎 `spec.md` § FR-026;`plan.md` § 待決問題 Q24
-- [ ] T261b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T261a)
+- [X] T261b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T261a)
   - 🧪 `testplan.md` § US4-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.IdleCountdown`、`paths./models.get`、`paths./usage.get`
   - 📎 `spec.md` § FR-026;`plan.md` § 待決問題 Q24
-- [ ] T262a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-15 的測試(時鐘在 T+6 分鐘時重建 app(`list_sessions` 仍列出這台)),執行確認它因為「重啟後閒置倒數從重啟的時間重算(`last_request_at` 沒存或沒讀回,Q75)」這類實作而失敗
+- [X] T262a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-15 的測試(時鐘在 T+6 分鐘時重建 app(`list_sessions` 仍列出這台)),執行確認它因為「重啟後閒置倒數從重啟的時間重算(`last_request_at` 沒存或沒讀回,Q75)」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026;`plan.md` § 待決問題 Q75
-- [ ] T262b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/idle_monitor.py`、`src/cgb/repos/sessions.py` 只寫讓 US4-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T262a)
+- [X] T262b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/idle_monitor.py`、`src/cgb/repos/sessions.py` 只寫讓 US4-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T262a)
   - 🧪 `testplan.md` § US4-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026;`plan.md` § 待決問題 Q75
-- [ ] T263a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-16 的測試(時鐘推進到 `deadline` 之後),執行確認它因為「閒置自動結束時釋放失敗沒有警告,使用者以為已經關了」這類實作而失敗
+- [X] T263a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-16 的測試(時鐘推進到 `deadline` 之後),執行確認它因為「閒置自動結束時釋放失敗沒有警告,使用者以為已經關了」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`、`paths./session.get`
   - 📎 `spec.md` § FR-026、FR-007
-- [ ] T263b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T263a)
+- [X] T263b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/domain/idle.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US4-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T263a)
   - 🧪 `testplan.md` § US4-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`、`paths./session.get`
   - 📎 `spec.md` § FR-026、FR-007
-- [ ] T264a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US4-API-17 的測試(`check_health` 開始失敗,`list_sessions` 仍列出這台(重連中)),執行確認它因為「不看最後讀到的餘額,永遠不提示可能已經歸零」這類實作而失敗
+- [X] T264a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_health.py` 寫 US4-API-17 的測試(`check_health` 開始失敗,`list_sessions` 仍列出這台(重連中)),執行確認它因為「不看最後讀到的餘額,永遠不提示可能已經歸零」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-17
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § 邊界情況、FR-024
-- [ ] T264b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/services/usage.py` 只寫讓 US4-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T264a)
+- [X] T264b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/health_monitor.py`、`src/cgb/services/usage.py` 只寫讓 US4-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T264a)
   - 🧪 `testplan.md` § US4-API-17
   - ⚙ `contracts/tunnel.openapi.yaml` § `paths./tunnels/{sessionName}/health.get`;`contracts/ui.openapi.yaml` § `paths./session.get`
   - 📎 `spec.md` § 邊界情況、FR-024
-- [ ] T265a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-18 的測試(時鐘從 T 推進到 T+20 分鐘,記下每次 `get_usage` 被呼叫的時間;在 T+14 分 59 秒與 T+15 分 01 秒各送一次 `GET /api/usage`;T+20 分之後讓 `get_usage` 恢復成功,推進到 T+25 分讓下一次排程讀取發生,T+25 分 30 秒再送一次),執行確認它因為「只在 UI 打開時才讀用量」這類實作而失敗
+- [X] T265a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_usage.py` 寫 US4-API-18 的測試(時鐘從 T 推進到 T+20 分鐘,記下每次 `get_usage` 被呼叫的時間;在 T+14 分 59 秒與 T+15 分 01 秒各送一次 `GET /api/usage`;T+20 分之後讓 `get_usage` 恢復成功,推進到 T+25 分讓下一次排程讀取發生,T+25 分 30 秒再送一次),執行確認它因為「只在 UI 打開時才讀用量」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `components.schemas.Usage`;`contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § NFR-008;`plan.md` § 待決問題 Q119、Q123
-- [ ] T265b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T265a)
+- [X] T265b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/usage.py`、`src/cgb/services/usage.py`、`src/cgb/repos/usage.py`、`src/cgb/domain/usage_calc.py` 只寫讓 US4-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T265a)
   - 🧪 `testplan.md` § US4-API-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `components.schemas.Usage`;`contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § NFR-008;`plan.md` § 待決問題 Q119、Q123
-- [ ] T266 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T248b~T265b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`、`src/cgb/repos/`、`src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T265b)
+- [X] T266 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T248b~T265b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`、`src/cgb/repos/`、`src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T265b)
   - 🧪 `testplan.md` § US4-API-01~US4-API-18
   - 📎 `testplan.md` § 5.1
 
 ### E3 Ollama 相容端點(FastAPI 轉送)
 
-- [ ] T267a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US4-OC-01 的測試(時鐘在 T+20 秒送 `POST /api/pull`(被擋下),在 T+40 秒送 `GET /v1/models`(白名單外)),執行確認它因為「只有轉送出去的請求才重設計時,被擋下的請求不算(與 FR-026「任何經 Ollama 相容端點的請求」不符,Q52)」這類實作而失敗
+- [X] T267a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US4-OC-01 的測試(時鐘在 T+20 秒送 `POST /api/pull`(被擋下),在 T+40 秒送 `GET /v1/models`(白名單外)),執行確認它因為「只有轉送出去的請求才重設計時,被擋下的請求不算(與 FR-026「任何經 Ollama 相容端點的請求」不符,Q52)」這類實作而失敗
   - 🧪 `testplan.md` § US4-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`、`components.schemas.Error`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026;`plan.md` § 待決問題 Q52
-- [ ] T267b [US4] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/idle_hook.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-OC-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/services/idle_monitor.py` 與 `src/cgb/ollama_compat/idle_hook.py` 由 E2 節的 T256b、T260b 建立,本節依序接著改,不另寫一份(依賴 T267a、T256b、T260b)
+- [X] T267b [US4] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/idle_hook.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-OC-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/services/idle_monitor.py` 與 `src/cgb/ollama_compat/idle_hook.py` 由 E2 節的 T256b、T260b 建立,本節依序接著改,不另寫一份(依賴 T267a、T256b、T260b)
   - 🧪 `testplan.md` § US4-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/pull.post`、`paths./api/push.post`、`paths./api/create.post`、`paths./api/copy.post`、`paths./api/delete.delete`、`paths./api/blobs/{digest}.head`、`paths./api/blobs/{digest}.post`、`components.schemas.Error`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026;`plan.md` § 待決問題 Q52
-- [ ] T268a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US4-OC-02 的測試(時鐘在 T 開始串流讀 `POST /api/generate`,串流進行中推進到 T+90 秒,再讀完最後一行(T+100 秒)),執行確認它因為「只在請求開始時重設,長串流跑超過閒置時限就被自動結束,回應被切斷」這類實作而失敗
+- [X] T268a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_compat.py` 寫 US4-OC-02 的測試(時鐘在 T 開始串流讀 `POST /api/generate`,串流進行中推進到 T+90 秒,再讀完最後一行(T+100 秒)),執行確認它因為「只在請求開始時重設,長串流跑超過閒置時限就被自動結束,回應被切斷」這類實作而失敗
   - 🧪 `testplan.md` § US4-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026
-- [ ] T268b [US4] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/idle_hook.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-OC-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/services/idle_monitor.py` 與 `src/cgb/ollama_compat/idle_hook.py` 由 E2 節的 T256b、T260b 建立,本節依序接著改,不另寫一份(依賴 T268a、T256b、T260b)
+- [X] T268b [US4] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/idle_hook.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-OC-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`src/cgb/services/idle_monitor.py` 與 `src/cgb/ollama_compat/idle_hook.py` 由 E2 節的 T256b、T260b 建立,本節依序接著改,不另寫一份(依賴 T268a、T256b、T260b)
   - 🧪 `testplan.md` § US4-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./api/generate.post`;`contracts/ui.openapi.yaml` § `components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026
-- [ ] T269 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T267b~T268b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`、`src/cgb/services/idle_monitor.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T268b)
+- [X] T269 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T267b~T268b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`、`src/cgb/services/idle_monitor.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T268b)
   - 🧪 `testplan.md` § US4-OC-01~US4-OC-02
   - 📎 `testplan.md` § 5.2
 
 ### E4 資料庫(SQLite)
 
-- [ ] T270a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US4-DB-01 的測試(讀 `settings`;把 `idle_timeout_minutes` 改成 10;再呼叫一次建立 schema(第二次啟動);再讀),執行確認它因為「每次啟動都以預設值覆寫使用者改過的設定」這類實作而失敗
+- [X] T270a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US4-DB-01 的測試(讀 `settings`;把 `idle_timeout_minutes` 改成 10;再呼叫一次建立 schema(第二次啟動);再讀),執行確認它因為「每次啟動都以預設值覆寫使用者改過的設定」這類實作而失敗
   - 🧪 `testplan.md` § US4-DB-01
   - ⚙ `contracts/store.dbml` § `Table settings`
   - 📎 `spec.md` § FR-027
-- [ ] T270b [US4] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US4-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`settings` 表由 E2 節的 T253b 建立,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T270a、T253b)
+- [X] T270b [US4] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US4-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`settings` 表由 E2 節的 T253b 建立,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T270a、T253b)
   - 🧪 `testplan.md` § US4-DB-01
   - ⚙ `contracts/store.dbml` § `Table settings`
   - 📎 `spec.md` § FR-027
-- [ ] T271a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US4-DB-02 的測試(寫入一次用量(381.66、1.15、T),再寫入一次(380.00、1.15、T+5 分鐘),關閉連線後重新開啟再讀),執行確認它因為「每次讀用量都插入新列,表無限成長(Q76 只留最後一筆)」這類實作而失敗
+- [X] T271a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US4-DB-02 的測試(寫入一次用量(381.66、1.15、T),再寫入一次(380.00、1.15、T+5 分鐘),關閉連線後重新開啟再讀),執行確認它因為「每次讀用量都插入新列,表無限成長(Q76 只留最後一筆)」這類實作而失敗
   - 🧪 `testplan.md` § US4-DB-02
   - ⚙ `contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § FR-024;`plan.md` § 待決問題 Q76
-- [ ] T271b [US4] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US4-DB-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`usage_snapshots` 表由 E2 節的 T248b 建立,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T271a、T248b)
+- [X] T271b [US4] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US4-DB-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`usage_snapshots` 表由 E2 節的 T248b 建立,本節依序接著改 `src/cgb/db/schema.py`,不另寫一份(依賴 T271a、T248b)
   - 🧪 `testplan.md` § US4-DB-02
   - ⚙ `contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § FR-024;`plan.md` § 待決問題 Q76
-- [ ] T272 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T270b~T271b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T271b)
+- [X] T272 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T270b~T271b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T271b)
   - 🧪 `testplan.md` § US4-DB-01~US4-DB-02
   - 📎 `testplan.md` § 5.3
 

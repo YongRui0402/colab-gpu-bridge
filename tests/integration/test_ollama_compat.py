@@ -689,3 +689,95 @@ async def test_同時兩個請求指名同一個未載入的模型_都照轉送_
     assert [(r.status_code, r.content) for r in (first, second)] == [(200, json.dumps(reply).encode())] * 2
     assert [(r.method, r.path) for r in bridge.server.requests[already:]] == [("POST", "/api/generate")] * 2
     assert counts_of(bridge.fakes) == counts_before
+
+
+# ---------------------------------------------------------------- US4-OC-01
+
+
+async def test_被擋下與白名單外的請求也重設閒置計時(make_app: Any, fakes: Any, fake_clock: Any) -> None:
+    # Arrange:工作階段就緒,閒置時限 1 分鐘,readyAt 為 T
+    from datetime import timedelta
+
+    from cgb.domain.session_state import parse_iso
+    from integration.test_api_idle import running_pair, set_idle_timeout
+    from integration.test_api_session import get_session
+
+    ColabWorld(fakes)
+    async with running_pair(make_app()) as (ui, ollama):
+        await set_idle_timeout(ui, 1)
+        t = parse_iso((await open_ready(ui))["readyAt"])
+
+        # Act:T+20 秒送 POST /api/pull(被擋下),T+40 秒送 GET /v1/models(白名單外)
+        fake_clock.set(t + timedelta(seconds=20))
+        pulled = await ollama.post("/api/pull", json={"model": MODEL})
+        after_pull = (await get_session(ui)).get("idle") or {}
+        fake_clock.set(t + timedelta(seconds=40))
+        unlisted = await ollama.get("/v1/models")
+        after_unlisted = (await get_session(ui)).get("idle") or {}
+
+    # Assert:則1
+    assert pulled.status_code == 403
+    assert abs((parse_iso(after_pull["lastRequestAt"]) - (t + timedelta(seconds=20))).total_seconds()) < 1.0, after_pull
+    # Assert:則2
+    assert unlisted.status_code == 404
+    assert abs((parse_iso(after_unlisted["lastRequestAt"]) - (t + timedelta(seconds=40))).total_seconds()) < 1.0, after_unlisted
+
+
+# ---------------------------------------------------------------- US4-OC-02
+
+
+async def test_串流進行中不計閒置_結束後才重設(bridge: Bridge, fake_clock: Any) -> None:
+    # Arrange:工作階段就緒,閒置時限 1 分鐘;假伺服器每 10 秒(注入的時鐘)送一行、共 10 行
+    from datetime import timedelta
+
+    from cgb.domain.session_state import parse_iso
+    from integration.test_api_idle import set_idle_timeout, states_for
+
+    await set_idle_timeout(bridge.ui, 1)
+    await bridge.ready()
+    gates = [Gate() for _ in range(10)]
+    lines = [{"model": MODEL, "response": str(i), "done": i == 9} for i in range(10)]
+    items: list[Any] = [item for pair in zip(gates, lines, strict=True) for item in pair]
+    bridge.server.add("POST", "/api/generate", NdjsonReply(items))
+    received: list[str] = []
+
+    async def consume() -> None:
+        async with bridge.ollama.stream("POST", "/api/generate", json={"model": MODEL, "prompt": "你好"}) as response:
+            async for line in response.aiter_lines():
+                received.append(line)
+
+    async def session() -> dict[str, Any]:
+        return (await bridge.ui.get("/api/session")).json()
+
+    # Act:時鐘在 T 開始串流讀
+    t = fake_clock.now()
+    reading = asyncio.create_task(consume())
+    try:
+        await gates[0].wait_entered_async()
+        during = (await session()).get("idle") or {}
+        # 串流進行中推進到 T+90 秒(每 10 秒放行一行)
+        for i in range(9):
+            fake_clock.set(t + timedelta(seconds=10 * (i + 1)))
+            gates[i].release()
+            await wait_for(lambda i=i: len(received) == i + 1, timeout=2.0)
+        at_90 = await states_for(bridge.ui, 0.3)
+        # 讀完最後一行(T+100 秒)
+        fake_clock.set(t + timedelta(seconds=100))
+        gates[9].release()
+        await asyncio.wait_for(reading, 5.0)
+        ended_at = fake_clock.now()
+    finally:
+        for gate in gates:
+            gate.release()
+    after = (await session()).get("idle") or {}
+
+    # Assert:則1
+    assert (during.get("activeRequests"), during.get("deadline")) == (1, None), during
+    # Assert:則2
+    assert len(received) == 10, received
+    assert set(at_90) == {"ready"}, at_90
+    # Assert:則3
+    deadline = parse_iso(after["deadline"])
+    assert t + timedelta(seconds=160) <= deadline <= ended_at + timedelta(minutes=1), after
+    # Assert:則4
+    assert after.get("activeRequests") == 0, after

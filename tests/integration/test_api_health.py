@@ -9,6 +9,7 @@ import time
 from typing import Any
 
 import httpx
+import pytest
 
 from cgb.adapters.errors import AdapterError
 from integration.test_api_session import (  # noqa: F401(ui_client 是 fixture)
@@ -224,3 +225,33 @@ async def test_斷線後重連接回同一個執行環境_不另開新的(live_s
         if (r := s.get("reconnect"))
     ]
     assert reconnecting and windows == [2.0] * len(reconnecting), windows
+
+
+# ---------------------------------------------------------------- US4-API-17
+
+
+@pytest.mark.parametrize(("balance", "expected"), [(0.00, True), (50.00, False)], ids=["餘額0", "餘額50"])
+async def test_重連中時依最後讀到的餘額提示可能已經歸零(
+    make_app: Any, fakes: Any, fake_clock: Any, balance: float, expected: bool
+) -> None:
+    # Arrange:工作階段就緒;最後一次讀到的餘額為 balance
+    from integration.test_api_usage import running, usage_of, wait_usage
+
+    ColabWorld(fakes)
+    fakes.colab.get_usage.side_effect(usage_of(fake_clock, balance, 1.15))
+    async with running(make_app()) as client:
+        await wait_usage(client, lambda u: u.get("balance") == balance)
+        await open_ready(client)
+        reopen = fakes.tunnel.open_tunnel.gate()  # 重連的建立停住,維持在重連中
+
+        try:
+            # Act:check_health 開始失敗,list_sessions 仍列出這台
+            fakes.tunnel.check_health.raises("TUNNEL_UNREACHABLE", "連不到")
+            session = await wait_until(client, lambda s: s.get("state") == "reconnecting", timeout=2.0)
+        finally:
+            reopen.release()
+
+    # Assert:則1
+    assert session.get("state") == "reconnecting", session
+    # Assert:則2、則3
+    assert session.get("balanceMayBeDepleted") is expected, session

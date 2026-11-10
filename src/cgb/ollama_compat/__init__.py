@@ -13,6 +13,7 @@ from fastapi import FastAPI
 
 from cgb.ollama_compat import routes
 from cgb.ollama_compat.forward import FORWARD_TIMEOUT
+from cgb.ollama_compat.idle_hook import IdleHook
 
 
 def install(app: FastAPI, ui: FastAPI) -> None:
@@ -28,3 +29,4 @@ def install(app: FastAPI, ui: FastAPI) -> None:
     app.router.lifespan_context = lifespan
     app.state.services_of = services
     app.include_router(routes.router)
+    app.add_middleware(IdleHook, services_of=services)

@@ -36,6 +36,8 @@ MESSAGES: dict[str, str] = {
     "LIBRARY_SERVER_ERROR": "Ollama 官方模型庫暫時發生錯誤,請稍後再試;也可以從精選清單挑選或直接輸入名稱。",
     "LIBRARY_BAD_RESPONSE": "Ollama 官方模型庫的回應無法解讀(可能改版了);可以從精選清單挑選或直接輸入名稱。",
     "LIBRARY_CLOUD_ONLY": "這個版本只能在 Ollama 雲端執行,不能下載到執行環境。",
+    "INVALID_IDLE_TIMEOUT": "閒置時限要是 1 到 1440 分鐘的整數。",
+    "INVALID_BALANCE_THRESHOLD": "餘額警告門檻要是 0 到 10000 之間的數字。",
 }
 
 

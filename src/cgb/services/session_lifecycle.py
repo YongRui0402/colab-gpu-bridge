@@ -18,6 +18,9 @@ TUNNEL_LOCAL_PORT = 11435
 # 工作階段被結束(使用者結束、變更執行階段類型)時進入的狀態;進行中的轉送要隨之中斷(FR-013)
 _ENDED_STATES = frozenset({"ending", "ended"})
 
+# contracts/ui.openapi.yaml § Session.balanceMayBeDepleted:重連中或失聯時才判斷
+_MAY_BE_DEPLETED_STATES = frozenset({"reconnecting", "lost"})
+
 
 @dataclass(frozen=True)
 class ForwardTarget:
@@ -48,9 +51,19 @@ class SessionLifecycle:
         self.ready_listeners: list[Any] = []
         self._was_ready = False
         repo.listeners.append(self._notify_ready)
+        # 閒置倒數的來源(`IdleMonitor`);組裝時設定,沒設定時沿用 `session_payload` 的預設時限
+        self.idle: Any = None
+        # 最後讀到的用量(`UsageService`);重連中或失聯時提示餘額可能已經歸零(spec 邊界情況)
+        self.usage: Any = None
 
     def current(self) -> dict[str, Any]:
-        return session_payload(self._repo.latest(), self._repo.unmanaged_runtimes)
+        row = self._repo.latest()
+        payload = session_payload(row, self._repo.unmanaged_runtimes)
+        if row is not None and payload.get("idle") is not None and self.idle is not None:
+            payload["idle"] = self.idle.countdown(row)
+        if row is not None and row["state"] in _MAY_BE_DEPLETED_STATES and self.usage is not None:
+            payload["balanceMayBeDepleted"] = self.usage.balance_may_be_depleted()
+        return payload
 
     def ready_base_url(self) -> str | None:
         """工作階段就緒時的轉發位址;開啟中、重連中、結束後都是 None(不去連轉發位址)。"""
@@ -236,7 +249,7 @@ class SessionLifecycle:
         await remote.get_version(base_url=opened["baseUrl"])
         self._repo.update(name, state="ready", step=None, ready_at=iso(self._state.clock.now()))
 
-    async def end(self) -> dict[str, Any]:
+    async def end(self, end_reason: str = "USER_ENDED") -> dict[str, Any]:
         latest = self._repo.latest()
         if latest is None or (latest["state"] in TERMINAL_STATES and latest["release_warning_message"] is None):
             raise ApiError(409, "NO_ACTIVE_SESSION")
@@ -244,7 +257,7 @@ class SessionLifecycle:
         self._repo.update(name, state="ending", active_slot=None, step=None)
         for listener in list(self.end_listeners):
             listener()
-        self.spawn(self._run_end(name))
+        self.spawn(self._run_end(name, end_reason))
         return self.current()
 
     async def _stop_opening(self, name: str) -> None:
@@ -257,7 +270,7 @@ class SessionLifecycle:
         if creating is not None:
             await asyncio.gather(creating, return_exceptions=True)
 
-    async def _run_end(self, name: str) -> None:
+    async def _run_end(self, name: str, end_reason: str) -> None:
         await self._stop_opening(name)
         # 先關通道再釋放:串流斷掉時不會被當成非預期的斷線
         await self._state.tunnel.close_tunnel(session_name=name)
@@ -268,7 +281,7 @@ class SessionLifecycle:
             self._repo.update(
                 name,
                 state="ended",
-                end_reason="USER_ENDED",
+                end_reason=end_reason,
                 ended_at=now,
                 **release_warning_fields(error.code, now),
             )
@@ -276,7 +289,7 @@ class SessionLifecycle:
         self._repo.update(
             name,
             state="ended",
-            end_reason="USER_ENDED",
+            end_reason=end_reason,
             ended_at=now,
             **release_warning_fields(None, None),
         )

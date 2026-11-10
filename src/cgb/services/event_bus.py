@@ -37,3 +37,9 @@ class EventBus:
 
     def download_removed(self, job_id: int) -> None:
         self.publish("download.removed", {"type": "download.removed", "id": job_id})
+
+    def usage_updated(self, usage: dict[str, Any]) -> None:
+        self.publish("usage.updated", {"type": "usage.updated", "usage": usage})
+
+    def settings_updated(self, settings: dict[str, Any]) -> None:
+        self.publish("settings.updated", {"type": "settings.updated", "settings": settings})

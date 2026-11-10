@@ -116,3 +116,52 @@ def test_同一個模型不會同時排兩次_完成過的可以再下載_精選
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute("INSERT INTO curated_models (name) VALUES ('qwen2.5:latest')")
     conn.close()
+
+
+# ---------------------------------------------------------------- US4-DB-01
+
+
+def _settings_rows(conn: sqlite3.Connection) -> list[tuple[int, int, float]]:
+    return [tuple(row) for row in conn.execute("SELECT id, idle_timeout_minutes, low_balance_threshold FROM settings")]
+
+
+def test_第一次啟動寫入預設設定_之後啟動不覆寫使用者改過的值(tmp_path: Path) -> None:
+    # Arrange:第一次啟動
+    conn = connect(tmp_path / "cgb.sqlite3")
+    create_schema(conn)
+
+    # Act
+    first = _settings_rows(conn)
+    conn.execute("UPDATE settings SET idle_timeout_minutes = 10 WHERE id = 1")
+    create_schema(conn)  # 第二次啟動
+    second = _settings_rows(conn)
+    conn.close()
+
+    # Assert:則1 第一次讀到 1 列預設值
+    assert first == [(1, 30, 10)]
+    # Assert:則2、則3 第二次啟動後仍只有 1 列,且保留使用者改過的值
+    assert second == [(1, 10, 10)]
+
+
+# ---------------------------------------------------------------- US4-DB-02
+
+
+def test_用量快照只留最後一筆_重新開啟後讀得到(tmp_path: Path) -> None:
+    # Arrange
+    db_path = tmp_path / "cgb.sqlite3"
+    conn = connect(db_path)
+    create_schema(conn)
+
+    # Act:寫入兩次用量(id 不指定,沿用 schema 的預設),關閉後重新開啟
+    for balance, rate, read_at in ((381.66, 1.15, "2026-11-10T08:00:00Z"), (380.00, 1.15, "2026-11-10T08:05:00Z")):
+        conn.execute(
+            "INSERT OR REPLACE INTO usage_snapshots (balance, rate_per_hour, read_at) VALUES (?, ?, ?)",
+            (balance, rate, read_at),
+        )
+    conn.close()
+    reopened = connect(db_path)
+    rows = [tuple(row) for row in reopened.execute("SELECT id, balance, read_at FROM usage_snapshots")]
+    reopened.close()
+
+    # Assert:則1 只有 1 列且 id 為 1;則2 是最後一次寫入的值
+    assert rows == [(1, 380.00, "2026-11-10T08:05:00Z")]

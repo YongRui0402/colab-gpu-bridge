@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from cgb.api import auth, curated, downloads, events, history, library, models, session
+from cgb.api import auth, curated, downloads, events, history, library, models, session, settings, usage
 from cgb.db.connection import connect
 from cgb.db.schema import create_schema
 from cgb.domain.errors import ApiError
@@ -16,15 +16,20 @@ from cgb.domain.session_state import iso
 from cgb.repos.curated import CuratedRepo
 from cgb.repos.downloads import DownloadsRepo
 from cgb.repos.sessions import SessionsRepo
+from cgb.repos.settings import SettingsRepo
+from cgb.repos.usage import UsageRepo
 from cgb.services.auth import AuthService
 from cgb.services.catalog import Catalog
 from cgb.services.downloads import DownloadsService
 from cgb.services.event_bus import EventBus
 from cgb.services.health_monitor import HealthMonitor
+from cgb.services.idle_monitor import IdleMonitor
 from cgb.services.library import Library
 from cgb.services.recovery import Recovery
 from cgb.services.runtime_switch import RuntimeSwitch
 from cgb.services.session_lifecycle import SessionLifecycle
+from cgb.services.settings import SettingsService
+from cgb.services.usage import UsageService
 
 # Q87:SSH 私鑰路徑由 CGB_SSH_IDENTITY_PATH 指定(deploy/compose.yaml)
 DEFAULT_SSH_IDENTITY_PATH = "/data/ssh/id_ed25519"
@@ -42,6 +47,9 @@ class Services:
     catalog: Catalog
     library: Library
     curated: CuratedRepo
+    usage: UsageService
+    settings: SettingsService
+    idle: IdleMonitor
 
 
 def install(app: FastAPI) -> None:
@@ -59,6 +67,11 @@ def install(app: FastAPI) -> None:
         downloads_service = DownloadsService(state, DownloadsRepo(conn), lifecycle, events)
         downloads_service.requeue_interrupted()
         monitor = HealthMonitor(state, repo, lifecycle)
+        settings_service = SettingsService(SettingsRepo(conn), events)
+        usage_service = UsageService(state, UsageRepo(conn), events, settings_service)
+        idle = IdleMonitor(state, repo, lifecycle, settings_service)
+        lifecycle.idle = idle
+        lifecycle.usage = usage_service
         app.state.services = Services(
             auth=auth_service,
             lifecycle=lifecycle,
@@ -70,15 +83,26 @@ def install(app: FastAPI) -> None:
             catalog=Catalog(state, lifecycle, events),
             library=Library(state, lifecycle),
             curated=CuratedRepo(conn),
+            usage=usage_service,
+            settings=settings_service,
+            idle=idle,
         )
-        repo.listeners.append(lambda: app.state.services.events.session_updated(lifecycle.current()))
-        auth_service.listeners.append(lambda status: app.state.services.events.auth_updated(status))
+        repo.listeners.append(lambda: events.session_updated(lifecycle.current()))
+        # FR-027:新的閒置時限立即反映在倒數上,已經到了就立即結束;餘額警告依新的門檻判斷(FR-025)
+        settings_service.listeners.append(lambda _: events.session_updated(lifecycle.current()))
+        settings_service.listeners.append(lambda _: idle.check_now())
+        settings_service.listeners.append(lambda _: usage_service.publish())
+        auth_service.listeners.append(lambda status: events.auth_updated(status))
         recovery = Recovery(state, repo, key_path, lifecycle)
         recovery.start()
         monitor.start()
+        usage_service.start()
+        idle.start()
         try:
             yield
         finally:
+            await idle.stop()
+            await usage_service.stop()
             await monitor.stop()
             await recovery.stop()
             await app.state.services.lifecycle.shutdown()
@@ -99,3 +123,5 @@ def install(app: FastAPI) -> None:
     app.include_router(library.router, prefix="/api")
     app.include_router(curated.router, prefix="/api")
     app.include_router(events.router, prefix="/api")
+    app.include_router(usage.router, prefix="/api")
+    app.include_router(settings.router, prefix="/api")

@@ -67,6 +67,24 @@ CREATE TABLE IF NOT EXISTS curated_models (
 )
 """
 
+_SETTINGS = """
+CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    idle_timeout_minutes INTEGER NOT NULL DEFAULT 30,
+    low_balance_threshold REAL NOT NULL DEFAULT 10
+)
+"""
+
+_USAGE_SNAPSHOTS = """
+CREATE TABLE IF NOT EXISTS usage_snapshots (
+    -- WITHOUT ROWID:INTEGER PRIMARY KEY 不再是 rowid 的別名,沒寫 id 時才會用 DEFAULT 1、不會自動遞增(Q76 只留最後一筆)
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    balance REAL NOT NULL,
+    rate_per_hour REAL NOT NULL,
+    read_at TEXT NOT NULL
+) WITHOUT ROWID
+"""
+
 
 def create_schema(conn: sqlite3.Connection) -> None:
     # WAL 記在資料庫檔裡,之後新開的連線也沿用(research.md R10)
@@ -81,3 +99,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
     conn.execute(_DOWNLOAD_JOBS)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_download_jobs_state ON download_jobs (state)")
     conn.execute(_CURATED_MODELS)
+    conn.execute(_SETTINGS)
+    # 第一次啟動才以預設值寫入;之後的啟動不覆寫使用者改過的設定(FR-027)
+    conn.execute("INSERT OR IGNORE INTO settings (id) VALUES (1)")
+    conn.execute(_USAGE_SNAPSHOTS)
