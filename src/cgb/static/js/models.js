@@ -1,33 +1,204 @@
-// 模型頁:執行環境上已下載的模型(FR-014;prototype/models.html)
+// 模型頁:執行環境上已下載的模型、預先載入與下載佇列(FR-014、FR-015、FR-017、FR-021;prototype/models.html)
 import { request } from "./api.js";
 import { startHeader } from "./header.js";
-import { showState } from "./view.js";
+import { bytes, clock, escape, showState, typeText } from "./view.js";
 
-const bytes = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(n >= 100e9 ? 0 : 1)} GB` : `${Math.round(n / 1e6)} MB`);
+// 目錄(ModelCatalog)與目前的工作階段(session.updated;提示裡要說是哪一種執行階段類型)
+let current = { items: [] };
+let session = null;
+// 目錄上方暫時蓋著的提示(預先載入前的 preload-warn)與它針對的模型;沒有時是 null
+let local = null;
+let warnTarget = null;
+
+// 右側:已載入、載入中,或「預先載入」按鈕(prototype/models.html 的 catalogItem)
+function catalogSide(model) {
+  if (model.preload.state === "loading") return '<span class="pill pill-busy">載入中…</span>';
+  if (model.loaded) return '<span class="pill pill-ok">已載入</span>';
+  return `<button type="button" class="btn btn-small" data-preload="${escape(model.name)}">預先載入</button>`;
+}
+
+// NFR-006:大小超過顯示記憶體總量的模型先標示
+const mayNotFitPill = (model) => (model.mayNotFit ? '<span class="pill pill-warn">超過顯示記憶體,可能無法載入</span>' : "");
 
 function catalogItem(model) {
-  const side = model.loaded ? '<span class="pill pill-ok">已載入</span>' : "";
   return `
     <li>
       <div>
-        <div class="item-name"></div>
+        <div class="item-name">${escape(model.name)}</div>
         <div class="item-meta">${bytes(model.sizeBytes)}${model.loaded ? " · 保留到工作階段結束" : ""}</div>
       </div>
-      <div class="item-side">${side}</div>
+      <div class="item-side">${mayNotFitPill(model)}${catalogSide(model)}</div>
     </li>`;
+}
+
+function show(catalog) {
+  current = catalog;
+  document.getElementById("catalog").innerHTML = catalog.items.map(catalogItem).join("");
+  showState(local ?? "normal");
 }
 
 async function loadCatalog() {
   const response = await request("GET", "/models");
+  if (response.ok) show(response.data);
+  // 沒有就緒的工作階段:執行環境上的模型跟著消失,目錄清空(FR-018)
+  else if (response.data?.code === "NO_READY_SESSION") {
+    document.getElementById("catalog").innerHTML = "";
+    showState("no-session");
+  }
+}
+
+async function preload(name) {
+  const response = await request("POST", "/models/preload", { name });
   if (!response.ok) return;
-  const list = document.getElementById("catalog");
-  list.innerHTML = response.data.items.map(catalogItem).join("");
-  // 模型名稱來自遠端,以文字放入
-  list.querySelectorAll(".item-name").forEach((el, i) => {
-    el.textContent = response.data.items[i].name;
-  });
+  // 受理後先把那一列標成載入中;完成或失敗由 `models.updated` 推送整份目錄
+  show({ ...current, items: current.items.map((m) => (m.name === name ? response.data : m)) });
+}
+
+function warnBeforePreload(model) {
+  warnTarget = model.name;
+  local = "preload-warn";
+  const type = session?.runtimeType ? typeText(session.runtimeType) : "這個執行環境";
+  const vram = current.vramBytes ? `(約 ${Math.round(current.vramBytes / 2 ** 30)} GB)` : "";
+  document.getElementById("pw-name").textContent = model.name;
+  document.getElementById("pw-text").textContent = `有 ${bytes(model.sizeBytes)},超過 ${type} 的顯示記憶體${vram}。可能載入失敗,或有一部分放在 CPU 上執行而慢很多。要順跑的話,請改用顯示記憶體更大的類型。`;
+  showState(local);
+}
+
+function closeWarn() {
+  local = null;
   showState("normal");
 }
 
-startHeader();
-loadCatalog();
+document.getElementById("catalog").addEventListener("click", (event) => {
+  const name = event.target.dataset.preload;
+  if (!name) return;
+  const model = current.items.find((m) => m.name === name);
+  if (model?.mayNotFit) warnBeforePreload(model);
+  else preload(name);
+});
+
+document.getElementById("pw-go").addEventListener("click", () => {
+  closeWarn();
+  preload(warnTarget);
+});
+document.getElementById("pw-cancel").addEventListener("click", closeWarn);
+
+// ---------------------------------------------------------------- 下載佇列
+
+// 佇列裡的項目:id → DownloadJob(contracts/ui.openapi.yaml § DownloadJob)
+const jobs = new Map();
+// 讀整份佇列的請求送出後,推送改過的項目;回應比推送舊時不拿回應蓋掉它們
+let touched = null;
+
+const STATE_ORDER = { downloading: 0, queued: 1, failed: 2, completed: 3 };
+
+function progressText(job) {
+  const done = job.progress?.completedBytes ?? 0;
+  const total = job.progress?.totalBytes || job.sizeBytes;
+  return `下載中 ${Math.floor((done / total) * 100)}% · ${bytes(done)} / ${bytes(total)}`;
+}
+
+// 佇列的一列:名稱、說明與右側的狀態和按鈕(prototype/models.html 的 queueItem)
+const queueRow = (job, meta, side) => `
+  <li>
+    <div>
+      <div class="item-name">${escape(job.model)}</div>
+      ${meta}
+    </div>
+    <div class="item-side">${side}</div>
+  </li>`;
+
+function queueItem(job, position) {
+  if (job.state === "downloading") {
+    const p = job.progress ? job.progress.completedBytes / job.progress.totalBytes : 0;
+    return queueRow(
+      job,
+      `<div class="item-meta" data-progress-text="${job.id}">${progressText(job)}</div>
+      <progress max="1" value="${p}" data-progress-bar="${job.id}"></progress>`,
+      '<span class="pill pill-busy">下載中</span>',
+    );
+  }
+  if (job.state === "queued") {
+    return queueRow(
+      job,
+      `<div class="item-meta">${bytes(job.sizeBytes)} · 第 ${position} 個</div>`,
+      `<span class="pill">排隊中</span><button type="button" class="btn btn-small" data-cancel="${job.id}">取消</button>`,
+    );
+  }
+  if (job.state === "failed") {
+    // 失敗說明是後端給的繁體中文(DownloadJob.message)
+    return queueRow(
+      job,
+      `<div class="item-meta">${bytes(job.sizeBytes)} · ${escape(job.message ?? "")}</div>`,
+      `<span class="pill pill-danger">失敗</span><button type="button" class="btn btn-small" data-retry="${job.id}">重新排隊</button><button type="button" class="btn btn-small" data-remove="${job.id}">移除</button>`,
+    );
+  }
+  return queueRow(job, `<div class="item-meta">${bytes(job.sizeBytes)} · ${clock(job.finishedAt)} 完成</div>`, '<span class="pill pill-ok">完成</span>');
+}
+
+function renderQueue() {
+  const sorted = [...jobs.values()].sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state]);
+  let position = 0;
+  document.getElementById("queue").innerHTML = sorted.length
+    ? sorted.map((job) => queueItem(job, job.state === "queued" ? ++position : 0)).join("")
+    : '<li><span class="muted">佇列是空的。到「下載模型」挑選要下載的模型。</span></li>';
+}
+
+function jobUpdated(job) {
+  touched?.add(job.id);
+  jobs.set(job.id, job);
+  renderQueue();
+}
+
+function jobRemoved(id) {
+  touched?.add(id);
+  jobs.delete(id);
+  renderQueue();
+}
+
+// 排隊中的「取消」與失敗的「移除」;正在下載的不能取消,所以那一列沒有按鈕(contracts § removeDownload 的 409)
+async function remove(id) {
+  const response = await request("DELETE", `/downloads/${id}`);
+  if (response.ok) jobRemoved(id);
+}
+
+// 失敗的項目重新排到佇列最後(contracts § retryDownload)
+async function retry(id) {
+  const response = await request("POST", `/downloads/${id}/retry`);
+  if (response.ok) jobUpdated(response.data);
+}
+
+document.getElementById("queue").addEventListener("click", (event) => {
+  const { cancel, remove: removeId, retry: retryId } = event.target.dataset;
+  if (cancel || removeId) remove(Number(cancel ?? removeId));
+  if (retryId) retry(Number(retryId));
+});
+
+async function loadQueue() {
+  touched = new Set();
+  const response = await request("GET", "/downloads");
+  const fresh = touched;
+  touched = null;
+  if (!response.ok) return;
+  for (const id of [...jobs.keys()]) if (!fresh.has(id)) jobs.delete(id);
+  for (const job of response.data.jobs) if (!fresh.has(job.id)) jobs.set(job.id, job);
+  renderQueue();
+}
+
+// 連上推送(含重連)時先收到工作階段的快照;工作階段狀態一變就重讀目錄與佇列,之後靠推送更新
+let lastSessionState = null;
+
+function sessionUpdated(payload) {
+  session = payload.session;
+  if (payload.session.state === lastSessionState) return;
+  lastSessionState = payload.session.state;
+  loadCatalog();
+  loadQueue();
+}
+
+startHeader({
+  "session.updated": sessionUpdated,
+  "models.updated": (payload) => show(payload.catalog),
+  "download.updated": (payload) => jobUpdated(payload.job),
+  "download.removed": (payload) => jobRemoved(payload.id),
+});

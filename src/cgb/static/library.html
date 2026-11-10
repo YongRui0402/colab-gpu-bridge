@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>下載模型|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="js/library.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型</a>
+      <a href="library.html" aria-current="page">下載模型</a>
+      <a href="usage.html">用量與設定</a>
+      <a href="history.html">紀錄</a>
+    </nav>
+  </header>
+  <main>
+    <h1>下載模型</h1>
+    <p class="muted">勾選一個或多個版本加入下載佇列;模型會在背景從網路下載到目前的執行環境,依序一個一個來,不影響正在使用的模型。</p>
+
+    <!-- 精選清單 -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>精選清單</h2>
+      </div>
+      <ul class="list" id="curated"></ul>
+    </section>
+
+    <!-- 搜尋官方模型庫 -->
+    <section class="panel">
+      <h2>搜尋 Ollama 官方模型庫</h2>
+      <form class="inline-form" id="search-form">
+        <div class="grow">
+          <label for="q" class="small muted">關鍵字</label>
+          <input type="search" id="q" placeholder="例如 qwen、llama、embed" required>
+        </div>
+        <button type="submit" class="btn btn-primary">搜尋</button>
+      </form>
+
+      <div data-state="normal">
+        <p class="empty">輸入關鍵字搜尋 ollama.com 上的官方模型;只列可以下載到執行環境的版本。</p>
+      </div>
+      <div data-state="searching" hidden>
+        <p class="empty">正在搜尋 ollama.com…</p>
+      </div>
+      <div data-state="results" hidden>
+        <p class="small muted" id="results-meta"></p>
+        <div id="results"></div>
+        <div class="actions" id="more-box">
+          <button type="button" class="btn" id="more">顯示更多</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 直接輸入名稱 -->
+    <section class="panel">
+      <h2>直接輸入名稱</h2>
+      <form class="inline-form" id="name-form">
+        <div class="grow">
+          <label for="direct" class="small muted">模型名稱(含版本;沒寫版本就是 latest)</label>
+          <input type="text" class="mono" id="direct" placeholder="qwen2.5:14b" required>
+        </div>
+        <button type="submit" class="btn">加入勾選</button>
+      </form>
+    </section>
+
+    <!-- 確認中 -->
+    <section data-state="checking" class="overlay" hidden>
+      <div class="sheet">
+        <p class="empty" id="checking-text">正在向 registry.ollama.ai 確認大小…</p>
+      </div>
+    </section>
+
+    <!-- 確認加入下載 -->
+    <section data-state="confirm" class="overlay" hidden>
+      <div class="sheet">
+        <h2>加入下載佇列</h2>
+        <table class="summary" id="confirm-table"></table>
+        <table class="summary" id="confirm-disk"></table>
+        <p>預估下載時間 <strong id="confirm-eta"></strong> <span class="small muted">(估計值,以 50 MB/s 計;實測 28–96 MB/s,要看 Colab 分到哪一區)</span></p>
+        <p class="small muted">確認後依序下載,每個會顯示「排隊中」「下載中」「完成」或「失敗」。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="confirm-go">確認加入</button>
+          <button type="button" class="btn" data-back>返回修改</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 空間不足 -->
+    <section data-state="no-space" class="overlay" hidden>
+      <div class="sheet">
+        <h2>執行環境的磁碟空間不夠</h2>
+        <table class="summary" id="space-table"></table>
+        <p>不能加入下載。請少勾幾個,或改選比較小的版本。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" data-back>返回修改</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 找不到這個模型 -->
+    <section data-state="not-found" class="overlay" hidden>
+      <div class="sheet">
+        <h2>找不到這個模型</h2>
+        <p>Ollama 官方模型庫沒有 <strong class="mono" id="nf-name"></strong>(名稱或版本不存在)。執行環境上的模型都沒有變動。</p>
+        <p class="small muted">名稱要和 ollama.com 上的寫法一樣,例如 <span class="mono">qwen2.5:14b</span>;可以先用上面的搜尋找到正確的版本。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" data-back>知道了</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="tray" id="tray" hidden>
+    <span>已勾選 <strong id="tray-count">0</strong> 個</span>
+    <div class="chips" id="tray-chips"></div>
+    <span class="muted">約 <strong id="tray-size"></strong></span>
+    <button type="button" class="btn btn-small" id="tray-clear">清除</button>
+    <button type="button" class="btn btn-primary" id="add">加入下載</button>
+  </div>
+</body>
+</html>

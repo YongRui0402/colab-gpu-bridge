@@ -1,7 +1,7 @@
 // 紀錄頁:最近的工作階段,依開啟時間由新到舊(FR-028;prototype/history.html)
 import { request } from "./api.js";
 import { startHeader } from "./header.js";
-import { showState, typeText } from "./view.js";
+import { clock, showState, typeText } from "./view.js";
 
 // 結束原因(contracts/ui.openapi.yaml § EndReason);會失去執行環境的用醒目的顏色
 const END_REASON = {
@@ -13,7 +13,6 @@ const END_REASON = {
   RECONNECT_TIMEOUT: { text: "重連逾時", cls: "pill-danger" },
 };
 
-const clock = (iso) => new Date(iso).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
 const dateTime = (iso) => {
   const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()} ${clock(iso)}`;

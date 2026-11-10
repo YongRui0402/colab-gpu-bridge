@@ -1936,95 +1936,95 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(或區網程式)接測試行程內真的後端,轉接層用替身;📏 任務改接真的 Colab,照 P9 整批實跑
 
-- [ ] T234a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-01 的測試(打開模型頁),執行確認它因為「大小顯示位元組原始值」這類實作而失敗
+- [X] T234a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-01 的測試(打開模型頁),執行確認它因為「大小顯示位元組原始值」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/models.html` § `#catalog`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./models.get`
   - 📎 `spec.md` § FR-014
-- [ ] T234b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T234a)
+- [X] T234b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T234a)
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/models.html` § `#catalog`、`[data-state="normal"]`;`contracts/ui.openapi.yaml` § `paths./models.get`
   - 📎 `spec.md` § FR-014
-- [ ] T235a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-02 的測試(按 `qwen2.5:7b` 的「預先載入」,再放行),執行確認它因為「按下後沒有任何回饋」這類實作而失敗
+- [X] T235a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-02 的測試(按 `qwen2.5:7b` 的「預先載入」,再放行),執行確認它因為「按下後沒有任何回饋」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/models.html` § `#catalog`、`[data-state="preloading"]`;`contracts/ui.openapi.yaml` § `paths./models/preload.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015
-- [ ] T235b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T235a)
+- [X] T235b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T235a)
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/models.html` § `#catalog`、`[data-state="preloading"]`;`contracts/ui.openapi.yaml` § `paths./models/preload.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015
-- [ ] T236a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-03 的測試(在 `#name-form` 輸入 `qwen2.5:7b` 送出並確認;再打開模型頁),執行確認它因為「進度只在完成時更新一次」這類實作而失敗
+- [X] T236a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-03 的測試(在 `#name-form` 輸入 `qwen2.5:7b` 送出並確認;再打開模型頁),執行確認它因為「進度只在完成時更新一次」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/library.html` § `#name-form`、`#confirm-go`、`[data-state="confirm"]`;`prototype/models.html` § `#queue`、`#catalog`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`paths./downloads.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadUpdated`、`operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-017
-- [ ] T236b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T236a)
+- [X] T236b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T236a)
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/library.html` § `#name-form`、`#confirm-go`、`[data-state="confirm"]`;`prototype/models.html` § `#queue`、`#catalog`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`paths./downloads.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadUpdated`、`operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-017
-- [ ] T237a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-04 的測試(輸入 `qwen2.5:cgb-test-nonexistent` 送出),執行確認它因為「錯誤只顯示代碼或沒有提示」這類實作而失敗
+- [X] T237a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-04 的測試(輸入 `qwen2.5:cgb-test-nonexistent` 送出),執行確認它因為「錯誤只顯示代碼或沒有提示」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-04
   - ⚙ `prototype/library.html` § `#name-form`、`[data-state="not-found"]`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017
-- [ ] T237b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T237a)
+- [X] T237b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T237a)
   - 🧪 `testplan.md` § US3-AJ-04
   - ⚙ `prototype/library.html` § `#name-form`、`[data-state="not-found"]`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017
-- [ ] T238a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-05 的測試(打開下載模型頁,搜尋 `qwen2.5`,展開 `qwen2.5` 的版本,按「顯示更多」),執行確認它因為「精選清單排在搜尋結果下面」這類實作而失敗
+- [X] T238a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-05 的測試(打開下載模型頁,搜尋 `qwen2.5`,展開 `qwen2.5` 的版本,按「顯示更多」),執行確認它因為「精選清單排在搜尋結果下面」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-05
   - ⚙ `prototype/library.html` § `#search-form`、`#results`、`#more`、`#curated`、`[data-state="normal"]`、`[data-state="results"]`;`contracts/ui.openapi.yaml` § `paths./library/search.get`、`paths./library/models/{name}/tags.get`、`paths./curated.get`
   - 📎 `spec.md` § FR-020
-- [ ] T238b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T238a)
+- [X] T238b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T238a)
   - 🧪 `testplan.md` § US3-AJ-05
   - ⚙ `prototype/library.html` § `#search-form`、`#results`、`#more`、`#curated`、`[data-state="normal"]`、`[data-state="results"]`;`contracts/ui.openapi.yaml` § `paths./library/search.get`、`paths./library/models/{name}/tags.get`、`paths./curated.get`
   - 📎 `spec.md` § FR-020
-- [ ] T239a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-06 的測試(按「加入下載」,看確認畫面,按「確認加入」),執行確認它因為「沒有確認畫面就直接加入」這類實作而失敗
+- [X] T239a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-06 的測試(按「加入下載」,看確認畫面,按「確認加入」),執行確認它因為「沒有確認畫面就直接加入」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-06
   - ⚙ `prototype/library.html` § `#add`、`#tray`、`#confirm-table`、`#confirm-disk`、`#confirm-eta`、`#confirm-go`、`[data-state="confirm"]`;`prototype/models.html` § `#queue`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`paths./downloads.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadsSnapshot`、`operations.sendDownloadUpdated`
   - 📎 `spec.md` § FR-021、FR-022
-- [ ] T239b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T239a)
+- [X] T239b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T239a)
   - 🧪 `testplan.md` § US3-AJ-06
   - ⚙ `prototype/library.html` § `#add`、`#tray`、`#confirm-table`、`#confirm-disk`、`#confirm-eta`、`#confirm-go`、`[data-state="confirm"]`;`prototype/models.html` § `#queue`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`paths./downloads.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadsSnapshot`、`operations.sendDownloadUpdated`
   - 📎 `spec.md` § FR-021、FR-022
-- [ ] T240a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-07 的測試(按第 2 筆的「取消」),執行確認它因為「正在下載的也顯示取消按鈕,按了回 409 卻沒有說明」這類實作而失敗
+- [X] T240a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-07 的測試(按第 2 筆的「取消」),執行確認它因為「正在下載的也顯示取消按鈕,按了回 409 卻沒有說明」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-07
   - ⚙ `prototype/models.html` § `#queue`;`contracts/ui.openapi.yaml` § `paths./downloads/{id}.delete`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadRemoved`
   - 📎 `spec.md` § FR-021
-- [ ] T240b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T240a)
+- [X] T240b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T240a)
   - 🧪 `testplan.md` § US3-AJ-07
   - ⚙ `prototype/models.html` § `#queue`;`contracts/ui.openapi.yaml` § `paths./downloads/{id}.delete`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadRemoved`
   - 📎 `spec.md` § FR-021
-- [ ] T241a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-08 的測試(勾選 `qwen2.5:7b`,按「加入下載」),執行確認它因為「前端沒看 `fits`,讓使用者送出被伺服器拒絕後才知道」這類實作而失敗
+- [X] T241a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-08 的測試(勾選 `qwen2.5:7b`,按「加入下載」),執行確認它因為「前端沒看 `fits`,讓使用者送出被伺服器拒絕後才知道」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-08
   - ⚙ `prototype/library.html` § `#add`、`#confirm-go`、`[data-state="no-space"]`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`
   - 📎 `spec.md` § FR-022
-- [ ] T241b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T241a)
+- [X] T241b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T241a)
   - 🧪 `testplan.md` § US3-AJ-08
   - ⚙ `prototype/library.html` § `#add`、`#confirm-go`、`[data-state="no-space"]`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`
   - 📎 `spec.md` § FR-022
-- [ ] T242a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-09 的測試(在首頁結束工作階段,打開模型頁),執行確認它因為「結束後下載中的那筆仍顯示下載中或可用」這類實作而失敗
+- [X] T242a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-09 的測試(在首頁結束工作階段,打開模型頁),執行確認它因為「結束後下載中的那筆仍顯示下載中或可用」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-09
   - ⚙ `prototype/index.html` § `#stop`;`prototype/models.html` § `#catalog`、`#queue`、`[data-state="no-session"]`;`contracts/ui.openapi.yaml` § `paths./session.delete`、`paths./downloads.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadUpdated`
   - 📎 `spec.md` § FR-018
-- [ ] T242b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T242a)
+- [X] T242b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T242a)
   - 🧪 `testplan.md` § US3-AJ-09
   - ⚙ `prototype/index.html` § `#stop`;`prototype/models.html` § `#catalog`、`#queue`、`[data-state="no-session"]`;`contracts/ui.openapi.yaml` § `paths./session.delete`、`paths./downloads.get`;`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadUpdated`
   - 📎 `spec.md` § FR-018
-- [ ] T243a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-10 的測試(展開 `qwen2.5` 的版本),執行確認它因為「雲端專用版本可以勾選,加入時才被 422 擋下」這類實作而失敗
+- [X] T243a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_library.py` 寫 US3-AJ-10 的測試(展開 `qwen2.5` 的版本),執行確認它因為「雲端專用版本可以勾選,加入時才被 422 擋下」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-10
   - ⚙ `prototype/library.html` § `#results`;`contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`
   - 📎 `spec.md` § FR-020
-- [ ] T243b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T243a)
+- [X] T243b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T243a)
   - 🧪 `testplan.md` § US3-AJ-10
   - ⚙ `prototype/library.html` § `#results`;`contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`
   - 📎 `spec.md` § FR-020
-- [ ] T244a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-11 的測試(打開模型頁,按 `cgb-test-big:70b` 的「預先載入」,在提示裡按取消;再按 `qwen2.5:7b` 的「預先載入」),執行確認它因為「只在目錄標示、預先載入前沒有提示」這類實作而失敗
+- [X] T244a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_us3_models.py` 寫 US3-AJ-11 的測試(打開模型頁,按 `cgb-test-big:70b` 的「預先載入」,在提示裡按取消;再按 `qwen2.5:7b` 的「預先載入」),執行確認它因為「只在目錄標示、預先載入前沒有提示」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-11
   - ⚙ `prototype/models.html` § `#catalog`、`#pw-go`、`[data-state="preload-warn"]`;`contracts/ui.openapi.yaml` § `paths./models.get`、`paths./models/preload.post`
   - 📎 `spec.md` § NFR-006
-- [ ] T244b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T244a)
+- [X] T244b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T244a)
   - 🧪 `testplan.md` § US3-AJ-11
   - ⚙ `prototype/models.html` § `#catalog`、`#pw-go`、`[data-state="preload-warn"]`;`contracts/ui.openapi.yaml` § `paths./models.get`、`paths./models/preload.post`
   - 📎 `spec.md` § NFR-006
-- [ ] T245 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T234b~T244b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T244b)
+- [X] T245 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T234b~T244b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T244b)
   - 🧪 `testplan.md` § US3-AJ-01~US3-AJ-11
   - 📎 `testplan.md` § 4.8
 - [ ] T246 [US3] 📏 量測:撰寫 `tests/realrun/test_us3_aj_12.py`(`-m realrun`),照 US3-AJ-12 量測。假如:容器階段,US1-AJ-17 的 T4 工作階段就緒,執行環境上沒有 `qwen2.5:7b`;真的模型庫與遠端 Ollama。當:在下載模型頁輸入 `qwen2.5:7b` 下載並確認;下載中每 2 秒經 11436 讀一次 `/api/tags`;完成後立即經 11436 送一次非串流 `generate`(`num_predict` 8、`keep_alive` 0,推論完即卸載)。記下的數字與門檻:則1:從按「確認加入」到 `generate` 回 200 在 3 分鐘內(SC-004);則2:下載完成前每一次 `/api/tags` 都沒有 `qwen2.5:7b`(FR-018、Q2);則3:下載完成後的 `/api/tags` 有 `qwen2.5:7b`。副作用與護欄:P1~P9;沿用 US1-AJ-17 的 T4,約 4 分鐘、約 0.08 compute units;只下載 `qwen2.5:7b` 一次(P1~P9 見 `testplan.md` § 實跑案例的共同護欄,由 T008 的 fixture 執行)。判定者與樣本:判定者:腳本(3 分鐘門檻);樣本:一次實跑(未用於調整)。依 P9 的順序與其他實跑整批執行,開始前要使用者同意;結果(數字、是否過門檻、沒跑到的列為未驗證)寫進 `specs/001-session-model-catalog/measurements.md`
