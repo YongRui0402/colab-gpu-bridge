@@ -29,7 +29,7 @@ def step_of(t):
     for i,(_,s) in enumerate(STEPS):
         if t>=s:k=i
     return k
-KEY=[('S',4),('testplan 撰寫',5),('tasks.md',6),('analyze',7),('Phase 1 Setup',8),('P2 ',9),('P3 ',10),('US2-AJ-05',10),('P4 ',11),('P5 ',12),('Q190',12)]
+KEY=[('S',4),('testplan 撰寫',5),('tasks.md',6),('analyze',7),('Phase 1 Setup',8),('P2 ',9),('P3 ',10),('US2-AJ-05',10),('P4 ',11),('P5 ',12),('Q190',12),('P6 ',13)]
 def sub_step(desc,first):
     import re
     if re.match(r'^S\d+ ',desc): return 4
