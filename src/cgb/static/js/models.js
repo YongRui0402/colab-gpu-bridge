@@ -6,7 +6,7 @@ import { bytes, clock, escape, showState, typeText } from "./view.js";
 // 目錄(ModelCatalog)與目前的工作階段(session.updated;提示裡要說是哪一種執行階段類型)
 let current = { items: [] };
 let session = null;
-// 目錄上方暫時蓋著的提示(預先載入前的 preload-warn)與它針對的模型;沒有時是 null
+// 目錄上方暫時蓋著的提示(預先載入前的 preload-warn、預先載入失敗的 preload-failed)與它針對的模型;沒有時是 null
 let local = null;
 let warnTarget = null;
 
@@ -34,10 +34,24 @@ function catalogItem(model) {
 function show(catalog) {
   current = catalog;
   document.getElementById("catalog").innerHTML = catalog.items.map(catalogItem).join("");
-  showState(local ?? "normal");
+  showState(local ?? (catalog.items.length ? "normal" : "empty"));
+}
+
+// 推送來的目錄裡,剛從載入中變成失敗的模型:蓋上「載入失敗」的說明(說明是後端給的繁體中文 PreloadState.message)
+function catalogPushed(catalog) {
+  const failed = catalog.items.find(
+    (m) => m.preload.state === "failed" && current.items.find((c) => c.name === m.name)?.preload.state !== "failed",
+  );
+  if (failed) {
+    local = "preload-failed";
+    document.getElementById("pf-name").textContent = failed.name;
+    document.getElementById("pf-message").textContent = failed.preload.message ?? "";
+  }
+  show(catalog);
 }
 
 async function loadCatalog() {
+  if (!local) showState("loading");
   const response = await request("GET", "/models");
   if (response.ok) show(response.data);
   // 沒有就緒的工作階段:執行環境上的模型跟著消失,目錄清空(FR-018)
@@ -66,7 +80,7 @@ function warnBeforePreload(model) {
 
 function closeWarn() {
   local = null;
-  showState("normal");
+  show(current);
 }
 
 document.getElementById("catalog").addEventListener("click", (event) => {
@@ -198,7 +212,7 @@ function sessionUpdated(payload) {
 
 startHeader({
   "session.updated": sessionUpdated,
-  "models.updated": (payload) => show(payload.catalog),
+  "models.updated": (payload) => catalogPushed(payload.catalog),
   "download.updated": (payload) => jobUpdated(payload.job),
   "download.removed": (payload) => jobRemoved(payload.id),
 });

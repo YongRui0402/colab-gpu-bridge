@@ -1221,6 +1221,9 @@ components:
         balanceMayBeDepleted:
           type: boolean
           description: 重連中或失聯時,最後讀到的餘額小於等於 0;UI 額外提示餘額可能已歸零(spec 邊界情況)
+        resuming:
+          type: boolean
+          description: 後端重啟後正在接回這個工作階段(`state` 為進行中的狀態時才有);UI 顯示 `[data-state="resuming"]`,和斷線重連分開(plan.md Q117、Q167、Q202)
         unmanagedRuntimes:
           type: array
           items:

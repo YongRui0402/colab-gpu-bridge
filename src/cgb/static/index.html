@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant-TW">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -195,6 +195,18 @@
       <ul class="small">
         <li>這段期間區網的程式會收到「目前沒有可用的工作階段」。</li>
       </ul>
+    </section>
+
+    <!-- 後端重新啟動後接回 -->
+    <section data-state="resuming" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-warn">重連中</span><span class="mono" data-field="name"></span></h2>
+      <p>系統剛重新啟動,正在接回先前開的執行環境,不會另開新的。</p>
+      <ol class="steps">
+        <li class="done">讀取上次的工作階段紀錄</li>
+        <li class="done">確認 Colab 上仍有 <span class="mono" data-field="name"></span></li>
+        <li class="current">重建 SSH 通道</li>
+        <li>確認模型服務有回應</li>
+      </ol>
     </section>
 
     <!-- 失聯(被 Colab 收回) -->

@@ -3,6 +3,13 @@ import { request } from "./api.js";
 import { renderAuthChip, startHeader } from "./header.js";
 import { showState } from "./view.js";
 
+// 送出授權碼失敗時,依錯誤代碼顯示的區塊(contracts/ui.openapi.yaml § submitAuthorizationCode);其他代碼是這組授權碼換不到授權
+const CODE_FAILURE_STATE = {
+  AUTH_LINK_EXPIRED: "link-expired",
+  OAUTH_SCOPE_NOT_GRANTED: "scope-missing",
+  OAUTH_UNREACHABLE: "unreachable",
+};
+
 // 目前這組授權連結的流程代號(contracts/ui.openapi.yaml § AuthorizationFlow.flowId)
 let flowId = null;
 
@@ -10,6 +17,7 @@ const $ = (id) => document.getElementById(id);
 
 document.querySelector("main").addEventListener("click", async (event) => {
   if (event.target.dataset.action !== "get-link") return;
+  showState("loading");
   const response = await request("POST", "/auth/authorizations");
   if (!response.ok) return;
   flowId = response.data.flowId;
@@ -21,6 +29,7 @@ document.querySelector("main").addEventListener("click", async (event) => {
 
 $("code-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  showState("verifying");
   const response = await request("POST", `/auth/authorizations/${encodeURIComponent(flowId)}/code`, { code: $("code").value });
   if (response.ok) {
     renderAuthChip(response.data);
@@ -28,8 +37,8 @@ $("code-form").addEventListener("submit", async (event) => {
     showState("signed-in");
     return;
   }
-  // 流程不在了(後端重新啟動過)要重新取連結;其他失敗是這組授權碼換不到授權
-  showState(response.data?.code === "AUTH_LINK_EXPIRED" ? "link-expired" : "failed");
+  // 流程不在了(後端重新啟動過)、沒勾 Colab 權限、連不到 Google 各有說明;都要重新取連結
+  showState(CODE_FAILURE_STATE[response.data?.code] ?? "failed");
 });
 
 startHeader().then((response) => {

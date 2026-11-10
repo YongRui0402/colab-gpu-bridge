@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant-TW">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -52,6 +52,18 @@
         <div id="results"></div>
         <div class="actions" id="more-box">
           <button type="button" class="btn" id="more">顯示更多</button>
+        </div>
+      </div>
+      <div data-state="no-results" hidden>
+        <div class="empty">
+          <p id="nr-text"></p>
+          <p class="small">換個關鍵字試試,或在下面直接輸入完整的模型名稱。</p>
+        </div>
+      </div>
+      <div data-state="library-down" hidden>
+        <div class="notice notice-warn">
+          <strong>現在沒辦法搜尋官方模型庫</strong>
+          ollama.com 的搜尋頁讀不懂(可能改版了)或連不上。精選清單和直接輸入名稱照樣可以用。
         </div>
       </div>
     </section>
@@ -110,6 +122,29 @@
         <p class="small muted">名稱要和 ollama.com 上的寫法一樣,例如 <span class="mono">qwen2.5:14b</span>;可以先用上面的搜尋找到正確的版本。</p>
         <div class="actions">
           <button type="button" class="btn btn-primary" data-back>知道了</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 只能在雲端執行 -->
+    <section data-state="cloud-only" class="overlay" hidden>
+      <div class="sheet">
+        <h2>這個版本不能下載</h2>
+        <p><strong class="mono" id="co-name"></strong> 只能在 Ollama 雲端執行,沒有可以下載的模型檔。請改選其他版本。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" data-back>知道了</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 沒有就緒的工作階段 -->
+    <section data-state="no-session" class="overlay" hidden>
+      <div class="sheet">
+        <h2>要先開啟工作階段</h2>
+        <p>模型會下載到 Colab 的執行環境上;現在沒有就緒的工作階段,也就不知道剩下多少磁碟空間。開啟並就緒後再加入下載,勾選的項目會保留。</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="index.html">到工作階段開啟</a>
+          <button type="button" class="btn" data-back>返回</button>
         </div>
       </div>
     </section>

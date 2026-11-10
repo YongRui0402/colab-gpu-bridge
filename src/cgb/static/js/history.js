@@ -42,7 +42,7 @@ async function loadHistory() {
   const response = await request("GET", "/sessions");
   if (!response.ok) return;
   document.getElementById("rows").innerHTML = response.data.items.map(row).join("");
-  showState("normal");
+  showState(response.data.items.length ? "normal" : "empty");
 }
 
 startHeader();

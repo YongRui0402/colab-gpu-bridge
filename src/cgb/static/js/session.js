@@ -84,6 +84,8 @@ async function loadSwitchedFrom(name) {
 function viewOf(s) {
   if (local) return local;
   if (s.state === "opening" && s.step === "ending_previous") return "switching";
+  // 後端重新啟動後正在接回(Q167:`Session.resuming`)
+  if (s.resuming) return "resuming";
   // 邊界情況:不接手、不關閉,只提示(Q100、Q122)
   if (s.state === "none" && s.unmanagedRuntimes?.length) return "foreign";
   if (s.state === "none" && usage?.lowBalance) return "low-balance";
@@ -179,6 +181,11 @@ const RENDER = {
     field("lost-zero", "reason").textContent = END_REASON_TEXT[session.endReason] ?? "";
     const last = usage?.state === "known" ? `最後讀到的餘額是 ${cu(usage.balance)}。` : "";
     $("lz-text").textContent = `${last}餘額歸零時 Colab 會回到免費方案的限制,切斷這類連線;補充 compute units 後再重新開啟。`;
+  },
+  resuming() {
+    document.querySelectorAll('[data-state="resuming"] [data-field="name"]').forEach((el) => {
+      el.textContent = session.name;
+    });
   },
   lost: fillName("lost"),
   reconnecting: fillName("reconnecting"),

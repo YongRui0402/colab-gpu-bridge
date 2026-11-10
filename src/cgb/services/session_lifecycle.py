@@ -7,7 +7,7 @@ from typing import Any
 
 from cgb.adapters.errors import AdapterError
 from cgb.domain.errors import ApiError, reason_message
-from cgb.domain.session_state import TERMINAL_STATES, iso, listed_names, release_warning_fields, session_payload
+from cgb.domain.session_state import ACTIVE_STATES, TERMINAL_STATES, iso, listed_names, release_warning_fields, session_payload
 from cgb.repos.sessions import ActiveSessionExists, SessionsRepo
 from cgb.services.auth import AuthService
 
@@ -55,10 +55,14 @@ class SessionLifecycle:
         self.idle: Any = None
         # 最後讀到的用量(`UsageService`);重連中或失聯時提示餘額可能已經歸零(spec 邊界情況)
         self.usage: Any = None
+        # 後端重新啟動後正在接回的工作階段名稱(`Recovery` 設定);UI 依此顯示「接回中」(Q117、Q167;合約沒有這個欄位)
+        self.resuming: str | None = None
 
     def current(self) -> dict[str, Any]:
         row = self._repo.latest()
         payload = session_payload(row, self._repo.unmanaged_runtimes)
+        if row is not None and row["name"] == self.resuming and row["state"] in ACTIVE_STATES:
+            payload["resuming"] = True
         if row is not None and payload.get("idle") is not None and self.idle is not None:
             payload["idle"] = self.idle.countdown(row)
         if row is not None and row["state"] in _MAY_BE_DEPLETED_STATES and self.usage is not None:

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant-TW">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -41,6 +41,11 @@
       </div>
     </section>
 
+    <!-- 取得連結中 -->
+    <section data-state="loading" class="panel" hidden>
+      <p class="empty">正在產生授權連結…</p>
+    </section>
+
     <!-- 顯示授權連結與輸入框 -->
     <section data-state="link" class="panel" hidden>
       <h2>在瀏覽器登入 Google</h2>
@@ -65,6 +70,11 @@
       <p class="muted small">這組連結只對這一次登入有效;在 Google 頁面按了「取消」就拿不到授權碼,重新取得連結再來一次即可。</p>
     </section>
 
+    <!-- 驗證中 -->
+    <section data-state="verifying" class="panel" hidden>
+      <p class="empty">正在向 Google 換取授權…</p>
+    </section>
+
     <!-- 授權碼錯誤或失效 -->
     <section data-state="failed" class="panel" hidden>
       <h2 class="state-title"><span class="pill pill-danger">登入失敗</span>授權碼換不到授權</h2>
@@ -83,6 +93,30 @@
       <div class="notice notice-error">
         <strong>系統在你登入的途中重新啟動過</strong>
         剛才那組授權連結對應的登入流程已經不在了,貼回的授權碼換不到授權。請重新取得授權連結再登入一次。
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-action="get-link">重新取得授權連結</button>
+      </div>
+    </section>
+
+    <!-- 沒有勾選 Colab 權限 -->
+    <section data-state="scope-missing" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-danger">登入失敗</span>缺少 Colab 權限</h2>
+      <div class="notice notice-error">
+        <strong>同意畫面上沒有勾選「Colab」</strong>
+        沒有這項權限,系統無法開關執行環境。請重新取得授權連結,在同意畫面保留所有勾選。
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-action="get-link">重新取得授權連結</button>
+      </div>
+    </section>
+
+    <!-- 連不到 Google -->
+    <section data-state="unreachable" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-danger">登入失敗</span>連不到 Google</h2>
+      <div class="notice notice-error">
+        <strong>送出授權碼時連不到 oauth2.googleapis.com</strong>
+        可能是這台主機的網路或 DNS 有問題。授權碼幾分鐘內就會過期,網路恢復後請重新取得授權連結。
       </div>
       <div class="actions">
         <button type="button" class="btn btn-primary" data-action="get-link">重新取得授權連結</button>

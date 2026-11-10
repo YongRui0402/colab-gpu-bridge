@@ -18,7 +18,7 @@ function renderTray() {
   document.getElementById("tray-size").textContent = bytes([...selected.values()].reduce((sum, n) => sum + n, 0));
 }
 
-// 搜尋區目前的畫面:normal(還沒搜尋)、searching、results
+// 搜尋區目前的畫面:normal(還沒搜尋)、searching、results、no-results、library-down
 let resultsView = "normal";
 
 // 回到搜尋區目前的畫面(關掉確認中、確認畫面等覆蓋層)
@@ -96,10 +96,15 @@ async function search(more) {
     showState(resultsView);
   }
   const response = await request("GET", `/library/search?q=${encodeURIComponent(keyword)}&page=${page}`);
-  if (!response.ok) return;
+  if (!response.ok) {
+    // 連不到或讀不懂 ollama.com:精選清單與直接輸入名稱照樣可用(contracts § searchLibrary 的 502)
+    resultsView = "library-down";
+    return showState(resultsView);
+  }
   shown = shown.concat(response.data.items);
   document.getElementById("more-box").hidden = !response.data.hasMore;
-  resultsView = "results";
+  document.getElementById("nr-text").textContent = `找不到符合「${keyword}」的官方模型。`;
+  resultsView = shown.length ? "results" : "no-results";
   renderResults();
   showState(resultsView);
 }
@@ -146,6 +151,10 @@ document.getElementById("name-form").addEventListener("submit", async (event) =>
     document.getElementById("nf-name").textContent = name;
     return showState("not-found");
   }
+  if (response.data?.code === "LIBRARY_CLOUD_ONLY") {
+    document.getElementById("co-name").textContent = name;
+    return showState("cloud-only");
+  }
   back();
   if (!response.ok) return;
   selected.set(name, response.data.items[0].sizeBytes);
@@ -177,6 +186,9 @@ function showConfirm(result) {
 }
 
 document.getElementById("add").addEventListener("click", async () => {
+  // 模型下載到執行環境上:沒有就緒的工作階段時不試算,勾選的項目保留
+  const session = await request("GET", "/session");
+  if (session.data?.state !== "ready") return showState("no-session");
   const response = await estimate([...selected.keys()], `正在向 registry.ollama.ai 確認 ${selected.size} 個版本的大小…`);
   if (!response.ok) return back();
   if (!response.data.fits) return showNoSpace(response.data);

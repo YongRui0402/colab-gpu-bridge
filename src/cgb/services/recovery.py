@@ -32,6 +32,17 @@ class Recovery:
     async def _run(self) -> None:
         # Q190:先記下上一個行程留下的那筆,再列 sessions;列的期間才開啟的工作階段不歸接回判定
         unfinished = self._repo.latest_unfinished()
+        # 接回期間 UI 顯示「接回中」(Q167);回到就緒前先清掉,推送的就緒才不會帶著它
+        self._lifecycle.resuming = unfinished["name"] if unfinished is not None else None
+        try:
+            name = await self._reattach(unfinished)
+        finally:
+            self._lifecycle.resuming = None
+        if name is not None:
+            self._repo.update(name, state="ready", active_slot=1)
+
+    async def _reattach(self, unfinished: dict[str, Any] | None) -> str | None:
+        """接回上一個行程留下的那筆;回傳接回的名稱,沒有要接回的(或已被收回)時回 None。"""
         listed = await self._state.colab.list_sessions()
         detected_at = iso(self._state.clock.now())
         # Q100:是不是本系統的執行環境以資料庫的名稱為準,不看前綴。
@@ -55,12 +66,12 @@ class Recovery:
                 if latest is not None:
                     self._repo.update(latest["name"], **release_warning_fields(error.code, iso(self._state.clock.now())))
         if unfinished is None:
-            return
+            return None
         name = unfinished["name"]
         if name not in listed_names(listed):
             # 資料庫說還在、Colab 帳號下已經沒有:被收回(不照資料庫標成就緒)
             self._repo.update(name, **reclaimed_fields(iso(self._state.clock.now())))
-            return
+            return None
         await self._state.tunnel.cleanup_residual(key_path=self._key_path)
         await self._lifecycle.open_tunnel(name)
-        self._repo.update(name, state="ready", active_slot=1)
+        return name
