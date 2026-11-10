@@ -1410,3 +1410,66 @@ async def test_open_tunnel_never_sets_gateway_ports(fake_ssh: FakeCli, key_path:
 
     # Assert
     assert [arg for arg in argv if "gatewayports" in arg.lower()] == []
+
+
+# ---------------------------------------------------------------- 實跑 US1-TUN-10 發現:斷線後重新建立不留殭屍
+
+
+def _zombie(pid: int) -> bool:
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] == "Z"
+    except (OSError, IndexError):
+        return False
+
+
+async def test_ssh_killed_then_reopened_leaves_no_defunct_ssh_or_orphan_proxy_command(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    """實跑 US1-TUN-10:只有 ssh 被 SIGKILL(模擬斷線),它的 ProxyCommand 還活著、占著 stderr;
+    對同一個工作階段重新 `open_tunnel` 時,舊的 ssh 留成 defunct、ProxyCommand 沒人收。重連要先收掉同名的舊轉發。"""
+    # Arrange:建立就緒的通道(假 ssh 分出一個代表 ProxyCommand 的子行程),再只殺掉 ssh
+    port = forward.port
+    forward.reply_version(JsonReply({"version": REMOTE_VERSION}))
+    script_ssh(fake_ssh, spec_ssh_argv(key_path, SESSION, port), {"daemon": True, "spawn_child": True})
+    tunnel = Tunnel(ready_deadline=0.5)
+    await tunnel.open_tunnel(SESSION, key_path, port)
+    record = fake_ssh.calls("ssh")[0]
+    deadline = time.monotonic() + 2
+    while not record.get("child_pid") and time.monotonic() < deadline:
+        await asyncio.sleep(0.01)
+        record = fake_ssh.calls("ssh")[0]
+    killed, proxy = record["pid"], record["child_pid"]
+    os.kill(killed, signal.SIGKILL)
+    while not _zombie(killed) and time.monotonic() < deadline:
+        await asyncio.sleep(0.01)
+
+    # Act:重連(這次連不上也沒關係,要看的是舊的 ssh 與 ProxyCommand 有沒有被收掉)
+    with contextlib.suppress(AdapterError):
+        await tunnel.open_tunnel(SESSION, key_path, port)
+    await asyncio.sleep(0.2)
+
+    # Assert
+    assert (_zombie(killed), _alive(proxy)) == (False, False), f"ssh {killed} defunct、ProxyCommand {proxy} 還在"
+
+
+PYTHON_SHUTDOWN_NOISE = "Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>"
+
+
+async def test_failed_tunnel_reports_the_real_last_line_not_python_shutdown_noise(
+    fake_ssh: FakeCli, forward: ForwardStandIn, key_path: str
+) -> None:
+    """實跑 US1-TUN-10:ssh 被殺時 ProxyCommand(`colab ssh`)收尾印出 Python 的 `Exception ignored in: …`;
+    它要和 known_hosts 警告一樣略過,`stderrLastLine` 才會是真正的原因(contracts § x-stderr-ignore)。"""
+    # Arrange
+    stderr = f"[colab] unexpected proxy error: cgb-test-unknown\n{PYTHON_SHUTDOWN_NOISE}\n"
+    script_ssh(fake_ssh, spec_ssh_argv(key_path, SESSION, forward.port), {"stderr": stderr, "exit": 255})
+
+    # Act
+    with pytest.raises(AdapterError) as error:
+        await Tunnel(ready_deadline=SHORT_READY_DEADLINE).open_tunnel(SESSION, key_path, forward.port)
+
+    # Assert
+    assert (error.value.code, error.value.stderr_last_line) == (
+        "TUNNEL_FAILED",
+        "[colab] unexpected proxy error: cgb-test-unknown",
+    )

@@ -622,7 +622,7 @@ components:
               note: '同上,經 ProxyCommand 連線時 OpenSSH 顯示的字樣,未實測'
             - match: 'Broken pipe'
               code: TUNNEL_UNREACHABLE
-          x-stderr-ignore: ["Warning: Permanently added 'colab-runtime'"]
+          x-stderr-ignore: ["Warning: Permanently added 'colab-runtime'", "Exception ignored in: <_io.TextIOWrapper name='<stdout>'"]
         message:
           type: string
           description: 給使用者看的繁體中文說明,例如「連不到 Colab 執行環境,正在重連」;不含網址、token 或金鑰

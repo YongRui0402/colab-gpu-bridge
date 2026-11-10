@@ -68,7 +68,8 @@ STDERR_PATTERNS: tuple[tuple[str, str], ...] = (
     ("Connection closed by UNKNOWN port 65535", "TUNNEL_UNREACHABLE"),
     ("Broken pipe", "TUNNEL_UNREACHABLE"),
 )
-STDERR_IGNORE = ("Warning: Permanently added 'colab-runtime'",)
+# 每次連線都印的 known_hosts 警告;ssh 被殺時 ProxyCommand(`colab ssh`)收尾印的 Python 雜訊(實跑 US1-TUN-10)
+STDERR_IGNORE = ("Warning: Permanently added 'colab-runtime'", "Exception ignored in: <_io.TextIOWrapper name='<stdout>'")
 
 FAILURE_MESSAGES = {
     "TUNNEL_NOT_FOUND": "要連的執行環境已經不在",
@@ -230,6 +231,11 @@ class Tunnel:
 
     async def open_tunnel(self, session_name: str, key_path: str, local_port: int) -> dict[str, Any]:
         """建立本機轉發(openTunnel),等到遠端 Ollama 透過它回應 `/api/version` 才回成功。"""
+        # 重連時同名的舊轉發可能還在(ssh 被殺、ProxyCommand 還活著占著 stderr):先整組收掉並回收,
+        # 否則舊的 ssh 留成 defunct、ProxyCommand 沒人收(實跑 US1-TUN-10)
+        previous = self._forwards.pop(session_name, None)
+        if previous is not None:
+            await self._end_group(previous)
         started = time.monotonic()
         try:
             process = subprocess.Popen(
