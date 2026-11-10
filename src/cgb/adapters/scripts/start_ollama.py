@@ -12,7 +12,11 @@ import time
 import urllib.request
 
 VERSION_URL = "http://127.0.0.1:11434/api/version"
-INSTALL_COMMAND = "curl -fsSL https://ollama.com/install.sh | sh"
+# 官方安裝程式要 zstd 解壓縮,Colab 的映像沒有內建(spike 的做法;實跑 US1-CLI-21 第一次在這裡失敗)
+INSTALL_COMMAND = (
+    "(command -v zstd >/dev/null || apt-get -qq install -y zstd >/dev/null) "
+    "&& curl -fsSL https://ollama.com/install.sh | sh"
+)
 SERVE_LOG = "/root/cgb-ollama-serve.log"
 VERIFY_SECONDS = 60
 
