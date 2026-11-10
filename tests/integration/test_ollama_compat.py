@@ -765,6 +765,12 @@ async def test_串流進行中不計閒置_結束後才重設(bridge: Bridge, fa
         fake_clock.set(t + timedelta(seconds=100))
         gates[9].release()
         await asyncio.wait_for(reading, 5.0)
+        # 回應送完後,`IdleHook` 才在 finally 重設 lastRequestAt;等進行中的請求歸零再記 ended_at(Q195),
+        # 否則跟著真實時間走的假時鐘會讓 deadline 超出上限幾十微秒
+        for _ in range(200):
+            if ((await session()).get("idle") or {}).get("activeRequests") == 0:
+                break
+            await asyncio.sleep(0.01)
         ended_at = fake_clock.now()
     finally:
         for gate in gates:
