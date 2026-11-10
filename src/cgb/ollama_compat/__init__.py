@@ -12,6 +12,7 @@ import httpx
 from fastapi import FastAPI
 
 from cgb.ollama_compat import routes
+from cgb.ollama_compat.access_log import AccessLog
 from cgb.ollama_compat.forward import FORWARD_TIMEOUT
 from cgb.ollama_compat.idle_hook import IdleHook
 
@@ -30,3 +31,4 @@ def install(app: FastAPI, ui: FastAPI) -> None:
     app.state.services_of = services
     app.include_router(routes.router)
     app.add_middleware(IdleHook, services_of=services)
+    app.add_middleware(AccessLog)

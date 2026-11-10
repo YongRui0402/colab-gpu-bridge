@@ -2479,27 +2479,27 @@
 
 **Purpose**: 照 `testplan.md` § 6.2 驗證跨故事的 NFR 與 SC(NFR-009~NFR-012)
 
-- [ ] T289a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_secrets.py` 寫 G-02 的測試(依序走過:登入成功、開啟成功、開啟失敗、重連逾時、結束;擷取所有日誌(caplog 與 stdout、stderr)、所有 API 回應與 SSE 事件),執行確認它因為「用 DEBUG 等級記下子行程的 stdout、stderr 全文」這類實作而失敗
+- [X] T289a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_secrets.py` 寫 G-02 的測試(依序走過:登入成功、開啟成功、開啟失敗、重連逾時、結束;擷取所有日誌(caplog 與 stdout、stderr)、所有 API 回應與 SSE 事件),執行確認它因為「用 DEBUG 等級記下子行程的 stdout、stderr 全文」這類實作而失敗
   - 🧪 `testplan.md` § G-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`paths./session.post`、`paths./session.delete`、`components.schemas.Error`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendAuthUpdated`
   - 📎 `spec.md` § NFR-010
-- [ ] T289b [G] 🟢 /tdd 綠燈:在 `src/cgb/logging_setup.py`、`src/cgb/ollama_compat/access_log.py`、`src/cgb/domain/errors.py` 只寫讓 G-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T289a)
+- [X] T289b [G] 🟢 /tdd 綠燈:在 `src/cgb/logging_setup.py`、`src/cgb/ollama_compat/access_log.py`、`src/cgb/domain/errors.py` 只寫讓 G-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T289a)
   - 🧪 `testplan.md` § G-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./auth/authorizations/{flowId}/code.post`、`paths./session.post`、`paths./session.delete`、`components.schemas.Error`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendAuthUpdated`
   - 📎 `spec.md` § NFR-010
-- [ ] T290a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_repo_hygiene.py` 寫 G-03 的測試(列出 `git ls-files`,讀 `.gitignore` 與 `deploy/Dockerfile.dockerignore`),執行確認它因為「實跑後把暫存資料或 `.env` 誤 commit 進 repo」這類實作而失敗;testplan 寫的 `deploy/Dockerfile.dockerignore` 依 plan.md Q85 搬遷後是 repo 根目錄的 `Dockerfile.dockerignore`(plan.md Q118);先對一份故意拿掉 `.env` 排除行的 `.gitignore` 複本(對照組)執行,確認測試抓得到;再對 repo 的實物執行,實物已經通過時在任務備註記下「Setup 已滿足」
+- [X] T290a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_repo_hygiene.py` 寫 G-03 的測試(列出 `git ls-files`,讀 `.gitignore` 與 `deploy/Dockerfile.dockerignore`),執行確認它因為「實跑後把暫存資料或 `.env` 誤 commit 進 repo」這類實作而失敗;testplan 寫的 `deploy/Dockerfile.dockerignore` 依 plan.md Q85 搬遷後是 repo 根目錄的 `Dockerfile.dockerignore`(plan.md Q118);先對一份故意拿掉 `.env` 排除行的 `.gitignore` 複本(對照組)執行,確認測試抓得到;再對 repo 的實物執行,實物已經通過時在任務備註記下「Setup 已滿足」
   - 🧪 `testplan.md` § G-03
   - ⚙ `deploy/Dockerfile.dockerignore` § 全檔
   - 📎 `spec.md` § NFR-010
-- [ ] T290b [G] 🟢 /tdd 綠燈:在 `.gitignore`、`Dockerfile.dockerignore` 只寫讓 G-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`.gitignore` 補上 `.env`、`data/`、`*.sqlite3`、`token.json`、`sessions.json`、`id_ed25519*`,`Dockerfile.dockerignore` 確認排除 `.env` 與 `data/`;Setup 已經寫進的就不重寫(依賴 T290a)
+- [X] T290b [G] 🟢 /tdd 綠燈:在 `.gitignore`、`Dockerfile.dockerignore` 只寫讓 G-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;`.gitignore` 補上 `.env`、`data/`、`*.sqlite3`、`token.json`、`sessions.json`、`id_ed25519*`,`Dockerfile.dockerignore` 確認排除 `.env` 與 `data/`;Setup 已經寫進的就不重寫(依賴 T290a)
   - 🧪 `testplan.md` § G-03
   - ⚙ `deploy/Dockerfile.dockerignore` § 全檔
   - 📎 `spec.md` § NFR-010
-- [ ] T291a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_prepare_data.py` 寫 G-04 的測試(以子行程跑 `prepare-data.sh true`,再跑 `prepare-data.sh --check`),執行確認它因為「把舊的 `colab.log` 改名保留(含 token 的 DEBUG 紀錄還在)」這類實作而失敗;先對一份故意改成「把舊 `colab.log` 改名保留」的 `prepare-data.sh` 複本(對照組)執行,確認測試抓得到;再對 T013 搬來的 `deploy/prepare-data.sh` 執行,實物已經通過時在任務備註記下「Setup 原樣複製的腳本已滿足」
+- [X] T291a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_prepare_data.py` 寫 G-04 的測試(以子行程跑 `prepare-data.sh true`,再跑 `prepare-data.sh --check`),執行確認它因為「把舊的 `colab.log` 改名保留(含 token 的 DEBUG 紀錄還在)」這類實作而失敗;先對一份故意改成「把舊 `colab.log` 改名保留」的 `prepare-data.sh` 複本(對照組)執行,確認測試抓得到;再對 T013 搬來的 `deploy/prepare-data.sh` 執行,實物已經通過時在任務備註記下「Setup 原樣複製的腳本已滿足」
   - 🧪 `testplan.md` § G-04
   - ⚙ `deploy/compose.yaml` § `services.cgb.volumes`、`services.cgb.tmpfs`
   - 📎 `spec.md` § NFR-010、NFR-012
-- [ ] T291b [G] 🟢 /tdd 綠燈:在 `deploy/prepare-data.sh` 只寫讓 G-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T291a)
+- [X] T291b [G] 🟢 /tdd 綠燈:在 `deploy/prepare-data.sh` 只寫讓 G-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T291a)
   - 🧪 `testplan.md` § G-04
   - ⚙ `deploy/compose.yaml` § `services.cgb.volumes`、`services.cgb.tmpfs`
   - 📎 `spec.md` § NFR-010、NFR-012
@@ -2511,11 +2511,11 @@
   - 🧪 `testplan.md` § G-06
   - ⚙ `prototype/history.html` § `[data-state="normal"]`、`[data-state="empty"]`;`prototype/index.html` § `[data-state="normal"]`、`[data-state="low-balance"]`、`[data-state="needs-login"]`、`[data-state="starting"]`、`[data-state="ready"]`、`[data-state="confirm-stop"]`、`[data-state="confirm-switch"]`、`[data-state="stopping"]`、`[data-state="switching"]`、`[data-state="ended"]`、`[data-state="ended-idle"]`、`[data-state="failed"]`、`[data-state="already-open"]`、`[data-state="reconnecting"]`、`[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="lost-zero"]`、`[data-state="release-failed"]`、`[data-state="resuming"]`、`[data-state="foreign"]`;`prototype/library.html` § `[data-state="normal"]`、`[data-state="searching"]`、`[data-state="results"]`、`[data-state="no-results"]`、`[data-state="library-down"]`、`[data-state="checking"]`、`[data-state="confirm"]`、`[data-state="no-space"]`、`[data-state="not-found"]`、`[data-state="cloud-only"]`、`[data-state="no-session"]`;`prototype/login.html` § `[data-state="normal"]`、`[data-state="signed-in"]`、`[data-state="loading"]`、`[data-state="link"]`、`[data-state="verifying"]`、`[data-state="failed"]`、`[data-state="link-expired"]`、`[data-state="scope-missing"]`、`[data-state="unreachable"]`;`prototype/models.html` § `[data-state="normal"]`、`[data-state="empty"]`、`[data-state="loading"]`、`[data-state="no-session"]`、`[data-state="preload-warn"]`、`[data-state="preloading"]`、`[data-state="preload-failed"]`;`prototype/usage.html` § `[data-state="normal"]`、`[data-state="low"]`、`[data-state="unknown"]`、`[data-state="stale"]`、`[data-state="loading"]`;`contracts/ui.openapi.yaml` § `components.schemas.Error`;`contracts/ollama-compat.openapi.yaml` § `components.schemas.OllamaError`
   - 📎 `spec.md` § NFR-011;`plan.md` § 待決問題 Q105、Q111
-- [ ] T293a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_healthcheck.py` 寫 G-08 的測試(以子行程跑 `deploy/healthcheck.py`;再把假 UI 改成回 503 跑一次),執行確認它因為「健康檢查對 Ollama 相容 port 送 HTTP,每 30 秒重設閒置計時,工作階段永遠不會閒置結束(Q89)」這類實作而失敗;先對一份故意改成對 Ollama 相容 port 送 `GET /api/version` 的 `healthcheck.py` 複本(對照組)執行,確認測試抓得到;再對 T014 搬來的 `deploy/healthcheck.py` 執行,實物已經通過時在任務備註記下「Setup 原樣複製的腳本已滿足」
+- [X] T293a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_healthcheck.py` 寫 G-08 的測試(以子行程跑 `deploy/healthcheck.py`;再把假 UI 改成回 503 跑一次),執行確認它因為「健康檢查對 Ollama 相容 port 送 HTTP,每 30 秒重設閒置計時,工作階段永遠不會閒置結束(Q89)」這類實作而失敗;先對一份故意改成對 Ollama 相容 port 送 `GET /api/version` 的 `healthcheck.py` 複本(對照組)執行,確認測試抓得到;再對 T014 搬來的 `deploy/healthcheck.py` 執行,實物已經通過時在任務備註記下「Setup 原樣複製的腳本已滿足」
   - 🧪 `testplan.md` § G-08
   - ⚙ `deploy/compose.yaml` § `services.cgb.healthcheck`
   - 📎 `spec.md` § NFR-012;`plan.md` § 待決問題 Q89
-- [ ] T293b [G] 🟢 /tdd 綠燈:在 `deploy/healthcheck.py` 只寫讓 G-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T293a)
+- [X] T293b [G] 🟢 /tdd 綠燈:在 `deploy/healthcheck.py` 只寫讓 G-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T293a)
   - 🧪 `testplan.md` § G-08
   - ⚙ `deploy/compose.yaml` § `services.cgb.healthcheck`
   - 📎 `spec.md` § NFR-012;`plan.md` § 待決問題 Q89
