@@ -22,14 +22,15 @@ STEPS=[("0 前置:Colab 通道 spike",L('11-09 19:30')),
  ("10 implement Phase 3 故事 2",L('11-10 04:39')),
  ("11 implement Phase 4 故事 3",L('11-10 06:14')),
  ("12 implement Phase 5 故事 4",L('11-10 08:12')),
- ("13 implement Phase 6 全域測試區",L('11-10 10:30')),]
+ ("13 implement Phase 6 全域測試區",L('11-10 10:30')),
+ ("14 實跑量測(人工與 P9 整批)",L('11-10 12:20')),]
 END=datetime.now(TZ)
 def step_of(t):
     k=0
     for i,(_,s) in enumerate(STEPS):
         if t>=s:k=i
     return k
-KEY=[('S',4),('testplan 撰寫',5),('tasks.md',6),('analyze',7),('Phase 1 Setup',8),('P2 ',9),('P3 ',10),('US2-AJ-05',10),('P4 ',11),('P5 ',12),('Q190',12),('P6 ',13)]
+KEY=[('S',4),('testplan 撰寫',5),('tasks.md',6),('analyze',7),('Phase 1 Setup',8),('P2 ',9),('P3 ',10),('US2-AJ-05',10),('P4 ',11),('P5 ',12),('Q190',12),('P6 ',13),('實跑',14)]
 def sub_step(desc,first):
     import re
     if re.match(r'^S\d+ ',desc): return 4
