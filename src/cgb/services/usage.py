@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import logging
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
@@ -15,6 +16,8 @@ from cgb.services.settings import SettingsService
 
 # NFR-008 要求至少每 5 分鐘讀一次;排程的等待會被讀取本身的時間拉長,所以取 4 分鐘留餘裕
 POLL_SECONDS = 240.0
+
+logger = logging.getLogger(__name__)
 
 
 class UsageService:
@@ -38,7 +41,11 @@ class UsageService:
 
     async def _loop(self) -> None:
         while True:
-            await self.read_once()
+            try:
+                await self.read_once()
+            except Exception:
+                # Q191:非預期的例外不能讓排程停掉,記下來,下一輪照常讀
+                logger.exception("讀用量時發生非預期的錯誤,下一輪再試")
             await self._state.clock.sleep(POLL_SECONDS)
 
     async def read_once(self) -> None:

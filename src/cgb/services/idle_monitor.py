@@ -1,6 +1,7 @@
 """閒置計時(FR-026、Q24):只有 Ollama 相容端點的請求算數,UI API 與健康檢查都不算(Q89)。"""
 
 import asyncio
+import logging
 from typing import Any
 
 from cgb.domain.idle import idle_countdown
@@ -11,6 +12,8 @@ from cgb.services.settings import SettingsService
 
 # 背景檢查的間隔(注入的時鐘);SC-006 要求到期後 1 分鐘內結束
 CHECK_SECONDS = 1.0
+
+logger = logging.getLogger(__name__)
 
 
 class IdleMonitor:
@@ -35,7 +38,11 @@ class IdleMonitor:
         """不等請求進來,在背景定時檢查是否閒置到期。"""
         while True:
             await self._state.clock.sleep(CHECK_SECONDS)
-            await self._check()
+            try:
+                await self._check()
+            except Exception:
+                # Q191:非預期的例外不能讓閒置檢查停掉(否則不會再自動結束),記下來,下一輪照常檢查
+                logger.exception("閒置檢查時發生非預期的錯誤,下一輪再試")
 
     def countdown(self, row: dict[str, Any]) -> dict[str, Any]:
         return idle_countdown(

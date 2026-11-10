@@ -7,17 +7,17 @@
 import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
 
 from cgb.app import AppPair
-from cgb.domain.session_state import parse_iso
+from cgb.domain.session_state import iso, parse_iso
 from conftest import FakeClock
 from fakes import JsonReply
 from integration.test_api_session import ColabWorld, get_session, open_ready, wait_until
-from integration.test_api_usage import running, settle_startup
+from integration.test_api_usage import running, wait_usage
 
 
 async def set_idle_timeout(client: httpx.AsyncClient, minutes: int) -> None:
@@ -88,7 +88,6 @@ async def running_pair(pair: AppPair) -> AsyncIterator[tuple[httpx.AsyncClient, 
                 transport=httpx.ASGITransport(app=pair.ollama, raise_app_exceptions=False), base_url="http://cgb-ollama.test"
             )
         )
-        await settle_startup()
         yield ui, ollama
 
 
@@ -193,3 +192,77 @@ async def test_閒置自動結束時釋放失敗要警告(make_app: Callable[...
     assert ended.get("endReason") == "IDLE_TIMEOUT", ended
     # Assert:則2
     assert (ended.get("releaseWarning") or {}).get("message"), ended.get("releaseWarning")
+
+
+# ---------------------------------------------------------------- US4-API-20
+
+
+class NowFailsOnceClock(FakeClock):
+    """假時鐘;`fail_next_now()` 之後,下一次被讀現在時間時丟一次 `RuntimeError`(不是 `AdapterError`),之後恢復正常。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._fail_next = False
+        self.failures = 0
+
+    def fail_next_now(self) -> None:
+        self._fail_next = True
+
+    def now(self) -> datetime:
+        if self._fail_next:
+            self._fail_next = False
+            self.failures += 1
+            raise RuntimeError("讀時鐘時的非預期錯誤(測試注入)")
+        return super().now()
+
+
+async def wait_for(predicate: Callable[[], bool], timeout: float = 2.0) -> None:
+    loop = asyncio.get_running_loop()
+    until = loop.time() + timeout
+    while not predicate() and loop.time() < until:
+        await asyncio.sleep(0.01)
+
+
+async def test_讀用量遇到非預期的例外時下一輪照常讀取(make_app: Callable[..., AppPair], fakes: Any, fake_clock: FakeClock) -> None:
+    # Arrange:情況 A,app 啟動時那次 get_usage 丟 RuntimeError,之後回 50.00
+    def read(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        if fakes.colab.get_usage.call_count == 1:
+            raise RuntimeError("讀用量時的非預期錯誤(測試注入)")
+        return {"balance": 50.0, "ratePerHour": 1.15, "activeAssignments": 0, "readAt": iso(fake_clock.now())}
+
+    fakes.colab.get_usage.side_effect(read)
+    async with running(make_app()) as client:
+        await wait_for(lambda: fakes.colab.get_usage.call_count >= 1)
+
+        # Act:時鐘推進 5 分鐘,送 GET /api/usage
+        fake_clock.advance(5 * 60)
+        usage = await wait_usage(client, lambda u: u.get("state") == "known")
+
+    # Assert:則1
+    reads = fakes.colab.get_usage.call_count
+    assert reads >= 2, f"get_usage 只被呼叫 {reads} 次"
+    assert (usage.get("state"), usage.get("balance")) == ("known", 50.0), usage
+
+
+async def test_閒置檢查遇到非預期的例外時下一輪照常自動結束(make_app: Callable[..., AppPair], fakes: Any) -> None:
+    # Arrange:情況 B,工作階段就緒,閒置時限 1 分鐘,沒有任何請求
+    clock = NowFailsOnceClock()
+    world = ColabWorld(fakes)
+    async with running(make_app(clock=clock)) as client:
+        await set_idle_timeout(client, 1)
+        ready = await open_ready(client)
+        deadline = parse_iso(ready["idle"]["deadline"])
+
+        # Act:時鐘推進到 deadline 加 1 秒;閒置檢查讀時間時丟一次例外,之後一直查 GET /api/session
+        clock.set(deadline + timedelta(seconds=1))
+        clock.fail_next_now()
+        await wait_for(lambda: clock.failures == 1)
+        ended = await wait_until(client, is_idle_ended, timeout=3.0)
+        ended_by = clock.now()
+
+    # Assert:則2
+    assert clock.failures == 1
+    assert is_idle_ended(ended), ended
+    assert ended_by <= deadline + timedelta(minutes=1)
+    # Assert:則3
+    assert world.calls("stop_session") == [ready["name"]]

@@ -2251,19 +2251,19 @@
   - 🧪 `testplan.md` § US4-API-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `components.schemas.Usage`;`contracts/store.dbml` § `Table usage_snapshots`
   - 📎 `spec.md` § NFR-008;`plan.md` § 待決問題 Q119、Q123
-- [ ] T266a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US4-API-19 的測試(app 啟動時接回的那次 `list_sessions` 停在閘門前;送 `POST /api/session`,等開啟流程的 `list_sessions` 也停在閘門前;放行 `list_sessions`,在 `create_session` 仍停住期間一直查 `GET /api/session`;再放行 `create_session` 開到就緒),執行確認它因為「接回先等 `colab sessions` 回來才讀資料庫裡未結束的那筆,把啟動期間剛開啟的工作階段誤標 `RECLAIMED_BY_COLAB`(Q190)」這類實作而失敗
+- [X] T266a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_recovery.py` 寫 US4-API-19 的測試(app 啟動時接回的那次 `list_sessions` 停在閘門前;送 `POST /api/session`,等開啟流程的 `list_sessions` 也停在閘門前;放行 `list_sessions`,在 `create_session` 仍停住期間一直查 `GET /api/session`;再放行 `create_session` 開到就緒),執行確認它因為「接回先等 `colab sessions` 回來才讀資料庫裡未結束的那筆,把啟動期間剛開啟的工作階段誤標 `RECLAIMED_BY_COLAB`(Q190)」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./sessions.get`;`contracts/colab-cli.openapi.yaml` § `paths./sessions.get`
   - 📎 `spec.md` § FR-005、FR-007;`plan.md` § 待決問題 Q190
-- [ ] T266b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py` 只寫讓 US4-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認接回只判定列 `colab sessions` 之前就存在的那筆未結束工作階段(Q190)(依賴 T266a)
+- [X] T266b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py` 只寫讓 US4-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認接回只判定列 `colab sessions` 之前就存在的那筆未結束工作階段(Q190)(依賴 T266a)
   - 🧪 `testplan.md` § US4-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./sessions.get`;`contracts/colab-cli.openapi.yaml` § `paths./sessions.get`
   - 📎 `spec.md` § FR-005、FR-007;`plan.md` § 待決問題 Q190
-- [ ] T267a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-20 的測試(情況 A:等 `get_usage` 被呼叫 1 次後時鐘推進 5 分鐘,送 `GET /api/usage`;情況 B:時鐘推進到 `idle.deadline` 加 1 秒,等閒置檢查讀時間時丟出那次例外,再一直查 `GET /api/session`),執行確認它因為「背景迴圈只接 `AdapterError`,其他例外讓迴圈靜靜結束,用量不再更新、閒置到期不再自動結束(Q191)」這類實作而失敗
+- [X] T267a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_idle.py` 寫 US4-API-20 的測試(情況 A:等 `get_usage` 被呼叫 1 次後時鐘推進 5 分鐘,送 `GET /api/usage`;情況 B:時鐘推進到 `idle.deadline` 加 1 秒,等閒置檢查讀時間時丟出那次例外,再一直查 `GET /api/session`),執行確認它因為「背景迴圈只接 `AdapterError`,其他例外讓迴圈靜靜結束,用量不再更新、閒置到期不再自動結束(Q191)」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-20
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.get`、`components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026、SC-006、NFR-008;`plan.md` § 待決問題 Q191
-- [ ] T267b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/usage.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認兩個背景迴圈遇到非 `AdapterError` 的例外時記 log 後繼續下一輪(Q191)(依賴 T267a)
+- [X] T267b [US4] 🟢 /tdd 綠燈:在 `src/cgb/services/usage.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US4-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單;確認兩個背景迴圈遇到非 `AdapterError` 的例外時記 log 後繼續下一輪(Q191)(依賴 T267a)
   - 🧪 `testplan.md` § US4-API-20
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./usage.get`;`contracts/ui.openapi.yaml` § `paths./usage.get`、`paths./session.get`、`components.schemas.IdleCountdown`
   - 📎 `spec.md` § FR-026、SC-006、NFR-008;`plan.md` § 待決問題 Q191

@@ -3,6 +3,7 @@
 接縫:HTTP `/api/*`;「重新啟動」是關掉 app,再以同一個 SQLite 檔與同一份轉接層替身狀態建立新的 app。
 """
 
+import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
@@ -13,7 +14,7 @@ from cgb.app import AppPair
 from fakes import Gate
 from integration.test_api_downloads import downloadable, queue, states, wait_queue
 from integration.test_api_models import QWEN_7B, QWEN_SMALL
-from integration.test_api_session import ColabWorld, get_session, open_ready, wait_until
+from integration.test_api_session import T4, ColabWorld, get_session, open_ready, wait_until
 
 
 @asynccontextmanager
@@ -151,3 +152,48 @@ async def test_重啟時下載中的那筆回到排隊中_接回後重新下載�
     pulled = [call.kwargs.get("model") for call in fakes.remote_ollama.pull_model.calls]
     assert pulled[:1] == [QWEN_7B]
     assert [job["id"] for job in resumed["jobs"]] == [job["id"] for job in before["jobs"]]
+
+
+# ---------------------------------------------------------------- US4-API-19
+
+
+async def test_啟動期間開啟的工作階段不會被接回誤判為被收回(make_app: Callable[..., AppPair], fakes: Any) -> None:
+    # Arrange:資料庫沒有未結束的工作階段;`colab sessions` 與 `colab new` 都停在閘門前
+    world = ColabWorld(fakes)
+    listing = fakes.colab.list_sessions.gate()
+    creating = fakes.colab.create_session.gate()
+
+    async with running(make_app()) as client:
+        # Act:啟動時接回的那次 `colab sessions` 停住期間開啟;開啟流程的 `colab sessions` 也走到閘門前才放行
+        await listing.wait_entered_async(1)
+        response = await client.post("/api/session", json={"runtimeType": T4})
+        await listing.wait_entered_async(2)
+        listing.release()
+        await creating.wait_entered_async(1)
+        while_creating = await sessions_for(client, 0.3)
+        creating.release()
+        ready = await wait_until(client, lambda s: s.get("state") == "ready")
+        history = (await client.get("/api/sessions")).json()
+
+    # Assert:則1
+    assert response.status_code == 202, response.text
+    seen = [(s.get("state"), s.get("endReason")) for s in while_creating]
+    assert [state for state, _ in seen if state == "lost"] == [], seen
+    assert {reason for _, reason in seen} == {None}, seen
+    # Assert:則2
+    assert (ready.get("state"), ready.get("endReason")) == ("ready", None), ready
+    # Assert:則3
+    assert world.calls("stop_session") == []
+    record = next(item for item in history["items"] if item["name"] == ready["name"])
+    assert record.get("endReason") != "RECLAIMED_BY_COLAB", record
+
+
+async def sessions_for(client: httpx.AsyncClient, seconds: float) -> list[dict[str, Any]]:
+    """在一段真實時間內一直查 `GET /api/session`,回傳看到的每一份。"""
+    seen: list[dict[str, Any]] = []
+    loop = asyncio.get_running_loop()
+    until = loop.time() + seconds
+    while loop.time() < until:
+        seen.append(await get_session(client))
+        await asyncio.sleep(0.02)
+    return seen

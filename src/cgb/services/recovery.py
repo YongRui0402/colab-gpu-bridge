@@ -30,6 +30,8 @@ class Recovery:
             await asyncio.gather(self._task, return_exceptions=True)
 
     async def _run(self) -> None:
+        # Q190:先記下上一個行程留下的那筆,再列 sessions;列的期間才開啟的工作階段不歸接回判定
+        unfinished = self._repo.latest_unfinished()
         listed = await self._state.colab.list_sessions()
         detected_at = iso(self._state.clock.now())
         # Q100:是不是本系統的執行環境以資料庫的名稱為準,不看前綴。
@@ -52,7 +54,6 @@ class Recovery:
                 latest = self._repo.latest()
                 if latest is not None:
                     self._repo.update(latest["name"], **release_warning_fields(error.code, iso(self._state.clock.now())))
-        unfinished = self._repo.latest_unfinished()
         if unfinished is None:
             return
         name = unfinished["name"]

@@ -28,21 +28,12 @@ def fake_clock() -> FakeClock:
     return FakeClock(start=READ_AT)
 
 
-async def settle_startup() -> None:
-    """讓啟動時的背景工作(接回工作階段的 `colab sessions` 確認)先跑完,再開始操作。
-
-    接回在啟動後才去讀資料庫裡未結束的工作階段;測試一啟動就開啟的話,剛寫入的開啟中那一筆會被當成上次留下的。
-    """
-    await asyncio.sleep(0.05)
-
-
 @asynccontextmanager
 async def running(pair: AppPair) -> AsyncIterator[httpx.AsyncClient]:
     """跑一個 app(含 lifespan),離開時關掉它;app 內未處理的例外照 HTTP 500 回給測試。"""
     async with pair.ui.router.lifespan_context(pair.ui):
         transport = httpx.ASGITransport(app=pair.ui, raise_app_exceptions=False)
         async with httpx.AsyncClient(transport=transport, base_url="http://cgb-ui.test") as client:
-            await settle_startup()
             yield client
 
 
