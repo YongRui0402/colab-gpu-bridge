@@ -400,31 +400,31 @@
 
 > 端點節(E8、E2)都完成、驗收過後由主 agent 開始;真的 E2(api、services、domain、repos 與 SQLite)接真的 `ModelLibrary`,ollama.com 與 registry 換成 `httpx.MockTransport`,其他轉接層用替身(`plan.md` § 待決問題 Q4、Q18)
 
-- [ ] T046a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US1-AJ-01 的測試(每種情況各送一次 `GET /api/library/search?q=qwen2.5`),執行確認它因為「轉接層只在 `get_manifest` 攔例外,`search_library` 讓 httpx 例外穿過 services 變成 500(Q178)」這類實作而失敗
+- [X] T046a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US1-AJ-01 的測試(每種情況各送一次 `GET /api/library/search?q=qwen2.5`),執行確認它因為「轉接層只在 `get_manifest` 攔例外,`search_library` 讓 httpx 例外穿過 services 變成 500(Q178)」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./search.get`、`components.schemas.SearchPage`、`components.schemas.SearchPageFragment`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、FR-003、FR-006、SC-001;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T046b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/library.py` 只寫讓 US1-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T046a)
+- [X] T046b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/library.py` 只寫讓 US1-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T046a)
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./search.get`、`components.schemas.SearchPage`、`components.schemas.SearchPageFragment`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001、FR-003、FR-006、SC-001;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T047a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US1-AJ-02 的測試(每種情況各送一次 `GET /api/library/models/qwen2.5/tags`),執行確認它因為「`Library.tags()` 沒接 `AdapterError`,轉接層丟出的錯變成 500」這類實作而失敗
+- [X] T047a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US1-AJ-02 的測試(每種情況各送一次 `GET /api/library/models/qwen2.5/tags`),執行確認它因為「`Library.tags()` 沒接 `AdapterError`,轉接層丟出的錯變成 500」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./library/{name}/tags.get`、`components.schemas.TagsPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-002、FR-003、FR-006、SC-001;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T047b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/library.py` 只寫讓 US1-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T047a)
+- [X] T047b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/library.py` 只寫讓 US1-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T047a)
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./library/{name}/tags.get`、`components.schemas.TagsPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-002、FR-003、FR-006、SC-001;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T048a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US1-AJ-03 的測試(送 `GET /api/library/search?q=qwen2.5`),執行確認它因為「轉接層把 `str(原例外)` 放進 `AdapterError.message`,服務層又把它接進回應」這類實作而失敗
+- [X] T048a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US1-AJ-03 的測試(送 `GET /api/library/search?q=qwen2.5`),執行確認它因為「轉接層把 `str(原例外)` 放進 `AdapterError.message`,服務層又把它接進回應」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./search.get`、`components.schemas.SearchPage`、`components.schemas.SearchPageFragment`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-006;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T048b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/library.py` 只寫讓 US1-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T048a)
+- [X] T048b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/library.py` 只寫讓 US1-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T048a)
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./search.get`、`components.schemas.SearchPage`、`components.schemas.SearchPageFragment`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-006;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T049 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T046b~T048b 記下的重構清單(範圍限 `src/cgb/adapters/model_library.py`、`src/cgb/services/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_library_cross.py` 的斷言(依賴 T048b)
+- [X] T049 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T046b~T048b 記下的重構清單(範圍限 `src/cgb/adapters/model_library.py`、`src/cgb/services/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_library_cross.py` 的斷言(依賴 T048b)
   - 🧪 `testplan.md` § US1-AJ-01~US1-AJ-03
   - 📎 `testplan.md` § 2.3
 
