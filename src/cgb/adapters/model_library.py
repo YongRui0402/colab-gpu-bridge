@@ -62,6 +62,9 @@ class ModelLibrary:
         except httpx.TransportError:
             # 不帶原例外的文字或網址(spec NFR-002),也不留例外鏈(research.md R1)
             raise AdapterError("LIBRARY_UNREACHABLE", "連不到官方模型庫") from None
+        except httpx.HTTPError:
+            # 其餘的 httpx 例外(例如本文解壓失敗的 DecodingError)是回應內容壞掉,不讓它越過轉接層(research.md R1)
+            raise AdapterError("LIBRARY_BAD_RESPONSE", "官方模型庫的回應無法讀取") from None
 
     async def search_library(self, q: str, page: int = 1) -> dict[str, Any]:
         """`GET /search`;每一頁都帶 `c=local`(Q10),第 2 頁起帶 `page` 與 `HX-Request: true` 取片段。"""

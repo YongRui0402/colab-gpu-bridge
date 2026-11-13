@@ -4,6 +4,7 @@ ollama.com 與 registry.ollama.ai 一律由 `tests/fixtures/library/` 存下來�
 002 的錯誤處理(specs/002-library-error-handling/testplan.md § 2.1)另用 127.0.0.1 的本機 socket 伺服器。
 """
 
+import json
 import re
 import socket
 import threading
@@ -830,3 +831,375 @@ async def test_顯示更多時每一頁的逾時各自計算() -> None:
     # 則2:第 2 頁不因為兩頁累計超過 0.5 秒而逾時
     assert isinstance(second, dict), f"第 2 頁預期正常結果,實際 {second!r}"
     assert [item["name"] for item in second["items"]] == ["qwen2.5vl"]
+
+
+# ================================================================ 002 錯誤處理:manifest(specs/002-library-error-handling/testplan.md § 3.1 故事 2)
+
+
+def manifest_reply(status: int = 200, *, text: str | None = None, content_type: str = MANIFEST_TYPE) -> Recorder:
+    """registry 對任何請求都回同一個回應;本文預設是 `manifest-qwen2.5-7b.json` 的全文。"""
+    body = fixture_text("manifest-qwen2.5-7b.json") if text is None else text
+    return registry_reply(httpx.Response(status, text=body, headers={"Content-Type": content_type}))
+
+
+# ---------------------------------------------------------------- US2-LIB-01 get_manifest 正常回應
+
+
+async def test_正常的_manifest_回各層合計且每個請求的逾時是_10_秒() -> None:
+    """US2-LIB-01:registry 回 200 與 `manifest-qwen2.5-7b.json`;不帶 `request_timeout`。"""
+    recorder = manifest_reply()
+    library = ModelLibrary(transport=recorder.transport())
+
+    manifest = await settled(library.get_manifest("qwen2.5", "7b"))
+
+    # 則1:4 層合計,不含 config.size 487
+    assert manifest == {"sizeBytes": 4683087332}, f"預期 4 層合計,實際 {manifest!r}"
+    # 則2:送出的請求帶 10 秒逾時
+    (request,) = recorder.requests
+    assert request.extensions["timeout"] == {"connect": 10.0, "read": 10.0, "write": 10.0, "pool": 10.0}
+
+
+# ---------------------------------------------------------------- US2-LIB-02 get_manifest 沒有這個模型或版本
+
+
+async def test_沒有這個模型或這個版本時_manifest_都回_LIBRARY_NOT_FOUND() -> None:
+    """US2-LIB-02:registry 對任何路徑都回 404(沒有這個模型與沒有這個版本的內容相同)。"""
+    library = ModelLibrary(
+        transport=manifest_reply(404, text=MANIFEST_UNKNOWN, content_type="text/plain; charset=utf-8").transport()
+    )
+
+    unknown_model = await raised_by(library.get_manifest("no-such-model", "latest"))
+    unknown_tag = await raised_by(library.get_manifest("qwen2.5", "999b"))
+
+    # 則1、則2:模型與版本都不分,一律歸沒有這個東西
+    assert isinstance(unknown_model, AdapterError), f"沒有模型預期 AdapterError,實際 {unknown_model!r}"
+    assert unknown_model.code == "LIBRARY_NOT_FOUND"
+    assert isinstance(unknown_tag, AdapterError), f"沒有版本預期 AdapterError,實際 {unknown_tag!r}"
+    assert unknown_tag.code == "LIBRARY_NOT_FOUND"
+
+
+# ---------------------------------------------------------------- US2-LIB-03 get_manifest 伺服器端錯誤
+
+
+async def test_registry_回任何_5xx_時_manifest_都回_LIBRARY_SERVER_ERROR() -> None:
+    """US2-LIB-03:情況 A 回 500;B 回 503 與 `Service Unavailable`;C 回 599;D 回 502 與完整的 manifest 本文。"""
+    cases = {
+        "A": manifest_reply(500, text=""),
+        "B": manifest_reply(503, text="Service Unavailable", content_type="text/plain"),
+        "C": manifest_reply(599, text=""),
+        "D": manifest_reply(502),
+    }
+
+    codes = {}
+    for case, recorder in cases.items():
+        error = await raised_by(ModelLibrary(transport=recorder.transport()).get_manifest("qwen2.5", "7b"))
+        assert isinstance(error, AdapterError), f"情況 {case} 預期 AdapterError,實際 {error!r}"
+        codes[case] = error.code
+
+    # 則1~則4:500、503、599、本文看似合法的 502 都歸伺服器端錯誤
+    assert codes == {code: "LIBRARY_SERVER_ERROR" for code in "ABCD"}
+
+
+# ---------------------------------------------------------------- US2-LIB-04 get_manifest 導向與其他 4xx
+
+
+async def test_manifest_遇到導向或_401_或_429_時回_LIBRARY_BAD_RESPONSE_且不跟著導向() -> None:
+    """US2-LIB-04:`7b` 回 301 導向 `latest`(`latest` 本身是正常的 manifest);`14b` 回 401;`32b` 回 429。"""
+
+    def by_path(request: httpx.Request) -> httpx.Response:
+        tag = request.url.path.rsplit("/", 1)[-1]
+        if tag == "7b":
+            return httpx.Response(301, headers={"Location": "/v2/library/qwen2.5/manifests/latest"})
+        if tag == "latest":
+            return httpx.Response(200, text=fixture_text("manifest-qwen2.5-7b.json"), headers={"Content-Type": MANIFEST_TYPE})
+        return httpx.Response({"14b": 401, "32b": 429}[tag], text="")
+
+    recorder = Recorder(by_path)
+    library = ModelLibrary(transport=recorder.transport())
+
+    redirected = await settled(library.get_manifest("qwen2.5", "7b"))
+    unauthorized = await settled(library.get_manifest("qwen2.5", "14b"))
+    throttled = await settled(library.get_manifest("qwen2.5", "32b"))
+
+    # 則1:導向不回傳 manifest,歸格式不符
+    assert isinstance(redirected, AdapterError), f"7b 預期 AdapterError,實際 {redirected!r}"
+    assert redirected.code == "LIBRARY_BAD_RESPONSE"
+    # 則2:不跟著導向去讀 latest
+    assert "/v2/library/qwen2.5/manifests/latest" not in [request.url.path for request in recorder.requests]
+    # 則3、則4:401 與 429 也是非預期的回應,不歸沒有這個模型、也不歸伺服器端錯誤
+    assert isinstance(unauthorized, AdapterError), f"14b 預期 AdapterError,實際 {unauthorized!r}"
+    assert unauthorized.code == "LIBRARY_BAD_RESPONSE"
+    assert isinstance(throttled, AdapterError), f"32b 預期 AdapterError,實際 {throttled!r}"
+    assert throttled.code == "LIBRARY_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------- US2-LIB-05 get_manifest 本文不是 JSON
+
+
+async def test_manifest_本文不是完整的_JSON_時回_LIBRARY_BAD_RESPONSE() -> None:
+    """US2-LIB-05:情況 A 回 200 的 HTML;B 回 200 的截斷 JSON(前 120 個字元);C 回 200 的空本文。"""
+    cases = {
+        "A": manifest_reply(text="<!DOCTYPE html><html><body>維護中</body></html>", content_type="text/html; charset=utf-8"),
+        "B": manifest_reply(text=fixture_text("manifest-qwen2.5-7b.json")[:120], content_type="text/plain; charset=utf-8"),
+        "C": manifest_reply(text="", content_type="text/plain; charset=utf-8"),
+    }
+
+    codes = {}
+    for case, recorder in cases.items():
+        error = await raised_by(ModelLibrary(transport=recorder.transport()).get_manifest("qwen2.5", "7b"))
+        assert isinstance(error, AdapterError), f"情況 {case} 預期 AdapterError,實際 {error!r}"
+        codes[case] = error.code
+
+    # 則1~則3:HTML、截斷的 JSON、空本文都歸格式不符
+    assert codes == {code: "LIBRARY_BAD_RESPONSE" for code in "ABC"}
+
+
+# ---------------------------------------------------------------- US2-LIB-06 get_manifest 內容結構不符
+
+
+async def test_manifest_的_layers_結構不符時回_LIBRARY_BAD_RESPONSE() -> None:
+    """US2-LIB-06:registry 回 200,本文依情況是 A `[]`、B 沒有 `layers`、C `layers` 是 null、D `layers` 是 `{}`、
+    E 有一層沒有 `size`、F 有一層的 `size` 是字串。"""
+    manifest = json.loads(fixture_text("manifest-qwen2.5-7b.json"))
+    first_layer = manifest["layers"][0]
+    bodies: dict[str, object] = {
+        "A": [],
+        "B": {key: value for key, value in manifest.items() if key != "layers"},
+        "C": {**manifest, "layers": None},
+        "D": {**manifest, "layers": {}},
+        "E": {**manifest, "layers": [{key: value for key, value in first_layer.items() if key != "size"}]},
+        "F": {**manifest, "layers": [{**first_layer, "size": "4683071744"}]},
+    }
+
+    codes = {}
+    for case, body in bodies.items():
+        recorder = manifest_reply(text=json.dumps(body))
+        error = await raised_by(ModelLibrary(transport=recorder.transport()).get_manifest("qwen2.5", "7b"))
+        assert isinstance(error, AdapterError), f"情況 {case} 預期 AdapterError,實際 {error!r}"
+        codes[case] = error.code
+
+    # 則1~則6:結構不符一律歸格式不符,`null` 與 `{}` 不算雲端版本
+    assert codes == {code: "LIBRARY_BAD_RESPONSE" for code in "ABCDEF"}
+
+
+# ---------------------------------------------------------------- US2-LIB-07 get_manifest 雲端版本
+
+
+async def test_沒有層的_manifest_不論_Content_Type_都回_LIBRARY_CLOUD_ONLY() -> None:
+    """US2-LIB-07:雲端版本的 manifest(`layers` 是空陣列);情況 A 的 Content-Type 是 text/plain,B 是 manifest 的型別。"""
+    cloud_manifest = fixture_text("manifest-qwen2.5-7b-cloud.json")
+    cases = {
+        "A": manifest_reply(text=cloud_manifest, content_type="text/plain; charset=utf-8"),
+        "B": manifest_reply(text=cloud_manifest, content_type=MANIFEST_TYPE),
+    }
+
+    results = {}
+    for case, recorder in cases.items():
+        results[case] = await settled(ModelLibrary(transport=recorder.transport()).get_manifest("qwen2.5", "7b"))
+
+    # 則1、則2:兩種 Content-Type 都歸雲端版本,不回傳大小 0
+    codes = {case: result.code if isinstance(result, AdapterError) else result for case, result in results.items()}
+    assert codes == {"A": "LIBRARY_CLOUD_ONLY", "B": "LIBRARY_CLOUD_ONLY"}
+
+
+# ---------------------------------------------------------------- US2-LIB-08 get_manifest 本文解壓失敗
+
+
+async def test_manifest_的本文解壓失敗時回_LIBRARY_BAD_RESPONSE() -> None:
+    """US2-LIB-08:registry 回 200 並帶 `Content-Encoding: gzip`,本文 `not gzip` 不是 gzip 資料(httpx 解壓時丟 `DecodingError`)。"""
+    recorder = Recorder(
+        lambda _: httpx.Response(
+            200, content=b"not gzip", headers={"Content-Type": MANIFEST_TYPE, "Content-Encoding": "gzip"}
+        )
+    )
+    library = ModelLibrary(transport=recorder.transport())
+
+    error = await raised_by(library.get_manifest("qwen2.5", "7b"))
+
+    # 則1:解壓失敗是回應內容壞掉,歸格式不符,不讓 httpx 的例外越過轉接層
+    assert isinstance(error, AdapterError), f"預期 AdapterError,實際 {error!r}"
+    assert error.code == "LIBRARY_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------- US2-LIB-09 get_manifest 連不到
+
+
+async def test_連不到_registry_時_manifest_回_LIBRARY_UNREACHABLE_且不帶底層細節() -> None:
+    """US2-LIB-09:情況 A 是 DNS 失敗、B 是連線被拒、C 是 TLS 失敗(都是傳輸層的 `httpx.ConnectError`)。"""
+    messages = {
+        "A": "[Errno -2] Name or service not known",
+        "B": "[Errno 111] Connection refused",
+        "C": "[SSL: WRONG_VERSION_NUMBER] wrong version number",
+    }
+
+    errors = {}
+    for case, message in messages.items():
+        library = ModelLibrary(transport=failing_with(httpx.ConnectError(message)))
+        errors[case] = await raised_by(library.get_manifest("qwen2.5", "7b"))
+
+    # 則1~則3:三種原因都歸連不到
+    for case, error in errors.items():
+        assert isinstance(error, AdapterError), f"情況 {case} 預期 AdapterError,實際 {error!r}"
+    assert {case: error.code for case, error in errors.items()} == {code: "LIBRARY_UNREACHABLE" for code in "ABC"}
+    # 則4:不留底層例外鏈(不帶原例外的文字,spec NFR-002)
+    assert errors["A"].__cause__ is None
+    assert errors["A"].__suppress_context__ is True
+
+
+# ---------------------------------------------------------------- US2-LIB-10 get_manifest 讀回應時中斷
+
+
+async def test_讀_registry_回應時中斷時_manifest_回_LIBRARY_UNREACHABLE() -> None:
+    """US2-LIB-10:情況 A 丟 `httpx.RemoteProtocolError`(本文沒送完就關連線);B 丟 `httpx.ReadError`(連線被重設)。"""
+    failures = {
+        "A": httpx.RemoteProtocolError("peer closed connection without sending complete message body"),
+        "B": httpx.ReadError("[Errno 104] Connection reset by peer"),
+    }
+
+    errors = {}
+    for case, failure in failures.items():
+        errors[case] = await raised_by(ModelLibrary(transport=failing_with(failure)).get_manifest("qwen2.5", "7b"))
+
+    # 則1、則2:有連上但讀到一半中斷,仍然是連不到
+    for case, error in errors.items():
+        assert isinstance(error, AdapterError), f"情況 {case} 預期 AdapterError,實際 {error!r}"
+    assert {case: error.code for case, error in errors.items()} == {"A": "LIBRARY_UNREACHABLE", "B": "LIBRARY_UNREACHABLE"}
+
+
+# ---------------------------------------------------------------- US2-LIB-11 get_manifest 各種逾時
+
+
+async def test_各種逾時時_manifest_都回_LIBRARY_TIMEOUT() -> None:
+    """US2-LIB-11:情況 A 丟 `httpx.ReadTimeout`、B 丟 `httpx.ConnectTimeout`、C 丟 `httpx.PoolTimeout`。"""
+    failures = {
+        "A": httpx.ReadTimeout("timed out"),
+        "B": httpx.ConnectTimeout("timed out"),
+        "C": httpx.PoolTimeout("timed out"),
+    }
+
+    errors = {}
+    for case, failure in failures.items():
+        errors[case] = await raised_by(ModelLibrary(transport=failing_with(failure)).get_manifest("qwen2.5", "7b"))
+
+    # 則1~則3:讀取、連線、連線池的逾時都歸逾時,不歸連不到
+    for case, error in errors.items():
+        assert isinstance(error, AdapterError), f"情況 {case} 預期 AdapterError,實際 {error!r}"
+    assert {case: error.code for case, error in errors.items()} == {code: "LIBRARY_TIMEOUT" for code in "ABC"}
+
+
+# ---------------------------------------------------------------- US2-LIB-12 get_manifest 真的讀到一半斷線
+
+
+def truncated_manifest(connection: socket.socket, stopped: threading.Event) -> None:
+    """送出 `Content-Length: 2000` 的 200 標頭與 manifest 本文的前 200 位元組,接著關閉連線(讀到一半斷線)。"""
+    read_request_head(connection)
+    head = f"HTTP/1.1 200 OK\r\nContent-Type: {MANIFEST_TYPE}\r\nContent-Length: 2000\r\n\r\n"
+    connection.sendall(head.encode() + fixture_text("manifest-qwen2.5-7b.json").encode()[:200])
+
+
+async def test_真的讀到一半斷線時_manifest_回_LIBRARY_UNREACHABLE() -> None:
+    """US2-LIB-12:本機 socket 伺服器送出 `Content-Length: 2000` 的標頭與 manifest 的前 200 位元組後關閉連線;`request_timeout=0.5`。"""
+    with LocalSocketServer(truncated_manifest) as server:
+        library = ModelLibrary(registry_base_url=server.url(), request_timeout=SHORT_TIMEOUT)
+
+        error = await raised_by(library.get_manifest("qwen2.5", "7b"))
+
+    # 則1:讀到一半中斷是連不到,不是格式不符
+    assert isinstance(error, AdapterError), f"預期 AdapterError,實際 {error!r}"
+    assert error.code == "LIBRARY_UNREACHABLE"
+
+
+# ---------------------------------------------------------------- US2-LIB-13 get_manifest 每個請求的逾時
+
+
+async def test_對方一直不回時_manifest_在縮短的逾時內回_LIBRARY_TIMEOUT() -> None:
+    """US2-LIB-13:本機 socket 伺服器接受連線後一個位元組都不送;`request_timeout=0.5`。"""
+    with LocalSocketServer(never_reply) as server:
+        library = ModelLibrary(registry_base_url=server.url(), request_timeout=SHORT_TIMEOUT)
+
+        error, elapsed = await timed(library.get_manifest("qwen2.5", "7b"))
+
+    # 則1:照建構參數的秒數逾時
+    assert 0.5 <= elapsed <= TIMING_UPPER_BOUND, f"從呼叫到結束 {elapsed:.2f} 秒"
+    # 則2:歸逾時
+    assert isinstance(error, AdapterError), f"預期 AdapterError,實際 {error!r}"
+    assert error.code == "LIBRARY_TIMEOUT"
+
+
+# ---------------------------------------------------------------- US2-LIB-14 get_manifest 讀到一半逾時
+
+
+def stalled_manifest(connection: socket.socket, stopped: threading.Event) -> None:
+    """送出 `Content-Length: 2000` 的 200 標頭與 manifest 本文的前 200 位元組,之後不再送、也不關連線,直到伺服器關閉。"""
+    read_request_head(connection)
+    head = f"HTTP/1.1 200 OK\r\nContent-Type: {MANIFEST_TYPE}\r\nContent-Length: 2000\r\n\r\n"
+    connection.sendall(head.encode() + fixture_text("manifest-qwen2.5-7b.json").encode()[:200])
+    stopped.wait()
+
+
+async def test_本文送到一半就停住時_manifest_在縮短的逾時內回_LIBRARY_TIMEOUT() -> None:
+    """US2-LIB-14:本機 socket 伺服器送出標頭與 manifest 的前 200 位元組後不再送、也不關連線;`request_timeout=0.5`。"""
+    with LocalSocketServer(stalled_manifest) as server:
+        library = ModelLibrary(registry_base_url=server.url(), request_timeout=SHORT_TIMEOUT)
+
+        error, elapsed = await timed(library.get_manifest("qwen2.5", "7b"))
+
+    # 則1:照建構參數的秒數逾時
+    assert 0.5 <= elapsed <= TIMING_UPPER_BOUND, f"從呼叫到結束 {elapsed:.2f} 秒"
+    # 則2:讀到一半停住歸逾時,不歸連不到
+    assert isinstance(error, AdapterError), f"預期 AdapterError,實際 {error!r}"
+    assert error.code == "LIBRARY_TIMEOUT"
+
+
+# ---------------------------------------------------------------- US2-LIB-15 get_manifest 整個請求的期限
+
+
+async def test_對方慢慢送資料時_manifest_在縮短的期限內回_LIBRARY_TIMEOUT() -> None:
+    """US2-LIB-15:本機 socket 伺服器送出 `Content-Length: 2000` 的標頭後每 0.2 秒送 1 位元組(每次讀取都沒逾時);`request_timeout=0.5`。"""
+    with LocalSocketServer(slow_body(interval=0.2, length=2000)) as server:
+        library = ModelLibrary(registry_base_url=server.url(), request_timeout=SHORT_TIMEOUT)
+
+        error, elapsed = await timed(library.get_manifest("qwen2.5", "7b"))
+
+    # 則1:期限是整個請求,不是每次讀取
+    assert 0.5 <= elapsed <= TIMING_UPPER_BOUND, f"從呼叫到結束 {elapsed:.2f} 秒"
+    # 則2:歸逾時
+    assert isinstance(error, AdapterError), f"預期 AdapterError,實際 {error!r}"
+    assert error.code == "LIBRARY_TIMEOUT"
+
+
+# ---------------------------------------------------------------- US2-LIB-16 get_manifest 逾時對每個請求各自計算
+
+
+def seven_b_in_four_parts_then_silent(connection: socket.socket, stopped: threading.Event) -> None:
+    """`7b` 的 manifest 全文分 4 段送、每段間隔 0.1 秒(約 0.3 秒送完);其他版本接受連線後一個位元組都不送。"""
+    request_line = read_request_head(connection).split(b"\r\n", 1)[0].decode()
+    if not request_line.split(" ")[1].endswith("/manifests/7b"):
+        stopped.wait()
+        return
+    body = fixture_text("manifest-qwen2.5-7b.json").encode()
+    connection.sendall(
+        f"HTTP/1.1 200 OK\r\nContent-Type: {MANIFEST_TYPE}\r\nContent-Length: {len(body)}\r\n\r\n".encode()
+    )
+    size = -(-len(body) // 4)
+    for start in range(0, len(body), size):
+        if start and stopped.wait(0.1):
+            return
+        connection.sendall(body[start : start + size])
+
+
+async def test_依序取兩個_manifest_時逾時各自從自己被呼叫時算起() -> None:
+    """US2-LIB-16:`7b` 約 0.3 秒送完,`14b` 一個位元組都不送;同一個 `ModelLibrary(request_timeout=0.5)` 依序取兩個。"""
+    with LocalSocketServer(seven_b_in_four_parts_then_silent) as server:
+        library = ModelLibrary(registry_base_url=server.url(), request_timeout=SHORT_TIMEOUT)
+
+        first = await settled(library.get_manifest("qwen2.5", "7b"))
+        error, elapsed = await timed(library.get_manifest("qwen2.5", "14b"))
+
+    # 則1:第一個照常回傳
+    assert first == {"sizeBytes": 4683087332}, f"7b 預期正常結果,實際 {first!r}"
+    # 則2:第二個從自己被呼叫時起算 0.5 秒,不是只剩第一個用剩的時間
+    assert 0.5 <= elapsed <= TIMING_UPPER_BOUND, f"14b 從呼叫到結束 {elapsed:.2f} 秒"
+    # 則3:歸逾時
+    assert isinstance(error, AdapterError), f"14b 預期 AdapterError,實際 {error!r}"
+    assert error.code == "LIBRARY_TIMEOUT"

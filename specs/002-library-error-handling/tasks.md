@@ -463,135 +463,135 @@
 
 > E8 與 E2 兩節平行;E8 只改 `src/cgb/adapters/model_library.py`,E2 只改 `src/cgb/services/downloads.py` 與 `src/cgb/domain/errors.py`(US1 的 T031b 建立的 `LIBRARY_STATUS`、`library_error` 在這一節沿用),兩節沒有共用的檔
 
-- [ ] T050a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-01 的測試(呼叫 `get_manifest("qwen2.5", "7b")`),執行確認它因為「改成三個操作共用狀態碼判定時,把搜尋頁的格式判定(找 `id="searchresults"`)也套到 manifest,正常的 200 manifest 被歸成 `LIBRARY_BAD_RESPONSE`」這類實作而失敗
+- [X] T050a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-01 的測試(呼叫 `get_manifest("qwen2.5", "7b")`),執行確認它因為「改成三個操作共用狀態碼判定時,把搜尋頁的格式判定(找 `id="searchresults"`)也套到 manifest,正常的 200 manifest 被歸成 `LIBRARY_BAD_RESPONSE`」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-01
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、NFR-001;`research.md` § R2、R3;`plan.md` § 待決問題 Q6
-- [ ] T050b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T050a)
+- [X] T050b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T050a)
   - 🧪 `testplan.md` § US2-LIB-01
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、NFR-001;`research.md` § R2、R3;`plan.md` § 待決問題 Q6
-- [ ] T051a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-02 的測試(依序呼叫 `get_manifest("no-such-model", "latest")` 與 `get_manifest("qwen2.5", "999b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「為了分辨模型與版本而去讀 404 本文的 `errors[0].code`,只有 `NAME_UNKNOWN` 才歸 `LIBRARY_NOT_FOUND`,`MANIFEST_UNKNOWN` 被歸成 `LIBRARY_BAD_RESPONSE`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T051a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-02 的測試(依序呼叫 `get_manifest("no-such-model", "latest")` 與 `get_manifest("qwen2.5", "999b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「為了分辨模型與版本而去讀 404 本文的 `errors[0].code`,只有 `NAME_UNKNOWN` 才歸 `LIBRARY_NOT_FOUND`,`MANIFEST_UNKNOWN` 被歸成 `LIBRARY_BAD_RESPONSE`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-LIB-02
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、邊界情況、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T051b [US2] 🟢 /tdd 綠燈:US2-LIB-02 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-02 通過的程式碼(依賴 T051a)
+- [X] T051b [US2] 🟢 /tdd 綠燈:US2-LIB-02 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-02 通過的程式碼(依賴 T051a)
   - 🧪 `testplan.md` § US2-LIB-02
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、邊界情況、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T052a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-03 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「只認 `== 503`,或只認 `in (500, 502, 503, 504)`,599 被歸成 `LIBRARY_BAD_RESPONSE`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T052a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-03 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「只認 `== 503`,或只認 `in (500, 502, 503, 504)`,599 被歸成 `LIBRARY_BAD_RESPONSE`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-LIB-03
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T052b [US2] 🟢 /tdd 綠燈:US2-LIB-03 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-03 通過的程式碼(依賴 T052a)
+- [X] T052b [US2] 🟢 /tdd 綠燈:US2-LIB-03 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-03 通過的程式碼(依賴 T052a)
   - 🧪 `testplan.md` § US2-LIB-03
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T053a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-04 的測試(依序呼叫 `get_manifest("qwen2.5", "7b")`、`get_manifest("qwen2.5", "14b")`、`get_manifest("qwen2.5", "32b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「client 開了 `follow_redirects=True`,跟著 301 去讀 `latest` 的 manifest 並回傳 `sizeBytes`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T053a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-04 的測試(依序呼叫 `get_manifest("qwen2.5", "7b")`、`get_manifest("qwen2.5", "14b")`、`get_manifest("qwen2.5", "32b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「client 開了 `follow_redirects=True`,跟著 301 去讀 `latest` 的 manifest 並回傳 `sizeBytes`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-LIB-04
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T053b [US2] 🟢 /tdd 綠燈:US2-LIB-04 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-04 通過的程式碼(依賴 T053a)
+- [X] T053b [US2] 🟢 /tdd 綠燈:US2-LIB-04 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-04 通過的程式碼(依賴 T053a)
   - 🧪 `testplan.md` § US2-LIB-04
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T054a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-05 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「沒接 `json.loads` 丟的 `JSONDecodeError`,讓它原樣往上拋」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T054a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-05 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「沒接 `json.loads` 丟的 `JSONDecodeError`,讓它原樣往上拋」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-LIB-05
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T054b [US2] 🟢 /tdd 綠燈:US2-LIB-05 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-05 通過的程式碼(依賴 T054a)
+- [X] T054b [US2] 🟢 /tdd 綠燈:US2-LIB-05 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-05 通過的程式碼(依賴 T054a)
   - 🧪 `testplan.md` § US2-LIB-05
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T055a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-06 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「先用 `if not layers` 判雲端版本、後檢查型別,`null` 與 `{}` 被歸成 `LIBRARY_CLOUD_ONLY`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T055a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-06 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「先用 `if not layers` 判雲端版本、後檢查型別,`null` 與 `{}` 被歸成 `LIBRARY_CLOUD_ONLY`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-LIB-06
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T055b [US2] 🟢 /tdd 綠燈:US2-LIB-06 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-06 通過的程式碼(依賴 T055a)
+- [X] T055b [US2] 🟢 /tdd 綠燈:US2-LIB-06 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-06 通過的程式碼(依賴 T055a)
   - 🧪 `testplan.md` § US2-LIB-06
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T056a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-07 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「靠 Content-Type 是 `text/plain` 判雲端版本,B 回傳了 `{"sizeBytes": 0}`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T056a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-07 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`);現有程式已滿足這個案例(research.md R3:`get_manifest` 已經會分 404、5xx、非預期與格式不符),先執行確認它通過,再把 `src/cgb/adapters/model_library.py` 暫時改成「靠 Content-Type 是 `text/plain` 判雲端版本,B 回傳了 `{"sizeBytes": 0}`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-LIB-07
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T056b [US2] 🟢 /tdd 綠燈:US2-LIB-07 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-07 通過的程式碼(依賴 T056a)
+- [X] T056b [US2] 🟢 /tdd 綠燈:US2-LIB-07 由現有程式滿足,確認 `src/cgb/adapters/model_library.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-07 通過的程式碼(依賴 T056a)
   - 🧪 `testplan.md` § US2-LIB-07
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、SC-001;`research.md` § R3;`plan.md` § 待決問題 Q19
-- [ ] T057a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-08 的測試(呼叫 `get_manifest("qwen2.5", "7b")`),執行確認它因為「`_get` 只接 `httpx.TimeoutException` 與 `httpx.TransportError`;`DecodingError` 是 `RequestError` 的子類別,不是 `TransportError`,於是原樣越過轉接層往上拋」這類實作而失敗
+- [X] T057a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-08 的測試(呼叫 `get_manifest("qwen2.5", "7b")`),執行確認它因為「`_get` 只接 `httpx.TimeoutException` 與 `httpx.TransportError`;`DecodingError` 是 `RequestError` 的子類別,不是 `TransportError`,於是原樣越過轉接層往上拋」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-08
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004;`research.md` § R1;`plan.md` § 待決問題 Q10
-- [ ] T057b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T057a)
+- [X] T057b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T057a)
   - 🧪 `testplan.md` § US2-LIB-08
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004;`research.md` § R1;`plan.md` § 待決問題 Q10
-- [ ] T058a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-09 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`),執行確認它因為「`get_manifest` 沒接傳輸層例外,`httpx.ConnectError` 原樣往上拋」這類實作而失敗
+- [X] T058a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-09 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`),執行確認它因為「`get_manifest` 沒接傳輸層例外,`httpx.ConnectError` 原樣往上拋」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-09
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004、SC-001;`research.md` § R1
-- [ ] T058b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T058a)
+- [X] T058b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T058a)
   - 🧪 `testplan.md` § US2-LIB-09
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004、SC-001;`research.md` § R1
-- [ ] T059a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-10 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`),執行確認它因為「只接 `httpx.NetworkError` 或 `httpx.ConnectError`,屬於 `ProtocolError` 的 `RemoteProtocolError` 原樣往上拋」這類實作而失敗
+- [X] T059a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-10 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`),執行確認它因為「只接 `httpx.NetworkError` 或 `httpx.ConnectError`,屬於 `ProtocolError` 的 `RemoteProtocolError` 原樣往上拋」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-10
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004、邊界情況;`research.md` § R1
-- [ ] T059b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T059a)
+- [X] T059b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T059a)
   - 🧪 `testplan.md` § US2-LIB-10
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004、邊界情況;`research.md` § R1
-- [ ] T060a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-11 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`),執行確認它因為「先寫 `except httpx.TransportError` 再寫 `except httpx.TimeoutException`,逾時被前者攔下歸成 `LIBRARY_UNREACHABLE`」這類實作而失敗
+- [X] T060a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-11 的測試(每種情況各呼叫一次 `get_manifest("qwen2.5", "7b")`),執行確認它因為「先寫 `except httpx.TransportError` 再寫 `except httpx.TimeoutException`,逾時被前者攔下歸成 `LIBRARY_UNREACHABLE`」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-11
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004、SC-001;`research.md` § R1
-- [ ] T060b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T060a)
+- [X] T060b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T060a)
   - 🧪 `testplan.md` § US2-LIB-11
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004、SC-001;`research.md` § R1
-- [ ] T061a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-12 的測試(呼叫 `get_manifest("qwen2.5", "7b")`),執行確認它因為「用 `client.stream` 取回應,`try` 只包住送出請求,讀本文時的 `RemoteProtocolError` 在 `try` 外原樣往上拋」這類實作而失敗
+- [X] T061a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-12 的測試(呼叫 `get_manifest("qwen2.5", "7b")`),執行確認它因為「用 `client.stream` 取回應,`try` 只包住送出請求,讀本文時的 `RemoteProtocolError` 在 `try` 外原樣往上拋」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-12
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004、邊界情況;`research.md` § R1
-- [ ] T061b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T061a)
+- [X] T061b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T061a)
   - 🧪 `testplan.md` § US2-LIB-12
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-006、FR-004、邊界情況;`research.md` § R1
-- [ ] T062a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-13 的測試(呼叫 `get_manifest("qwen2.5", "7b")`,從呼叫開始計時),執行確認它因為「建構參數 `request_timeout` 沒接到 httpx 的 `Timeout` 與 `asyncio.timeout`,仍用 httpx 預設的 5 秒或寫死的 10 秒」這類實作而失敗
+- [X] T062a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-13 的測試(呼叫 `get_manifest("qwen2.5", "7b")`,從呼叫開始計時),執行確認它因為「建構參數 `request_timeout` 沒接到 httpx 的 `Timeout` 與 `asyncio.timeout`,仍用 httpx 預設的 5 秒或寫死的 10 秒」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-13
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001、FR-006;`research.md` § R2;`plan.md` § 待決問題 Q6、Q8
-- [ ] T062b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T062a)
+- [X] T062b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T062a)
   - 🧪 `testplan.md` § US2-LIB-13
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001、FR-006;`research.md` § R2;`plan.md` § 待決問題 Q6、Q8
-- [ ] T063a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-14 的測試(呼叫 `get_manifest("qwen2.5", "7b")`,從呼叫開始計時),執行確認它因為「只把連線階段的逾時歸成 `LIBRARY_TIMEOUT`,讀本文時的 `ReadTimeout` 在 `try` 外原樣往上拋」這類實作而失敗
+- [X] T063a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-14 的測試(呼叫 `get_manifest("qwen2.5", "7b")`,從呼叫開始計時),執行確認它因為「只把連線階段的逾時歸成 `LIBRARY_TIMEOUT`,讀本文時的 `ReadTimeout` 在 `try` 外原樣往上拋」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-14
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001、FR-006、邊界情況;`research.md` § R2;`plan.md` § 待決問題 Q6、Q8
-- [ ] T063b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T063a)
+- [X] T063b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T063a)
   - 🧪 `testplan.md` § US2-LIB-14
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001、FR-006、邊界情況;`research.md` § R2;`plan.md` § 待決問題 Q6、Q8
-- [ ] T064a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-15 的測試(呼叫 `get_manifest("qwen2.5", "7b")`,從呼叫開始計時),執行確認它因為「只設 httpx 的 `Timeout`,沒有用 `asyncio.timeout` 包住整個請求,每次讀取都沒逾時,請求遠超過 0.5 秒」這類實作而失敗
+- [X] T064a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-15 的測試(呼叫 `get_manifest("qwen2.5", "7b")`,從呼叫開始計時),執行確認它因為「只設 httpx 的 `Timeout`,沒有用 `asyncio.timeout` 包住整個請求,每次讀取都沒逾時,請求遠超過 0.5 秒」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-15
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001、FR-006;`research.md` § R2;`plan.md` § 待決問題 Q6、Q8
-- [ ] T064b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T064a)
+- [X] T064b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T064a)
   - 🧪 `testplan.md` § US2-LIB-15
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001、FR-006;`research.md` § R2;`plan.md` § 待決問題 Q6、Q8
-- [ ] T065a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-16 的測試(依序呼叫 `get_manifest("qwen2.5", "7b")`、`get_manifest("qwen2.5", "14b")`,每次從自己被呼叫時開始計時),執行確認它因為「整體期限掛在 `ModelLibrary` 實例或共用的 client 上,從第一次呼叫開始算,第二個請求只剩約 0.2 秒就逾時」這類實作而失敗
+- [X] T065a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_model_library.py` 寫 US2-LIB-16 的測試(依序呼叫 `get_manifest("qwen2.5", "7b")`、`get_manifest("qwen2.5", "14b")`,每次從自己被呼叫時開始計時),執行確認它因為「整體期限掛在 `ModelLibrary` 實例或共用的 client 上,從第一次呼叫開始算,第二個請求只剩約 0.2 秒就逾時」這類實作而失敗
   - 🧪 `testplan.md` § US2-LIB-16
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001;`research.md` § R2;`plan.md` § 待決問題 Q6、Q8
-- [ ] T065b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T065a)
+- [X] T065b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py` 只寫讓 US2-LIB-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T065a)
   - 🧪 `testplan.md` § US2-LIB-16
   - ⚙ `contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001;`research.md` § R2;`plan.md` § 待決問題 Q6、Q8
-- [ ] T066 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T050b~T065b 記下的重構清單(範圍限 `src/cgb/adapters/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_model_library.py` 的斷言(依賴 T065b)
+- [X] T066 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T050b~T065b 記下的重構清單(範圍限 `src/cgb/adapters/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_model_library.py` 的斷言(依賴 T065b)
   - 🧪 `testplan.md` § US2-LIB-01~US2-LIB-16
   - 📎 `testplan.md` § 3.1
 
