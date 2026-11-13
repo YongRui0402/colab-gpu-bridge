@@ -4,9 +4,9 @@
 
 ## 判定
 
-**最新一輪:第 1 輪(2026-11-13)— ⛔ 不能進 `/implement`**
+**最新一輪:第 2 輪(2026-11-13)— ✅ 可以進 `/implement`**
 
-還有 2 個未解決的 HIGH:A1(G-01 要對桌機 11434 的 Ollama 送請求,和 001 實跑護欄 P6「11434 不送任何請求」矛盾,`tests/realrun/helpers.py` 的 `RecordingTransport` 也會擋下)、A2(使用者故事 2 驗收情境 2 的「下載完成後推送 `models.updated`」在現有系統不存在,testplan 列為不在範疇,這一段驗收情境測不到)。A1 是跨迭代的決定矛盾,要先由使用者決定能不能推翻 001 的 P6,不由分身代答。另有 1 個 MEDIUM(A3)、2 個 LOW(A4、A5)不擋實作。
+第 1 輪的 A1~A5 都已修正:A1 照使用者 2026-11-13 的決定(分身決策紀錄 D42、`plan.md` Q27 取代 Q8),G-01 改由測試自己起臨時的 `ollama serve`,不碰桌機 11434,001 的 P6 不動;A2、A4 回 `/specify` 改了驗收情境 2、FR-003 與 VramCache;A3 回 `/api-plan` 改了 `listCatalog` 描述 (3);A5 回 `/system-analysis` 補了 Project Structure。這一輪沒有 CRITICAL、HIGH;只有 1 個新的 LOW(A6,`research.md` § R4 一個理由還用「下載完成推送」當例子),不擋實作。
 
 ## 檢查範圍
 
@@ -18,9 +18,9 @@
 | `contracts/remote-ollama.openapi.yaml`、`contracts/ui.openapi.yaml` | `/api-plan` |
 | `testplan.md` | `/testplan` |
 | `tasks.md` | `/tasks` |
-| `分身決策紀錄.md`(D1~D41,對照 `plan.md` § 待決問題 Q1~Q26) | 各步驟的 kevin-twin 代答 |
+| `分身決策紀錄.md`(D1~D46,對照 `plan.md` § 待決問題 Q1~Q27;D42 是使用者本人的決定) | 各步驟的 kevin-twin 代答 |
 | `constitution/_shared/語言.md` | `/constitution` |
-| 前一次迭代的 `../002-library-error-handling/plan.md`、`../001-session-model-catalog/plan.md`;追 G-01 時另讀 `../001-session-model-catalog/testplan.md` § 實跑案例的共同護欄、`../001-session-model-catalog/完成報告.md` | 001、002 的 `/system-analysis`、`/testplan` |
+| 前一次迭代的 `../002-library-error-handling/plan.md`、`../001-session-model-catalog/plan.md`;追 G-01 時另讀 `../001-session-model-catalog/testplan.md` § 實跑案例的共同護欄、`../001-session-model-catalog/完成報告.md`;第 2 輪另讀 `tests/realrun/helpers.py`(`free_loopback_port`、`RecordingTransport`)與 `src/cgb/services/catalog.py`(`publish()` 的呼叫端) | 001、002 的 `/system-analysis`、`/testplan` |
 
 ---
 
@@ -63,3 +63,37 @@
 5. `/testplan` 依第 1 步的決定改 G-01 的做法與護欄(A1),第 6 節「下載完成後推送」那一列對齊第 2 步改過的 spec(A2)
 6. `/tasks` 依第 5 步改 T068(A1),並涵蓋前面幾步改到的錨點
 7. 重跑 `/analyze`
+
+---
+
+## 第 2 輪(2026-11-13)
+
+### 前置檢查
+
+| 腳本 | 結果 |
+|---|---|
+| `specify/scripts/check_spec.py` | ✅ 通過 |
+| `system-analysis/scripts/check_plan.py` | ✅ 通過(`--previous-plan ../001-session-model-catalog/plan.md`:0 個不符項);❌ 不過(照 SOP 字面以 `--previous-plan ../002-library-error-handling/plan.md`:1 個不符項「遠端 Ollama 要編成 E9」,第 74 行;同第 1 輪,照分身決策紀錄 D12 保留 E7,不列為問題) |
+| `testplan/scripts/check_testplan.py` | ✅ 通過 |
+| `tasks/scripts/check_tasks.py` | ✅ 通過 |
+
+### 上一輪的問題
+
+| ID | 狀態 | 依據 |
+|---|---|---|
+| A1 | ✅ 已修正 | 使用者 2026-11-13 決定不放寬 001 的 P6(分身決策紀錄 D42,不是分身代答;D22、D24 註明被取代);`plan.md` § 待決問題新增 Q27 取代 Q8;`testplan.md` § G-01 改成測試自己在 `free_loopback_port()` 的 127.0.0.1 port 起臨時的 `ollama serve`(`OLLAMA_MODELS`、`HOME` 在 pytest 暫存資料夾),只送 GET、不對 11434 送任何請求,則5 驗證收尾後行程與行程群組都已結束;`/api/tags` 是空清單的代價寫進 § 6;`tasks.md` § T068 照改、📎 改指 Q27。`RecordingTransport` 的 `check_port` 只擋 11434,`free_loopback_port()` 不會回 11434~11436、8780,照 T068 寫出來的測試送得出去 |
+| A2 | ✅ 已修正 | `spec.md` § 使用者故事 2 驗收情境 2 與 § FR-003 註明這一輪推送 `models.updated` 的只有預先載入結束時,下載完成時不推送是 001 的已知缺口(Q188、Q192,分身決策紀錄 D43);`spec.md` § 假設的同時讀取例子改成預先載入結束的推送;`contracts/ui.openapi.yaml` § `paths./models.get` 描述跟著註明、(6) 的例子改掉;`testplan.md` § 6 那一列改成引用 spec 的註明。和 `src/cgb/services/catalog.py` 的 `publish()` 只由 `_run_preload` 呼叫一致 |
+| A3 | ✅ 已修正 | `contracts/ui.openapi.yaml` § `paths./models.get` 描述 (3) 改成「001 S8 `probeResources` 的 `x-error-codes` 任何一個:`COLAB_` 開頭的代碼與 `AUTH_REQUIRED`」,和 `testplan.md` § US2-API-11、`tasks.md` § T065a、`plan.md` Q15 一致 |
+| A4 | ✅ 已修正 | `spec.md` § 關鍵實體 VramCache 拿掉「讀取時間」,註明不存的理由;和 `research.md` § R3、`techstack.md` § 一覽的 `(工作階段名稱, 顯示記憶體總量)` 一致 |
+| A5 | ✅ 已修正 | `plan.md` § Project Structure 的 `tests/` 補上 `test_downloads_cross.py`(Q25)、`test_003_g_01.py`(Q27)、`test_003_g_02.py`(Q9)與 `e2e/test_locale.py`,和 `testplan.md` § 4.2、`tasks.md` § T033b、§ 跨端點驗收一致 |
+
+### 新問題
+
+| ID | 類別 | 嚴重度 | 位置 | 摘要 | 回哪一步 |
+|---|---|---|---|---|---|
+| A6 | 矛盾 | LOW | `research.md` § R4(理由第 3 點);`spec.md` § 假設(同時發生的第一次讀取) | R4 以「測不了『同時打開模型頁與下載完成推送』這類情況」當作同步 `time.sleep` 替身不夠的理由之一;spec 經 A2 回修後,假設的例子已改成「打開模型頁的同時預先載入結束、推送 `models.updated`」,也註明下載完成時不推送。R4 的決定(改用 async 替身)不受影響,US2-API-10 照 spec 的例子寫,照哪一份做行為都一樣 | `/technical-research` |
+
+### 修正順序
+
+1. `/technical-research` 把 `research.md` § R4 理由第 3 點的「下載完成推送」改成「預先載入結束的推送」或拿掉這個例子(A6,LOW,不擋 `/implement`;改完不牽動下游)
+2. 重跑 `/analyze`(只在做了第 1 項時需要)
