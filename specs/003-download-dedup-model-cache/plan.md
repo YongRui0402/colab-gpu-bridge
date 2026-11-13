@@ -36,6 +36,10 @@ src/cgb/
 
 tests/
 ├── integration/             # test_remote_ollama.py(E7,真的 RemoteOllama 接 httpx.MockTransport)、test_api_downloads.py、test_api_models.py(E2)
+│                            # 新增 test_downloads_cross.py(故事 1 跨端點驗收,Q25)
+│                            # 新增 test_003_g_01.py(G-01,標 realrun:測試自己在另一個 127.0.0.1 port 起臨時的 ollama serve,Q27)
+│                            # 新增 test_003_g_02.py(G-02,標 realrun:測試行程內的 uvicorn,Q9)
+├── e2e/test_locale.py       # 錯誤代碼繁中訊息的對照表補 OLLAMA_UNREACHABLE、OLLAMA_BAD_RESPONSE、OLLAMA_TIMEOUT 三列
 └── fakes/                   # adapters.py 的 FakeMethod.invoke 接受 async 的 side_effect
 ```
 
@@ -98,7 +102,7 @@ tests/
 | Q5 | S2 | 試算與加入下載的請求本文格式檢查(400 `INVALID_REQUEST_BODY`、`EMPTY_MODEL_LIST`、`INVALID_MODEL_NAME`)和 503 `NO_READY_SESSION` 誰先:(a)400 最先,格式檢查不需要工作階段,現有路由也先 `read_json`(先採用)(b)503 最先 | — | (a)400 最先(kevin-twin 代為決定,分身決策紀錄 D18) |
 | Q6 | S2 | 502 `OLLAMA_BAD_RESPONSE` 的條件沿用 S1 的 `x-failure-rules`,S1 的 Q1、Q2 還沒拍板:(a)沿用 S1 先採用的做法(先採用)(b)S1 的 Q1、Q2 改判後跟著改 502 的描述 | — | (a)沿用 S1 先採用的做法(kevin-twin 代為決定,分身決策紀錄 D19) |
 | Q7 | testplan | 003 的案例 ID 和 001、002 已寫在測試檔裡的分隔註解撞號(`US1-API`、`US2-API`、`US1-RO`、`US2-RO`、`G-`),怎麼分:(a)testplan 照骨架的 ID,測試檔的分隔註解寫成 `# ---- 003 US1-API-01`,全域案例照 002 放 `tests/integration/test_003_g_NN.py`(先採用)(b)ID 改帶迭代前綴(c)不處理 | — | (a)ID 照骨架,測試檔標記加 `003 `,全域案例放 `test_003_g_NN.py`(kevin-twin 代為決定,分身決策紀錄 D21) |
-| Q8 | testplan | E7 的 `httpx.MockTransport` 與 E2 的 `FakeRemoteOllama` 指到哪個實跑:(a)G-01,真的 `RemoteOllama` 對桌機 Ollama 0.32.15 只送 `GET /api/tags`、`GET /api/ps`,另對沒有在聽的 port 驗連不到;時機:節內;Colab 上的 Ollama 寫未驗證(先採用)(b)無法實跑(c)整合時開 Colab 照 001 的 US2-RO-03 實跑 | — | (a)G-01 對桌機 Ollama 唯讀實跑,Colab 上的寫未驗證(kevin-twin 代為決定,分身決策紀錄 D22) |
+| Q8 | testplan | E7 的 `httpx.MockTransport` 與 E2 的 `FakeRemoteOllama` 指到哪個實跑:(a)G-01,真的 `RemoteOllama` 對桌機 Ollama 0.32.15 只送 `GET /api/tags`、`GET /api/ps`,另對沒有在聽的 port 驗連不到;時機:節內;Colab 上的 Ollama 寫未驗證(先採用)(b)無法實跑(c)整合時開 Colab 照 001 的 US2-RO-03 實跑 | — | (a)G-01 對桌機 Ollama 唯讀實跑,Colab 上的寫未驗證(kevin-twin 代為決定,分身決策紀錄 D22)(已被 Q27 取代) |
 | Q9 | testplan | SC-002 的「替身每次延遲 3 秒」放哪一層測(快速層照 002 plan.md Q20 排除單支超過 1 秒的測試):(a)E2 行為案例用 0.3 秒延遲留在快速層,SC-002 原樣的 3 秒寫成 G-02,經測試行程內的 uvicorn,標 `realrun`、放 `tests/integration/test_003_g_02.py`(先採用)(b)行為案例直接用 3 秒並加進快速層的 `--deselect`(c)只寫 3 秒的行為案例 | — | (a)行為案例 0.3 秒留在快速層,3 秒另寫 G-02(kevin-twin 代為決定,分身決策紀錄 D23) |
 | Q10 | testplan | E7 列模型、查已載入的 `x-timeout` 10 秒怎麼驗(spec 沒有需求直接寫這個值,`RemoteOllama` 也沒有 list 逾時的建構參數):(a)斷言送出請求的 `extensions["timeout"]` 四項都是 10.0,不真的等(US1-RO-15、US2-RO-01)(先採用)(b)不測,列不在範疇(c)加可注入的 `list_timeout` 參數實際量逾時 | — | (a)斷言請求的逾時設定 10 秒(kevin-twin 代為決定,分身決策紀錄 D25) |
 | Q11 | testplan | E7 丟出 `AdapterError` 時要不要斷言例外鏈切斷(`from None`,002 E8 的做法):(a)不斷言 `__cause__`,照同檔 `get_version` 現行的 `from error`,只要求丟出的是 `AdapterError`(先採用)(b)比照 002 斷言 `from None` | — | (a)不斷言例外鏈(kevin-twin 代為決定,分身決策紀錄 D26) |
@@ -117,3 +121,4 @@ tests/
 | Q24 | tasks | 現有程式或更早的綠燈任務已經做到的案例,紅燈怎麼排:(a)照 tasks 規則 Rule 20 預先寫成對照組紅燈(45 個:先確認通過,再暫時放入要抓的錯、確認斷言失敗後撤回;綠燈確認不需要改程式碼),為了讓預測成立,綠燈任務照 research.md R2、R3 與合約寫出共用的形狀(T017b 的 `_checked`、T019b 在同一個迴圈比對佇列、T014b 的 `size` 只套 `/api/tags`);預測不中時照任務裡寫的退路,對照組一執行就紅改當一般紅燈,T058a、T061a 一執行就綠改做對照組(先採用)(b)全部寫成一般紅燈,實作時遇到一寫完就綠的再個別處理並回 plan.md 追認 | — | (a)預先寫成對照組紅燈,預測不中照任務裡的退路(kevin-twin 代為決定,分身決策紀錄 D39) |
 | Q25 | tasks | 故事 1 跨端點驗收(US1-AJ-01~US1-AJ-04)的測試檔 testplan 沒有指定:(a)新檔 `tests/integration/test_downloads_cross.py`,照 `test_library_cross.py` 的寫法(先採用)(b)加進 002 的 `tests/integration/test_library_cross.py`(c)照全域案例的命名放 `tests/integration/test_003_aj.py` | — | (a)新檔 `tests/integration/test_downloads_cross.py`(kevin-twin 代為決定,分身決策紀錄 D40) |
 | Q26 | tasks | `src/cgb/api/curated.py` 的 `normalized()` 改呼叫 `domain/model_name.py`(Project Structure 列了,行為不變,沒有案例逼出它)排在哪個任務:(a)E2 故事 1 的重構任務 T042,寫明是清單之外另做的一項、不改 `tests/integration/test_api_curated.py` 的斷言(先採用)(b)併進 T017b 的綠燈(c)在 testplan 補一個精選清單的案例 | — | (a)放在重構任務 T042(kevin-twin 代為決定,分身決策紀錄 D41) |
+| Q27 | testplan | 取代 Q8(analyze 第 1 輪 A1 回修):Q8(a)讓 G-01 對桌機 127.0.0.1:11434 的 Ollama 送 `GET /api/tags`、`GET /api/ps`,和 001 的實跑護欄 P6「桌機的 11434 是使用者自己的 Ollama,不送任何請求」(`../001-session-model-catalog/testplan.md` § 實跑案例的共同護欄)矛盾,`tests/realrun/helpers.py` 的 `RecordingTransport` 也會因 `check_port(11434)` 擋下(analyze 第 1 輪 A1)。E7 的 `httpx.MockTransport` 與 E2 的 `FakeRemoteOllama` 改指到哪個實跑:(a)在 003 放寬 P6,只限這兩個唯讀 GET(b)G-01 不碰 11434、P6 不動,測試自己在 `free_loopback_port()` 取得的 127.0.0.1 port(不會是 11434~11436、8780)起臨時的 `ollama serve`(`/usr/local/bin/ollama` 0.32.15),`OLLAMA_MODELS` 指向空的暫存目錄、`HOME` 也用暫存目錄,fixture 收尾結束行程並驗證行程已結束;代價:`/api/tags` 是空清單,驗不到真實模型名稱的格式(c)G-01 改列無法實跑 | — | (b)測試自己起臨時的 `ollama serve`,不碰 11434,P6 不動;`/api/tags` 是空清單,真實模型名稱的格式列未驗證(使用者 2026-11-13 決定,不是分身代答;分身決策紀錄 D42) |
