@@ -37,6 +37,9 @@ MESSAGES: dict[str, str] = {
     "LIBRARY_BAD_RESPONSE": "Ollama 官方模型庫的回應無法解讀(可能改版了);可以從精選清單挑選或直接輸入名稱。",
     "LIBRARY_TIMEOUT": "Ollama 官方模型庫在時限內沒有回應,請稍後再試;也可以從精選清單挑選或直接輸入名稱。",
     "LIBRARY_CLOUD_ONLY": "這個版本只能在 Ollama 雲端執行,不能下載到執行環境。",
+    "OLLAMA_UNREACHABLE": "連不到執行環境上的 Ollama,無法確認哪些模型已經下載,請確認工作階段仍在運作後再試。",
+    "OLLAMA_BAD_RESPONSE": "執行環境上的 Ollama 回應無法解讀,無法確認哪些模型已經下載,請稍後再試。",
+    "OLLAMA_TIMEOUT": "執行環境上的 Ollama 在時限內沒有回應,無法確認哪些模型已經下載,請稍後再試。",
     "INVALID_IDLE_TIMEOUT": "閒置時限要是 1 到 1440 分鐘的整數。",
     "INVALID_BALANCE_THRESHOLD": "餘額警告門檻要是 0 到 10000 之間的數字。",
 }
@@ -99,3 +102,11 @@ LIBRARY_STATUS = {
 
 def library_error(code: str, model: str | None = None) -> ApiError:
     return ApiError(LIBRARY_STATUS.get(code, 502), code, model=model)
+
+
+# contracts/ui.openapi.yaml § info.x-download-check-order (4):讀執行環境上的模型清單失敗時,依 S1 代碼原樣放在 `code`,沒有 `model`
+OLLAMA_STATUS = {"OLLAMA_UNREACHABLE": 502, "OLLAMA_BAD_RESPONSE": 502, "OLLAMA_TIMEOUT": 504}
+
+
+def ollama_error(code: str) -> ApiError:
+    return ApiError(OLLAMA_STATUS.get(code, 502), code)

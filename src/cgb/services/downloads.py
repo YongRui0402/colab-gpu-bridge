@@ -4,10 +4,11 @@ import asyncio
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
-from cgb.domain.errors import ApiError, library_error
+from cgb.domain.errors import ApiError, library_error, ollama_error
 from cgb.domain.estimate import estimate
+from cgb.domain.model_name import with_version
 from cgb.domain.session_state import iso
-from cgb.repos.downloads import DownloadsRepo
+from cgb.repos.downloads import DownloadsRepo, QueueConflict
 from cgb.services.event_bus import EventBus
 from cgb.services.session_lifecycle import SessionLifecycle
 
@@ -20,11 +21,6 @@ FAILED_MESSAGES = {
     "SESSION_ENDED": "工作階段結束,下載中斷;可以在新的工作階段重新排隊。",
 }
 FAILED_FALLBACK_MESSAGE = "下載失敗,請稍後重新排隊再試。"
-
-
-def with_version(model: str) -> str:
-    """沒寫版本視為 latest(contracts § ModelName)。"""
-    return model if ":" in model else f"{model}:latest"
 
 
 class DownloadsService:
@@ -80,11 +76,10 @@ class DownloadsService:
             self._events.download_updated(self.job_payload(row))
 
     async def _sized(self, models: list[str]) -> list[tuple[str, int]]:
-        """每個模型以 S2 `get_manifest` 取精確大小(Q11);任何一個不符就整批不加入。"""
+        """每個模型(已由 `_checked` 補過版本)以 S2 `get_manifest` 取精確大小(Q11);任何一個不符就整批不加入。"""
         library = self._state.model_library
         sized = []
-        for requested in models:
-            model = with_version(requested)
+        for model in models:
             name, tag = model.split(":", 1)
             try:
                 manifest = await library.get_manifest(name=name, tag=tag)
@@ -93,9 +88,25 @@ class DownloadsService:
             sized.append((model, manifest["sizeBytes"]))
         return sized
 
+    async def _checked(self, models: list[str]) -> list[str]:
+        """試算與加入共用的重複檢查(contracts/ui.openapi.yaml § info.x-download-check-order):回傳補過版本的名稱。"""
+        base_url = self._lifecycle.require_ready_base_url()
+        versioned = list(dict.fromkeys(with_version(model) for model in models))
+        try:
+            local = {m["name"] for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
+        except AdapterError as error:
+            raise ollama_error(error.code) from None
+        pending = {row["model"] for row in self._pending()}
+        for model in versioned:
+            if model in local:
+                raise ApiError(409, "MODEL_ALREADY_DOWNLOADED", model=model)
+            if model in pending:
+                raise ApiError(409, "DOWNLOAD_ALREADY_QUEUED", model=model)
+        return versioned
+
     async def estimate(self, models: list[str]) -> dict[str, Any]:
         """試算(estimateDownloads):不改變佇列。"""
-        return await self._estimate(await self._sized(models))
+        return await self._estimate(await self._sized(await self._checked(models)))
 
     async def _estimate(self, sized: list[tuple[str, int]]) -> dict[str, Any]:
         try:
@@ -115,23 +126,18 @@ class DownloadsService:
         """加入佇列(enqueueDownloads):以 manifest 的精確大小記下每一筆,再在背景依序下載。"""
         # 沒有就緒的工作階段時不加入,免得使用者以為在下載
         base_url = self._lifecycle.require_ready_base_url()
-        local = {m["name"] for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
-        pending = {row["model"] for row in self._pending()}
-        for model in models:
-            if model in local:
-                raise ApiError(409, "MODEL_ALREADY_DOWNLOADED", model=model)
-            if model in pending:
-                raise ApiError(409, "DOWNLOAD_ALREADY_QUEUED", model=model)
+        models = await self._checked(models)
         sized = await self._sized(models)
         # 檢查條件與試算相同,只差空間不足時回錯誤(使用者故事 3 驗收情境 12)
         if not (await self._estimate(sized))["fits"]:
             raise ApiError(409, "DISK_SPACE_INSUFFICIENT")
-        ids = [
-            self._repo.enqueue(
-                model=model, size_bytes=size, origin="user", preload_on_complete=False, added_at=iso(self._state.clock.now())
+        try:
+            ids = self._repo.enqueue_many(
+                sized, origin="user", preload_on_complete=False, added_at=iso(self._state.clock.now())
             )
-            for model, size in sized
-        ]
+        except QueueConflict as conflict:
+            # 另一個請求在這個請求取 manifest 時先把同一個模型加進佇列:整批已撤回(research.md R2)
+            raise ApiError(409, "DOWNLOAD_ALREADY_QUEUED", model=conflict.model) from None
         for job_id in ids:
             self._publish(job_id)
         self.kick(base_url)

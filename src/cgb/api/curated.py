@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, Response
 
 from cgb.api._body import read_json
 from cgb.domain.errors import ApiError
+from cgb.domain.model_name import with_version
 from cgb.repos.curated import CuratedDuplicate, CuratedRepo
 
 router = APIRouter()
@@ -16,8 +17,8 @@ DESCRIPTION_MAX_LENGTH = 200
 
 
 def normalized(name: str) -> str:
-    """沒寫版本視為 `latest`(contracts § ModelName)。"""
-    return name if ":" in name else f"{name}:latest"
+    """沒寫版本視為 `latest`(contracts § ModelName);規則與下載共用 `with_version()`。"""
+    return with_version(name)
 
 
 def curated_payload(row: dict[str, Any]) -> dict[str, Any]:

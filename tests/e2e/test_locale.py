@@ -771,6 +771,15 @@ def err_disk_space_unknown(w: World) -> httpx.Response:
     return trigger_ok(w, "POST", "/downloads/estimate", json={"models": [MODEL]})
 
 
+def err_ollama(code: str) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        ready_api(w)
+        w.fakes.remote_ollama.list_local_models.raises(code, code.lower())
+        return trigger_ok(w, "POST", "/downloads/estimate", json={"models": [MODEL]})
+
+    return trigger
+
+
 def err_manifest(code: str) -> Callable[[World], httpx.Response]:
     def trigger(w: World) -> httpx.Response:
         ready_api(w)
@@ -838,6 +847,9 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("LIBRARY_BAD_RESPONSE", err_search("LIBRARY_BAD_RESPONSE")),
     ("LIBRARY_TIMEOUT", err_search("LIBRARY_TIMEOUT")),
     ("LIBRARY_CLOUD_ONLY", err_manifest("LIBRARY_CLOUD_ONLY")),
+    ("OLLAMA_UNREACHABLE", err_ollama("OLLAMA_UNREACHABLE")),
+    ("OLLAMA_BAD_RESPONSE", err_ollama("OLLAMA_BAD_RESPONSE")),
+    ("OLLAMA_TIMEOUT", err_ollama("OLLAMA_TIMEOUT")),
     ("INVALID_IDLE_TIMEOUT", err_settings({"idleTimeoutMinutes": 0, "lowBalanceThreshold": 10})),
     ("INVALID_BALANCE_THRESHOLD", err_settings({"idleTimeoutMinutes": 30, "lowBalanceThreshold": -1})),
 ]

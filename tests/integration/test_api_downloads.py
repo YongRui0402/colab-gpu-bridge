@@ -6,11 +6,13 @@
 """
 
 import asyncio
+import threading
 import time
 from collections.abc import Callable, Iterator
 from typing import Any
 
 import httpx
+import pytest
 
 from cgb.adapters.errors import AdapterError
 from cgb.db.connection import connect
@@ -29,6 +31,7 @@ from integration.test_api_models import (
     tag,
 )
 from integration.test_api_session import (  # noqa: F401(ui_client 是 fixture)
+    T4,
     ColabWorld,
     error_code,
     open_ready,
@@ -39,6 +42,7 @@ from integration.test_api_session import (  # noqa: F401(ui_client 是 fixture)
 QWEN_MID = "qwen2.5:1.5b"
 QWEN_MID_BYTES = 986_061_892
 MANIFEST_SIZES = {QWEN_SMALL: QWEN_SMALL_BYTES, QWEN_7B: QWEN_7B_BYTES, QWEN_MID: QWEN_MID_BYTES}
+LATEST_SIZES = {**MANIFEST_SIZES, "qwen2.5:latest": 4_683_087_332, "llama3.2:latest": 2_019_393_189}
 
 
 def set_library(fakes: Any, sizes: dict[str, int] = MANIFEST_SIZES) -> None:
@@ -498,15 +502,15 @@ async def test_新的工作階段就緒後佇列自動繼續_開始前重新檢�
     assert [name for name, _ in calls][:2] == ["probe_resources", f"pull {QWEN_SMALL}"]
 
 
-def insert_jobs(db_path: Any, *jobs: tuple[str, str, str | None]) -> None:
-    """直接寫入 `download_jobs`(模型, 狀態, reason_code),依序排在佇列裡。"""
+def insert_jobs(db_path: Any, *jobs: tuple[str, str, str | None], sizes: dict[str, int] = MANIFEST_SIZES) -> None:
+    """直接寫入 `download_jobs`(模型, 狀態, reason_code),依序排在佇列裡;大小取自 `sizes`。"""
     conn = connect(db_path)
     for position, (model, state, reason) in enumerate(jobs, start=1):
         pending = model if state in ("queued", "downloading") else None
         conn.execute(
             "INSERT INTO download_jobs (model, pending_model, queue_position, size_bytes, state, reason_code, added_at)"
             " VALUES (?, ?, ?, ?, ?, ?, '2026-11-09T09:00:00Z')",
-            (model, pending, position, MANIFEST_SIZES[model], state, reason),
+            (model, pending, position, sizes[model], state, reason),
         )
     conn.close()
 
@@ -953,3 +957,668 @@ async def test_同一個代碼對不同模型回同一句繁中訊息_並帶退�
     assert all(any("一" <= char <= "鿿" for char in texts[0]) for texts in messages.values())
     with_fallback = ["LIBRARY_UNREACHABLE", "LIBRARY_TIMEOUT", "LIBRARY_SERVER_ERROR", "LIBRARY_BAD_RESPONSE"]
     assert all("從精選清單挑選或直接輸入名稱" in messages[code][0] for code in with_fallback)
+
+
+# ---- 003 US1-API-01
+
+
+async def test_執行環境上已有_latest_時試算沒寫版本的名稱回已下載_不取_manifest(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes, tag("qwen2.5:latest", 4_683_087_332))
+    await open_ready(ui_client)
+    fakes.model_library.get_manifest.reset_calls()
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5"]})
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (409, "MODEL_ALREADY_DOWNLOADED", "qwen2.5:latest")
+    assert fakes.model_library.get_manifest.call_count == 0
+
+
+# ---- 003 US1-API-02
+
+
+async def test_執行環境上已有_latest_時加入沒寫版本的名稱回已下載_佇列不變(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes, tag("qwen2.5:latest", 4_683_087_332))
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": ["qwen2.5"]})
+    await asyncio.sleep(0.1)
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (409, "MODEL_ALREADY_DOWNLOADED", "qwen2.5:latest")
+    assert after["jobs"] == []
+    assert fakes.remote_ollama.pull_model.call_count == 0
+
+
+# ---- 003 US1-API-03
+
+
+async def test_佇列裡已有_latest_時試算沒寫版本的名稱回已在佇列(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    await open_ready(ui_client)
+    hold = await enqueue_waiting(ui_client, fakes, "qwen2.5:0.5b", "qwen2.5:latest")
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5"]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (409, "DOWNLOAD_ALREADY_QUEUED", "qwen2.5:latest")
+    assert states(after) == [("qwen2.5:0.5b", "downloading"), ("qwen2.5:latest", "queued")]
+
+
+# ---- 003 US1-API-04
+
+
+async def test_佇列裡下載中的_latest_讓加入沒寫版本的名稱回已在佇列_不回_500(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    await open_ready(ui_client)
+    hold = await enqueue_waiting(ui_client, fakes, "qwen2.5:latest", "qwen2.5:7b")
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": ["qwen2.5"]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (409, "DOWNLOAD_ALREADY_QUEUED", "qwen2.5:latest")
+    assert states(after) == [("qwen2.5:latest", "downloading"), ("qwen2.5:7b", "queued")]
+
+
+# ---- 003 US1-API-05
+
+
+async def test_執行環境上有_latest_時加入寫了版本的_7b_照常加入(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes, tag("qwen2.5:latest", 4_683_087_332))
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": ["qwen2.5:7b"]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    jobs = response.json().get("jobs", []) if response.status_code == 201 else []
+    assert response.status_code == 201
+    assert [job["model"] for job in jobs] == ["qwen2.5:7b"]
+    assert [model for model, _ in states(after)] == ["qwen2.5:7b"]
+
+
+# ---- 003 US1-API-06
+
+
+async def test_試算同一批補過版本後相同的只算一次(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes)
+    await open_ready(ui_client)
+    fakes.remote_ollama.list_local_models.reset_calls()
+    fakes.model_library.get_manifest.reset_calls()
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5", "qwen2.5:latest"]})
+
+    # Assert
+    estimate = response.json() if response.status_code == 200 else {}
+    assert response.status_code == 200
+    assert [item["name"] for item in estimate.get("items", [])] == ["qwen2.5:latest"]
+    assert estimate.get("totalBytes") == 4_683_087_332
+    assert fakes.model_library.get_manifest.call_count == 1
+    assert fakes.remote_ollama.list_local_models.call_count == 1
+
+
+# ---- 003 US1-API-07
+
+
+async def test_加入一批時補過版本後相同的只加入一筆_保留第一次出現的順序(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes)
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post(
+        "/api/downloads", json={"models": ["qwen2.5:0.5b", "qwen2.5", "qwen2.5:7b", "qwen2.5:latest"]}
+    )
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    jobs = response.json().get("jobs", []) if response.status_code == 201 else []
+    assert response.status_code == 201
+    assert [job["model"] for job in jobs] == ["qwen2.5:0.5b", "qwen2.5:latest", "qwen2.5:7b"]
+    assert [model for model, _ in states(after)] == ["qwen2.5:0.5b", "qwen2.5:latest", "qwen2.5:7b"]
+
+
+# ---- 003 US1-API-08
+
+
+async def test_加入一批時寫了版本的相同名稱也只加入一筆(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_tags(fakes)
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": ["qwen2.5:7b", "qwen2.5:7b"]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    jobs = response.json().get("jobs", []) if response.status_code == 201 else []
+    assert response.status_code == 201
+    assert [job["model"] for job in jobs] == ["qwen2.5:7b"]
+    assert [model for model, _ in states(after)] == ["qwen2.5:7b"]
+
+
+# ---- 003 US1-API-09
+
+
+async def test_一批裡有一個已在佇列時整批不加入_回第一個重複的(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    await open_ready(ui_client)
+    hold = await enqueue_waiting(ui_client, fakes, "qwen2.5:1.5b", "qwen2.5:latest")
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": ["qwen2.5:0.5b", "qwen2.5", "qwen2.5:7b"]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (409, "DOWNLOAD_ALREADY_QUEUED", "qwen2.5:latest")
+    assert states(after) == [("qwen2.5:1.5b", "downloading"), ("qwen2.5:latest", "queued")]
+
+
+# ---- 003 US1-API-10
+
+
+async def test_佇列裡同名的那筆下載失敗時加入沒寫版本的名稱照常加入(ui_client: httpx.AsyncClient, fakes: Any, db_path: Any) -> None:
+    # Arrange
+    insert_jobs(db_path, ("qwen2.5:latest", "failed", "OLLAMA_PULL_FAILED"), sizes=LATEST_SIZES)
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes)
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": ["qwen2.5"]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    jobs = response.json().get("jobs", []) if response.status_code == 201 else []
+    assert response.status_code == 201
+    assert [(job["model"], job["state"] in ("queued", "downloading")) for job in jobs] == [("qwen2.5:latest", True)]
+    assert [(job["model"], job["state"]) for job in after["jobs"]][0] == ("qwen2.5:latest", "failed")
+    assert [(job["model"], job["state"] in ("queued", "downloading")) for job in after["jobs"]][1:] == [("qwen2.5:latest", True)]
+
+
+# ---- 003 US1-API-11
+
+
+async def test_佇列裡同名的那筆已完成時加入沒寫版本的名稱照常加入(ui_client: httpx.AsyncClient, fakes: Any, db_path: Any) -> None:
+    # Arrange
+    insert_jobs(db_path, ("qwen2.5:latest", "completed", None), sizes=LATEST_SIZES)
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes)
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": ["qwen2.5"]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    jobs = response.json().get("jobs", []) if response.status_code == 201 else []
+    assert response.status_code == 201
+    assert [job["model"] for job in jobs] == ["qwen2.5:latest"]
+    assert [job["state"] for job in after["jobs"] if job["model"] == "qwen2.5:latest"][0] == "completed"
+    assert [job["state"] in ("queued", "downloading") for job in after["jobs"] if job["model"] == "qwen2.5:latest"][1:] == [True]
+
+
+# ---- 003 US1-API-12
+
+
+async def test_版本大小寫不同的名稱照原樣比對_不當成已下載(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, {**LATEST_SIZES, "qwen2.5:Latest": 1_000})
+    set_tags(fakes, tag("qwen2.5:latest", 4_683_087_332))
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5:Latest"]})
+
+    # Assert
+    estimate = response.json() if response.status_code == 200 else {}
+    assert response.status_code == 200
+    assert [item["name"] for item in estimate.get("items", [])] == ["qwen2.5:Latest"]
+
+
+# ---- 003 US1-API-13
+
+
+async def test_一批裡先比已下載再比佇列_回合併後順序的第一個重複(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    await open_ready(ui_client)
+    hold = await enqueue_waiting(ui_client, fakes, "qwen2.5:0.5b", "qwen2.5:7b")
+    set_tags(fakes, tag("qwen2.5:latest", 4_683_087_332))
+
+    # Act
+    estimated = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5:7b", "qwen2.5"]})
+    added = await ui_client.post("/api/downloads", json={"models": ["qwen2.5", "qwen2.5:7b"]})
+    hold.release()
+
+    # Assert
+    assert (estimated.status_code, body_of(estimated).get("code"), body_of(estimated).get("model")) == (
+        409,
+        "DOWNLOAD_ALREADY_QUEUED",
+        "qwen2.5:7b",
+    )
+    assert (added.status_code, body_of(added).get("code"), body_of(added).get("model")) == (
+        409,
+        "MODEL_ALREADY_DOWNLOADED",
+        "qwen2.5:latest",
+    )
+
+
+# ---- 003 US1-API-14
+
+
+async def test_沒有工作階段時試算回沒有就緒的工作階段_不讀模型清單也不取_manifest(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5"]})
+
+    # Assert
+    assert (response.status_code, error_code(response)) == (503, "NO_READY_SESSION")
+    assert fakes.remote_ollama.list_local_models.call_count == 0
+    assert fakes.model_library.get_manifest.call_count == 0
+
+
+# ---- 003 US1-API-15
+
+
+async def test_開啟中試算與加入都回沒有就緒的工作階段_不讀模型清單(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    create_gate = fakes.colab.create_session.gate()
+    opened = await ui_client.post("/api/session", json={"runtimeType": T4})
+    await asyncio.sleep(0.1)
+    opening = (await ui_client.get("/api/session")).json().get("state")
+    fakes.remote_ollama.list_local_models.reset_calls()
+
+    # Act
+    estimated = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5"]})
+    added = await ui_client.post("/api/downloads", json={"models": ["qwen2.5"]})
+    list_calls = fakes.remote_ollama.list_local_models.call_count
+    create_gate.release()
+    await wait_for_state(ui_client, "ready")
+
+    # Assert
+    assert (opened.status_code, opening) == (202, "opening")
+    assert (estimated.status_code, error_code(estimated)) == (503, "NO_READY_SESSION")
+    assert (added.status_code, error_code(added)) == (503, "NO_READY_SESSION")
+    assert list_calls == 0
+
+
+# ---- 003 US1-API-16
+
+
+async def test_本文不是合法_JSON_時試算與加入先回_400_不看工作階段(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    broken = {"content": '{"models": [', "headers": {"Content-Type": "application/json"}}
+
+    # Act
+    estimated = await ui_client.post("/api/downloads/estimate", **broken)
+    added = await ui_client.post("/api/downloads", **broken)
+    control = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5"]})
+
+    # Assert
+    assert (estimated.status_code, error_code(estimated)) == (400, "INVALID_REQUEST_BODY")
+    assert (added.status_code, error_code(added)) == (400, "INVALID_REQUEST_BODY")
+    assert (control.status_code, error_code(control)) == (503, "NO_READY_SESSION")
+
+
+# ---- 003 US1-API-17
+
+
+async def test_讀執行環境的模型清單失敗時試算依代碼回_502_或_504_不帶模型名稱(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    await open_ready(ui_client)
+    fakes.model_library.get_manifest.reset_calls()
+    fakes.colab.probe_resources.reset_calls()
+
+    # Act
+    outcomes = []
+    for code in ("OLLAMA_UNREACHABLE", "OLLAMA_BAD_RESPONSE", "OLLAMA_TIMEOUT"):
+        fakes.remote_ollama.list_local_models.raises(code)
+        response = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5"]})
+        outcomes.append((response.status_code, body_of(response).get("code"), "model" in body_of(response)))
+
+    # Assert
+    assert outcomes == [
+        (502, "OLLAMA_UNREACHABLE", False),
+        (502, "OLLAMA_BAD_RESPONSE", False),
+        (504, "OLLAMA_TIMEOUT", False),
+    ]
+    assert fakes.model_library.get_manifest.call_count == 0
+    assert fakes.colab.probe_resources.call_count == 0
+
+
+# ---- 003 US1-API-18
+
+
+async def test_讀執行環境的模型清單失敗時加入依代碼回_502_或_504_佇列不變(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    await open_ready(ui_client)
+    hold = await enqueue_waiting(ui_client, fakes, "qwen2.5:0.5b")
+    fakes.model_library.get_manifest.reset_calls()
+
+    # Act
+    outcomes = []
+    for code in ("OLLAMA_UNREACHABLE", "OLLAMA_BAD_RESPONSE", "OLLAMA_TIMEOUT"):
+        fakes.remote_ollama.list_local_models.raises(code)
+        response = await ui_client.post("/api/downloads", json={"models": ["qwen2.5", "qwen2.5:7b"]})
+        outcomes.append((response.status_code, body_of(response).get("code"), "model" in body_of(response)))
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    assert outcomes == [
+        (502, "OLLAMA_UNREACHABLE", False),
+        (502, "OLLAMA_BAD_RESPONSE", False),
+        (504, "OLLAMA_TIMEOUT", False),
+    ]
+    assert states(after) == [("qwen2.5:0.5b", "downloading")]
+    assert fakes.model_library.get_manifest.call_count == 0
+
+
+# ---- 003 US1-API-19
+
+
+async def test_一批裡有取不到_manifest_的版本時合併後的名稱只取一次_整批不加入(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes)
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+    batch = {"models": ["qwen2.5", "qwen2.5:latest", "qwen2.5:999b"]}
+
+    # Act
+    fakes.model_library.get_manifest.reset_calls()
+    estimated = await ui_client.post("/api/downloads/estimate", json=batch)
+    estimate_tags = manifest_tags(fakes)
+    fakes.model_library.get_manifest.reset_calls()
+    added = await ui_client.post("/api/downloads", json=batch)
+    add_tags = manifest_tags(fakes)
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    assert (estimated.status_code, body_of(estimated).get("code"), body_of(estimated).get("model")) == (
+        404,
+        "LIBRARY_NOT_FOUND",
+        "qwen2.5:999b",
+    )
+    assert estimate_tags == ["latest", "999b"]
+    assert (added.status_code, body_of(added).get("code")) == (404, "LIBRARY_NOT_FOUND")
+    assert add_tags == ["latest", "999b"]
+    assert after["jobs"] == []
+
+
+# ---- 003 US1-API-20
+
+
+async def test_同一批補過版本後相同的名稱只算一次大小_試算與加入的空間檢查一致(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes, disk_free=5_000_000_000)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes)
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    estimated = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5", "qwen2.5:latest"]})
+    control = await ui_client.post("/api/downloads", json={"models": ["qwen2.5:latest", "qwen2.5:7b"]})
+    added = await ui_client.post("/api/downloads", json={"models": ["qwen2.5", "qwen2.5:latest"]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    assert estimated.json().get("fits") is True
+    assert (control.status_code, body_of(control).get("code"), "model" in body_of(control)) == (409, "DISK_SPACE_INSUFFICIENT", False)
+    assert added.status_code == 201
+    assert [model for model, _ in states(after)] == ["qwen2.5:latest"]
+
+
+# ---- 003 US1-API-21
+
+
+async def test_試算先檢查重複再讀剩餘磁碟_重複的模型不因讀不到磁碟而回_503(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes, tag("qwen2.5:latest", 4_683_087_332))
+    await open_ready(ui_client)
+    fakes.colab.probe_resources.raises("COLAB_UNREACHABLE", "連不到執行環境")
+
+    # Act
+    duplicated = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5"]})
+    control = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5:7b"]})
+
+    # Assert
+    assert (duplicated.status_code, body_of(duplicated).get("code")) == (409, "MODEL_ALREADY_DOWNLOADED")
+    assert (control.status_code, body_of(control).get("code"), body_of(control).get("reasonCode")) == (
+        503,
+        "DISK_SPACE_UNKNOWN",
+        "COLAB_UNREACHABLE",
+    )
+
+
+# ---- 003 US1-API-22
+
+
+async def test_兩個加入請求交錯時後到的整批不加入_回已在佇列_先到的照常下載(live_servers: Any, fakes: Any) -> None:
+    # Arrange:請求 2 停在 `llama3.2` 的 manifest(已過重複檢查),請求 1 趁這時加入 `qwen2.5`
+    downloadable(fakes)
+    set_tags(fakes)
+    hold = hold_pulls(fakes)
+    first_done = threading.Event()
+
+    async def manifest(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        if kwargs["name"] == "llama3.2":
+            while not first_done.is_set():
+                await asyncio.sleep(0.005)
+        return {"name": kwargs["name"], "tag": kwargs["tag"], "sizeBytes": LATEST_SIZES[f"{kwargs['name']}:{kwargs['tag']}"]}
+
+    fakes.model_library.get_manifest.side_effect(manifest)
+    updates: list[tuple[float, str]] = []
+    async with httpx.AsyncClient(base_url=live_servers.ui_url, timeout=5.0) as client:
+        await open_ready(client)
+        async with client.stream("GET", "/api/events") as stream:
+
+            async def collect() -> None:
+                async for name, payload in sse_events(stream):
+                    if name == "download.updated":
+                        updates.append((time.monotonic(), payload["job"]["model"]))
+
+            collector = asyncio.create_task(collect())
+            await asyncio.sleep(0.1)
+
+            # Act
+            second = asyncio.create_task(client.post("/api/downloads", json={"models": ["llama3.2", "qwen2.5:latest"]}))
+            deadline = time.monotonic() + 5.0
+            while not any(call.kwargs["name"] == "llama3.2" for call in fakes.model_library.get_manifest.calls):
+                assert time.monotonic() < deadline, "請求 2 沒有走到 llama3.2 的 manifest"
+                await asyncio.sleep(0.005)
+            first = await client.post("/api/downloads", json={"models": ["qwen2.5"]})
+            released_at = time.monotonic()
+            first_done.set()
+            second_response = await second
+            await asyncio.sleep(0.5)
+            after = await queue(client)
+            collector.cancel()
+            hold.release()
+
+    # Assert
+    first_jobs = first.json().get("jobs", [{}]) if first.status_code == 201 else [{}]
+    assert (first.status_code, first_jobs[0].get("model")) == (201, "qwen2.5:latest")
+    body = body_of(second_response)
+    assert (second_response.status_code, body.get("code"), body.get("model")) == (409, "DOWNLOAD_ALREADY_QUEUED", "qwen2.5:latest")
+    assert states(after) == [("qwen2.5:latest", "downloading")]
+    assert [model for at, model in updates if at >= released_at and model == "llama3.2:latest"] == []
+
+
+# ---- 003 US1-API-23
+
+
+async def test_判定重複時不為任何模型取_manifest(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    await open_ready(ui_client)
+    hold = await enqueue_waiting(ui_client, fakes, "qwen2.5:1.5b", "qwen2.5:latest")
+    fakes.model_library.get_manifest.reset_calls()
+    batch = {"models": ["qwen2.5:0.5b", "qwen2.5:7b", "qwen2.5"]}
+
+    # Act
+    queued_estimate = await ui_client.post("/api/downloads/estimate", json=batch)
+    queued_add = await ui_client.post("/api/downloads", json=batch)
+    set_tags(fakes, tag("qwen2.5:latest", 4_683_087_332))
+    downloaded_estimate = await ui_client.post("/api/downloads/estimate", json=batch)
+    downloaded_add = await ui_client.post("/api/downloads", json=batch)
+    manifest_calls = fakes.model_library.get_manifest.call_count
+    hold.release()
+
+    # Assert
+    assert [(r.status_code, body_of(r).get("code")) for r in (queued_estimate, queued_add)] == [(409, "DOWNLOAD_ALREADY_QUEUED")] * 2
+    assert [(r.status_code, body_of(r).get("code")) for r in (downloaded_estimate, downloaded_add)] == [
+        (409, "MODEL_ALREADY_DOWNLOADED")
+    ] * 2
+    assert manifest_calls == 0
+
+
+# ---- 003 US1-API-24
+
+ALREADY_DOWNLOADED, ALREADY_QUEUED, ALREADY_DOWNLOADING, SAME_BATCH = "已下載", "排隊中", "下載中", "同一批"
+
+
+async def arrange_duplicate(client: httpx.AsyncClient, fakes: Any, situation: str) -> Gate:
+    """依情況讓 `qwen2.5:latest` 已下載、排隊中、下載中,或什麼都不做(同一批);回傳要在最後放行的閘門。"""
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    await open_ready(client)
+    if situation == ALREADY_QUEUED:
+        return await enqueue_waiting(client, fakes, "qwen2.5:0.5b", "qwen2.5:latest")
+    if situation == ALREADY_DOWNLOADING:
+        return await enqueue_waiting(client, fakes, "qwen2.5:latest")
+    if situation == ALREADY_DOWNLOADED:
+        set_tags(fakes, tag("qwen2.5:latest", 4_683_087_332))
+    return hold_pulls(fakes)
+
+
+@pytest.mark.parametrize("operation", ["試算", "加入"])
+@pytest.mark.parametrize("situation", [ALREADY_DOWNLOADED, ALREADY_QUEUED, ALREADY_DOWNLOADING, SAME_BATCH])
+@pytest.mark.parametrize("name", ["qwen2.5", "qwen2.5:latest"])
+async def test_每一種重複的組合都照合約回應_不回_500(
+    ui_client: httpx.AsyncClient, fakes: Any, name: str, situation: str, operation: str
+) -> None:
+    # Arrange
+    hold = await arrange_duplicate(ui_client, fakes, situation)
+    other = "qwen2.5:latest" if name == "qwen2.5" else "qwen2.5"
+    models = [name, other] if situation == SAME_BATCH else [name]
+    path = "/api/downloads/estimate" if operation == "試算" else "/api/downloads"
+
+    # Act
+    response = await ui_client.post(path, json={"models": models})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+    expected = {
+        ALREADY_DOWNLOADED: (409, "MODEL_ALREADY_DOWNLOADED"),
+        ALREADY_QUEUED: (409, "DOWNLOAD_ALREADY_QUEUED"),
+        ALREADY_DOWNLOADING: (409, "DOWNLOAD_ALREADY_QUEUED"),
+    }
+    if situation != SAME_BATCH:
+        assert (response.status_code, body.get("code")) == expected[situation]
+    elif operation == "試算":
+        assert (response.status_code, [item["name"] for item in body.get("items", [])]) == (200, ["qwen2.5:latest"])
+    else:
+        assert (response.status_code, [job["model"] for job in body.get("jobs", [])]) == (201, ["qwen2.5:latest"])
+    active = [job for job in after["jobs"] if job["model"] == "qwen2.5:latest" and job["state"] in ("queued", "downloading")]
+    assert len(active) <= 1
+
+
+# ---- 003 US1-API-25
+
+
+async def test_讀模型清單失敗的回應只有代碼與固定訊息_不含底層文字_試算與加入同一句(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_library(fakes, LATEST_SIZES)
+    await open_ready(ui_client)
+    leaked = "ConnectError: [Errno 111] Connection refused http://127.0.0.1:41234/api/tags Traceback (most recent call last)"
+
+    # Act
+    responses: list[tuple[str, str, httpx.Response]] = []
+    for code in ("OLLAMA_UNREACHABLE", "OLLAMA_BAD_RESPONSE", "OLLAMA_TIMEOUT"):
+        fakes.remote_ollama.list_local_models.raises(code, leaked)
+        estimated = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5"]})
+        added = await ui_client.post("/api/downloads", json={"models": ["qwen2.5"]})
+        responses += [(code, "試算", estimated), (code, "加入", added)]
+
+    # Assert
+    assert all("127.0.0.1:41234" not in r.text and "Traceback" not in r.text for _, _, r in responses)
+    assert all(set(body_of(r)) == {"code", "message"} for _, _, r in responses)
+    assert [(operation, body_of(r).get("message") == MESSAGES[code]) for code, operation, r in responses] == [
+        (operation, True) for _, operation, _ in responses
+    ]

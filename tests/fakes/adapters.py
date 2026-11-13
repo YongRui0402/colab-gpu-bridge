@@ -176,6 +176,9 @@ class FakeMethod:
         for gate in gates:
             await gate.pass_async()
         result = self._pick(call).resolve(call)
+        if inspect.isawaitable(result):
+            # `side_effect` 給的是 async 函式時等它跑完(research.md R4);同步的回傳值、`raises`、`then`、`gate` 行為不變
+            result = await result
         if self.streaming:
             return _stream(result)
         return result

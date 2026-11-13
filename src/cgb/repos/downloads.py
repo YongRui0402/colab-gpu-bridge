@@ -4,6 +4,14 @@ import sqlite3
 from typing import Any
 
 
+class QueueConflict(sqlite3.IntegrityError):
+    """整批寫入時某一筆撞到 `pending_model` 的唯一限制(同一個模型已在排隊中或下載中);`model` 是那一筆。"""
+
+    def __init__(self, model: str) -> None:
+        super().__init__(f"{model} 已在佇列中")
+        self.model = model
+
+
 class DownloadsRepo:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
@@ -16,6 +24,28 @@ class DownloadsRepo:
             (model, model, size_bytes, origin, int(preload_on_complete), added_at),
         )
         return int(cursor.lastrowid)
+
+    def enqueue_many(
+        self, jobs: list[tuple[str, int]], *, origin: str, preload_on_complete: bool, added_at: str
+    ) -> list[int]:
+        """整批(模型, 大小)寫入,包在一個交易裡:任何一筆失敗就整批撤回(`QueueConflict`);交易裡沒有 `await`。"""
+        self._conn.execute("BEGIN")
+        try:
+            ids = []
+            for model, size in jobs:
+                try:
+                    ids.append(
+                        self.enqueue(
+                            model=model, size_bytes=size, origin=origin, preload_on_complete=preload_on_complete, added_at=added_at
+                        )
+                    )
+                except sqlite3.IntegrityError:
+                    raise QueueConflict(model) from None
+        except BaseException:
+            self._conn.execute("ROLLBACK")
+            raise
+        self._conn.execute("COMMIT")
+        return ids
 
     def get(self, job_id: int) -> dict[str, Any] | None:
         row = self._conn.execute("SELECT * FROM download_jobs WHERE id = ?", (job_id,)).fetchone()
