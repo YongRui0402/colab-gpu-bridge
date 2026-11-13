@@ -256,143 +256,143 @@
 
 ### E2 後端 UI API
 
-- [ ] T028a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-01 的測試(`GET /api/library/search?q=qwen2.5`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「搜尋先檢查有沒有就緒的工作階段,沒有就回 503 `NO_READY_SESSION`,沒有去問模型庫」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T028a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-01 的測試(`GET /api/library/search?q=qwen2.5`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「搜尋先檢查有沒有就緒的工作階段,沒有就回 503 `NO_READY_SESSION`,沒有去問模型庫」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US1-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T028b [US1] 🟢 /tdd 綠燈:US1-API-01 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-01 通過的程式碼(依賴 T028a)
+- [X] T028b [US1] 🟢 /tdd 綠燈:US1-API-01 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-01 通過的程式碼(依賴 T028a)
   - 🧪 `testplan.md` § US1-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T029a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-02 的測試(`GET /api/library/search?q=qwen2.5`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「把模型庫的失敗都改寫成同一個 `LIBRARY_UNREACHABLE` 回傳(只對了 502、沒照轉接層的代碼)」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T029a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-02 的測試(`GET /api/library/search?q=qwen2.5`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「把模型庫的失敗都改寫成同一個 `LIBRARY_UNREACHABLE` 回傳(只對了 502、沒照轉接層的代碼)」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US1-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T029b [US1] 🟢 /tdd 綠燈:US1-API-02 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-02 通過的程式碼(依賴 T029a)
+- [X] T029b [US1] 🟢 /tdd 綠燈:US1-API-02 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-02 通過的程式碼(依賴 T029a)
   - 🧪 `testplan.md` § US1-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T030a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-03 的測試(按「顯示更多」:`GET /api/library/search?q=qwen2.5&page=2`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「第 2 頁起的 `LIBRARY_BAD_RESPONSE` 被當成「沒有下一頁」,回 200、空的 `items`、`hasMore` 為 false」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T030a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-03 的測試(按「顯示更多」:`GET /api/library/search?q=qwen2.5&page=2`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「第 2 頁起的 `LIBRARY_BAD_RESPONSE` 被當成「沒有下一頁」,回 200、空的 `items`、`hasMore` 為 false」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US1-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T030b [US1] 🟢 /tdd 綠燈:US1-API-03 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-03 通過的程式碼(依賴 T030a)
+- [X] T030b [US1] 🟢 /tdd 綠燈:US1-API-03 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-03 通過的程式碼(依賴 T030a)
   - 🧪 `testplan.md` § US1-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T031a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-04 的測試(`GET /api/library/search?q=qwen2.5`),執行確認它因為「沿用 001 的 `ApiError(502, error.code)`,把逾時也回 502」這類實作而失敗
+- [X] T031a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-04 的測試(`GET /api/library/search?q=qwen2.5`),執行確認它因為「沿用 001 的 `ApiError(502, error.code)`,把逾時也回 502」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T031b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py`、`tests/e2e/test_locale.py` 只寫讓 US1-API-04 通過的程式碼(在 `src/cgb/domain/errors.py` 新增共用的 `LIBRARY_STATUS` 與 `library_error(code, model=None) -> ApiError`,`Library.search()` 改用它;`MESSAGES` 補上 `LIBRARY_TIMEOUT` 的繁中說明,帶「從精選清單挑選或直接輸入名稱」的退路;同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加一列 `("LIBRARY_TIMEOUT", err_search("LIBRARY_TIMEOUT"))`,否則 `test_錯誤代碼清單涵蓋本系統的每一個錯誤代碼` 會因為 `MESSAGES` 多一個 key 而變紅;不改那一列以外的斷言),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
+- [X] T031b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py`、`tests/e2e/test_locale.py` 只寫讓 US1-API-04 通過的程式碼(在 `src/cgb/domain/errors.py` 新增共用的 `LIBRARY_STATUS` 與 `library_error(code, model=None) -> ApiError`,`Library.search()` 改用它;`MESSAGES` 補上 `LIBRARY_TIMEOUT` 的繁中說明,帶「從精選清單挑選或直接輸入名稱」的退路;同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加一列 `("LIBRARY_TIMEOUT", err_search("LIBRARY_TIMEOUT"))`,否則 `test_錯誤代碼清單涵蓋本系統的每一個錯誤代碼` 會因為 `MESSAGES` 多一個 key 而變紅;不改那一列以外的斷言),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T032a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-05 的測試(`GET /api/library/search?q=no-such-model-xyz`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「這一輪加錯誤處理時,把 0 筆結果也當成格式不符,回 502 `LIBRARY_BAD_RESPONSE`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T032a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-05 的測試(`GET /api/library/search?q=no-such-model-xyz`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「這一輪加錯誤處理時,把 0 筆結果也當成格式不符,回 502 `LIBRARY_BAD_RESPONSE`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US1-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T032b [US1] 🟢 /tdd 綠燈:US1-API-05 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-05 通過的程式碼(依賴 T032a)
+- [X] T032b [US1] 🟢 /tdd 綠燈:US1-API-05 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-05 通過的程式碼(依賴 T032a)
   - 🧪 `testplan.md` § US1-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T033a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-06 的測試(`GET /api/library/models/qwen2.6/tags`),執行確認它因為「`Library.tags()` 沒有接 `AdapterError`,原樣往上拋成 500」這類實作而失敗
+- [X] T033a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-06 的測試(`GET /api/library/models/qwen2.6/tags`),執行確認它因為「`Library.tags()` 沒有接 `AdapterError`,原樣往上拋成 500」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T033b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-06 通過的程式碼(`Library.tags()` 補上 `except AdapterError`,改用 `library_error`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T033a)
+- [X] T033b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-06 通過的程式碼(`Library.tags()` 補上 `except AdapterError`,改用 `library_error`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T033a)
   - 🧪 `testplan.md` § US1-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T034a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-07 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「`tags()` 只用 `if error.code == "LIBRARY_NOT_FOUND"` 接住 404,其他代碼重新拋出,變成 500」這類實作而失敗
+- [X] T034a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-07 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「`tags()` 只用 `if error.code == "LIBRARY_NOT_FOUND"` 接住 404,其他代碼重新拋出,變成 500」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T034b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T034a)
+- [X] T034b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T034a)
   - 🧪 `testplan.md` § US1-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T035a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-08 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「`LIBRARY_STATUS` 漏掉 `LIBRARY_SERVER_ERROR`,`.get(code, 500)` 退回 500」這類實作而失敗
+- [X] T035a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-08 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「`LIBRARY_STATUS` 漏掉 `LIBRARY_SERVER_ERROR`,`.get(code, 500)` 退回 500」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T035b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T035a)
+- [X] T035b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T035a)
   - 🧪 `testplan.md` § US1-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T036a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-09 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「把格式不符當成「這個模型沒有版本」,回 200 與空的 `tags`」這類實作而失敗
+- [X] T036a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-09 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「把格式不符當成「這個模型沒有版本」,回 200 與空的 `tags`」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T036b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T036a)
+- [X] T036b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T036a)
   - 🧪 `testplan.md` § US1-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T037a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-10 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「版本清單自己寫了一張只有 404 與 502 的對應表,沒有共用 `LIBRARY_STATUS`,逾時回 502」這類實作而失敗
+- [X] T037a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-10 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「版本清單自己寫了一張只有 404 與 502 的對應表,沒有共用 `LIBRARY_STATUS`,逾時回 502」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T037b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T037a)
+- [X] T037b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T037a)
   - 🧪 `testplan.md` § US1-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R4
-- [ ] T038a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-11 的測試(`GET /api/library/models/qwen2.5/tags`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「補錯誤處理時加了「沒有大小就是格式不符」的檢查,回 502 `LIBRARY_BAD_RESPONSE`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T038a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-11 的測試(`GET /api/library/models/qwen2.5/tags`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「補錯誤處理時加了「沒有大小就是格式不符」的檢查,回 502 `LIBRARY_BAD_RESPONSE`」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US1-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § 邊界情況;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T038b [US1] 🟢 /tdd 綠燈:US1-API-11 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-11 通過的程式碼(依賴 T038a)
+- [X] T038b [US1] 🟢 /tdd 綠燈:US1-API-11 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-11 通過的程式碼(依賴 T038a)
   - 🧪 `testplan.md` § US1-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § 邊界情況;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T039a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-12 的測試(`GET /api/library/search?q=qwen2.5`,接著 `GET /api/curated`,再 `GET /api/downloads`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「模型庫的 `AdapterError` 被一個全域的 `AdapterError` 處理器接走,當成執行環境出問題,把下載中的那筆標成 `failed` 或重新開始 pull」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T039a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-12 的測試(`GET /api/library/search?q=qwen2.5`,接著 `GET /api/curated`,再 `GET /api/downloads`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「模型庫的 `AdapterError` 被一個全域的 `AdapterError` 處理器接走,當成執行環境出問題,把下載中的那筆標成 `failed` 或重新開始 pull」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US1-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § 邊界情況;`research.md` § R4;`plan.md` § 待決問題 Q15;`plan.md` § 待決問題 Q19
-- [ ] T039b [US1] 🟢 /tdd 綠燈:US1-API-12 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-12 通過的程式碼(依賴 T039a)
+- [X] T039b [US1] 🟢 /tdd 綠燈:US1-API-12 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-12 通過的程式碼(依賴 T039a)
   - 🧪 `testplan.md` § US1-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § 邊界情況;`research.md` § R4;`plan.md` § 待決問題 Q15;`plan.md` § 待決問題 Q19
-- [ ] T040a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-13 的測試(`GET /api/library/models/qwen2.5/tags`,接著 `GET /api/library/search?q=qwen2.5`),執行確認它因為「版本清單失敗時把工作階段轉成重連中(或清掉執行環境模型的對照),之後搜尋的 `runtimeChecked` 變成 false、已下載的版本標不出來」這類實作而失敗
+- [X] T040a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-13 的測試(`GET /api/library/models/qwen2.5/tags`,接著 `GET /api/library/search?q=qwen2.5`),執行確認它因為「版本清單失敗時把工作階段轉成重連中(或清掉執行環境模型的對照),之後搜尋的 `runtimeChecked` 變成 false、已下載的版本標不出來」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`、`paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`
   - 📎 `spec.md` § 邊界情況;`research.md` § R4;`plan.md` § 待決問題 Q15
-- [ ] T040b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T040a)
+- [X] T040b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T040a)
   - 🧪 `testplan.md` § US1-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`、`paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`
   - 📎 `spec.md` § 邊界情況;`research.md` § R4;`plan.md` § 待決問題 Q15
-- [ ] T041a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-14 的測試(`GET /api/library/search?q=qwen2.5`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「把 `AdapterError.message` 接在固定說明後面回傳(例如 `f"{MESSAGES[code]}({error.message})"`),或直接用它取代說明」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T041a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-14 的測試(`GET /api/library/search?q=qwen2.5`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/library.py` 暫時改成「把 `AdapterError.message` 接在固定說明後面回傳(例如 `f"{MESSAGES[code]}({error.message})"`),或直接用它取代說明」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US1-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-003;`research.md` § R4;`plan.md` § 待決問題 Q13;`plan.md` § 待決問題 Q19
-- [ ] T041b [US1] 🟢 /tdd 綠燈:US1-API-14 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-14 通過的程式碼(依賴 T041a)
+- [X] T041b [US1] 🟢 /tdd 綠燈:US1-API-14 由現有程式滿足,確認 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-14 通過的程式碼(依賴 T041a)
   - 🧪 `testplan.md` § US1-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-003;`research.md` § R4;`plan.md` § 待決問題 Q13;`plan.md` § 待決問題 Q19
-- [ ] T042a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-15 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「`MESSAGES` 沒有補 `LIBRARY_TIMEOUT`,`body()` 退回去用 `AdapterError.message` 或代碼字串當 `message`」這類實作而失敗
+- [X] T042a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-15 的測試(`GET /api/library/models/qwen2.5/tags`),執行確認它因為「`MESSAGES` 沒有補 `LIBRARY_TIMEOUT`,`body()` 退回去用 `AdapterError.message` 或代碼字串當 `message`」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-003;`research.md` § R4;`plan.md` § 待決問題 Q13
-- [ ] T042b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T042a)
+- [X] T042b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T042a)
   - 🧪 `testplan.md` § US1-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-003;`research.md` § R4;`plan.md` § 待決問題 Q13
-- [ ] T043a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-16 的測試(`GET /api/library/search?q=qwen2.5`,接著 `GET /api/library/models/qwen2.5/tags`),執行確認它因為「版本清單另外寫了一張訊息表,或把模型名稱或對方的狀態碼插進說明(例如「qwen2.5 的版本頁回 500」),同一個代碼在兩個操作是不同的兩句」這類實作而失敗
+- [X] T043a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-16 的測試(`GET /api/library/search?q=qwen2.5`,接著 `GET /api/library/models/qwen2.5/tags`),執行確認它因為「版本清單另外寫了一張訊息表,或把模型名稱或對方的狀態碼插進說明(例如「qwen2.5 的版本頁回 500」),同一個代碼在兩個操作是不同的兩句」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`、`paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`
   - 📎 `spec.md` § NFR-002;`research.md` § R4
-- [ ] T043b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
+- [X] T043b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
   - 🧪 `testplan.md` § US1-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/search.get`、`components.schemas.LibrarySearchPage`、`components.schemas.Error`、`paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`
   - 📎 `spec.md` § NFR-002;`research.md` § R4
-- [ ] T044a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-17 的測試(`GET /api/library/models/qwen2.6/tags`),執行確認它因為「只有 502 與 504 走固定訊息表,404 這條另外寫成「找不到:」加上 `AdapterError.message`」這類實作而失敗
+- [X] T044a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_library.py` 寫 US1-API-17 的測試(`GET /api/library/models/qwen2.6/tags`),執行確認它因為「只有 502 與 504 走固定訊息表,404 這條另外寫成「找不到:」加上 `AdapterError.message`」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-003;`research.md` § R4
-- [ ] T044b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
+- [X] T044b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/library.py`、`src/cgb/domain/errors.py` 只寫讓 US1-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
   - 🧪 `testplan.md` § US1-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./library/models/{name}/tags.get`、`components.schemas.LibraryTagList`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-003;`research.md` § R4
-- [ ] T045 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T028b~T044b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/domain/errors.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_library.py` 的斷言(依賴 T044b)
+- [X] T045 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T028b~T044b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/domain/errors.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_library.py` 的斷言(依賴 T044b)
   - 🧪 `testplan.md` § US1-API-01~US1-API-17
   - 📎 `testplan.md` § 2.2
 

@@ -836,6 +836,7 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("LIBRARY_UNREACHABLE", err_search("LIBRARY_UNREACHABLE")),
     ("LIBRARY_SERVER_ERROR", err_search("LIBRARY_SERVER_ERROR")),
     ("LIBRARY_BAD_RESPONSE", err_search("LIBRARY_BAD_RESPONSE")),
+    ("LIBRARY_TIMEOUT", err_search("LIBRARY_TIMEOUT")),
     ("LIBRARY_CLOUD_ONLY", err_manifest("LIBRARY_CLOUD_ONLY")),
     ("INVALID_IDLE_TIMEOUT", err_settings({"idleTimeoutMinutes": 0, "lowBalanceThreshold": 10})),
     ("INVALID_BALANCE_THRESHOLD", err_settings({"idleTimeoutMinutes": 30, "lowBalanceThreshold": -1})),

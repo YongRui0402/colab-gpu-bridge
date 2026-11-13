@@ -3,7 +3,7 @@
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
-from cgb.domain.errors import ApiError
+from cgb.domain.errors import library_error
 from cgb.services.session_lifecycle import SessionLifecycle
 
 
@@ -23,8 +23,8 @@ class Library:
         try:
             found = await self._state.model_library.search_library(q=q, page=page)
         except AdapterError as error:
-            # 連不到、5xx、解析不出來(contracts § searchLibrary 的 502);UI 退回精選清單與輸入名稱
-            raise ApiError(502, error.code) from None
+            # 連不到、5xx、解析不出來回 502,逾時回 504(contracts § searchLibrary);UI 退回精選清單與輸入名稱
+            raise library_error(error.code) from None
         local = await self._local_models()
 
         def downloaded_tags(name: str) -> list[str]:
@@ -40,7 +40,11 @@ class Library:
 
     async def tags(self, name: str) -> dict[str, Any]:
         """一個官方模型的所有版本;`fullName` 對照執行環境標出已下載的(雲端專用版本由 S2 標出 `cloudOnly`,Q8)。"""
-        tags = await self._state.model_library.list_model_tags(name=name)
+        try:
+            tags = await self._state.model_library.list_model_tags(name=name)
+        except AdapterError as error:
+            # 沒有這個模型回 404(contracts § listLibraryTags);`name` 不放進 `model`
+            raise library_error(error.code) from None
         local = await self._local_models()
         return {
             "name": name,
