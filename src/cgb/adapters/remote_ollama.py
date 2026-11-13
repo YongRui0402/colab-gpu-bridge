@@ -81,16 +81,27 @@ class RemoteOllama:
 
     async def list_local_models(self, *, base_url: str) -> dict[str, Any]:
         """`GET /api/tags`;回 `TagsResponse`(已下載完成的模型,每個有 `name`、`size`…)。"""
-        return await self._get_list(base_url, "/api/tags")
+        body = await self._get_list(base_url, "/api/tags")
+        if not all(_is_size(model.get("size")) for model in body["models"]):
+            raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的清單有一筆沒有非負整數 size")
+        return body
 
     async def list_loaded_models(self, *, base_url: str) -> dict[str, Any]:
         """`GET /api/ps`;回 `PsResponse`(已載入記憶體的模型)。"""
         return await self._get_list(base_url, "/api/ps")
 
     async def _get_list(self, base_url: str, path: str) -> dict[str, Any]:
-        async with self._client(base_url, httpx.Timeout(LIST_TIMEOUT)) as client:
-            response = await client.get(path)
-        return response.json()
+        """`GET` 一份模型清單,對方的失敗依合約 `info.x-failure-rules` 歸成 `OLLAMA_` 代碼,不重試。"""
+        try:
+            async with self._client(base_url, httpx.Timeout(LIST_TIMEOUT)) as client:
+                response = await client.get(path)
+        except httpx.TimeoutException as error:
+            raise AdapterError("OLLAMA_TIMEOUT", f"{LIST_TIMEOUT:g} 秒內沒有收到遠端 Ollama 的回應") from error
+        except httpx.TransportError as error:
+            raise AdapterError("OLLAMA_UNREACHABLE", f"連不到遠端 Ollama:{type(error).__name__}") from error
+        except httpx.DecodingError as error:
+            raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的回應本文無法解壓") from error
+        return _parse_model_list(response)
 
     async def preload(self, *, base_url: str, model: str) -> dict[str, Any]:
         """預先載入(FR-015):`POST /api/generate` 只帶 `model` 與 `keep_alive: -1`(plan.md Q4),不帶 `prompt`。"""
@@ -107,6 +118,27 @@ class RemoteOllama:
         request = client.build_request("POST", "/api/pull", json={"model": model, "stream": True})
         response = await client.send(request, stream=True)
         return _pull_progress(client, response)
+
+
+def _is_size(value: object) -> bool:
+    """非負整數;`bool` 是 `int` 的子類,要排除。"""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _parse_model_list(response: httpx.Response) -> dict[str, Any]:
+    """200 的 JSON 物件、`models` 是陣列、每筆是物件且有字串 `name`;任何一處不符整份算 `OLLAMA_BAD_RESPONSE`(plan.md Q2)。"""
+    if response.status_code != 200:
+        raise AdapterError("OLLAMA_BAD_RESPONSE", f"遠端 Ollama 回了非預期的狀態碼 {response.status_code}")
+    try:
+        body = response.json()
+    except ValueError as error:
+        raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的清單回應不是 JSON") from error
+    if not isinstance(body, dict) or not isinstance(body.get("models"), list):
+        raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的清單回應缺少 models 陣列")
+    for model in body["models"]:
+        if not isinstance(model, dict) or not isinstance(model.get("name"), str):
+            raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的清單有一筆沒有字串 name")
+    return body
 
 
 async def _ndjson_until_done(client: httpx.AsyncClient, response: httpx.Response) -> AsyncIterator[dict[str, Any]]:

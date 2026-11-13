@@ -6,7 +6,9 @@
 import asyncio
 import socket
 import time
+from collections.abc import Callable
 
+import httpx
 import pytest
 
 from cgb.adapters.errors import AdapterError
@@ -271,3 +273,348 @@ async def test_preload_只送_model_與_keep_alive_負一(ollama_server: FakeOll
     [request] = ollama_server.requests_to("POST", "/api/generate")
     assert request.json() == {"model": "qwen2.5:7b", "keep_alive": -1}
     ollama_server.assert_all_matched()
+
+
+# ---- 003 US1-RO-01 以 MockTransport 驗 list_local_models(base_url 一律是本機轉發的位址)
+
+LOCAL_FORWARD_URL = "http://127.0.0.1:11435"
+
+
+class Recorder:
+    """MockTransport 的 handler:記下每個收到的請求,再交給 `reply` 決定回什麼。"""
+
+    def __init__(self, reply: Callable[[httpx.Request], httpx.Response]) -> None:
+        self.requests: list[httpx.Request] = []
+        self._reply = reply
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        return self._reply(request)
+
+    def remote(self) -> RemoteOllama:
+        return RemoteOllama(transport=httpx.MockTransport(self))
+
+
+def json_reply(body: object, status: int = 200) -> httpx.Response:
+    return httpx.Response(status, json=body)
+
+
+def tags_only(body: object) -> Callable[[httpx.Request], httpx.Response]:
+    """只有 `GET /api/tags` 回 `body`,其他路徑回 404。"""
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/api/tags":
+            return json_reply(body)
+        return httpx.Response(404)
+
+    return reply
+
+
+async def test_list_local_models_回兩筆模型的名稱與大小並只打_api_tags() -> None:
+    """US1-RO-01:handler 回兩筆模型;名稱與大小照實,只收到一個打在傳進來的 base_url 的 GET /api/tags。"""
+    tags = {
+        "models": [
+            {
+                "name": "qwen2.5:latest",
+                "model": "qwen2.5:latest",
+                "modified_at": "2026-11-10T09:00:00.000000000Z",
+                "size": 4683087332,
+                "digest": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e",
+                "details": {"format": "gguf", "family": "qwen2"},
+            },
+            {
+                "name": "llama3.2:3b",
+                "model": "llama3.2:3b",
+                "modified_at": "2026-11-10T08:00:00.000000000Z",
+                "size": 2019393189,
+                "digest": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
+                "details": {"format": "gguf", "family": "llama"},
+            },
+        ]
+    }
+    handler = Recorder(tags_only(tags))
+
+    result = await handler.remote().list_local_models(base_url=LOCAL_FORWARD_URL)
+
+    assert [m["name"] for m in result["models"]] == ["qwen2.5:latest", "llama3.2:3b"]
+    assert [m.get("size") for m in result["models"]] == [4683087332, 2019393189]
+    assert [(r.method, str(r.url)) for r in handler.requests] == [("GET", "http://127.0.0.1:11435/api/tags")]
+
+
+# ---- 003 US1-RO-02 名稱原樣交回
+
+
+async def test_list_local_models_名稱原樣交回不補版本不轉小寫不去前綴() -> None:
+    """US1-RO-02:遠端回了沒帶版本的 `qwen2.5`;清單這一側不補版本,比對時才只補輸入那一側。"""
+    names = ["qwen2.5", "llama3.2:latest", "hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:Q4_K_M"]
+    tags = {"models": [{"name": name, "size": index} for index, name in enumerate(names, start=1)]}
+    handler = Recorder(tags_only(tags))
+
+    result = await handler.remote().list_local_models(base_url=LOCAL_FORWARD_URL)
+
+    assert [m["name"] for m in result["models"]] == names
+
+
+# ---- 003 US1-RO-03 空清單
+
+
+async def list_outcome(remote: RemoteOllama) -> object:
+    """呼叫一次 `list_local_models`;成功交回 `models`,丟出 `AdapterError` 交回 `AdapterError(<code>)`,
+    其他例外交回 `repr`。讓「丟了不該丟的例外」成為斷言失敗,不是測試本身出錯。"""
+    try:
+        return (await remote.list_local_models(base_url=LOCAL_FORWARD_URL))["models"]
+    except AdapterError as error:
+        return f"AdapterError({error.code})"
+    except Exception as error:  # noqa: BLE001 - 丟了別的例外也要成為斷言失敗
+        return repr(error)
+
+
+async def test_list_local_models_空陣列照常回傳不當成失敗() -> None:
+    """US1-RO-03:執行環境剛開好、還沒下載任何模型時,`models` 是空陣列。"""
+    handler = Recorder(tags_only({"models": []}))
+
+    assert await list_outcome(handler.remote()) == []
+
+
+# ---- 003 US1-RO-04 只要求 name 與 size,其他欄位缺了或型別不符不算失敗
+
+
+async def test_list_local_models_其他欄位缺了或型別不符時照常回傳() -> None:
+    """US1-RO-04:第一筆只有 `name`、`size`(0 位元組);第二筆其他欄位型別都不符。"""
+    tags = {
+        "models": [
+            {"name": "qwen2.5:latest", "size": 0},
+            {"name": "llama3.2:3b", "model": 123, "size": 2019393189, "digest": None, "modified_at": "昨天", "details": "x"},
+        ]
+    }
+    handler = Recorder(tags_only(tags))
+
+    models = await list_outcome(handler.remote())
+
+    assert isinstance(models, list), models
+    assert [m["name"] for m in models] == ["qwen2.5:latest", "llama3.2:3b"]
+    assert models[0]["size"] == 0
+
+
+# ---- 003 US1-RO-05 逾時一律歸成 OLLAMA_TIMEOUT
+
+
+def raising(errors: list[Exception]) -> Callable[[httpx.Request], httpx.Response]:
+    """第 N 個請求丟出第 N 個例外。"""
+    queue = iter(errors)
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        raise next(queue)
+
+    return reply
+
+
+async def test_list_local_models_四種逾時都歸成_OLLAMA_TIMEOUT_且不重試() -> None:
+    """US1-RO-05:連線、讀、寫、連線池逾時各用一個新的 `RemoteOllama`;失敗不自動重試。"""
+    handler = Recorder(
+        raising(
+            [
+                httpx.ConnectTimeout("timed out"),
+                httpx.ReadTimeout("timed out"),
+                httpx.WriteTimeout("timed out"),
+                httpx.PoolTimeout("timed out"),
+            ]
+        )
+    )
+
+    outcomes = [await list_outcome(handler.remote()) for _ in range(4)]
+
+    assert outcomes == ["AdapterError(OLLAMA_TIMEOUT)"] * 4
+    assert len(handler.requests) == 4
+
+
+# ---- 003 US1-RO-06 讀到一半逾時
+
+
+class HalfBody(httpx.AsyncByteStream):
+    """先送出半截 JSON,再丟出指定的例外(模擬本文讀到一半才出事)。"""
+
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    async def __aiter__(self):
+        yield b'{"models":[{"name":"qwen2.5:latest",'
+        raise self._error
+
+
+def half_body_reply(error: Exception) -> Callable[[httpx.Request], httpx.Response]:
+    return lambda request: httpx.Response(200, headers={"Content-Type": "application/json"}, stream=HalfBody(error))
+
+
+async def test_list_local_models_本文讀到一半逾時也歸成_OLLAMA_TIMEOUT() -> None:
+    """US1-RO-06:回 200,本文先送半截再丟 `ReadTimeout`。"""
+    handler = Recorder(half_body_reply(httpx.ReadTimeout("timed out")))
+
+    assert await list_outcome(handler.remote()) == "AdapterError(OLLAMA_TIMEOUT)"
+
+
+# ---- 003 US1-RO-07 其他傳輸層失敗歸成 OLLAMA_UNREACHABLE
+
+
+async def test_list_local_models_連不到_連線被重設_協定錯誤都歸成_OLLAMA_UNREACHABLE_且不重試() -> None:
+    """US1-RO-07:本機轉發沒有在聽、SSH 通道斷了、對方沒回完整回應就斷線。"""
+    handler = Recorder(
+        raising(
+            [
+                httpx.ConnectError("[Errno 111] Connection refused"),
+                httpx.ReadError("[Errno 104] Connection reset by peer"),
+                httpx.RemoteProtocolError("Server disconnected without sending a response."),
+            ]
+        )
+    )
+
+    outcomes = [await list_outcome(handler.remote()) for _ in range(3)]
+
+    assert outcomes == ["AdapterError(OLLAMA_UNREACHABLE)"] * 3
+    assert len(handler.requests) == 3
+
+
+# ---- 003 US1-RO-08 讀到一半連線中斷
+
+
+async def test_list_local_models_本文讀到一半連線中斷歸成_OLLAMA_UNREACHABLE() -> None:
+    """US1-RO-08:回 200,本文先送半截再丟 `RemoteProtocolError`;沒有完整 HTTP 回應算連不到。"""
+    error = httpx.RemoteProtocolError("peer closed connection without sending complete message body")
+    handler = Recorder(half_body_reply(error))
+
+    assert await list_outcome(handler.remote()) == "AdapterError(OLLAMA_UNREACHABLE)"
+
+
+# ---- 003 US1-RO-09 狀態碼不是 200 一律歸成 OLLAMA_BAD_RESPONSE
+
+
+def replying(responses: list[httpx.Response]) -> Callable[[httpx.Request], httpx.Response]:
+    """第 N 個請求回第 N 個回應。"""
+    queue = iter(responses)
+    return lambda request: next(queue)
+
+
+async def test_list_local_models_狀態碼不是_200_一律歸成_OLLAMA_BAD_RESPONSE_且不重試() -> None:
+    """US1-RO-09:503 與 201 帶著合法清單、404、500;都不能當成成功,也不沿用 generate 的狀態碼對照。"""
+    valid = {"models": [{"name": "qwen2.5:latest", "size": 1}]}
+    handler = Recorder(
+        replying(
+            [
+                json_reply(valid, 503),
+                json_reply({"error": "404 page not found"}, 404),
+                json_reply({"error": "llama runner process has terminated"}, 500),
+                json_reply(valid, 201),
+            ]
+        )
+    )
+
+    outcomes = [await list_outcome(handler.remote()) for _ in range(4)]
+
+    assert outcomes == ["AdapterError(OLLAMA_BAD_RESPONSE)"] * 4
+    assert len(handler.requests) == 4
+
+
+# ---- 003 US1-RO-10 不跟著 3xx 導向
+
+
+async def test_list_local_models_不跟著導向_回_302_歸成_OLLAMA_BAD_RESPONSE() -> None:
+    """US1-RO-10:`/api/tags` 導到 `/elsewhere`,後者是合法清單;跟過去會把別處的清單當成已下載的模型。"""
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(302, headers={"Location": "http://127.0.0.1:11435/elsewhere"})
+        return json_reply({"models": [{"name": "qwen2.5:latest", "size": 1}]})
+
+    handler = Recorder(reply)
+
+    assert await list_outcome(handler.remote()) == "AdapterError(OLLAMA_BAD_RESPONSE)"
+    assert len(handler.requests) == 1
+
+
+# ---- 003 US1-RO-11 200 但本文無法解讀
+
+
+async def test_list_local_models_本文無法解讀時歸成_OLLAMA_BAD_RESPONSE() -> None:
+    """US1-RO-11:A 回 HTML、B 宣稱 gzip 卻壞掉(讀本文時才丟 `DecodingError`)、C 空本文。"""
+    handler = Recorder(
+        replying(
+            [
+                httpx.Response(
+                    200,
+                    headers={"Content-Type": "text/html"},
+                    content=b"<!DOCTYPE html><html><body>502 Bad Gateway</body></html>",
+                ),
+                httpx.Response(
+                    200,
+                    headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+                    stream=httpx.ByteStream(b"not gzip"),
+                ),
+                httpx.Response(200, headers={"Content-Type": "application/json"}, content=b""),
+            ]
+        )
+    )
+
+    outcomes = [await list_outcome(handler.remote()) for _ in range(3)]
+
+    assert outcomes == ["AdapterError(OLLAMA_BAD_RESPONSE)"] * 3
+
+
+# ---- 003 US1-RO-12 最上層形狀不符
+
+
+async def test_list_local_models_最上層不是物件或_models_不是陣列時歸成_OLLAMA_BAD_RESPONSE() -> None:
+    """US1-RO-12:`[]`、`{}`、`{"models":null}`、`models` 是物件、整份是字串;缺少 `models` 不能當成沒有模型。"""
+    bodies = [[], {}, {"models": None}, {"models": {"name": "qwen2.5:latest", "size": 1}}, "qwen2.5:latest"]
+    handler = Recorder(replying([json_reply(body) for body in bodies]))
+
+    outcomes = [await list_outcome(handler.remote()) for _ in bodies]
+
+    assert outcomes == ["AdapterError(OLLAMA_BAD_RESPONSE)"] * 5
+
+
+# ---- 003 US1-RO-13 某一筆沒有字串的 name
+
+
+async def test_list_local_models_任何一筆不是物件或沒有字串_name_時整份歸成_OLLAMA_BAD_RESPONSE() -> None:
+    """US1-RO-13:字串、沒有 `name`、`name` 是 123、`name` 是 null、第二筆沒有 `name`;不跳過、不轉字串。"""
+    bodies = [
+        {"models": ["qwen2.5:latest"]},
+        {"models": [{"model": "qwen2.5:latest", "size": 1}]},
+        {"models": [{"name": 123, "size": 1}]},
+        {"models": [{"name": None, "size": 1}]},
+        {"models": [{"name": "qwen2.5:latest", "size": 1}, {"size": 2}]},
+    ]
+    handler = Recorder(replying([json_reply(body) for body in bodies]))
+
+    outcomes = [await list_outcome(handler.remote()) for _ in bodies]
+
+    assert outcomes == ["AdapterError(OLLAMA_BAD_RESPONSE)"] * 5
+
+
+# ---- 003 US1-RO-14 size 不是非負整數
+
+
+async def test_list_local_models_size_不是非負整數時歸成_OLLAMA_BAD_RESPONSE() -> None:
+    """US1-RO-14:沒有 `size`、字串、-1、`true`(bool 不算整數)、null。"""
+    models = [{"name": "qwen2.5:latest"}] + [{"name": "qwen2.5:latest", "size": size} for size in ("4.7 GB", -1, True, None)]
+    handler = Recorder(replying([json_reply({"models": [model]}) for model in models]))
+
+    outcomes = [await list_outcome(handler.remote()) for _ in models]
+
+    assert outcomes == ["AdapterError(OLLAMA_BAD_RESPONSE)"] * 5
+
+
+# ---- 003 US1-RO-15 x-timeout 10 秒
+
+
+async def test_list_local_models_逾時四項都是_10_秒() -> None:
+    """US1-RO-15:不帶任何逾時參數時,請求的逾時是合約 `x-timeout` 的 10 秒,不是 `get_version` 的 5 秒。"""
+    seen: list[dict] = []
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        seen.append(request.extensions["timeout"])
+        return json_reply({"models": []})
+
+    await RemoteOllama(transport=httpx.MockTransport(reply)).list_local_models(base_url=LOCAL_FORWARD_URL)
+
+    assert seen == [{"connect": 10.0, "read": 10.0, "write": 10.0, "pool": 10.0}]
