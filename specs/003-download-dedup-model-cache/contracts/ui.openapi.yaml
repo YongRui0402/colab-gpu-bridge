@@ -1,0 +1,588 @@
+openapi: 3.1.0
+info:
+  title: 後端 UI API(試算與加入下載的重複判定、模型目錄)
+  version: 0.3.0
+  description: >-
+    S2(E2 後端 UI API)依 003 的 spec.md、research.md R1–R4、techstack.md、plan.md 與 S1 的 `remote-ollama.openapi.yaml` 產出;
+    以 002 的同名檔(002 的 S2)為底收 `estimateDownloads`、`enqueueDownloads`,再從 001 的同名檔(001 的 S5)收 `listCatalog`(`GET /api/models`),
+    只收這三個操作與它們用到的 components。路徑、operationId、參數、成功回應、錯誤代碼與狀態碼照前一次原樣
+    (003 spec.md 假設:這一輪不改合約);這一輪只補上 003 定下、001 與 002 的檔還沒寫到的地方:
+    補 `latest` 後才比對「已下載」「已在佇列」(含 409 的 `model` 是補過版本的名稱)、同一批補過版本後相同的名稱合併、
+    檢查的先後(取任何 manifest 之前就回 409)、讀執行環境的模型清單失敗時的 502、504(照 S1 的條件)、
+    同時加入時整批不加入,以及顯示記憶體總量在一個工作階段只讀成功一次;並把 `x-requirements` 改指 003 的需求編號。
+
+    預先載入(`preloadModel`)確認目錄與 `models.updated` 推送都經同一份模型目錄,也沿用 `listCatalog` 的顯示記憶體快取
+    (003 research.md R3);它們的請求、回應與事件本文不變,所以不另外收,仍以 001 的 `ui.openapi.yaml`、`ui-events.asyncapi.yaml` 為準。
+    其他操作(搜尋、版本清單、精選清單、工作階段…)以 001、002 的檔為準。
+
+    編號的出處:沿用自 001 的 `Q<n>` 指 001 的 plan.md;標了「002 plan.md」的指 002 的 plan.md;
+    `S<n>` 除特別註明外指 003 的步驟(003 的 S1 是 `remote-ollama.openapi.yaml`);
+    標了「002 S1」的是 002 的 `model-library.openapi.yaml`,標了「001 S8」的是 001 的 `colab-cli.openapi.yaml`。
+    描述裡的 `FR-0xx`、`NFR-0xx`、使用者故事與驗收情境凡是標了「001 的」「002 的」,指那一次的 spec.md;
+    沒有標的、與 `x-requirements` 列的,都是 003 spec.md 的編號。
+
+    呼叫者:本系統前端 UI(瀏覽器),家中區網(含 VPN 連回)的任何裝置都能呼叫,不需要登入(001 的 NFR-009);
+    UI 的靜態檔與本 API 同一個來源,所以 `servers` 只寫相對路徑 `/api`。
+
+    錯誤本文一律是 `Error`(`{code, message}`,`message` 是給使用者看的繁體中文)。外部依賴的失敗原因沿用轉接層代碼
+    (S1 的 `OLLAMA_`、002 S1 的 `LIBRARY_`;`COLAB_` 由 001 S8 定),直接放在 `code`,不另造同義的代碼。
+  x-model-name-rule: >-
+    補版本的規則(003 FR-001、research.md R1;和 001 `ModelName`「沒寫版本視為 `latest`」、002 取 manifest 時補的、精選清單用的是同一條):
+    名稱含 `:` 就照原樣;不含 `:` 就在後面接 `:latest`。不轉大小寫、不去空白;版本照原樣比對(`qwen2.5:Latest` 不等於 `qwen2.5:latest`,003 spec.md 假設),
+    寫了版本的名稱(例如 `qwen2.5:7b`)不補任何東西,和 `qwen2.5:latest` 不算重複(003 使用者故事 1 驗收情境 4)。
+    執行環境上已下載的模型以 S1 `listLocalModels` 每筆的 `name` 原樣比對,那一側不再補版本;佇列裡的項目以 `DownloadJob.model`(本來就含版本)比對。
+  x-download-check-order: >-
+    `estimateDownloads` 與 `enqueueDownloads` 用同一套檢查,依下面的順序,第一個不符的就回,後面的步驟都不做(003 FR-001、FR-002、NFR-001,research.md R2):
+    (1)請求本文的格式(400 `INVALID_REQUEST_BODY`、`EMPTY_MODEL_LIST`、`INVALID_MODEL_NAME`),不需要工作階段;
+    (2)沒有就緒的工作階段(含開啟中、重連中) → 503 `NO_READY_SESSION`;重複檢查要讀執行環境上的模型清單,沒有工作階段時不做(003 spec.md 邊界情況);
+    (3)把整批名稱照 `info.x-model-name-rule` 補過版本,補過版本後相同的合併成一個,保留第一次出現的順序(003 FR-002);
+    (4)讀執行環境上已下載的模型清單(S1 `listLocalModels`,一次)與佇列中排隊中、下載中的項目;讀模型清單失敗時照 S1 的 `info.x-failure-rules`
+    回 502 `OLLAMA_UNREACHABLE`、502 `OLLAMA_BAD_RESPONSE` 或 504 `OLLAMA_TIMEOUT`;
+    (5)依合併後的順序逐一比對:在模型清單裡 → 409 `MODEL_ALREADY_DOWNLOADED`;否則在佇列裡(排隊中或下載中) → 409 `DOWNLOAD_ALREADY_QUEUED`;
+    `Error.model` 是補過版本的名稱,第一個重複的就回;下載失敗與已完成的佇列項目不算在佇列中(003 使用者故事 1 驗收情境 7、003 spec.md 邊界情況);
+    (6)都沒有重複,才依合併後的順序一個一個向 registry 取 manifest(002 S1 `getManifest`);判定為重複時不向 registry 送任何請求(003 NFR-001);
+    (7)讀執行環境的剩餘磁碟空間(001 S8),讀不到 → 503 `DISK_SPACE_UNKNOWN`;
+    (8)`enqueueDownloads` 才有:總大小加上佇列裡還沒下載完的大小超過剩餘磁碟 → 409 `DISK_SPACE_INSUFFICIENT`;`estimateDownloads` 改以 `fits` 表示。
+    這兩條路徑上任何一種情況都回上面列的狀態碼與代碼,不回 500(003 NFR-003)。
+  x-ollama-error-message: >-
+    `OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_TIMEOUT` 的 `message` 和 `LIBRARY_*` 同一套做法(002 NFR-002):
+    每個代碼一句固定的繁體中文說明,取自後端固定的訊息表,這一輪在表裡補上這三個代碼(003 plan.md);
+    同一個代碼不論在試算或加入下載、哪一次失敗都是同一句,不帶底層例外的文字、traceback、本機轉發的位址或對方回的內容。
+    這三個錯誤沒有 `Error.model`(讀的是整份模型清單,不是某一個模型)。
+servers:
+  - url: /api
+    description: 與 UI 靜態檔同一個來源;port 由 001 的 S11 決定
+paths:
+  /models:
+    get:
+      operationId: listCatalog
+      summary: 列出執行環境上已下載的模型(模型目錄)
+      description: >-
+        001 的 FR-014:名稱、大小、是否已載入;來自遠端 Ollama 的 `listLocalModels` 與 `listLoadedModels`(S1),
+        只含下載完成的模型(001 的 FR-018,依 Q2 信任 `/api/tags`)。執行環境剛開好時是空的。
+        001 的 NFR-006:`vramBytes` 是目前執行環境 GPU 的顯示記憶體總量(由 001 S8 的 `probeResources` 經 `colab exec` 取得,Q7、Q62;不扣掉已載入模型佔用的部分),
+        模型大小超過它時 `mayNotFit` 為 true;讀不到時 `vramBytes` 與 `mayNotFit` 為 null。
+        目錄有變化(下載完成、預先載入開始或結束)時另以 `models.updated` 事件推送(001 的 `ui-events.asyncapi.yaml`)。
+
+        這一輪(003 使用者故事 2):顯示記憶體總量在每個工作階段只經 `colab exec` 讀成功一次,以工作階段名稱判斷是不是同一個工作階段。
+        (1)這個工作階段還沒讀成功過 → 經 `colab exec` 讀一次;讀到數字就記住,這一次與之後都用它(003 FR-003、驗收情境 1)。
+        (2)已經讀成功過 → 不再跑 `colab exec`,`vramBytes` 與第一次讀到的相同;打開模型目錄、推送 `models.updated`、預先載入前確認目錄都一樣沿用
+        (003 FR-003、驗收情境 2)。回應時間不再包含 `colab exec` 的時間(003 NFR-002、SC-002)。
+        (3)`colab exec` 失敗、逾時(任何 `COLAB_` 代碼),或成功但讀到的顯示記憶體總量是 null(執行環境上的 `nvidia-smi` 失敗或逾時) → 這一次仍回 200,
+        `vramBytes` 與每個模型的 `mayNotFit` 為 null,模型清單照常列出;不記住這次的結果,下一次列出目錄時再讀一次
+        (003 FR-004、驗收情境 4、5、SC-003)。讀不到顯示記憶體不會讓這個操作回 502、503、504 或 500(003 NFR-003)。
+        (4)開了新的工作階段、或變更執行階段類型(兩者都是新的工作階段名稱) → 新工作階段第一次列出目錄時重新讀,不沿用前一個工作階段的值;
+        同一個工作階段經過重連中又接回時名稱不變,沿用(003 FR-005、驗收情境 3、6)。
+        (5)後端重新啟動後接回同一個工作階段,第一次列出目錄時會再讀一次(記住的值只在後端執行期間有效,003 spec.md 邊界情況)。
+        (6)同一個工作階段同時發生的第一次讀取(例如打開模型頁的同時下載完成推送 `models.updated`)不保證合併,可能各跑一次 `colab exec`,之後都沿用(003 spec.md 假設)。
+        試算與加入下載讀剩餘磁碟空間時也會跑 `colab exec`,那一次的結果不拿來當作這裡的顯示記憶體(003 research.md R3);剩餘磁碟空間每次照讀(003 spec.md 假設)。
+        只有顯示記憶體總量會被沿用;模型清單與是否已載入每次都向遠端 Ollama 讀(S1 `listLoadedModels` 的描述)。
+
+        下面的 502、504 照 001 原樣保留,只關於讀遠端 Ollama 的 tags、ps,和顯示記憶體無關;
+        這一輪後端的轉接層把讀這兩份清單的失敗歸成這三個代碼(S1 的 `info.x-failure-rules`),
+        但模型目錄收到它們時回什麼仍照 001(001 完成報告 Q203,不在 003 範圍內,見 003 plan.md)。
+      x-requirements: [FR-003, FR-004, FR-005, NFR-002, NFR-003, SC-002, SC-003]
+      x-callers: UI;工作階段「就緒」
+      x-timeout: >-
+        遠端 Ollama 的 tags、ps 各 10 秒(S1);這個工作階段還沒讀成功過顯示記憶體時,另加一次 `colab exec`
+        (001 S8 `probeResources`:CLI `--timeout 30`、子行程 90 秒),逾時照 (3) 回 null、不回錯誤;讀成功之後不再有這一段
+      responses:
+        '200':
+          description: >-
+            模型目錄;讀不到顯示記憶體(`colab exec` 失敗、逾時或讀到 null)時也是 200,`vramBytes` 與每個 `mayNotFit` 為 null
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelCatalog'
+        '502':
+          description: 經通道連不到遠端 Ollama,或回應格式不對(讀 tags、ps 時;照 001 原樣)
+          x-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段(含開啟中、重連中)
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 遠端 Ollama 在逾時內沒有回應(讀 tags、ps 時;照 001 原樣)。讀顯示記憶體的 `colab exec` 逾時不是這個,是 200 與 null
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads/estimate:
+    post:
+      operationId: estimateDownloads
+      summary: 試算要加入下載的模型總大小、剩餘磁碟與預估時間
+      description: >-
+        001 的 FR-022、001 使用者故事 3 驗收情境 10:按「加入下載」後、確認前呼叫。每個模型以 002 S1 的 `getManifest` 取精確大小(`layers[].size` 加總,Q11),
+        剩餘磁碟由 001 S8 經 `colab exec` 取得(Q7)。`fits` 為 false 表示選取的總大小加上佇列裡還沒下載完的大小超過剩餘磁碟,
+        這時 `enqueueDownloads` 會拒絕(001 使用者故事 3 驗收情境 12)。預估時間是總大小 ÷ 50 MB/s(001 research.md R5 的估算),UI 標示為估計值。
+        不改變佇列。檢查條件與 `enqueueDownloads` 相同,只差空間不足時不回錯誤、改以 `fits` 表示。
+
+        這一輪(003 使用者故事 1):檢查依 `info.x-download-check-order` 的順序。試算也做「已下載」「已在佇列」的檢查(003 FR-001,分身決策紀錄 D1),
+        比對前先照 `info.x-model-name-rule` 補版本:執行環境上已有 `qwen2.5:latest` 時試算 `qwen2.5` 回 409 `MODEL_ALREADY_DOWNLOADED`、`model` 為 `qwen2.5:latest`
+        (003 使用者故事 1 驗收情境 1);佇列裡排隊中或下載中的 `qwen2.5:latest` 回 409 `DOWNLOAD_ALREADY_QUEUED`(驗收情境 3)。
+        同一批補過版本後相同的名稱只算一次:`["qwen2.5","qwen2.5:latest"]` 的 `items` 只有一筆 `qwen2.5:latest`,`totalBytes` 只算一次它的大小
+        (003 FR-002、驗收情境 5);`items` 依合併後的順序。判定為重複時不取任何 manifest(003 NFR-001)。
+
+        manifest 依合併後的順序一個一個取;任何一個模型取 manifest 失敗(404、422、502、504 的 `LIBRARY_*`)時,
+        回那一個失敗的代碼,`Error.model` 是那一個模型補過版本的名稱(同 `EstimateItem.name`),
+        不再取後面的模型,也不回部分的試算結果(002 的 FR-005、002 使用者故事 2 驗收情境 1–4)。
+      x-requirements: [FR-001, FR-002, NFR-001, NFR-003, SC-001]
+      x-callers: UI;工作階段「就緒」
+      x-timeout: >-
+        讀執行環境上的模型清單 10 秒(S1 `listLocalModels`),逾時回 504 `OLLAMA_TIMEOUT`。
+        每個 manifest 請求 10 秒(002 的 NFR-001,沿用 001 的 Q12),依序送出;照 002 S1 `getManifest` 的 `x-timeout`:
+        連線、每次讀取各 10 秒,整個請求(含讀完本文)也不超過 10 秒,任一個到期都歸 `LIBRARY_TIMEOUT`。
+        勾多個模型時逾時對每個請求各自計算,不另設整次呼叫的總時限
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadSelection'
+      responses:
+        '200':
+          description: 試算結果;`items` 每個補過版本後的名稱一筆
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadEstimate'
+        '400':
+          description: 本文不是合法 JSON;`models` 是空的;某個模型名稱格式不對(`Error.model` 指出是哪一個)
+          x-error-codes: [INVALID_REQUEST_BODY, EMPTY_MODEL_LIST, INVALID_MODEL_NAME]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: >-
+            官方模型庫沒有某個模型或版本(001 使用者故事 3 驗收情境 8;`Error.model` 指出是哪一個)。
+            registry 對「沒有這個模型」與「沒有這個版本」回的 404 相同,都是這個代碼,不分辨(002 S1 `getManifest`)。
+            `message` 取自後端固定的訊息表
+          x-error-codes: [LIBRARY_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >-
+            某個模型已經在執行環境上;某個模型已經在佇列裡(排隊中或下載中)。比對前先補版本(`info.x-model-name-rule`),
+            `Error.model` 是補過版本的名稱;依合併後的順序第一個重複的就回,在取任何 manifest 之前(`info.x-download-check-order`)
+          x-error-codes: [MODEL_ALREADY_DOWNLOADED, DOWNLOAD_ALREADY_QUEUED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: >-
+            某個版本只能在 Ollama 雲端執行,不能下載(Q8;registry 回 200 但 `layers` 是空陣列,002 S1 `getManifest`);
+            `Error.model` 指出是哪一個。`message` 取自後端固定的訊息表
+          x-error-codes: [LIBRARY_CLOUD_ONLY]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            連不到 registry、registry 回 5xx(Q55)或 manifest 格式不對;讀執行環境上的模型清單時連不到遠端 Ollama 或回應格式不對。
+            `LIBRARY_*` 出現的條件照 002 S1 `getManifest`:
+            `LIBRARY_UNREACHABLE` 是 DNS 失敗、連線被拒、TLS 失敗,或讀回應到一半連線中斷;
+            `LIBRARY_SERVER_ERROR` 是 registry 回 500–599;
+            `LIBRARY_BAD_RESPONSE` 是 200 但內容不是 manifest 的格式(不是 JSON、`layers` 不是陣列,或某一層沒有整數的 `size`),
+            或回了 200、404 與 5xx 以外的非預期狀態碼(含 3xx)。`LIBRARY_*` 時 `Error.model` 指出取不到的那一個。
+            `OLLAMA_*` 出現的條件照 S1 `listLocalModels` 的 `info.x-failure-rules`:
+            `OLLAMA_UNREACHABLE` 是沒有完整 HTTP 回應的傳輸層失敗(本機轉發沒有在聽、連線被拒、SSH 通道斷了、讀回應到一半連線中斷);
+            `OLLAMA_BAD_RESPONSE` 是狀態碼不是 200、本文無法解讀(解壓失敗或不是 JSON),或不是模型清單的形狀。`OLLAMA_*` 時沒有 `Error.model`。
+            `message` 都取自後端固定的訊息表(`info.x-ollama-error-message`)
+          x-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_SERVER_ERROR, LIBRARY_BAD_RESPONSE, OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: >-
+            沒有就緒的工作階段(含開啟中、重連中;在重複檢查之前,`info.x-download-check-order` 的 (2));
+            讀不到執行環境的剩餘磁碟空間(`Error.reasonCode` 帶 001 S8 的 `COLAB_` 代碼),無法檢查 001 的 FR-022
+          x-error-codes: [NO_READY_SESSION, DISK_SPACE_UNKNOWN]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: >-
+            registry 或遠端 Ollama 在逾時內沒有回應。`LIBRARY_TIMEOUT` 是某個 manifest 請求連線逾時、讀取逾時(含讀到一半逾時),
+            或整個請求超過 10 秒(見 `x-timeout`),這時 `Error.model` 指出是哪一個;
+            `OLLAMA_TIMEOUT` 是讀執行環境上的模型清單在 10 秒內沒有完成(S1 `info.x-failure-rules` 的 (1)),沒有 `Error.model`。
+            `message` 取自後端固定的訊息表
+          x-error-codes: [LIBRARY_TIMEOUT, OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads:
+    post:
+      operationId: enqueueDownloads
+      summary: 把一個或多個模型加入下載佇列
+      description: >-
+        001 的 FR-017、FR-021、FR-022:一次勾選多個(或輸入一個名稱)加入佇列,依序在背景下載到目前的執行環境(001 S1 `pullModel`,一次一個,001 research.md R5),
+        不影響正在進行的推論(001 的 NFR-007)。檢查條件同 `estimateDownloads`;任何一個模型不符,整批都不加入,佇列不變。
+        選取的總大小加上佇列裡還沒下載完的大小超過剩餘磁碟時拒絕(001 使用者故事 3 驗收情境 12)。
+        下載失敗時那一筆為 `failed`,`reasonCode` 依 Q3 分 `OLLAMA_NOT_FOUND`(找不到這個模型或版本)與 `OLLAMA_PULL_FAILED`(其他),
+        或串流中斷 `OLLAMA_STREAM_INTERRUPTED`、兩行進度之間超過 60 秒 `OLLAMA_TIMEOUT` 等 001 S1 代碼;執行環境上已有的模型不變。
+        下載完成後才出現在模型目錄(001 的 FR-018)。
+
+        這一輪(003 使用者故事 1):檢查依 `info.x-download-check-order` 的順序,比對前先照 `info.x-model-name-rule` 補版本。
+        執行環境上已有 `qwen2.5:latest` 時加入 `qwen2.5` 回 409 `MODEL_ALREADY_DOWNLOADED`,佇列不變(003 使用者故事 1 驗收情境 2);
+        佇列裡排隊中或下載中的 `qwen2.5:latest` 回 409 `DOWNLOAD_ALREADY_QUEUED`、`model` 為 `qwen2.5:latest`,不回 500(驗收情境 3);
+        勾三個、第二個是 `qwen2.5` 而佇列裡已有 `qwen2.5:latest` 時回 409 `DOWNLOAD_ALREADY_QUEUED`,三個都沒有加入(驗收情境 6);
+        佇列裡同名的那筆已經下載失敗時照常加入一筆新的(驗收情境 7)。
+        同一批補過版本後相同的名稱只加入一筆:`["qwen2.5","qwen2.5:latest"]` 只多一筆 `qwen2.5:latest`、`["qwen2.5:7b","qwen2.5:7b"]` 只多一筆
+        (003 FR-002、驗收情境 5);`jobs` 依合併後的順序。判定為重複時不取任何 manifest(003 NFR-001)。
+
+        同時加入:兩個加入下載的請求同時送出、都含補過版本後同一個模型時,重複檢查可能都還沒看到對方;
+        這時只有一個請求加入,另一個回 409 `DOWNLOAD_ALREADY_QUEUED`、`model` 是撞到的那一個,而且那個請求的整批都不加入
+        (含同一批裡其他沒有重複的模型),佇列與已經在佇列裡的項目都不變,也不推送 `download.updated`(003 FR-001「整批不加入佇列」、
+        003 research.md R2、SC-001「佇列裡同時是排隊中或下載中的同名項目 0 筆」)。
+
+        manifest 依合併後的順序一個一個取;任何一個模型取 manifest 失敗(404、422、502、504 的 `LIBRARY_*`)時,
+        回那一個失敗的代碼,`Error.model` 是那一個模型補過版本的名稱,不再取後面的模型;
+        整批都不加入佇列,佇列與已經在佇列裡的項目都不變,也不推送 `download.updated`
+        (002 的 FR-005、002 使用者故事 2 驗收情境 2–5)。
+      x-requirements: [FR-001, FR-002, NFR-001, NFR-003, SC-001]
+      x-callers: UI;工作階段「就緒」
+      x-timeout: >-
+        讀執行環境上的模型清單 10 秒(S1 `listLocalModels`),逾時回 504 `OLLAMA_TIMEOUT`。
+        每個 manifest 請求 10 秒(002 的 NFR-001,沿用 001 的 Q12),依序送出;照 002 S1 `getManifest` 的 `x-timeout`:
+        連線、每次讀取各 10 秒,整個請求(含讀完本文)也不超過 10 秒,任一個到期都歸 `LIBRARY_TIMEOUT`;
+        勾多個模型時逾時對每個請求各自計算,不另設整次呼叫的總時限。
+        pull 照 001 S1(連線 10 秒、兩行進度之間 60 秒、不設總時長)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadSelection'
+      responses:
+        '201':
+          description: 加入的項目(都是排隊中,或第一個馬上變成下載中);每個補過版本後的名稱一筆
+          x-recipients: 呼叫者(UI);每一筆也以 `download.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadJobList'
+        '400':
+          description: 本文不是合法 JSON;`models` 是空的;某個模型名稱格式不對(`Error.model` 指出是哪一個)
+          x-error-codes: [INVALID_REQUEST_BODY, EMPTY_MODEL_LIST, INVALID_MODEL_NAME]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: >-
+            官方模型庫沒有某個模型或版本(001 使用者故事 3 驗收情境 8「找不到這個模型」);`Error.model` 指出是哪一個,整批不加入。
+            registry 對「沒有這個模型」與「沒有這個版本」回的 404 相同,都是這個代碼,不分辨(002 S1 `getManifest`)。
+            `message` 取自後端固定的訊息表
+          x-error-codes: [LIBRARY_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >-
+            某個模型已經在執行環境上;某個模型已經在佇列裡(含同時送出的另一個請求剛加入的);總大小超過剩餘磁碟空間。
+            前兩個的 `Error.model` 是補過版本的名稱,整批不加入;`DISK_SPACE_INSUFFICIENT` 沒有 `Error.model`
+          x-error-codes: [MODEL_ALREADY_DOWNLOADED, DOWNLOAD_ALREADY_QUEUED, DISK_SPACE_INSUFFICIENT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: >-
+            某個版本只能在 Ollama 雲端執行,不能下載(Q8;registry 回 200 但 `layers` 是空陣列,002 S1 `getManifest`);
+            `Error.model` 指出是哪一個,整批不加入。`message` 取自後端固定的訊息表
+          x-error-codes: [LIBRARY_CLOUD_ONLY]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            連不到 registry、registry 回 5xx(Q55)或 manifest 格式不對;讀執行環境上的模型清單時連不到遠端 Ollama 或回應格式不對。
+            `LIBRARY_*` 出現的條件照 002 S1 `getManifest`:
+            `LIBRARY_UNREACHABLE` 是 DNS 失敗、連線被拒、TLS 失敗,或讀回應到一半連線中斷;
+            `LIBRARY_SERVER_ERROR` 是 registry 回 500–599;
+            `LIBRARY_BAD_RESPONSE` 是 200 但內容不是 manifest 的格式(不是 JSON、`layers` 不是陣列,或某一層沒有整數的 `size`),
+            或回了 200、404 與 5xx 以外的非預期狀態碼(含 3xx)。`LIBRARY_*` 時 `Error.model` 指出取不到的那一個。
+            `OLLAMA_*` 出現的條件照 S1 `listLocalModels` 的 `info.x-failure-rules`:
+            `OLLAMA_UNREACHABLE` 是沒有完整 HTTP 回應的傳輸層失敗(本機轉發沒有在聽、連線被拒、SSH 通道斷了、讀回應到一半連線中斷);
+            `OLLAMA_BAD_RESPONSE` 是狀態碼不是 200、本文無法解讀(解壓失敗或不是 JSON),或不是模型清單的形狀。`OLLAMA_*` 時沒有 `Error.model`。
+            都是整批不加入;`message` 都取自後端固定的訊息表(`info.x-ollama-error-message`)
+          x-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_SERVER_ERROR, LIBRARY_BAD_RESPONSE, OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: >-
+            沒有就緒的工作階段(含開啟中、重連中;在重複檢查之前);讀不到執行環境的剩餘磁碟空間(`Error.reasonCode` 帶 001 S8 的代碼)
+          x-error-codes: [NO_READY_SESSION, DISK_SPACE_UNKNOWN]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: >-
+            registry 或遠端 Ollama 在逾時內沒有回應。`LIBRARY_TIMEOUT` 是某個 manifest 請求連線逾時、讀取逾時(含讀到一半逾時),
+            或整個請求超過 10 秒(見 `x-timeout`),這時 `Error.model` 指出是哪一個;
+            `OLLAMA_TIMEOUT` 是讀執行環境上的模型清單在 10 秒內沒有完成(S1 `info.x-failure-rules` 的 (1)),沒有 `Error.model`。
+            都是整批不加入;`message` 取自後端固定的訊息表
+          x-error-codes: [LIBRARY_TIMEOUT, OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    ReasonCode:
+      type: string
+      pattern: '^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+|AUTH_REQUIRED)$'
+      description: >-
+        外部依賴失敗的轉接層代碼,照原文沿用:`OLLAMA_`(001 S1、003 S1)、`LIBRARY_`(002 S1)、`OAUTH_`(001 S3)、`COLAB_`(001 S8)、`TUNNEL_`(001 S9);
+        各前綴底下的代碼以各步驟的規格檔為準,本檔不另列舉。
+        另外允許 `AUTH_REQUIRED`(Q61):001 S8 偵測到 Colab CLI 的授權失效時回它,與 001 `openSession` 的 409 `AUTH_REQUIRED` 同一個原因、同一個代碼(Q26)
+    ModelName:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9._-]*(:[A-Za-z0-9_][A-Za-z0-9._-]*)?$'
+      description: >-
+        官方模型名稱,可帶 `:版本`(例 qwen2.5:7b);沒寫版本視為 `latest`(補法見 `info.x-model-name-rule`)。不接受社群模型的 `<使用者>/<名稱>`(Q9)
+    DownloadSelection:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          description: >-
+            勾選或輸入的模型名稱;補過版本後相同的視為同一個模型,只算一次大小、只加入一筆,保留第一次出現的順序(003 FR-002)
+          items:
+            $ref: '#/components/schemas/ModelName'
+    EstimateItem:
+      type: object
+      required: [name, sizeBytes]
+      properties:
+        name:
+          type: string
+          description: 名稱含版本(沒寫版本時補上 latest);同一批裡每個補過版本後的名稱只有一筆
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: manifest `layers[].size` 的總和,位元組
+    DownloadEstimate:
+      type: object
+      required: [items, totalBytes, pendingQueueBytes, freeDiskBytes, diskCheckedAt, fits, estimatedSeconds]
+      properties:
+        items:
+          type: array
+          description: 依合併後的順序,每個補過版本後的名稱一筆
+          items:
+            $ref: '#/components/schemas/EstimateItem'
+        totalBytes:
+          type: integer
+          minimum: 0
+          description: 這次選取的總大小,位元組;同一批補過版本後相同的名稱只算一次
+        pendingQueueBytes:
+          type: integer
+          minimum: 0
+          description: 佇列裡排隊中與下載中的項目還沒下載的大小,位元組
+        freeDiskBytes:
+          type: integer
+          minimum: 0
+          description: 執行環境的剩餘磁碟空間,位元組(001 S8 提供,Q7);每次照讀,不沿用
+        diskCheckedAt:
+          type: string
+          format: date-time
+        fits:
+          type: boolean
+          description: totalBytes 加 pendingQueueBytes 不超過 freeDiskBytes
+        estimatedSeconds:
+          type: integer
+          minimum: 0
+          description: 預估下載時間,秒;以 50 MB/s 估算(001 research.md R5),UI 標示為估計值
+    DownloadProgress:
+      type: object
+      required: [completedBytes, totalBytes]
+      properties:
+        phase:
+          type: string
+          enum: [manifest, downloading, verifying, writing]
+          description: 對應 pull 進度的 pulling manifest、pulling <digest>、verifying sha256 digest、writing manifest
+        completedBytes:
+          type: integer
+          minimum: 0
+          description: 各層已下載的位元組總和
+        totalBytes:
+          type: integer
+          minimum: 0
+          description: 各層的總大小
+    DownloadJob:
+      type: object
+      required: [id, model, sizeBytes, state, origin, preloadOnComplete, addedAt]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        model:
+          type: string
+          description: 模型名稱含版本(沒寫版本時補上 latest);「已在佇列」的比對用這個欄位
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: 加入時 manifest 算出的大小,位元組
+        state:
+          type: string
+          enum: [queued, downloading, completed, failed]
+          description: >-
+            排隊中、下載中、完成、失敗(已取消的直接從佇列移除,不會出現)。
+            只有排隊中與下載中算「已在佇列」;完成與失敗的不算(003 spec.md 邊界情況)
+        progress:
+          oneOf:
+            - $ref: '#/components/schemas/DownloadProgress'
+            - type: 'null'
+          description: 只在 `downloading` 時有值;事件最多每秒推一次
+        reasonCode:
+          type: [string, 'null']
+          description: >-
+            失敗原因:001 S1 的 `OLLAMA_` 代碼(例如 `OLLAMA_NOT_FOUND`、`OLLAMA_PULL_FAILED`、`OLLAMA_STREAM_INTERRUPTED`、`OLLAMA_TIMEOUT`),
+            或本系統的 `SESSION_ENDED`(工作階段結束或失聯而中斷)、`DISK_SPACE_INSUFFICIENT`(自動繼續時空間不足)
+        message:
+          type: [string, 'null']
+          description: 給使用者看的繁體中文失敗說明
+        origin:
+          type: string
+          enum: [user, restore]
+          description: 使用者加入的,或變更類型時為了重新載入原本的模型而加入的(001 的 FR-010)
+        preloadOnComplete:
+          type: boolean
+          description: 下載完成後自動預先載入(`origin` 為 `restore` 時為 true)
+        addedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: [string, 'null']
+          format: date-time
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+    DownloadJobList:
+      type: object
+      required: [jobs]
+      properties:
+        jobs:
+          type: array
+          description: 這次加入的項目,依合併後的順序;同一批補過版本後相同的名稱只有一筆
+          items:
+            $ref: '#/components/schemas/DownloadJob'
+    PreloadState:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [idle, loading, failed]
+          description: 沒有預先載入、載入中、上一次預先載入失敗
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+        message:
+          type: [string, 'null']
+    CatalogModel:
+      type: object
+      required: [name, sizeBytes, modifiedAt, loaded, mayNotFit, preload]
+      properties:
+        name:
+          type: string
+          description: 模型名稱含版本,照遠端 Ollama `/api/tags` 的 `name`
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: 模型在磁碟上的大小,位元組
+        modifiedAt:
+          type: string
+          format: date-time
+          description: 下載完成的時間
+        loaded:
+          type: boolean
+          description: 目前是否已載入記憶體(遠端 Ollama `/api/ps`;每次列出都重讀,不沿用)
+        mayNotFit:
+          type: [boolean, 'null']
+          description: >-
+            001 的 NFR-006:大小超過顯示記憶體總量(`vramBytes`,Q62)時為 true,UI 標示「可能無法載入」;
+            讀不到顯示記憶體(`colab exec` 失敗、逾時或讀到 null)時為 null(003 FR-004)
+        preload:
+          $ref: '#/components/schemas/PreloadState'
+    ModelCatalog:
+      type: object
+      required: [items, vramBytes]
+      properties:
+        vramBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: >-
+            目前執行環境 GPU 的顯示記憶體總量,位元組(001 S8 提供,Q7、Q62);同一個工作階段讀成功一次後沿用同一個值(003 FR-003);
+            讀不到(`colab exec` 失敗、逾時或讀到 null)時為 null,下一次列出目錄時再讀(003 FR-004)
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogModel'
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST_BODY
+            - NO_READY_SESSION
+            - INVALID_MODEL_NAME
+            - EMPTY_MODEL_LIST
+            - MODEL_ALREADY_DOWNLOADED
+            - DOWNLOAD_ALREADY_QUEUED
+            - DISK_SPACE_INSUFFICIENT
+            - DISK_SPACE_UNKNOWN
+            - OLLAMA_UNREACHABLE
+            - OLLAMA_TIMEOUT
+            - OLLAMA_BAD_RESPONSE
+            - LIBRARY_UNREACHABLE
+            - LIBRARY_TIMEOUT
+            - LIBRARY_BAD_RESPONSE
+            - LIBRARY_NOT_FOUND
+            - LIBRARY_CLOUD_ONLY
+            - LIBRARY_SERVER_ERROR
+          description: >-
+            `OLLAMA_` 開頭的照 003 S1(`remote-ollama.openapi.yaml`)原文沿用,`LIBRARY_` 開頭的照 002 S1 `model-library.openapi.yaml` 原文沿用;
+            其他是本介面自己把關的條件。`NO_READY_SESSION` 與 001 S6 共用(沒有就緒的工作階段,含開啟中與重連中,HTTP 503)。
+            這裡只列本檔三個操作會回的代碼(做法同 002 plan.md Q2),其他操作的代碼以 001、002 的 `ui.openapi.yaml` 為準
+        message:
+          type: string
+          description: >-
+            給使用者看的繁體中文說明。`LIBRARY_*` 與 `OLLAMA_*` 時是那個代碼固定的一句,取自後端固定的訊息表;
+            不帶底層例外的文字、traceback、對方的網址或對方回的內容(002 的 NFR-002、`info.x-ollama-error-message`)
+        model:
+          type: string
+          description: >-
+            下載相關的錯誤指出是哪一個模型。
+            `MODEL_ALREADY_DOWNLOADED`、`DOWNLOAD_ALREADY_QUEUED` 時一定有,是重複的那一個補過版本的名稱(沒寫版本時補上 `latest`,003 FR-001);
+            `LIBRARY_*` 時一定有,是取不到 manifest 的那一個補過版本的名稱(002 的 FR-005);`INVALID_MODEL_NAME` 時指出格式不對的那一個(照 001、002);
+            `OLLAMA_*`、`DISK_SPACE_*`、`NO_READY_SESSION` 與模型目錄的錯誤沒有這個欄位
+        reasonCode:
+          $ref: '#/components/schemas/ReasonCode'
+          description: '`DISK_SPACE_UNKNOWN` 的外部原因(001 S8 的 `COLAB_` 代碼)'

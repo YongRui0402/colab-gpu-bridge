@@ -1,0 +1,214 @@
+openapi: 3.1.0
+info:
+  title: 遠端 Ollama API(Colab 執行環境上;列模型與查已載入)
+  version: 0.3.0
+  description: >-
+    S1(E7 遠端 Ollama)依 003 的 spec.md、research.md R2、techstack.md 與 plan.md 產出;
+    以 001 的同名檔(001 的 S1,依 001 的 spec.md、research.md R3 與 plan.md 產出)為底,
+    只收後端轉接層同一處讀清單的兩個操作 `listLocalModels`(`GET /api/tags`)、`listLoadedModels`(`GET /api/ps`)
+    與它們用到的 components。路徑、operationId、成功回應、`x-adapter-error-codes` 與 `x-timeout` 照 001 原樣
+    (003 spec.md 假設:這一輪不改合約);這一輪只補上 001 的檔還沒寫到的地方:每個代碼出現的條件
+    (`x-failure-rules`,照 003 research.md R2 與同檔 001 `getVersion` 的歸類),並把 `x-requirements` 改指 003 的需求編號。
+    001 的其他操作(`getVersion`、`pullModel`、`showModel`、`generate`、`chat`、`embed`、`embeddingsLegacy`)與它們的代碼仍以 001 的檔為準。
+
+    沿用自 001 的 `Q<n>` 指 001 的 plan.md;描述裡的 `FR-0xx` 凡是標了「001 的」,指 001 的 spec.md;
+    `x-requirements` 只列 003 spec.md 的編號。
+
+    這是第三方介面:Ollama 定好的 HTTP API 原樣,路徑、參數與回應欄位都是 Ollama 的,本系統不能改。
+    執行環境上的 Ollama 只聽 127.0.0.1:11434,本系統後端經 SSH 本機轉發呼叫它(001 的 research.md R3),
+    沒有任何公開網址。Ollama 不驗證呼叫者的身分。
+    回應欄位的形狀以桌機 Ollama 0.32.15 實測(001:2026-11-09,唯讀查詢;003 research.md R1:2026-11-13 再看一次 `/api/tags`,
+    6 筆的 `name` 都帶版本)為準,標「Ollama 說明文件」的是沒有實測、照 Ollama 說明文件寫的行為。
+    遠端 Colab 上的 Ollama 的 `/api/tags` 名稱是否一律帶版本,這一輪沒有開 Colab,沒有查(003 research.md 待驗證)。
+
+    錯誤本文:Ollama 的錯誤一律回 `{"error": "<英文說明>"}`,沒有錯誤碼欄位;這兩個操作不讀它的內容,
+    非 200 一律依狀態碼歸類(見 `x-failure-rules`)。
+    操作的 `x-adapter-error-codes` 是本系統後端轉接層把對方的失敗歸成的原因代碼(schema `Error` 列出這兩個操作會出現的代碼),
+    **不是 Ollama 回應的內容**。
+  x-failure-rules: >-
+    兩個操作用同一套規則歸類失敗(003 research.md R2,照同檔 001 `getVersion` 的歸類),
+    依下面的順序判定,第一個符合的就是結果:
+    (1)在 `x-timeout` 內沒有完成(連線逾時、讀取逾時,含讀到一半逾時) → `OLLAMA_TIMEOUT`;
+    逾時同時也是傳輸層失敗,所以先看是不是逾時。
+    (2)其他沒有完整 HTTP 回應的傳輸層失敗(本機轉發沒有在聽、連線被拒、SSH 通道斷了、讀回應到一半連線中斷) → `OLLAMA_UNREACHABLE`。
+    (3)收到了回應,但狀態碼不是 200(含 3xx,不跟著導向;Ollama 回的 4xx、5xx 也一樣,不讀 `error` 的內容) → `OLLAMA_BAD_RESPONSE`。
+    (4)200,但本文無法解讀:底層 HTTP 程式庫解壓本文失敗,或本文不是 JSON(例如 HTML) → `OLLAMA_BAD_RESPONSE`。
+    (5)200 且是 JSON,但不是 `TagsResponse`/`PsResponse` 的形狀:不是物件、缺少 `models`、`models` 不是陣列,
+    或其中一筆不是物件、缺少字串的 `name`;`listLocalModels` 另外要每一筆有非負整數的 `size` → `OLLAMA_BAD_RESPONSE`。
+    其他欄位(`digest`、`modified_at`、`expires_at`、`size_vram`、`details`…)後端不讀,缺少或型別不符都不算失敗。
+    `models` 是空陣列是正常結果(執行環境剛開好、沒有載入任何模型),不是格式不符。
+    轉接層對呼叫它的一方只丟出上面三個原因代碼;底層 HTTP 程式庫的例外與解析 JSON 的例外都不越過轉接層往上拋。
+    失敗時不自動重試。
+    呼叫這兩個操作的 UI API 怎麼對應這三個代碼(試算與加入下載回 502、504)由 003 的 S2 `ui.openapi.yaml` 定;
+    模型目錄、變更執行階段類型、預先載入與搜尋的已下載標記收到這些代碼時,UI API 回什麼仍照 001(001 完成報告 Q203,不在這一輪範圍內)。
+    Ollama 相容端點原樣轉送區網程式對 `/api/tags`、`/api/ps` 的請求時,不經這套規則,仍照 001 的 `ollama-compat` 規格檔。
+servers:
+  - url: http://127.0.0.1:{localPort}
+    description: 本系統後端所在主機上的 SSH 本機轉發,另一端是執行環境的 127.0.0.1:11434
+    variables:
+      localPort:
+        default: '11435'
+        description: 本機轉發的 port(001 的 research.md R3 實測用 11435)
+paths:
+  /api/tags:
+    get:
+      operationId: listLocalModels
+      summary: 列出執行環境上已下載的模型
+      description: >-
+        回傳 `OLLAMA_MODELS`(執行環境預設 `/root/.ollama/models`,001 的 research.md R4)底下已有 manifest 的模型。
+        Ollama 在 pull 的所有層都下載並驗證完才寫入 manifest(Ollama 說明文件的 pull 進度最後是 `writing manifest`、`success`),
+        所以下載中的模型不會出現在這份清單(001 的 FR-018)。001 的 plan.md Q2 已決定:直接信任這份清單,不另外排除下載佇列中未完成的名稱。
+
+        這一輪:試算與加入下載判斷「已下載」時,以這份清單每筆的 `name` 原樣和補過版本的名稱比對,清單這一側不再補版本
+        (003 FR-001;003 research.md R1:本機實測 `name` 都帶版本)。模型目錄的名稱與大小(003 FR-004 的「照常列出模型」)也來自這裡。
+        讀不到這份清單時的歸類見 `info.x-failure-rules`;試算與加入下載收到這三個代碼時回 502 或 504、不回 500(003 NFR-003、spec.md 假設)。
+      x-requirements: [FR-001, FR-004, NFR-003]
+      x-callers: 本系統後端(試算與加入下載的重複檢查、模型目錄、變更執行階段類型、搜尋的已下載標記),工作階段「就緒」時,經 SSH 本機轉發
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      x-timeout: 10 秒(001 的 plan.md Q5 已決定)
+      responses:
+        '200':
+          description: 已下載完成的模型清單;執行環境剛開好時是空陣列
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagsResponse'
+  /api/ps:
+    get:
+      operationId: listLoadedModels
+      summary: 列出目前已載入記憶體的模型
+      description: >-
+        模型目錄的「是否已載入」(001 的 FR-014)與預先載入完成的確認(001 的 FR-015)來自這裡。
+        001 的 research.md R3 實測斷線重連後 `/api/ps` 仍顯示 qwen2.5:7b。沒有載入任何模型時回 `{"models":[]}`(桌機實測)。
+
+        這一輪不改它的用途;它和 `listLocalModels` 在轉接層共用同一處讀清單,所以一起改成照 `info.x-failure-rules` 歸類
+        (003 plan.md Structure Decision)。試算與加入下載不呼叫它;模型目錄每次列出都會呼叫它(003 FR-004 的「照常列出模型」),
+        這一輪的快取只放顯示記憶體總量,不快取這份清單(003 spec.md 假設)。
+      x-requirements: [FR-004]
+      x-callers: 本系統後端(模型目錄、預先載入、變更執行階段類型),工作階段「就緒」時,經 SSH 本機轉發
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+      x-timeout: 10 秒(001 的 plan.md Q5 已決定)
+      responses:
+        '200':
+          description: 已載入的模型與各自佔用的記憶體與到期時間
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PsResponse'
+components:
+  schemas:
+    ModelDetails:
+      type: object
+      description: 模型的格式與量化資訊(桌機 0.32.15 實測的欄位)
+      properties:
+        parent_model:
+          type: string
+        format:
+          type: string
+          description: 例如 gguf
+        family:
+          type: string
+        families:
+          type: array
+          items:
+            type: string
+        parameter_size:
+          type: string
+          description: 例如 4.0B
+        quantization_level:
+          type: string
+          description: 例如 Q4_K_M
+        context_length:
+          type: integer
+        embedding_length:
+          type: integer
+    LocalModel:
+      type: object
+      required: [name, model, modified_at, size, digest]
+      properties:
+        name:
+          type: string
+          description: 模型名稱含版本,例如 qwen2.5:7b、qwen2.5:latest
+        model:
+          type: string
+          description: 和 name 相同
+        modified_at:
+          type: string
+          format: date-time
+          description: 下載完成(寫入 manifest)的時間
+        size:
+          type: integer
+          minimum: 0
+          description: 模型在磁碟上的大小,位元組
+        digest:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: manifest 的 sha256,不含 `sha256:` 前綴
+        details:
+          $ref: '#/components/schemas/ModelDetails'
+        capabilities:
+          type: array
+          description: 例如 completion、tools、vision、thinking(桌機 0.32.15 實測有這個欄位)
+          items:
+            type: string
+    TagsResponse:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocalModel'
+    LoadedModel:
+      type: object
+      required: [name, model, size, digest, expires_at, size_vram]
+      description: 欄位照 Ollama 說明文件;桌機實測時沒有已載入的模型,只確認了空清單
+      properties:
+        name:
+          type: string
+        model:
+          type: string
+        size:
+          type: integer
+          minimum: 0
+          description: 載入後佔用的記憶體,位元組
+        digest:
+          type: string
+        details:
+          $ref: '#/components/schemas/ModelDetails'
+        expires_at:
+          type: string
+          format: date-time
+          description: 沒有請求時預計卸載的時間(由 keep_alive 決定)
+        size_vram:
+          type: integer
+          minimum: 0
+          description: 在顯示記憶體裡的部分,位元組;等於 size 表示整個模型在 GPU 上
+        context_length:
+          type: integer
+    PsResponse:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoadedModel'
+    Error:
+      type: object
+      required: [code]
+      description: >-
+        本系統後端轉接層把遠端 Ollama 的失敗歸成的原因代碼,**不是 Ollama 回應的內容**;
+        後端 UI API(003 的 S2)據此決定要回什麼給它的呼叫者。
+        這裡只列這兩個操作會出現的三個代碼;001 的檔另有 `OLLAMA_NOT_FOUND`、`OLLAMA_BAD_REQUEST`、`OLLAMA_SERVER_ERROR`、
+        `OLLAMA_PULL_FAILED`、`OLLAMA_STREAM_INTERRUPTED`,只出現在其他操作,仍以 001 的檔為準。
+      properties:
+        code:
+          type: string
+          enum: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE]
+          x-enum-descriptions:
+            OLLAMA_UNREACHABLE: 連不到(本機轉發沒有在聽、連線被拒、SSH 通道斷了),或讀回應到一半連線中斷,沒有完整的 HTTP 回應(`info.x-failure-rules` 第 2 條)
+            OLLAMA_TIMEOUT: 在 `x-timeout` 內沒有完成,含連線逾時與讀到一半逾時(`info.x-failure-rules` 第 1 條)
+            OLLAMA_BAD_RESPONSE: 收到了回應,但狀態碼不是 200、本文解壓失敗或不是 JSON,或不是 `TagsResponse`/`PsResponse` 的形狀(`info.x-failure-rules` 第 3–5 條)
