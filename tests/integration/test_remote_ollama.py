@@ -618,3 +618,157 @@ async def test_list_local_models_逾時四項都是_10_秒() -> None:
     await RemoteOllama(transport=httpx.MockTransport(reply)).list_local_models(base_url=LOCAL_FORWARD_URL)
 
     assert seen == [{"connect": 10.0, "read": 10.0, "write": 10.0, "pool": 10.0}]
+
+
+# ---- 003 US2-RO-01
+
+
+def ps_only(body: object) -> Callable[[httpx.Request], httpx.Response]:
+    """只有 `GET /api/ps` 回 `body`,其他路徑回 404。"""
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/api/ps":
+            return json_reply(body)
+        return httpx.Response(404)
+
+    return reply
+
+
+async def test_list_loaded_models_完整一筆_空陣列_只有_name_都照常回傳並只打_api_ps() -> None:
+    """US2-RO-01:A 完整一筆、B 空陣列(剛開好)、C 只有 `name`;`size` 的檢查只套 `/api/tags`,逾時 10 秒。"""
+    full = {
+        "name": "qwen2.5:7b",
+        "model": "qwen2.5:7b",
+        "size": 6654289920,
+        "digest": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e",
+        "expires_at": "2318-02-19T09:00:00Z",
+        "size_vram": 6654289920,
+    }
+    handler_a = Recorder(ps_only({"models": [full]}))
+    handler_b = Recorder(ps_only({"models": []}))
+    handler_c = Recorder(ps_only({"models": [{"name": "qwen2.5:7b"}]}))
+
+    result_a = await handler_a.remote().list_loaded_models(base_url=LOCAL_FORWARD_URL)
+    result_b = await handler_b.remote().list_loaded_models(base_url=LOCAL_FORWARD_URL)
+    result_c = await handler_c.remote().list_loaded_models(base_url=LOCAL_FORWARD_URL)
+
+    assert [m["name"] for m in result_a["models"]] == ["qwen2.5:7b"]
+    assert result_b["models"] == []
+    assert [m["name"] for m in result_c["models"]] == ["qwen2.5:7b"]
+    assert [(r.method, r.url.path) for r in handler_a.requests] == [("GET", "/api/ps")]
+    assert handler_a.requests[0].extensions["timeout"]["read"] == 10.0
+
+
+# ---- 003 US2-RO-02
+
+
+async def loaded_outcome(remote: RemoteOllama) -> object:
+    """呼叫一次 `list_loaded_models`;成功交回 `models`,丟出 `AdapterError` 交回 `AdapterError(<code>)`,
+    其他例外交回 `repr`。讓「丟了不該丟的例外」成為斷言失敗,不是測試本身出錯。"""
+    try:
+        return (await remote.list_loaded_models(base_url=LOCAL_FORWARD_URL))["models"]
+    except AdapterError as error:
+        return f"AdapterError({error.code})"
+    except Exception as error:  # noqa: BLE001 - 丟了別的例外也要成為斷言失敗
+        return repr(error)
+
+
+async def test_list_loaded_models_連線逾時與讀取逾時都歸成_OLLAMA_TIMEOUT_且不重試() -> None:
+    """US2-RO-02:A 連線逾時、B 讀取逾時;逾時要先於其他傳輸層失敗判定,失敗不自動重試。"""
+    handler_a = Recorder(raising([httpx.ConnectTimeout("timed out")]))
+    handler_b = Recorder(raising([httpx.ReadTimeout("timed out")]))
+
+    outcome_a = await loaded_outcome(handler_a.remote())
+    outcome_b = await loaded_outcome(handler_b.remote())
+
+    assert outcome_a == "AdapterError(OLLAMA_TIMEOUT)"
+    assert outcome_b == "AdapterError(OLLAMA_TIMEOUT)"
+    assert len(handler_b.requests) == 1
+
+
+# ---- 003 US2-RO-03
+
+
+async def test_list_loaded_models_連不到_協定錯誤_連線被重設都歸成_OLLAMA_UNREACHABLE_且不重試() -> None:
+    """US2-RO-03:A 本機轉發沒有在聽、B 讀回應到一半連線中斷、C SSH 通道斷了。"""
+    handler_a = Recorder(raising([httpx.ConnectError("[Errno 111] Connection refused")]))
+    handler_b = Recorder(
+        raising([httpx.RemoteProtocolError("peer closed connection without sending complete message body")])
+    )
+    handler_c = Recorder(raising([httpx.ReadError("[Errno 104] Connection reset by peer")]))
+
+    outcome_a = await loaded_outcome(handler_a.remote())
+    outcome_b = await loaded_outcome(handler_b.remote())
+    outcome_c = await loaded_outcome(handler_c.remote())
+
+    assert outcome_a == "AdapterError(OLLAMA_UNREACHABLE)"
+    assert outcome_b == "AdapterError(OLLAMA_UNREACHABLE)"
+    assert outcome_c == "AdapterError(OLLAMA_UNREACHABLE)"
+    assert len(handler_a.requests) == 1
+
+
+# ---- 003 US2-RO-04
+
+
+async def test_list_loaded_models_狀態碼不是_200_與_302_都歸成_OLLAMA_BAD_RESPONSE_且不跟著導向() -> None:
+    """US2-RO-04:A 500 帶 `{"models":[]}`、B 404 純文字、C 302 導到 `/api/ps-moved`(那裡有合法清單)。"""
+
+    def reply_a(request: httpx.Request) -> httpx.Response:
+        return json_reply({"models": []}, 500)
+
+    def reply_b(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, headers={"Content-Type": "text/plain"}, content=b"404 page not found")
+
+    def reply_c(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/ps":
+            return httpx.Response(302, headers={"Location": "http://127.0.0.1:11435/api/ps-moved"})
+        return json_reply({"models": [{"name": "qwen2.5:7b"}]})
+
+    handler_a, handler_b, handler_c = Recorder(reply_a), Recorder(reply_b), Recorder(reply_c)
+
+    outcome_a = await loaded_outcome(handler_a.remote())
+    outcome_b = await loaded_outcome(handler_b.remote())
+    outcome_c = await loaded_outcome(handler_c.remote())
+
+    assert outcome_a == "AdapterError(OLLAMA_BAD_RESPONSE)"
+    assert outcome_b == "AdapterError(OLLAMA_BAD_RESPONSE)"
+    assert outcome_c == "AdapterError(OLLAMA_BAD_RESPONSE)"
+    assert [r.url.path for r in handler_c.requests] == ["/api/ps"]
+
+
+# ---- 003 US2-RO-05
+
+
+async def test_list_loaded_models_本文無法解讀時歸成_OLLAMA_BAD_RESPONSE() -> None:
+    """US2-RO-05:A 回 200 的 HTML、B 宣稱 gzip 卻沒壓縮(讀本文時才丟 `DecodingError`)。"""
+    handler_a = Recorder(
+        lambda request: httpx.Response(
+            200,
+            headers={"Content-Type": "text/html"},
+            content=b"<!DOCTYPE html><html><body>Bad Gateway</body></html>",
+        )
+    )
+    handler_b = Recorder(
+        lambda request: httpx.Response(
+            200,
+            headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+            stream=httpx.ByteStream(b'{"models":[]}'),
+        )
+    )
+
+    outcome_a = await loaded_outcome(handler_a.remote())
+    outcome_b = await loaded_outcome(handler_b.remote())
+
+    assert outcome_a == "AdapterError(OLLAMA_BAD_RESPONSE)"
+    assert outcome_b == "AdapterError(OLLAMA_BAD_RESPONSE)"
+
+
+# ---- 003 US2-RO-06
+
+
+async def test_list_loaded_models_形狀不符時整份歸成_OLLAMA_BAD_RESPONSE() -> None:
+    """US2-RO-06:`[]`、`{}`、`models` 是物件、字串陣列、沒有 `name`、`name` 是 7。"""
+    bodies = [[], {}, {"models": {}}, {"models": ["qwen2.5:7b"]}, {"models": [{"model": "qwen2.5:7b"}]}, {"models": [{"name": 7}]}]
+    outcomes = [await loaded_outcome(Recorder(ps_only(body)).remote()) for body in bodies]
+
+    assert outcomes == ["AdapterError(OLLAMA_BAD_RESPONSE)"] * 6

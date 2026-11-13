@@ -448,55 +448,55 @@
 
 > 這一節只呼叫 `list_loaded_models`(`GET /api/ps`);它和 `list_local_models` 共用 `_get_list`,故事 1 的 T005b~T014b 已做出同一套歸類,所以除了形狀檢查的邊界,每個案例都是對照組。E7 與 E2 兩節平行,沒有共用的檔
 
-- [ ] T048a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-01 的測試(handler 對 `/api/ps` 依情況回完整的一筆、空陣列、只有 `name` 的一筆,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-01`(`plan.md` § 待決問題 Q7));`list_loaded_models` 走同一個 `_get_list`:T012b、T013b 的形狀檢查接受空陣列與只有 `name` 的那筆,T014b 的 `size` 檢查只套在 `/api/tags`,逾時沿用 `LIST_TIMEOUT` 的 10 秒,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 的形狀檢查 改成「`size` 的檢查也套到 `/api/ps`,只有 `name` 的那筆被歸成 `OLLAMA_BAD_RESPONSE`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T048a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-01 的測試(handler 對 `/api/ps` 依情況回完整的一筆、空陣列、只有 `name` 的一筆,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-01`(`plan.md` § 待決問題 Q7));`list_loaded_models` 走同一個 `_get_list`:T012b、T013b 的形狀檢查接受空陣列與只有 `name` 的那筆,T014b 的 `size` 檢查只套在 `/api/tags`,逾時沿用 `LIST_TIMEOUT` 的 10 秒,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 的形狀檢查 改成「`size` 的檢查也套到 `/api/ps`,只有 `name` 的那筆被歸成 `OLLAMA_BAD_RESPONSE`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-RO-01
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q2、Q3、Q10
-- [ ] T048b [US2] 🟢 /tdd 綠燈:US2-RO-01 由 T012b~T014b 與既有的 `LIST_TIMEOUT` 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-01 通過的程式碼(依賴 T048a、T014b)
+- [X] T048b [US2] 🟢 /tdd 綠燈:US2-RO-01 由 T012b~T014b 與既有的 `LIST_TIMEOUT` 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-01 通過的程式碼(依賴 T048a、T014b)
   - 🧪 `testplan.md` § US2-RO-01
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q2、Q3、Q10
-- [ ] T049a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-02 的測試(handler 依情況丟 `ConnectTimeout`、`ReadTimeout`,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-02`(`plan.md` § 待決問題 Q7));T005b 在共用的 `_get_list` 把逾時歸成 `OLLAMA_TIMEOUT`,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「先寫 `except httpx.TransportError` 再寫 `except httpx.TimeoutException`,逾時被前者攔下歸成 `OLLAMA_UNREACHABLE`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T049a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-02 的測試(handler 依情況丟 `ConnectTimeout`、`ReadTimeout`,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-02`(`plan.md` § 待決問題 Q7));T005b 在共用的 `_get_list` 把逾時歸成 `OLLAMA_TIMEOUT`,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「先寫 `except httpx.TransportError` 再寫 `except httpx.TimeoutException`,逾時被前者攔下歸成 `OLLAMA_UNREACHABLE`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-RO-02
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`research.md` § R2
-- [ ] T049b [US2] 🟢 /tdd 綠燈:US2-RO-02 由 T005b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-02 通過的程式碼(依賴 T049a、T005b)
+- [X] T049b [US2] 🟢 /tdd 綠燈:US2-RO-02 由 T005b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-02 通過的程式碼(依賴 T049a、T005b)
   - 🧪 `testplan.md` § US2-RO-02
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`research.md` § R2
-- [ ] T050a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-03 的測試(handler 依情況丟 `ConnectError`、`RemoteProtocolError`、`ReadError`,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-03`(`plan.md` § 待決問題 Q7));T007b 在共用的 `_get_list` 把其他傳輸層失敗歸成 `OLLAMA_UNREACHABLE`,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「只接 `httpx.ConnectError` 與 `httpx.NetworkError`,`RemoteProtocolError` 原樣往上拋」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T050a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-03 的測試(handler 依情況丟 `ConnectError`、`RemoteProtocolError`、`ReadError`,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-03`(`plan.md` § 待決問題 Q7));T007b 在共用的 `_get_list` 把其他傳輸層失敗歸成 `OLLAMA_UNREACHABLE`,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「只接 `httpx.ConnectError` 與 `httpx.NetworkError`,`RemoteProtocolError` 原樣往上拋」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-RO-03
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`research.md` § R2
-- [ ] T050b [US2] 🟢 /tdd 綠燈:US2-RO-03 由 T007b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-03 通過的程式碼(依賴 T050a、T007b)
+- [X] T050b [US2] 🟢 /tdd 綠燈:US2-RO-03 由 T007b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-03 通過的程式碼(依賴 T050a、T007b)
   - 🧪 `testplan.md` § US2-RO-03
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`research.md` § R2
-- [ ] T051a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-04 的測試(handler 對 `/api/ps` 依情況回 500 帶 `{"models":[]}`、404 純文字、302 導到 `/api/ps-moved`,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-04`(`plan.md` § 待決問題 Q7));T009b 在共用的 `_get_list` 把非 200 歸成 `OLLAMA_BAD_RESPONSE`,`_client` 不跟著導向,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「不看狀態碼就解析本文,500 帶的 `{"models":[]}` 被當成沒有已載入的模型照常回傳」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T051a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-04 的測試(handler 對 `/api/ps` 依情況回 500 帶 `{"models":[]}`、404 純文字、302 導到 `/api/ps-moved`,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-04`(`plan.md` § 待決問題 Q7));T009b 在共用的 `_get_list` 把非 200 歸成 `OLLAMA_BAD_RESPONSE`,`_client` 不跟著導向,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「不看狀態碼就解析本文,500 帶的 `{"models":[]}` 被當成沒有已載入的模型照常回傳」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-RO-04
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`research.md` § R2
-- [ ] T051b [US2] 🟢 /tdd 綠燈:US2-RO-04 由 T009b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-04 通過的程式碼(依賴 T051a、T009b)
+- [X] T051b [US2] 🟢 /tdd 綠燈:US2-RO-04 由 T009b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-04 通過的程式碼(依賴 T051a、T009b)
   - 🧪 `testplan.md` § US2-RO-04
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`research.md` § R2
-- [ ] T052a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-05 的測試(handler 對 `/api/ps` 依情況回 200 的 HTML、宣稱 gzip 卻沒壓縮的本文(照 `testplan.md` § 2.1 以 `stream=httpx.ByteStream(...)` 建),各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-05`(`plan.md` § 待決問題 Q7));T011b 在共用的 `_get_list` 把非 JSON 與解壓失敗歸成 `OLLAMA_BAD_RESPONSE`,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「`response.json()` 沒有接 `ValueError`,`json.JSONDecodeError` 原樣往上拋」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T052a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-05 的測試(handler 對 `/api/ps` 依情況回 200 的 HTML、宣稱 gzip 卻沒壓縮的本文(照 `testplan.md` § 2.1 以 `stream=httpx.ByteStream(...)` 建),各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-05`(`plan.md` § 待決問題 Q7));T011b 在共用的 `_get_list` 把非 JSON 與解壓失敗歸成 `OLLAMA_BAD_RESPONSE`,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「`response.json()` 沒有接 `ValueError`,`json.JSONDecodeError` 原樣往上拋」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-RO-05
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`research.md` § R2;`plan.md` § 待決問題 Q1
-- [ ] T052b [US2] 🟢 /tdd 綠燈:US2-RO-05 由 T011b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-05 通過的程式碼(依賴 T052a、T011b)
+- [X] T052b [US2] 🟢 /tdd 綠燈:US2-RO-05 由 T011b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-05 通過的程式碼(依賴 T052a、T011b)
   - 🧪 `testplan.md` § US2-RO-05
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`research.md` § R2;`plan.md` § 待決問題 Q1
-- [ ] T053a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-06 的測試(handler 對 `/api/ps` 依情況回 `[]`、`{}`、`{"models":{}}`、字串陣列、沒有 `name`、`name` 是 7,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-06`(`plan.md` § 待決問題 Q7));T012b、T013b 在共用的 `_get_list` 檢查最上層與每一筆的形狀,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「只檢查 `models` 是陣列,沒有逐筆檢查是物件、有字串的 `name`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T053a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US2-RO-06 的測試(handler 對 `/api/ps` 依情況回 `[]`、`{}`、`{"models":{}}`、字串陣列、沒有 `name`、`name` 是 7,各呼叫一次 `list_loaded_models(base_url="http://127.0.0.1:11435")`;分隔註解寫 `# ---- 003 US2-RO-06`(`plan.md` § 待決問題 Q7));T012b、T013b 在共用的 `_get_list` 檢查最上層與每一筆的形狀,這個案例會被滿足:先執行確認通過,再暫時把 `_get_list` 改成「只檢查 `models` 是陣列,沒有逐筆檢查是物件、有字串的 `name`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-RO-06
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q2
-- [ ] T053b [US2] 🟢 /tdd 綠燈:US2-RO-06 由 T012b、T013b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-06 通過的程式碼(依賴 T053a、T013b)
+- [X] T053b [US2] 🟢 /tdd 綠燈:US2-RO-06 由 T012b、T013b 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US2-RO-06 通過的程式碼(依賴 T053a、T013b)
   - 🧪 `testplan.md` § US2-RO-06
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/ps.get`、`components.schemas.PsResponse`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q2
-- [ ] T054 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T048b~T053b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_remote_ollama.py` 的斷言(依賴 T053b)
+- [X] T054 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T048b~T053b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_remote_ollama.py` 的斷言(依賴 T053b)
   - 🧪 `testplan.md` § US2-RO-01~US2-RO-06
   - 📎 `testplan.md` § 3.1
 
