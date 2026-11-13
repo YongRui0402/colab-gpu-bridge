@@ -725,31 +725,31 @@
 
 > 端點節(E8、E2)都完成、驗收過後由主 agent 開始;真的 E2(api、services、domain、repos 與 SQLite)接真的 `ModelLibrary`,ollama.com 與 registry 換成 `httpx.MockTransport`,其他轉接層用替身(`plan.md` § 待決問題 Q4、Q18)
 
-- [ ] T083a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US2-AJ-01 的測試(每種情況各試算一次 `["qwen2.5:7b"]`),執行確認它因為「`get_manifest` 的 httpx 例外沒在轉接層攔下,穿過 `_sized` 變成 500」這類實作而失敗
+- [X] T083a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US2-AJ-01 的測試(每種情況各試算一次 `["qwen2.5:7b"]`),執行確認它因為「`get_manifest` 的 httpx 例外沒在轉接層攔下,穿過 `_sized` 變成 500」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、FR-005、FR-006、SC-001;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T083b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/downloads.py` 只寫讓 US2-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T083a)
+- [X] T083b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/downloads.py` 只寫讓 US2-AJ-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T083a)
   - 🧪 `testplan.md` § US2-AJ-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、FR-005、FR-006、SC-001;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T084a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US2-AJ-02 的測試(每種情況各加入一次 `["qwen2.5:7b"]`,每次之後 `GET /api/downloads`),執行確認它因為「加入的路徑和試算分開處理,只修了試算」這類實作而失敗
+- [X] T084a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US2-AJ-02 的測試(每種情況各加入一次 `["qwen2.5:7b"]`,每次之後 `GET /api/downloads`),執行確認它因為「加入的路徑和試算分開處理,只修了試算」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、FR-005、FR-006、SC-001;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T084b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/downloads.py` 只寫讓 US2-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T084a)
+- [X] T084b [US2] 🟢 /tdd 綠燈:在 `src/cgb/adapters/model_library.py`、`src/cgb/services/downloads.py` 只寫讓 US2-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T084a)
   - 🧪 `testplan.md` § US2-AJ-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、FR-005、FR-006、SC-001;`research.md` § R5;`plan.md` § 待決問題 Q4
-- [ ] T085a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US2-AJ-03 的測試(加入 `["qwen2.5:0.5b", "qwen2.5:cgb-test-nonexistent", "qwen2.5:7b"]`,之後 `GET /api/downloads`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「依序取 manifest 時遇到失敗沒有停,仍去取第三個(plan.md Q3)」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T085a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_library_cross.py` 寫 US2-AJ-03 的測試(加入 `["qwen2.5:0.5b", "qwen2.5:cgb-test-nonexistent", "qwen2.5:7b"]`,之後 `GET /api/downloads`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「依序取 manifest 時遇到失敗沒有停,仍去取第三個(plan.md Q3)」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-AJ-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、FR-004;`research.md` § R5;`plan.md` § 待決問題 Q4、Q3;`plan.md` § 待決問題 Q19
-- [ ] T085b [US2] 🟢 /tdd 綠燈:US2-AJ-03 由現有程式滿足,確認 `src/cgb/adapters/model_library.py`、`src/cgb/services/downloads.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py`、`src/cgb/services/downloads.py` 只寫讓 US2-AJ-03 通過的程式碼(依賴 T085a)
+- [X] T085b [US2] 🟢 /tdd 綠燈:US2-AJ-03 由現有程式滿足,確認 `src/cgb/adapters/model_library.py`、`src/cgb/services/downloads.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/model_library.py`、`src/cgb/services/downloads.py` 只寫讓 US2-AJ-03 通過的程式碼(依賴 T085a)
   - 🧪 `testplan.md` § US2-AJ-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`;`contracts/model-library.openapi.yaml` § `paths./v2/library/{name}/manifests/{tag}.get`、`components.schemas.Manifest`、`components.schemas.RegistryErrorBody`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、FR-004;`research.md` § R5;`plan.md` § 待決問題 Q4、Q3;`plan.md` § 待決問題 Q19
-- [ ] T086 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T083b~T085b 記下的重構清單(範圍限 `src/cgb/adapters/model_library.py`、`src/cgb/services/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_library_cross.py` 的斷言(依賴 T085b)
+- [X] T086 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T083b~T085b 記下的重構清單(範圍限 `src/cgb/adapters/model_library.py`、`src/cgb/services/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_library_cross.py` 的斷言(依賴 T085b)
   - 🧪 `testplan.md` § US2-AJ-01~US2-AJ-03
   - 📎 `testplan.md` § 3.3
 

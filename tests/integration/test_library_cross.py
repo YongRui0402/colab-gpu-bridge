@@ -12,8 +12,9 @@ import httpx
 
 from cgb.adapters.model_library import ModelLibrary
 from cgb.domain.errors import MESSAGES
-from integration.test_api_session import error_code
-from integration.test_model_library import html
+from integration.test_api_downloads import downloadable
+from integration.test_api_session import error_code, open_ready
+from integration.test_model_library import MANIFEST_TYPE, MANIFEST_UNKNOWN, fixture_text, html
 
 Handler = Callable[[httpx.Request], httpx.Response]
 
@@ -123,3 +124,126 @@ async def test_搜尋連不到時回應不帶底層例外的文字或網址(make
     assert response.json().get("message") == MESSAGES["LIBRARY_UNREACHABLE"]
     assert "ollama.com" not in response.text
     assert "Errno" not in response.text
+
+
+# ================================================================ US2:試算與加入下載(testplan.md § 3.3)
+
+QWEN_7B = "qwen2.5:7b"
+MANIFEST_PATH_7B = "/v2/library/qwen2.5/manifests/7b"
+
+
+def manifest_response(status: int = 200, *, text: str | None = None, content_type: str = MANIFEST_TYPE) -> httpx.Response:
+    body = fixture_text("manifest-qwen2.5-7b.json") if text is None else text
+    return httpx.Response(status, text=body, headers={"Content-Type": content_type})
+
+
+# 對 qwen2.5:7b 的 manifest 依情況失敗(US2-AJ-01、US2-AJ-02 共用)
+MANIFEST_FAILURES: dict[str, Handler] = {
+    "A": raising(httpx.ConnectError("cgb-test 連不到")),
+    "B": raising(httpx.ReadTimeout("cgb-test 逾時")),
+    "C": replying(manifest_response(503, text="Service Unavailable", content_type="text/plain")),
+    "D": replying(manifest_response(200, text=MAINTENANCE_PAGE, content_type="text/html")),
+    "E": replying(manifest_response(404, text=MANIFEST_UNKNOWN, content_type="application/json")),
+    "F": replying(manifest_response(text=fixture_text("manifest-qwen2.5-7b-cloud.json"))),
+}
+
+EXPECTED_MANIFEST_FAILURES = {
+    "A": (502, "LIBRARY_UNREACHABLE"),
+    "B": (504, "LIBRARY_TIMEOUT"),
+    "C": (502, "LIBRARY_SERVER_ERROR"),
+    "D": (502, "LIBRARY_BAD_RESPONSE"),
+    "E": (404, "LIBRARY_NOT_FOUND"),
+    "F": (422, "LIBRARY_CLOUD_ONLY"),
+}
+
+
+class SwitchableRegistry:
+    """同一個 app 裡依序換情況:`case` 指到目前要用的 handler。"""
+
+    def __init__(self, cases: dict[str, Handler]) -> None:
+        self.cases = cases
+        self.case = next(iter(cases))
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        return self.cases[self.case](request)
+
+
+# ---------------------------------------------------------------- US2-AJ-01
+
+
+async def test_試算時模型庫的各種失敗經_UI_API_回合約的狀態碼並指出模型_沒有_500(
+    make_app: Callable[..., Any], fakes: Any
+) -> None:
+    # Arrange:工作階段就緒;registry 對 qwen2.5:7b 的 manifest 依情況失敗
+    downloadable(fakes)
+    registry = SwitchableRegistry(MANIFEST_FAILURES)
+
+    # Act
+    results: dict[str, tuple[int, str | None, str | None]] = {}
+    async with ui_with_library(make_app, registry) as client:
+        await open_ready(client)
+        for case in MANIFEST_FAILURES:
+            registry.case = case
+            response = await client.post("/api/downloads/estimate", json={"models": [QWEN_7B]})
+            body = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+            results[case] = (response.status_code, error_code(response), body.get("model"))
+
+    # Assert
+    assert {case: result[:2] for case, result in results.items()} == EXPECTED_MANIFEST_FAILURES
+    assert {result[2] for result in results.values()} == {QWEN_7B}
+    assert 500 not in [status for status, _, _ in results.values()]
+
+
+# ---------------------------------------------------------------- US2-AJ-02
+
+
+async def test_加入下載時模型庫的各種失敗經_UI_API_回合約的狀態碼_佇列沒有東西_沒有_500(
+    make_app: Callable[..., Any], fakes: Any
+) -> None:
+    # Arrange:工作階段就緒;registry 對 qwen2.5:7b 的 manifest 依情況失敗
+    downloadable(fakes)
+    registry = SwitchableRegistry(MANIFEST_FAILURES)
+
+    # Act
+    results: dict[str, tuple[int, str | None]] = {}
+    jobs_after: dict[str, Any] = {}
+    async with ui_with_library(make_app, registry) as client:
+        await open_ready(client)
+        for case in MANIFEST_FAILURES:
+            registry.case = case
+            response = await client.post("/api/downloads", json={"models": [QWEN_7B]})
+            results[case] = (response.status_code, error_code(response))
+            jobs_after[case] = (await client.get("/api/downloads")).json().get("jobs")
+
+    # Assert
+    assert results == EXPECTED_MANIFEST_FAILURES
+    assert jobs_after == {case: [] for case in MANIFEST_FAILURES}
+    assert 500 not in [status for status, _ in results.values()]
+
+
+# ---------------------------------------------------------------- US2-AJ-03
+
+
+async def test_加入多個模型時第二個不存在就停_不取第三個_佇列沒有東西(make_app: Callable[..., Any], fakes: Any) -> None:
+    # Arrange:工作階段就緒;registry 對不存在的版本回 404,其他回正常 manifest,並記下收到的 manifest 請求
+    downloadable(fakes)
+    missing = "qwen2.5:cgb-test-nonexistent"
+    manifest_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        manifest_paths.append(request.url.path)
+        if request.url.path.endswith("/manifests/cgb-test-nonexistent"):
+            return manifest_response(404, text=MANIFEST_UNKNOWN, content_type="application/json")
+        return manifest_response()
+
+    # Act
+    async with ui_with_library(make_app, handler) as client:
+        await open_ready(client)
+        response = await client.post("/api/downloads", json={"models": ["qwen2.5:0.5b", missing, QWEN_7B]})
+        jobs = (await client.get("/api/downloads")).json().get("jobs")
+
+    # Assert
+    body = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+    assert (response.status_code, error_code(response), body.get("model")) == (404, "LIBRARY_NOT_FOUND", missing)
+    assert manifest_paths == ["/v2/library/qwen2.5/manifests/0.5b", "/v2/library/qwen2.5/manifests/cgb-test-nonexistent"]
+    assert jobs == []
