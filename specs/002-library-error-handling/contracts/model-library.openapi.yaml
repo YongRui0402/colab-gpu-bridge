@@ -1,0 +1,343 @@
+openapi: 3.1.0
+info:
+  title: Ollama 官方模型庫(ollama.com 與 registry.ollama.ai)
+  version: 0.2.0
+  description: >-
+    S1(E8 Ollama 官方模型庫)依 002 的 spec.md、research.md R1–R3 與 plan.md 產出;
+    以 001 的同名檔(001 的 S2,依 001 的 spec.md、research.md R6 與 plan.md 產出)為底整份沿用,
+    錯誤代碼、狀態碼與歸類條件不變,這一輪只補上傳輸層失敗的歸類(FR-006)、每個請求的逾時(NFR-001)、
+    狀態碼的共用判定與格式不符的邊界(002 spec.md 邊界情況),並把 `x-requirements` 改指 002 的需求編號。
+    這是第三方的介面,本系統只能照著接;這裡只寫本系統的後端轉接層(`adapters/model_library.py`)會用到的三個操作:
+    搜尋(ollama.com 的 HTML 頁)、版本清單(ollama.com 的 HTML 頁)、manifest 與大小(registry 的 OCI 介面)。
+    搜尋頁與版本頁不是正式的 API,沒有版本承諾,頁面改版就可能解析失敗;解析失敗時轉接層回報 `LIBRARY_BAD_RESPONSE`,
+    UI 退回只有精選清單與「輸入名稱」(001 spec.md Assumptions 的退路)。manifest 是正式的 OCI distribution 介面。
+    實測日期:2026-11-09(001 的 research.md R6;001 的 S2 另以少量唯讀 GET 確認了頁面結構、分頁、雲端模型與 404 的回應)。
+    2026-11-13 這一輪只在本機製造失敗與用既有樣本實測(002 的 research.md R1–R3),沒有連 ollama.com 或 registry;
+    真的頁面結構留給 SC-003 的唯讀實跑確認。
+  x-error-code-convention: >-
+    `x-error-codes` 與 `components.schemas.Error` 列的是本系統後端轉接層把對方的失敗歸成的原因代碼,
+    不是對方回應裡的欄位;對方實際回的內容寫在各回應的 content 與 description。
+    連不到(DNS、連線被拒、TLS 失敗)歸 `LIBRARY_UNREACHABLE`,逾時歸 `LIBRARY_TIMEOUT`,
+    這兩種沒有 HTTP 回應,寫在各操作的 `x-transport-error-codes`。
+  x-transport-error-rules: >-
+    三個操作用同一套規則歸類沒有完整 HTTP 回應的失敗(FR-006,002 research.md R1):
+    DNS 失敗、連線被拒、TLS 失敗,以及連上了但讀回應到一半連線中斷(沒有完整的 HTTP 回應),都歸 `LIBRARY_UNREACHABLE`;
+    連線逾時、讀取逾時(含讀到一半逾時),以及超過 `x-timeout` 的整個請求期限,都歸 `LIBRARY_TIMEOUT`。
+    逾時同時也是傳輸層失敗,判定時先看是不是逾時,再看其他傳輸層失敗。
+    收到了回應、但底層 HTTP 程式庫在處理本文時丟出的非傳輸層例外(例如本文解壓失敗),內容無法使用,歸 `LIBRARY_BAD_RESPONSE`(002 research.md R1、plan.md Q10)。
+    轉接層對呼叫它的一方只丟出上面的原因代碼,底層 HTTP 程式庫的任何例外都不越過轉接層往上拋;
+    說明文字是給人讀的固定繁體中文,不帶底層例外的文字、traceback 或對方的網址(NFR-002)。
+  x-status-code-rules: >-
+    三個操作用同一套規則判定對方的 HTTP 狀態碼(002 research.md R3):200 才往下判定內容格式;
+    404 歸 `LIBRARY_NOT_FOUND`,只有 `listModelTags` 與 `getManifest` 有這個回應,`searchLibrary` 收到 404 是非預期的狀態碼;
+    500–599 歸 `LIBRARY_SERVER_ERROR`;其他非 200 的狀態碼(含 3xx)歸 `LIBRARY_BAD_RESPONSE`,
+    不跟著 3xx 導向去讀別的頁(例:搜尋第 2 頁起回 303 導回第 1 頁時,不讀第 1 頁)。
+    失敗時不自動重試(002 spec.md 假設)。
+servers:
+  - url: https://ollama.com
+    description: 搜尋頁與版本頁(HTML)
+  - url: https://registry.ollama.ai
+    description: OCI registry(manifest)
+paths:
+  /search:
+    servers:
+      - url: https://ollama.com
+    get:
+      operationId: searchLibrary
+      summary: 以關鍵字搜尋模型庫(可翻頁)
+      description: >-
+        回傳搜尋結果的 HTML,一頁最多 20 筆。結果混有官方模型(連結 `/library/<名稱>`)與社群使用者上傳的模型
+        (連結 `/<使用者>/<名稱>`);本系統只取官方模型,所以一頁過濾後可能少於 20 筆,甚至是 0 筆。
+        沒有符合的模型時仍回 200,頁面裡沒有任何 `/library/` 連結。
+        UI 的「顯示更多」靠翻頁讀下一頁:第 1 頁不帶 `page` 與 `HX-Request`,回整頁 HTML(`SearchPage`);
+        第 2 頁起帶 `page=<N>` 與 `HX-Request: true`,回只有結果清單的 HTML 片段(`SearchPageFragment`)。
+        實測第 2 頁起沒帶 `HX-Request` 會被 303 導回 `/search?q=<關鍵字>`(第 1 頁),本系統一定會帶,所以不列這個回應;
+        萬一仍收到 303,是非預期的狀態碼,歸 `default` 的 `LIBRARY_BAD_RESPONSE`,不跟著導向去讀第 1 頁(002 spec.md 邊界情況)。
+        實測超過最後一頁時回 200 與只有空白的內容(0 筆),是正常結果,不是格式不符。
+        第 2 頁起只有社群模型時,過濾後官方模型是 0 筆,但頁面有結果,也是正常結果(002 research.md R3)。
+        還有沒有下一頁(hasMore,plan.md Q54):以頁面末尾有沒有 `hx-get="/search?page=<N+1>&q=<關鍵字>"` 的下一頁連結為準,
+        沒有這個連結就是最後一頁;第 1 頁(整頁)和第 2 頁起(片段)都一樣。
+        實測:q=qwen2.5、c=local 時第 33 頁 20 筆有連到第 34 頁的連結,第 34 頁 1 筆沒有;
+        q=smallthinker、c=local 的第 1 頁 5 筆沒有連結;沒有符合的模型時(0 筆)也沒有。
+        這個連結不帶 `c`,翻頁時只取 `page` 的值,`q` 與 `c=local` 由本系統自己帶,不能照抄連結。
+        Q32 原本的「這一頁過濾社群模型之前滿 20 筆即視為還有下一頁」推斷已被 Q54 取代,不再使用。
+      x-requirements: [FR-001, FR-006, NFR-001, SC-001, SC-003]
+      x-callers: 本系統後端轉接層;不需要登入或 token
+      x-timeout: >-
+        每個請求 10 秒(NFR-001,沿用 001 `ui.openapi.yaml` 的 `x-timeout`,plan.md Q12):
+        連線、每次讀取各 10 秒,另外整個請求(含讀完本文)也不超過 10 秒;任一個到期都歸 `LIBRARY_TIMEOUT`。
+        「顯示更多」每讀一頁是一個請求,各自計算
+      x-transport-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_TIMEOUT]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: 使用者輸入的關鍵字,原樣帶入(URL 編碼);翻頁時每一頁帶同一個值
+          schema:
+            type: string
+            minLength: 1
+          example: qwen2.5
+        - name: c
+          in: query
+          required: false
+          description: >-
+            分類篩選;本系統每一頁都固定帶 `local`,排除只能在 Ollama 雲端執行、不能下載的模型(例如 glm-5.2 只有 `cloud` 版本)。
+            實測第 1 頁不帶時結果會出現 glm-5.2、glm-5.3 等雲端模型,帶 `local` 時不會;第 2 頁帶與不帶的結果也不同(帶時少了 qwen3),
+            可見翻頁時這個參數仍有作用。
+          schema:
+            type: string
+            enum: [local]
+        - name: page
+          in: query
+          required: false
+          description: "頁碼,從 2 開始帶;第 1 頁不帶。帶了就一定要同時帶 `HX-Request: true`"
+          schema:
+            type: integer
+            minimum: 2
+          example: 2
+        - name: HX-Request
+          in: header
+          required: false
+          description: "第 2 頁起一定要帶 `true`;沒帶時 ollama.com 回 303 導回第 1 頁。第 1 頁不帶"
+          schema:
+            type: string
+            enum: ['true']
+      responses:
+        '200':
+          description: >-
+            第 1 頁是整頁 HTML(`SearchPage`);第 2 頁起是結果清單的 HTML 片段(`SearchPageFragment`);
+            Content-Type 都是 `text/html; charset=utf-8`
+          x-recipients: 本系統後端轉接層(呼叫者)
+          content:
+            text/html:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SearchPage'
+                  - $ref: '#/components/schemas/SearchPageFragment'
+        '5XX':
+          description: ollama.com 伺服器錯誤
+          x-error-codes: [LIBRARY_SERVER_ERROR]
+        default:
+          description: >-
+            其他非預期的狀態碼(含 404 與 3xx,不跟著導向);或 200 但格式不符:第 1 頁找不到 `id="searchresults"` 的結果區塊,
+            第 2 頁起內容不是空白卻解析不出任何一筆結果(頁面改版)。
+            一筆結果是一個 `<a href="/<路徑>" class="group grid ...">` 連結,官方模型與社群模型都算;
+            第 1 頁有 `id="searchresults"` 但 0 筆(沒有符合的模型)、第 2 頁起只有空白(超過最後一頁)
+            或只有社群模型,都是正常的 200,不歸這裡(002 research.md R3)
+          x-error-codes: [LIBRARY_BAD_RESPONSE]
+  /library/{name}/tags:
+    servers:
+      - url: https://ollama.com
+    get:
+      operationId: listModelTags
+      summary: 列出一個官方模型的所有版本與大小
+      description: >-
+        回傳版本頁的 HTML,一次列出全部版本(實測 qwen2.5 有 133 個,不分頁),每個版本有名稱、digest 前 12 碼、大小與 context 長度。
+        頁面上的大小是四捨五入過的顯示值(例:0.5b 為 398MB、7b 為 4.7GB),只用來在清單上顯示;
+        加入下載佇列前要算總大小時,改用 `getManifest` 的精確位元組數。
+      x-requirements: [FR-002, FR-006, NFR-001, SC-001, SC-003]
+      x-callers: 本系統後端轉接層;不需要登入或 token
+      x-timeout: >-
+        每個請求 10 秒(NFR-001,沿用 001 `ui.openapi.yaml` 的 `x-timeout`,plan.md Q12):
+        連線、每次讀取各 10 秒,另外整個請求(含讀完本文)也不超過 10 秒;任一個到期都歸 `LIBRARY_TIMEOUT`
+      x-transport-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_TIMEOUT]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: 官方模型的名稱,取自 `searchLibrary` 結果的 `/library/<名稱>`,或精選清單、使用者輸入的名稱(不含 `:版本`)
+          schema:
+            type: string
+            pattern: '^[a-z0-9][a-z0-9._-]*$'
+          example: qwen2.5
+      responses:
+        '200':
+          description: 版本頁(`text/html; charset=utf-8`),格式見 `TagsPage`
+          x-recipients: 本系統後端轉接層(呼叫者)
+          content:
+            text/html:
+              schema:
+                $ref: '#/components/schemas/TagsPage'
+        '404':
+          description: 沒有這個官方模型(實測 `/library/no-such-model-zzz/tags` 回 404 的 HTML 頁)
+          x-error-codes: [LIBRARY_NOT_FOUND]
+          content:
+            text/html:
+              schema:
+                type: string
+        '5XX':
+          description: ollama.com 伺服器錯誤
+          x-error-codes: [LIBRARY_SERVER_ERROR]
+        default:
+          description: >-
+            其他非預期的狀態碼(404 與 5xx 以外,含 3xx,不跟著導向),或 200 但頁面上一個 `/library/<名稱>:<版本>` 連結都解析不出來(頁面改版)。
+            只要有至少一個版本連結就不算格式不符;某些版本的大小等欄位解析不出來時照 001 留空(002 spec.md 邊界情況)
+          x-error-codes: [LIBRARY_BAD_RESPONSE]
+  /v2/library/{name}/manifests/{tag}:
+    servers:
+      - url: https://registry.ollama.ai
+    get:
+      operationId: getManifest
+      summary: 取得一個版本的 manifest(精確大小與 digest)
+      description: >-
+        OCI distribution 的 manifest 介面。模型大小是 `layers[].size` 的總和(001 的 research.md R6;
+        實測 qwen2.5:7b 四層合計 4,683,086,845 位元組,約 4.68 GB);`config.size` 只有數百位元組,不計入。
+        registry 不提供版本清單(實測 `/v2/library/qwen2.5/tags/list` 回 404),版本清單只能從 `listModelTags` 取得。
+        只能在 Ollama 雲端執行的版本(例 `glm-5.2:cloud`)也回 200,但 `layers` 是空陣列,而且 Content-Type 是 `text/plain`;
+        這種版本不能下載,轉接層歸成 `LIBRARY_CLOUD_ONLY`。
+      x-requirements: [FR-004, FR-006, NFR-001, SC-001, SC-003]
+      x-callers: 本系統後端轉接層;官方模型庫不需要 token
+      x-timeout: >-
+        每個請求 10 秒(NFR-001,沿用 001 `ui.openapi.yaml` 的 `x-timeout`,plan.md Q12):
+        連線、每次讀取各 10 秒,另外整個請求(含讀完本文)也不超過 10 秒;任一個到期都歸 `LIBRARY_TIMEOUT`。
+        試算與加入下載依序取多個 manifest 時,每個請求各自計算,不另設總時限(002 spec.md SC-002)
+      x-transport-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_TIMEOUT]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: 官方模型的名稱(不含 `:版本`)
+          schema:
+            type: string
+            pattern: '^[a-z0-9][a-z0-9._-]*$'
+          example: qwen2.5
+        - name: tag
+          in: path
+          required: true
+          description: 版本名稱,取自 `listModelTags`;使用者沒指定版本時用 `latest`
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_][A-Za-z0-9._-]*$'
+          example: 7b
+        - name: Accept
+          in: header
+          required: true
+          description: "一定要帶,registry 依這個標頭決定回應的格式(回應帶 `Vary: Accept`)"
+          schema:
+            type: string
+            enum: [application/vnd.docker.distribution.manifest.v2+json]
+      responses:
+        '200':
+          description: >-
+            這個版本的 manifest。可下載的版本 Content-Type 是 `application/vnd.docker.distribution.manifest.v2+json`;
+            雲端版本是 `text/plain; charset=utf-8`,內容仍是同一種 JSON。
+          x-recipients: 本系統後端轉接層(呼叫者)
+          content:
+            application/vnd.docker.distribution.manifest.v2+json:
+              schema:
+                $ref: '#/components/schemas/Manifest'
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/Manifest'
+        '404':
+          description: >-
+            沒有這個模型或這個版本(兩種情況回的內容相同,分不出來,都歸 `LIBRARY_NOT_FOUND`,不必分辨):
+            Content-Type `text/plain; charset=utf-8`,內容是 JSON `{"errors":[{"code":"MANIFEST_UNKNOWN","message":"manifest unknown"}]}`
+          x-error-codes: [LIBRARY_NOT_FOUND]
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/RegistryErrorBody'
+        '5XX':
+          description: registry 伺服器錯誤
+          x-error-codes: [LIBRARY_SERVER_ERROR]
+        default:
+          description: >-
+            其他非預期的狀態碼(404 與 5xx 以外,含 3xx,不跟著導向),或 200 但內容不是 `Manifest` 的格式
+            (不是 JSON、`layers` 不是陣列,或某一層沒有整數的 `size`)
+          x-error-codes: [LIBRARY_BAD_RESPONSE]
+      x-adapter-error-codes-on-200:
+        LIBRARY_CLOUD_ONLY: 200 但 `layers` 是空陣列(只能在 Ollama 雲端執行的版本,不能下載)
+components:
+  schemas:
+    SearchPage:
+      type: string
+      description: >-
+        HTML。結果在 `id="searchresults"` 的區塊裡,每一筆是一個
+        `<a href="/library/<名稱>" class="group grid ...">`(社群模型是 `href="/<使用者>/<名稱>"`,本系統略過);
+        裡面的 `<h2 title="<名稱>">` 是模型名稱,`<p>` 是英文簡介,
+        `title="23,526,304 downloads"` 是下載次數,`<數字> tags` 是版本數,
+        藍底的 `<span>`(例 0.5b、7b、14b)是參數量,靛底的 `<span>`(例 tools、vision、thinking)是能力標籤,
+        `cloud` 標籤表示有雲端版本。本系統只需要名稱;其他欄位可用來顯示,解析不出來時不算失敗。
+        還有下一頁時,結果末尾有 `hx-get="/search?page=2&q=<關鍵字>"` 的連結,只有一頁時沒有;hasMore 以它為準(見 `searchLibrary` 的說明,plan.md Q54)。
+    SearchPageFragment:
+      type: string
+      description: >-
+        HTML 片段(第 2 頁起,帶 `HX-Request: true` 時)。沒有 `<html>` 外框,也沒有 `id="searchresults"`;
+        每一筆結果的 `<a href=...>` 結構與 `SearchPage` 相同,一頁最多 20 筆。
+        還有下一頁時末尾有 `hx-get="/search?page=<N+1>&q=<關鍵字>"` 的連結,最後一頁沒有;hasMore 以它為準(plan.md Q54)。
+        超過最後一頁時內容只有空白字元(實測 5 個換行)。
+    TagsPage:
+      type: string
+      description: >-
+        HTML。每個版本是一個 `<a href="/library/<名稱>:<版本>">`(同一個版本在頁面上出現兩次,一份給窄螢幕、一份給寬螢幕,要去重),
+        其後是 `<span class="font-mono"><digest 前 12 碼></span> • <大小> • <context 長度> context window • <輸入類型> • <更新時間>`;
+        大小是數字加 `MB` 或 `GB`(例 `398MB`、`4.7GB`),context 長度例 `32K`。
+        `latest` 也是一個版本,通常和某個具名版本的 digest 相同。只能在雲端執行的版本名稱含 `cloud`(例 `glm-5.2:cloud`)。
+    Manifest:
+      type: object
+      required: [schemaVersion, mediaType, config, layers]
+      properties:
+        schemaVersion:
+          type: integer
+          enum: [2]
+        mediaType:
+          type: string
+          enum: [application/vnd.docker.distribution.manifest.v2+json]
+        config:
+          $ref: '#/components/schemas/Descriptor'
+        layers:
+          type: array
+          description: 模型的各層;可下載的版本至少有一層 `application/vnd.ollama.image.model`,雲端版本是空陣列
+          items:
+            $ref: '#/components/schemas/Descriptor'
+    Descriptor:
+      type: object
+      required: [mediaType, digest, size]
+      properties:
+        mediaType:
+          type: string
+          description: >-
+            例:`application/vnd.docker.container.image.v1+json`(config)、
+            `application/vnd.ollama.image.model`(模型權重)、`application/vnd.ollama.image.template`、
+            `application/vnd.ollama.image.system`、`application/vnd.ollama.image.license`、`application/vnd.ollama.image.params`
+        digest:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+        size:
+          type: integer
+          minimum: 0
+          description: 這一層的大小,位元組
+    RegistryErrorBody:
+      type: object
+      required: [errors]
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            required: [code, message]
+            properties:
+              code:
+                type: string
+                description: OCI distribution 的錯誤碼,例 `MANIFEST_UNKNOWN`
+              message:
+                type: string
+    Error:
+      type: object
+      description: >-
+        本系統後端轉接層把對方的失敗歸成的原因代碼;官方模型庫不會回這個格式。
+        後端 UI API 要怎麼把這些原因呈現給 UI,在 001 由 S5 決定,這一輪由 002 的 S2(E2 後端 UI API)決定。
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [LIBRARY_UNREACHABLE, LIBRARY_TIMEOUT, LIBRARY_BAD_RESPONSE, LIBRARY_SERVER_ERROR, LIBRARY_NOT_FOUND, LIBRARY_CLOUD_ONLY]
+          description: >-
+            `LIBRARY_UNREACHABLE` 連不到 ollama.com 或 registry;`LIBRARY_TIMEOUT` 逾時;
+            `LIBRARY_BAD_RESPONSE` 非預期的狀態碼,或頁面、manifest 的格式解析不出來;
+            `LIBRARY_SERVER_ERROR` 對方回 5xx(後綴與其他服務共用,plan.md Q23);
+            `LIBRARY_NOT_FOUND` 沒有這個模型或版本;`LIBRARY_CLOUD_ONLY` 這個版本只能在 Ollama 雲端執行,不能下載
+        message:
+          type: string
+          description: 給人讀的繁體中文說明
