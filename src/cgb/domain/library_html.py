@@ -14,6 +14,21 @@ def parse_search_models(page_html: str) -> list[str]:
     return list(dict.fromkeys(_OFFICIAL_MODEL_HREF.findall(page_html)))
 
 
+# 搜尋結果的一筆:官方與社群模型都算(research.md R3)
+_SEARCH_RESULT_LINK = re.compile(r'<a\s+href="/[^"]+"\s+class="group grid')
+
+
+def is_search_page(page_html: str, *, first_page: bool) -> bool:
+    """搜尋頁的格式符不符合(research.md R3);不符就是改版或不是搜尋頁。
+
+    第 1 頁(整頁)要有結果區塊 `id="searchresults"`(0 筆時區塊是空的);第 2 頁起的片段沒有這個區塊,
+    只有空白是超過最後一頁,否則至少要有一筆結果(含社群模型,只有社群模型的頁是 0 筆官方模型的正常結果)。
+    """
+    if first_page:
+        return 'id="searchresults"' in page_html
+    return not page_html.strip() or _SEARCH_RESULT_LINK.search(page_html) is not None
+
+
 # 還有下一頁時,結果末尾有 `hx-get="/search?page=<N+1>&q=<關鍵字>"` 的連結(Q54)
 _NEXT_PAGE_LINK = re.compile(r'hx-get="/search\?page=\d+')
 
