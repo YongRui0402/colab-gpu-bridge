@@ -19,6 +19,8 @@ class Catalog:
         self._events = events
         # 每個模型的預先載入狀態(PreloadState);只活在這次執行之中
         self._preloads: dict[str, dict[str, Any]] = {}
+        # (工作階段名稱, 顯示記憶體總量);同名的工作階段讀到之後沿用,不再 `colab exec`(FR-003、FR-005、research.md R3)
+        self._vram: tuple[str, int] | None = None
 
     async def list(self) -> dict[str, Any]:
         base_url = self._lifecycle.require_ready_base_url()
@@ -42,8 +44,19 @@ class Catalog:
 
     async def _vram_total(self) -> int | None:
         """顯示記憶體總量由 S8 probe_resources 提供(Q7、Q62);讀不到時是 None。"""
-        resources = await self._state.colab.probe_resources(name=self._lifecycle.current()["name"])
-        return resources["vramTotalBytes"]
+        name = self._lifecycle.current()["name"]
+        if self._vram is None or self._vram[0] != name:
+            try:
+                resources = await self._state.colab.probe_resources(name=name)
+            except AdapterError:
+                # 讀不到不擋目錄(FR-004);不寫入快取,下一次再讀
+                return None
+            total = resources["vramTotalBytes"]
+            if total is None:
+                # `colab exec` 成功但讀到 null 也視同讀不到;不寫入快取,下一次再讀(FR-004、邊界情況)
+                return None
+            self._vram = (name, total)
+        return self._vram[1]
 
     async def preload(self, name: str) -> dict[str, Any]:
         """受理預先載入:標成載入中,在背景送只有 `model` 的載入(S1 preload,keep_alive: -1,Q4)。"""

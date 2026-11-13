@@ -504,103 +504,103 @@
 
 > 「讀顯示記憶體」就是 `fakes.colab.probe_resources`,次數一律在 `open_ready` 之後 `reset_calls()` 再數;要延遲的案例用 async 的 `side_effect`(`await asyncio.sleep(0.3)`),依賴 T038a 讓 `FakeMethod.invoke` 接受 awaitable(`tests/fakes/adapters.py`,同一個檔,這一節排在故事 1 的 E2 節之後)。快取只放在 `Catalog._vram_total()` 一處(research.md R3)
 
-- [ ] T055a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US2-API-01 的測試(顯示記憶體 16,106,127,360,連續送 3 次 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-01`(`plan.md` § 待決問題 Q7)),執行確認它因為「`Catalog._vram_total()` 照舊每次都呼叫 `probe_resources`,3 次跑了 3 次 `colab exec`」這類實作而失敗
+- [X] T055a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US2-API-01 的測試(顯示記憶體 16,106,127,360,連續送 3 次 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-01`(`plan.md` § 待決問題 Q7)),執行確認它因為「`Catalog._vram_total()` 照舊每次都呼叫 `probe_resources`,3 次跑了 3 次 `colab exec`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R3
-- [ ] T055b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/catalog.py`、`tests/integration/test_api_models.py` 只寫讓 US2-API-01 通過的程式碼(`_vram_total()` 讀到後記在 `Catalog` 物件裡、之後沿用;這一步就會讓 001 的 `test_大小超過顯示記憶體總量才標可能無法載入_讀不到時是_null`(同一個工作階段先讀到數字、再讓替身回 null)變紅,同一個任務改寫 `tests/integration/test_api_models.py` 的這個函式:刪掉第二次請求與它的斷言,只留第一次讀到數字的那一半;讀不到的那一半由 T061a 原地改寫成第一次就讀到 null,不留 skip),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T055a)
+- [X] T055b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/catalog.py`、`tests/integration/test_api_models.py` 只寫讓 US2-API-01 通過的程式碼(`_vram_total()` 讀到後記在 `Catalog` 物件裡、之後沿用;這一步就會讓 001 的 `test_大小超過顯示記憶體總量才標可能無法載入_讀不到時是_null`(同一個工作階段先讀到數字、再讓替身回 null)變紅,同一個任務改寫 `tests/integration/test_api_models.py` 的這個函式:刪掉第二次請求與它的斷言,只留第一次讀到數字的那一半;讀不到的那一半由 T061a 原地改寫成第一次就讀到 null,不留 skip),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T055a)
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R3、R4;`plan.md` § 待決問題 Q18、Q23
-- [ ] T056a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-02 的測試(送過 1 次 `GET /api/models` 後改 `set_tags` 加 `cgb-test-big:70b`、`set_loaded` `QWEN_7B`,再送 1 次;分隔註解寫 `# ---- 003 US2-API-02`(`plan.md` § 待決問題 Q7));T055b 只快取顯示記憶體總量,模型清單與已載入每次照讀,`mayNotFit` 用快取的值重算,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog` 改成「把整份 `list()` 的結果(模型清單、已載入、顯示記憶體)快取起來」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T056a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-02 的測試(送過 1 次 `GET /api/models` 後改 `set_tags` 加 `cgb-test-big:70b`、`set_loaded` `QWEN_7B`,再送 1 次;分隔註解寫 `# ---- 003 US2-API-02`(`plan.md` § 待決問題 Q7));T055b 只快取顯示記憶體總量,模型清單與已載入每次照讀,`mayNotFit` 用快取的值重算,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog` 改成「把整份 `list()` 的結果(模型清單、已載入、顯示記憶體)快取起來」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R3
-- [ ] T056b [US2] 🟢 /tdd 綠燈:US2-API-02 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-02 通過的程式碼(依賴 T056a)
+- [X] T056b [US2] 🟢 /tdd 綠燈:US2-API-02 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-02 通過的程式碼(依賴 T056a)
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R3
-- [ ] T057a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-03 的測試(用 `live_servers` 開到就緒,送過 1 次 `GET /api/models` 後 `reset_calls()`;送 `POST /api/models/preload`,等到 `QWEN_7B` 已載入的 `models.updated`;分隔註解寫 `# ---- 003 US2-API-03`(`plan.md` § 待決問題 Q7));`Catalog.preload()` 確認目錄與 `Catalog.publish()` 推送都經 `list()` → `_vram_total()`,T055b 的快取就在那一處,這個案例會被滿足:先執行確認通過,再暫時把 快取 改成「只做在 `src/cgb/api/models.py` 的 `GET /api/models` 路由裡,`_vram_total()` 照舊每次讀」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T057a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-03 的測試(用 `live_servers` 開到就緒,送過 1 次 `GET /api/models` 後 `reset_calls()`;送 `POST /api/models/preload`,等到 `QWEN_7B` 已載入的 `models.updated`;分隔註解寫 `# ---- 003 US2-API-03`(`plan.md` § 待決問題 Q7));`Catalog.preload()` 確認目錄與 `Catalog.publish()` 推送都經 `list()` → `_vram_total()`,T055b 的快取就在那一處,這個案例會被滿足:先執行確認通過,再暫時把 快取 改成「只做在 `src/cgb/api/models.py` 的 `GET /api/models` 路由裡,`_vram_total()` 照舊每次讀」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R3;`plan.md` § 待決問題 Q14
-- [ ] T057b [US2] 🟢 /tdd 綠燈:US2-API-03 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-03 通過的程式碼(依賴 T057a)
+- [X] T057b [US2] 🟢 /tdd 綠燈:US2-API-03 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-03 通過的程式碼(依賴 T057a)
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003;`research.md` § R3;`plan.md` § 待決問題 Q14
-- [ ] T058a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US2-API-04 的測試(T4 讀到 16,106,127,360 後送 `POST /api/session/restart` 換成 L4,等到新的工作階段就緒,`reset_calls()` 後送 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-04`(`plan.md` § 待決問題 Q7)),執行確認它因為「快取只記值、不記工作階段名稱,變更類型後沿用 T4 的 16,106,127,360」這類實作而失敗;若一執行就通過(T055b 已經以工作階段名稱比對),就改做對照組:暫時把 `_vram_total()` 改成不比對工作階段名稱、有值就沿用,執行確認斷言失敗後撤回,T058b 改成確認不需要為這個案例改程式碼(`plan.md` § 待決問題 Q24)
+- [X] T058a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US2-API-04 的測試(T4 讀到 16,106,127,360 後送 `POST /api/session/restart` 換成 L4,等到新的工作階段就緒,`reset_calls()` 後送 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-04`(`plan.md` § 待決問題 Q7)),執行確認它因為「快取只記值、不記工作階段名稱,變更類型後沿用 T4 的 16,106,127,360」這類實作而失敗;若一執行就通過(T055b 已經以工作階段名稱比對),就改做對照組:暫時把 `_vram_total()` 改成不比對工作階段名稱、有值就沿用,執行確認斷言失敗後撤回,T058b 改成確認不需要為這個案例改程式碼(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R3
-- [ ] T058b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/catalog.py` 只寫讓 US2-API-04 通過的程式碼(快取存 `(工作階段名稱, 顯示記憶體總量)` 一組,`lifecycle.current()["name"]` 不同就重讀並覆蓋;不掛 `end_listeners`、`ready_listeners`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T058a)
+- [X] T058b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/catalog.py` 只寫讓 US2-API-04 通過的程式碼(快取存 `(工作階段名稱, 顯示記憶體總量)` 一組,`lifecycle.current()["name"]` 不同就重讀並覆蓋;不掛 `end_listeners`、`ready_listeners`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T058a)
   - 🧪 `testplan.md` § US2-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R3
-- [ ] T059a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US2-API-05 的測試(讀過舊工作階段的值後結束、開新的工作階段,新工作階段第一次 `probe_resources` 丟 `COLAB_TIMEOUT`,送 2 次 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-05`(`plan.md` § 待決問題 Q7)),執行確認它因為「`_vram_total()` 沒有接 `AdapterError`,`COLAB_TIMEOUT` 往上拋成 500(現況)」這類實作而失敗
+- [X] T059a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US2-API-05 的測試(讀過舊工作階段的值後結束、開新的工作階段,新工作階段第一次 `probe_resources` 丟 `COLAB_TIMEOUT`,送 2 次 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-05`(`plan.md` § 待決問題 Q7)),執行確認它因為「`_vram_total()` 沒有接 `AdapterError`,`COLAB_TIMEOUT` 往上拋成 500(現況)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、FR-004;`research.md` § R3
-- [ ] T059b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/catalog.py` 只寫讓 US2-API-05 通過的程式碼(`_vram_total()` 接 `AdapterError`(不分代碼)回 None、不寫入快取,不拿上一個工作階段的值頂替;不另外寫日誌(分身決策紀錄 D7)),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T059a)
+- [X] T059b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/catalog.py` 只寫讓 US2-API-05 通過的程式碼(`_vram_total()` 接 `AdapterError`(不分代碼)回 None、不寫入快取,不拿上一個工作階段的值頂替;不另外寫日誌(分身決策紀錄 D7)),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T059a)
   - 🧪 `testplan.md` § US2-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、FR-004;`research.md` § R3
-- [ ] T060a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-06 的測試(讀過一次後讓健康檢查進入重連中,重連中送 `GET /api/models`;放行 `open_tunnel` 接回後再送一次;分隔註解寫 `# ---- 003 US2-API-06`(`plan.md` § 待決問題 Q7));`list()` 先 `require_ready_base_url()`(重連中回 503),重連接回沿用同一個工作階段名稱(`HealthMonitor._reconnect`),T058b 以名稱比對沿用,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog` 改成「在 `lifecycle.ready_listeners` 掛清快取,重連接回也觸發清除」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T060a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-06 的測試(讀過一次後讓健康檢查進入重連中,重連中送 `GET /api/models`;放行 `open_tunnel` 接回後再送一次;分隔註解寫 `# ---- 003 US2-API-06`(`plan.md` § 待決問題 Q7));`list()` 先 `require_ready_base_url()`(重連中回 503),重連接回沿用同一個工作階段名稱(`HealthMonitor._reconnect`),T058b 以名稱比對沿用,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog` 改成「在 `lifecycle.ready_listeners` 掛清快取,重連接回也觸發清除」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、使用者故事 2 驗收情境 6;`research.md` § R3
-- [ ] T060b [US2] 🟢 /tdd 綠燈:US2-API-06 由 T058b 與既有的 `Catalog.list()` 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-06 通過的程式碼(依賴 T060a、T058b)
+- [X] T060b [US2] 🟢 /tdd 綠燈:US2-API-06 由 T058b 與既有的 `Catalog.list()` 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-06 通過的程式碼(依賴 T060a、T058b)
   - 🧪 `testplan.md` § US2-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、使用者故事 2 驗收情境 6;`research.md` § R3
-- [ ] T061a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US2-API-07 的測試(`probe_resources` 第一次回 `vram_total=None`、之後回 16,106,127,360,連續送 3 次 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-07`(`plan.md` § 待決問題 Q7));原地改寫 T055b 留下的 `test_大小超過顯示記憶體總量才標可能無法載入_讀不到時是_null`,讀不到的那一半改成這個工作階段第一次就讀到 null(`plan.md` § 待決問題 Q18),執行確認它因為「把 `colab exec` 成功當成讀成功,快取了 null,之後一直是 null、不再讀」這類實作而失敗;若一執行就通過(T055b、T058b 已經只快取數字),就改做對照組:暫時把 `_vram_total()` 讀到 null 也寫入快取,執行確認斷言失敗後撤回,T061b 改成確認不需要為這個案例改程式碼(`plan.md` § 待決問題 Q24)
+- [X] T061a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_models.py` 寫 US2-API-07 的測試(`probe_resources` 第一次回 `vram_total=None`、之後回 16,106,127,360,連續送 3 次 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-07`(`plan.md` § 待決問題 Q7));原地改寫 T055b 留下的 `test_大小超過顯示記憶體總量才標可能無法載入_讀不到時是_null`,讀不到的那一半改成這個工作階段第一次就讀到 null(`plan.md` § 待決問題 Q18),執行確認它因為「把 `colab exec` 成功當成讀成功,快取了 null,之後一直是 null、不再讀」這類實作而失敗;若一執行就通過(T055b、T058b 已經只快取數字),就改做對照組:暫時把 `_vram_total()` 讀到 null 也寫入快取,執行確認斷言失敗後撤回,T061b 改成確認不需要為這個案例改程式碼(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、FR-003、邊界情況、SC-003;`research.md` § R3;`plan.md` § 待決問題 Q18
-- [ ] T061b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/catalog.py` 只寫讓 US2-API-07 通過的程式碼(讀到的 `vramTotalBytes` 是整數才寫入快取;是 null 就回 null、不寫入,下一次再讀),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T061a)
+- [X] T061b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/catalog.py` 只寫讓 US2-API-07 通過的程式碼(讀到的 `vramTotalBytes` 是整數才寫入快取;是 null 就回 null、不寫入,下一次再讀),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T061a)
   - 🧪 `testplan.md` § US2-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-004、FR-003、邊界情況、SC-003;`research.md` § R3
-- [ ] T062a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-08 的測試(照 `test_api_recovery.py` 的寫法,第一個 app 讀過一次後關掉,以同一個 SQLite 檔與替身建第二個 app、接回同一個工作階段,`reset_calls()` 後送 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-08`(`plan.md` § 待決問題 Q7));T055b 的快取是 `Catalog` 物件的屬性,`make_app()` 建新的 app 時 `Catalog` 是新的、快取是空的,這個案例會被滿足:先執行確認通過,再暫時把 快取 改成「改放在 `src/cgb/services/catalog.py` 的模組層級全域變數(或寫進 SQLite)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T062a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-08 的測試(照 `test_api_recovery.py` 的寫法,第一個 app 讀過一次後關掉,以同一個 SQLite 檔與替身建第二個 app、接回同一個工作階段,`reset_calls()` 後送 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-08`(`plan.md` § 待決問題 Q7));T055b 的快取是 `Catalog` 物件的屬性,`make_app()` 建新的 app 時 `Catalog` 是新的、快取是空的,這個案例會被滿足:先執行確認通過,再暫時把 快取 改成「改放在 `src/cgb/services/catalog.py` 的模組層級全域變數(或寫進 SQLite)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003、邊界情況;`research.md` § R3
-- [ ] T062b [US2] 🟢 /tdd 綠燈:US2-API-08 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-08 通過的程式碼(依賴 T062a)
+- [X] T062b [US2] 🟢 /tdd 綠燈:US2-API-08 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-08 通過的程式碼(依賴 T062a)
   - 🧪 `testplan.md` § US2-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003、邊界情況;`research.md` § R3
-- [ ] T063a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-09 的測試(第一次試算 `probe_resources` 回 `vram_total=8_000_000_000`,之後送 `GET /api/models`,再改剩餘磁碟後試算一次;分隔註解寫 `# ---- 003 US2-API-09`(`plan.md` § 待決問題 Q7));快取只由 `_vram_total()` 寫入(T055b),試算的 `DownloadsService._estimate` 照讀 `probe_resources`、不碰它,這個案例會被滿足:先執行確認通過,再暫時把 `src/cgb/services/downloads.py` 的 `_estimate` 改成「試算讀剩餘空間時順手把回傳的 `vramTotalBytes` 寫進 `Catalog` 的快取」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T063a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-09 的測試(第一次試算 `probe_resources` 回 `vram_total=8_000_000_000`,之後送 `GET /api/models`,再改剩餘磁碟後試算一次;分隔註解寫 `# ---- 003 US2-API-09`(`plan.md` § 待決問題 Q7));快取只由 `_vram_total()` 寫入(T055b),試算的 `DownloadsService._estimate` 照讀 `probe_resources`、不碰它,這個案例會被滿足:先執行確認通過,再暫時把 `src/cgb/services/downloads.py` 的 `_estimate` 改成「試算讀剩餘空間時順手把回傳的 `vramTotalBytes` 寫進 `Catalog` 的快取」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadEstimate`
   - 📎 `spec.md` § FR-003;`research.md` § R3
-- [ ] T063b [US2] 🟢 /tdd 綠燈:US2-API-09 由 T055b 與既有的 `_estimate` 滿足,確認 `src/cgb/services/catalog.py`、`src/cgb/services/downloads.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py`、`src/cgb/services/downloads.py` 只寫讓 US2-API-09 通過的程式碼(依賴 T063a)
+- [X] T063b [US2] 🟢 /tdd 綠燈:US2-API-09 由 T055b 與既有的 `_estimate` 滿足,確認 `src/cgb/services/catalog.py`、`src/cgb/services/downloads.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py`、`src/cgb/services/downloads.py` 只寫讓 US2-API-09 通過的程式碼(依賴 T063a)
   - 🧪 `testplan.md` § US2-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`;`contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadEstimate`
   - 📎 `spec.md` § FR-003;`research.md` § R3
-- [ ] T064a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-10 的測試(`probe_resources` 的 async `side_effect` 延遲 0.3 秒,以 `asyncio.gather` 同時送 2 次 `GET /api/models`,都回來後再送第 3 次;分隔註解寫 `# ---- 003 US2-API-10`(`plan.md` § 待決問題 Q7));async `side_effect` 依賴 T038a;T055b 的快取沒有「正在讀」的旗標,兩個同時的第一次各自讀到數字,之後沿用,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog._vram_total()` 改成「用「正在讀」旗標擋第二個請求,讓它直接回 `vramBytes: null`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T064a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-10 的測試(`probe_resources` 的 async `side_effect` 延遲 0.3 秒,以 `asyncio.gather` 同時送 2 次 `GET /api/models`,都回來後再送第 3 次;分隔註解寫 `# ---- 003 US2-API-10`(`plan.md` § 待決問題 Q7));async `side_effect` 依賴 T038a;T055b 的快取沒有「正在讀」的旗標,兩個同時的第一次各自讀到數字,之後沿用,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog._vram_total()` 改成「用「正在讀」旗標擋第二個請求,讓它直接回 `vramBytes: null`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003、假設;`research.md` § R3、R4;`plan.md` § 待決問題 Q17
-- [ ] T064b [US2] 🟢 /tdd 綠燈:US2-API-10 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-10 通過的程式碼(依賴 T064a、T038a)
+- [X] T064b [US2] 🟢 /tdd 綠燈:US2-API-10 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-10 通過的程式碼(依賴 T064a、T038a)
   - 🧪 `testplan.md` § US2-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-003、假設;`research.md` § R3、R4;`plan.md` § 待決問題 Q17
-- [ ] T065a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-11 的測試(`pytest.mark.parametrize` 對 `probeResources` 的 8 個代碼(含 `AUTH_REQUIRED`)各跑一次:第一次丟那個代碼、之後回 16,106,127,360,連續送 3 次 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-11`(`plan.md` § 待決問題 Q7));T059b 讓 `_vram_total()` 接住所有 `AdapterError`(不分代碼)回 null、不寫入,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog._vram_total()` 改成「沒有接 `AdapterError`,例外往上拋成 500」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T065a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-11 的測試(`pytest.mark.parametrize` 對 `probeResources` 的 8 個代碼(含 `AUTH_REQUIRED`)各跑一次:第一次丟那個代碼、之後回 16,106,127,360,連續送 3 次 `GET /api/models`;分隔註解寫 `# ---- 003 US2-API-11`(`plan.md` § 待決問題 Q7));T059b 讓 `_vram_total()` 接住所有 `AdapterError`(不分代碼)回 null、不寫入,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog._vram_total()` 改成「沒有接 `AdapterError`,例外往上拋成 500」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-003、FR-004、SC-003;`research.md` § R3;`plan.md` § 待決問題 Q15
-- [ ] T065b [US2] 🟢 /tdd 綠燈:US2-API-11 由 T059b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-11 通過的程式碼(依賴 T065a、T059b)
+- [X] T065b [US2] 🟢 /tdd 綠燈:US2-API-11 由 T059b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-11 通過的程式碼(依賴 T065a、T059b)
   - 🧪 `testplan.md` § US2-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-003、FR-004、SC-003;`research.md` § R3;`plan.md` § 待決問題 Q15
-- [ ] T066a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-12 的測試(`probe_resources` 的 async `side_effect` 延遲 0.3 秒,連續送 10 次 `GET /api/models`,每次以 `time.monotonic()` 量耗時;分隔註解寫 `# ---- 003 US2-API-12`(`plan.md` § 待決問題 Q7));async `side_effect` 依賴 T038a;T055b 讀到之後沿用,第 2 次起不再 `await` `probe_resources`,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog._vram_total()` 改成「沒有快取,每次都等 0.3 秒的 `colab exec`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
+- [X] T066a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_models.py` 寫 US2-API-12 的測試(`probe_resources` 的 async `side_effect` 延遲 0.3 秒,連續送 10 次 `GET /api/models`,每次以 `time.monotonic()` 量耗時;分隔註解寫 `# ---- 003 US2-API-12`(`plan.md` § 待決問題 Q7));async `side_effect` 依賴 T038a;T055b 讀到之後沿用,第 2 次起不再 `await` `probe_resources`,這個案例會被滿足:先執行確認通過,再暫時把 `Catalog._vram_total()` 改成「沒有快取,每次都等 0.3 秒的 `colab exec`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q24)
   - 🧪 `testplan.md` § US2-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、SC-002、FR-003;`research.md` § R3、R4;`plan.md` § 待決問題 Q9、Q16
-- [ ] T066b [US2] 🟢 /tdd 綠燈:US2-API-12 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-12 通過的程式碼(依賴 T066a、T038a)
+- [X] T066b [US2] 🟢 /tdd 綠燈:US2-API-12 由 T055b 滿足,確認 `src/cgb/services/catalog.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/catalog.py` 只寫讓 US2-API-12 通過的程式碼(依賴 T066a、T038a)
   - 🧪 `testplan.md` § US2-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./models.get`、`components.schemas.ModelCatalog`、`components.schemas.CatalogModel`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、SC-002、FR-003;`research.md` § R3、R4;`plan.md` § 待決問題 Q9、Q16
-- [ ] T067 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T055b~T066b 記下的重構清單(範圍限 `src/cgb/services/catalog.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_models.py` 的斷言(依賴 T066b)
+- [X] T067 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T055b~T066b 記下的重構清單(範圍限 `src/cgb/services/catalog.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_models.py` 的斷言(依賴 T066b)
   - 🧪 `testplan.md` § US2-API-01~US2-API-12
   - 📎 `testplan.md` § 3.2
 
