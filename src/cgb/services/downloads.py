@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
-from cgb.domain.errors import ApiError
+from cgb.domain.errors import ApiError, library_error
 from cgb.domain.estimate import estimate
 from cgb.domain.session_state import iso
 from cgb.repos.downloads import DownloadsRepo
@@ -14,15 +14,17 @@ from cgb.services.session_lifecycle import SessionLifecycle
 # 下載中的 `download.updated` 最多每秒推一次(asyncapi § sendDownloadUpdated)
 PROGRESS_INTERVAL = 1.0
 
-# 模型庫(S2)的失敗 → HTTP 狀態(contracts § enqueueDownloads、estimateDownloads)
-_LIBRARY_STATUS = {"LIBRARY_NOT_FOUND": 404, "LIBRARY_CLOUD_ONLY": 422}
-
 # 下載失敗給使用者看的說明(DownloadJob.message);不把遠端的英文原文交給 UI(NFR-010)
 FAILED_MESSAGES = {
     "OLLAMA_NOT_FOUND": "找不到這個模型或版本,請確認名稱。",
     "SESSION_ENDED": "工作階段結束,下載中斷;可以在新的工作階段重新排隊。",
 }
 FAILED_FALLBACK_MESSAGE = "下載失敗,請稍後重新排隊再試。"
+
+
+def with_version(model: str) -> str:
+    """沒寫版本視為 latest(contracts § ModelName)。"""
+    return model if ":" in model else f"{model}:latest"
 
 
 class DownloadsService:
@@ -81,12 +83,13 @@ class DownloadsService:
         """每個模型以 S2 `get_manifest` 取精確大小(Q11);任何一個不符就整批不加入。"""
         library = self._state.model_library
         sized = []
-        for model in models:
+        for requested in models:
+            model = with_version(requested)
             name, tag = model.split(":", 1)
             try:
                 manifest = await library.get_manifest(name=name, tag=tag)
             except AdapterError as error:
-                raise ApiError(_LIBRARY_STATUS[error.code], error.code, model=model) from None
+                raise library_error(error.code, model=model) from None
             sized.append((model, manifest["sizeBytes"]))
         return sized
 

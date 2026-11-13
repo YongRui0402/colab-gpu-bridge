@@ -14,6 +14,7 @@ import httpx
 
 from cgb.adapters.errors import AdapterError
 from cgb.db.connection import connect
+from cgb.domain.errors import MESSAGES
 from fakes import Gate, JsonReply
 from integration.test_api_events import sse_events
 from integration.test_api_models import (
@@ -562,3 +563,393 @@ async def test_背景下載時經_Ollama_相容端點的推論照常立即回應
     # Assert
     assert all(status == 200 and elapsed <= 0.2 for status, elapsed in results), results
     assert pull_still_running
+
+
+# ---------------------------------------------------------------- US2-API-01
+
+
+async def test_試算時模型庫連不到_回_502_指出是哪一個模型_不回部分試算(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="7b").raises(
+        "LIBRARY_UNREACHABLE", "ConnectError: [Errno -2] Name or service not known"
+    )
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": [QWEN_SMALL, QWEN_7B]})
+
+    # Assert
+    body = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+    assert (response.status_code, body.get("code"), body.get("model"), "totalBytes" in body) == (
+        502,
+        "LIBRARY_UNREACHABLE",
+        QWEN_7B,
+        False,
+    )
+
+
+# ---------------------------------------------------------------- US2-API-02
+
+
+async def test_試算時模型庫逾時_回_504_訊息是固定的繁中說明(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="7b").raises("LIBRARY_TIMEOUT", "ReadTimeout: timed out")
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": [QWEN_7B]})
+
+    # Assert
+    body = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+    assert (response.status_code, body.get("code"), body.get("model"), body.get("message")) == (
+        504,
+        "LIBRARY_TIMEOUT",
+        QWEN_7B,
+        MESSAGES["LIBRARY_TIMEOUT"],
+    )
+
+
+def body_of(response: httpx.Response) -> dict[str, Any]:
+    """回應本文;不是 JSON 時(例如未處理的例外變成的 500)是空 dict。"""
+    return response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+
+
+def manifest_tags(fakes: Any) -> list[str]:
+    """`get_manifest` 依序被呼叫的版本。"""
+    return [call.kwargs["tag"] for call in fakes.model_library.get_manifest.calls]
+
+
+# ---------------------------------------------------------------- US2-API-03
+
+
+async def test_試算遇到第一個失敗就停_不再取後面的_manifest(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="0.5b").raises("LIBRARY_SERVER_ERROR", "HTTP 503")
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": [QWEN_SMALL, QWEN_MID, QWEN_7B]})
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model"), fakes.model_library.get_manifest.call_count) == (
+        502,
+        "LIBRARY_SERVER_ERROR",
+        QWEN_SMALL,
+        1,
+    )
+
+
+# ---------------------------------------------------------------- US2-API-04
+
+
+async def test_試算時沒寫版本的名稱以_latest_回報是哪一個模型(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="latest").raises("LIBRARY_BAD_RESPONSE", "manifest is not JSON")
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": [QWEN_SMALL, "qwen2.5"]})
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (502, "LIBRARY_BAD_RESPONSE", "qwen2.5:latest")
+
+
+# ---------------------------------------------------------------- US2-API-05
+
+
+async def test_試算時找不到的版本_指出是它_且之後的模型不再取(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": [QWEN_SMALL, "qwen2.5:999b", QWEN_7B]})
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model"), manifest_tags(fakes)) == (
+        404,
+        "LIBRARY_NOT_FOUND",
+        "qwen2.5:999b",
+        ["0.5b", "999b"],
+    )
+
+
+# ---------------------------------------------------------------- US2-API-06
+
+
+async def test_試算時只能在雲端執行的版本_回_422_帶固定訊息(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="gpt-oss", tag="120b-cloud").raises("LIBRARY_CLOUD_ONLY", "gpt-oss:120b-cloud is cloud only")
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": [QWEN_SMALL, "gpt-oss:120b-cloud"]})
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model"), body.get("message")) == (
+        422,
+        "LIBRARY_CLOUD_ONLY",
+        "gpt-oss:120b-cloud",
+        MESSAGES["LIBRARY_CLOUD_ONLY"],
+    )
+
+
+def hold_pulls(fakes: Any) -> Gate:
+    """每一筆 `pull_model` 都停在同一個閘門前(加入了就看得到下載中或排隊中)。"""
+    hold = Gate()
+    fakes.remote_ollama.pull_model.side_effect(lambda *a, **k: [{"status": "pulling manifest"}, hold, {"status": "success"}])
+    return hold
+
+
+# ---------------------------------------------------------------- US2-API-07
+
+
+async def test_加入時找不到的版本整批不加入_指出是它_也不下載(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": [QWEN_SMALL, "qwen2.5:999b", QWEN_7B]})
+    await asyncio.sleep(0.1)
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (404, "LIBRARY_NOT_FOUND", "qwen2.5:999b")
+    assert (after["jobs"], manifest_tags(fakes), fakes.remote_ollama.pull_model.call_count) == ([], ["0.5b", "999b"], 0)
+
+
+# ---------------------------------------------------------------- US2-API-08
+
+
+async def test_加入時有只能在雲端執行的版本整批不加入(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="gpt-oss", tag="120b-cloud").raises("LIBRARY_CLOUD_ONLY", "cloud only")
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": [QWEN_7B, "gpt-oss:120b-cloud"]})
+    await asyncio.sleep(0.1)
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (422, "LIBRARY_CLOUD_ONLY", "gpt-oss:120b-cloud")
+    assert after["jobs"] == []
+
+
+# ---------------------------------------------------------------- US2-API-09
+
+
+async def test_加入時第三個取不到大小_前兩個也不留在佇列(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="7b").raises("LIBRARY_UNREACHABLE", "ConnectError: connection refused")
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": [QWEN_SMALL, QWEN_MID, QWEN_7B]})
+    await asyncio.sleep(0.1)
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (502, "LIBRARY_UNREACHABLE", QWEN_7B)
+    assert after["jobs"] == []
+
+
+# ---------------------------------------------------------------- US2-API-10
+
+
+async def test_加入時模型庫逾時_回_504_固定訊息_佇列不變(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="7b").raises("LIBRARY_TIMEOUT", "ReadTimeout: timed out")
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": [QWEN_7B]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model"), body.get("message")) == (
+        504,
+        "LIBRARY_TIMEOUT",
+        QWEN_7B,
+        MESSAGES["LIBRARY_TIMEOUT"],
+    )
+    assert after["jobs"] == []
+
+
+# ---------------------------------------------------------------- US2-API-11
+
+
+async def test_加入失敗時_UI_沒有收到任何_download_updated(live_servers: Any, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="1.5b").raises("LIBRARY_SERVER_ERROR", "HTTP 503")
+    hold = hold_pulls(fakes)
+    updates: list[tuple[float, str]] = []
+    async with httpx.AsyncClient(base_url=live_servers.ui_url, timeout=5.0) as client:
+        await open_ready(client)
+        async with client.stream("GET", "/api/events") as stream:
+
+            async def collect() -> None:
+                async for name, payload in sse_events(stream):
+                    if name == "download.updated":
+                        updates.append((time.monotonic(), payload["job"]["model"]))
+
+            collector = asyncio.create_task(collect())
+            await asyncio.sleep(0.1)
+
+            # Act
+            first_start = time.monotonic()
+            first = await client.post("/api/downloads", json={"models": [QWEN_SMALL, QWEN_MID]})
+            await asyncio.sleep(0.5)
+            second_start = time.monotonic()
+            await client.post("/api/downloads", json={"models": [QWEN_7B]})
+            await asyncio.sleep(1.0)
+            collector.cancel()
+            hold.release()
+
+    # Assert
+    body = body_of(first)
+    assert (first.status_code, body.get("code"), body.get("model")) == (502, "LIBRARY_SERVER_ERROR", QWEN_MID)
+    assert [model for at, model in updates if first_start <= at < second_start] == []
+    assert QWEN_7B in [model for at, model in updates if at >= second_start]
+
+
+# ---------------------------------------------------------------- US2-API-12
+
+
+async def test_加入時沒寫版本的名稱以_latest_回報_佇列不變(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="latest").raises("LIBRARY_BAD_RESPONSE", "manifest layers is not a list")
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": ["qwen2.5"]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code"), body.get("model")) == (502, "LIBRARY_BAD_RESPONSE", "qwen2.5:latest")
+    assert after["jobs"] == []
+
+
+# ---------------------------------------------------------------- US2-API-13
+
+
+async def test_模型庫失敗時佇列與精選清單不受影響_下載中的照常完成(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:下載中 qwen2.5:0.5b-instruct、排隊中 qwen2.5:7b、精選清單有 qwen2.5:7b
+    downloadable(fakes)
+    set_library(fakes, {**MANIFEST_SIZES, "qwen2.5:0.5b-instruct": 0})
+    await open_ready(ui_client)
+    hold = await enqueue_waiting(ui_client, fakes, "qwen2.5:0.5b-instruct", QWEN_7B)
+    await ui_client.post("/api/curated", json={"name": QWEN_7B})
+    curated_before = (await ui_client.get("/api/curated")).json()["items"]
+    assert [item["name"] for item in curated_before] == [QWEN_7B]
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="1.5b").raises("LIBRARY_UNREACHABLE", "ConnectError")
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": [QWEN_MID]})
+    during = await queue(ui_client)
+    curated_after = (await ui_client.get("/api/curated")).json()["items"]
+    pulls_before_release = [call.kwargs["model"] for call in fakes.remote_ollama.pull_model.calls]
+    hold.release()
+    done = await wait_queue(ui_client, lambda q: states(q)[:1] == [("qwen2.5:0.5b-instruct", "completed")], timeout=2.0)
+
+    # Assert
+    body = body_of(response)
+    assert (response.status_code, body.get("code")) == (502, "LIBRARY_UNREACHABLE")
+    assert states(during) == [("qwen2.5:0.5b-instruct", "downloading"), (QWEN_7B, "queued")]
+    assert curated_after == curated_before
+    assert pulls_before_release == ["qwen2.5:0.5b-instruct"]
+    assert states(done)[:1] == [("qwen2.5:0.5b-instruct", "completed")]
+
+
+# ---------------------------------------------------------------- US2-API-14
+
+
+async def test_試算失敗的回應本文不含底層的網址與堆疊(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    fakes.model_library.get_manifest.when(name="qwen2.5", tag="7b").raises(
+        "LIBRARY_SERVER_ERROR",
+        "Server error '503 Service Unavailable' for url 'https://registry.ollama.ai/v2/library/qwen2.5/manifests/7b' "
+        "Traceback (most recent call last)",
+    )
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": [QWEN_7B]})
+
+    # Assert
+    body = body_of(response)
+    assert response.status_code == 502 and body.get("code") == "LIBRARY_SERVER_ERROR"
+    assert "registry.ollama.ai" not in response.text
+    assert "Traceback" not in response.text
+    assert set(body) == {"code", "message", "model"}
+    assert body["message"] == MESSAGES["LIBRARY_SERVER_ERROR"]
+
+
+# ---------------------------------------------------------------- US2-API-15
+
+LIBRARY_CODES = [
+    "LIBRARY_NOT_FOUND",
+    "LIBRARY_CLOUD_ONLY",
+    "LIBRARY_UNREACHABLE",
+    "LIBRARY_SERVER_ERROR",
+    "LIBRARY_BAD_RESPONSE",
+    "LIBRARY_TIMEOUT",
+]
+
+
+async def test_同一個代碼對不同模型回同一句繁中訊息_並帶退路(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:替身依「目前要測的代碼」丟錯,7b 與 1.5b 各帶不同的英文說明
+    downloadable(fakes)
+    current = {"code": ""}
+    notes = {"7b": "failed A https://registry.ollama.ai/a", "1.5b": "failed B https://registry.ollama.ai/b"}
+
+    def fail(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        raise AdapterError(current["code"], notes[kwargs["tag"]])
+
+    fakes.model_library.get_manifest.side_effect(fail)
+    hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    messages: dict[str, list[str]] = {}
+    for code in LIBRARY_CODES:
+        current["code"] = code
+        responses = [await ui_client.post("/api/downloads", json={"models": [model]}) for model in (QWEN_7B, QWEN_MID)]
+        messages[code] = [body_of(response).get("message", "") for response in responses]
+
+    # Assert
+    assert {code: len(set(texts)) for code, texts in messages.items()} == {code: 1 for code in LIBRARY_CODES}
+    assert all(any("一" <= char <= "鿿" for char in texts[0]) for texts in messages.values())
+    with_fallback = ["LIBRARY_UNREACHABLE", "LIBRARY_TIMEOUT", "LIBRARY_SERVER_ERROR", "LIBRARY_BAD_RESPONSE"]
+    assert all("從精選清單挑選或直接輸入名稱" in messages[code][0] for code in with_fallback)

@@ -597,127 +597,127 @@
 
 ### E2 後端 UI API
 
-- [ ] T067a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-01 的測試(送 `POST /api/downloads/estimate`,`models` 為 `["qwen2.5:0.5b", "qwen2.5:7b"]`),執行確認它因為「`_sized` 仍用只有 404、422 的 `_LIBRARY_STATUS` 查表,`KeyError` 變成 500」這類實作而失敗
+- [X] T067a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-01 的測試(送 `POST /api/downloads/estimate`,`models` 為 `["qwen2.5:0.5b", "qwen2.5:7b"]`),執行確認它因為「`_sized` 仍用只有 404、422 的 `_LIBRARY_STATUS` 查表,`KeyError` 變成 500」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4
-- [ ] T067b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-01 通過的程式碼(`DownloadsService._sized` 改用 `library_error(error.code, model=model)`,刪除只有兩個代碼的 `_LIBRARY_STATUS`;搜過 `src/` 與 `tests/`,`_LIBRARY_STATUS` 的呼叫端只有 `src/cgb/services/downloads.py` 的 `_sized`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T067a)
+- [X] T067b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-01 通過的程式碼(`DownloadsService._sized` 改用 `library_error(error.code, model=model)`,刪除只有兩個代碼的 `_LIBRARY_STATUS`;搜過 `src/` 與 `tests/`,`_LIBRARY_STATUS` 的呼叫端只有 `src/cgb/services/downloads.py` 的 `_sized`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T067a)
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4
-- [ ] T068a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-02 的測試(試算 `["qwen2.5:7b"]`(只勾一個)),執行確認它因為「`MESSAGES` 沒補 `LIBRARY_TIMEOUT`,`ApiError.body()` 丟 `KeyError`、回 500」這類實作而失敗
+- [X] T068a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-02 的測試(試算 `["qwen2.5:7b"]`(只勾一個)),執行確認它因為「`MESSAGES` 沒補 `LIBRARY_TIMEOUT`,`ApiError.body()` 丟 `KeyError`、回 500」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、NFR-002;`research.md` § R4
-- [ ] T068b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T068a)
+- [X] T068b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T068a)
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、NFR-002;`research.md` § R4
-- [ ] T069a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-03 的測試(試算 `["qwen2.5:0.5b", "qwen2.5:1.5b", "qwen2.5:7b"]`),執行確認它因為「用 `asyncio.gather` 同時取三個 manifest,或全部取完才回第一個失敗,多送了後面兩個請求」這類實作而失敗
+- [X] T069a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-03 的測試(試算 `["qwen2.5:0.5b", "qwen2.5:1.5b", "qwen2.5:7b"]`),執行確認它因為「用 `asyncio.gather` 同時取三個 manifest,或全部取完才回第一個失敗,多送了後面兩個請求」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q3
-- [ ] T069b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T069a)
+- [X] T069b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T069a)
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q3
-- [ ] T070a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-04 的測試(試算 `["qwen2.5:0.5b", "qwen2.5"]`(第二個沒寫版本)),執行確認它因為「`model` 放使用者輸入的原樣 `qwen2.5`,沒補 `latest`」這類實作而失敗
+- [X] T070a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-04 的測試(試算 `["qwen2.5:0.5b", "qwen2.5"]`(第二個沒寫版本)),執行確認它因為「`model` 放使用者輸入的原樣 `qwen2.5`,沒補 `latest`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q12
-- [ ] T070b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-04 通過的程式碼(沒寫版本的名稱在 `_sized` 補成 `<名稱>:latest` 再取 manifest 與放進 `model`;`src/cgb/api/curated.py` 已有同一條補 `latest` 的規則,這裡只寫讓案例通過的最小版本,要不要共用記進重構清單),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T070a)
+- [X] T070b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-04 通過的程式碼(沒寫版本的名稱在 `_sized` 補成 `<名稱>:latest` 再取 manifest 與放進 `model`;`src/cgb/api/curated.py` 已有同一條補 `latest` 的規則,這裡只寫讓案例通過的最小版本,要不要共用記進重構清單),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T070a)
   - 🧪 `testplan.md` § US2-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q12
-- [ ] T071a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-05 的測試(試算 `["qwen2.5:0.5b", "qwen2.5:999b", "qwen2.5:7b"]`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「`model` 指成第一個或最後一個選取的模型」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T071a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-05 的測試(試算 `["qwen2.5:0.5b", "qwen2.5:999b", "qwen2.5:7b"]`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「`model` 指成第一個或最後一個選取的模型」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q3;`plan.md` § 待決問題 Q19
-- [ ] T071b [US2] 🟢 /tdd 綠燈:US2-API-05 由現有程式滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-05 通過的程式碼(依賴 T071a)
+- [X] T071b [US2] 🟢 /tdd 綠燈:US2-API-05 由現有程式滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-05 通過的程式碼(依賴 T071a)
   - 🧪 `testplan.md` § US2-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q3;`plan.md` § 待決問題 Q19
-- [ ] T072a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-06 的測試(試算 `["qwen2.5:0.5b", "gpt-oss:120b-cloud"]`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「改成共用的 `LIBRARY_STATUS` 時漏了 `LIBRARY_CLOUD_ONLY`,退回預設 502」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T072a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-06 的測試(試算 `["qwen2.5:0.5b", "gpt-oss:120b-cloud"]`);現有程式已滿足這個案例(research.md R4 的實測表),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「改成共用的 `LIBRARY_STATUS` 時漏了 `LIBRARY_CLOUD_ONLY`,退回預設 502」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、NFR-002;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T072b [US2] 🟢 /tdd 綠燈:US2-API-06 由現有程式滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-06 通過的程式碼(依賴 T072a)
+- [X] T072b [US2] 🟢 /tdd 綠燈:US2-API-06 由現有程式滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-06 通過的程式碼(依賴 T072a)
   - 🧪 `testplan.md` § US2-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、NFR-002;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T073a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-07 的測試(送 `POST /api/downloads`,`models` 為 `["qwen2.5:0.5b", "qwen2.5:999b", "qwen2.5:7b"]`,之後 `GET /api/downloads`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「每取到一個 manifest 就寫進佇列,第一個 `qwen2.5:0.5b` 留在佇列並開始下載」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T073a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-07 的測試(送 `POST /api/downloads`,`models` 為 `["qwen2.5:0.5b", "qwen2.5:999b", "qwen2.5:7b"]`,之後 `GET /api/downloads`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「每取到一個 manifest 就寫進佇列,第一個 `qwen2.5:0.5b` 留在佇列並開始下載」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q3;`plan.md` § 待決問題 Q19
-- [ ] T073b [US2] 🟢 /tdd 綠燈:US2-API-07 由現有程式滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-07 通過的程式碼(依賴 T073a)
+- [X] T073b [US2] 🟢 /tdd 綠燈:US2-API-07 由現有程式滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-07 通過的程式碼(依賴 T073a)
   - 🧪 `testplan.md` § US2-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q3;`plan.md` § 待決問題 Q19
-- [ ] T074a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-08 的測試(加入 `["qwen2.5:7b", "gpt-oss:120b-cloud"]`,之後 `GET /api/downloads`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「7b 先寫進佇列,遇到雲端版本才停,沒有撤掉」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
+- [X] T074a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-08 的測試(加入 `["qwen2.5:7b", "gpt-oss:120b-cloud"]`,之後 `GET /api/downloads`);現有程式已滿足這個案例(001 的行為),先執行確認它通過,再把 `src/cgb/services/downloads.py` 暫時改成「7b 先寫進佇列,遇到雲端版本才停,沒有撤掉」這類實作,執行確認它斷言失敗,撤回暫時的改動;若一執行就斷言失敗(前面的綠燈任務改到了這條路徑),就當成一般的紅燈,不必再暫時改壞
   - 🧪 `testplan.md` § US2-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T074b [US2] 🟢 /tdd 綠燈:US2-API-08 由現有程式滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-08 通過的程式碼(依賴 T074a)
+- [X] T074b [US2] 🟢 /tdd 綠燈:US2-API-08 由現有程式滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-08 通過的程式碼(依賴 T074a)
   - 🧪 `testplan.md` § US2-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q19
-- [ ] T075a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-09 的測試(加入 `["qwen2.5:0.5b", "qwen2.5:1.5b", "qwen2.5:7b"]`(第三個取不到),之後 `GET /api/downloads`),執行確認它因為「前兩個取到大小就寫進 SQLite,第三個失敗時沒有回滾,佇列留下 0.5b 與 1.5b」這類實作而失敗
+- [X] T075a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-09 的測試(加入 `["qwen2.5:0.5b", "qwen2.5:1.5b", "qwen2.5:7b"]`(第三個取不到),之後 `GET /api/downloads`),執行確認它因為「前兩個取到大小就寫進 SQLite,第三個失敗時沒有回滾,佇列留下 0.5b 與 1.5b」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4
-- [ ] T075b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T075a)
+- [X] T075b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T075a)
   - 🧪 `testplan.md` § US2-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4
-- [ ] T076a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-10 的測試(加入 `["qwen2.5:7b"]`,之後 `GET /api/downloads`),執行確認它因為「加入的錯誤處理只改了試算那條路,`enqueue` 的逾時仍丟 `KeyError`、回 500」這類實作而失敗
+- [X] T076a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-10 的測試(加入 `["qwen2.5:7b"]`,之後 `GET /api/downloads`),執行確認它因為「加入的錯誤處理只改了試算那條路,`enqueue` 的逾時仍丟 `KeyError`、回 500」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、NFR-002;`research.md` § R4
-- [ ] T076b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T076a)
+- [X] T076b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T076a)
   - 🧪 `testplan.md` § US2-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005、NFR-002;`research.md` § R4
-- [ ] T077a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-11 的測試(加入 `["qwen2.5:0.5b", "qwen2.5:1.5b"]`;0.5 秒後再加入 `["qwen2.5:7b"]`(對照組)),執行確認它因為「先 `_repo.enqueue` 並 `_publish` 0.5b、再取 1.5b 的 manifest,UI 收到一筆之後就不存在的 `download.updated`」這類實作而失敗
+- [X] T077a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-11 的測試(加入 `["qwen2.5:0.5b", "qwen2.5:1.5b"]`;0.5 秒後再加入 `["qwen2.5:7b"]`(對照組)),執行確認它因為「先 `_repo.enqueue` 並 `_publish` 0.5b、再取 1.5b 的 manifest,UI 收到一筆之後就不存在的 `download.updated`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q15
-- [ ] T077b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T077a)
+- [X] T077b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T077a)
   - 🧪 `testplan.md` § US2-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q15
-- [ ] T078a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-12 的測試(加入 `["qwen2.5"]`(沒寫版本),之後 `GET /api/downloads`),執行確認它因為「`model` 放原樣的 `qwen2.5`」這類實作而失敗
+- [X] T078a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-12 的測試(加入 `["qwen2.5"]`(沒寫版本),之後 `GET /api/downloads`),執行確認它因為「`model` 放原樣的 `qwen2.5`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q12
-- [ ] T078b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T078a)
+- [X] T078b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T078a)
   - 🧪 `testplan.md` § US2-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § FR-005;`research.md` § R4;`plan.md` § 待決問題 Q12
-- [ ] T079a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-13 的測試(加入 `["qwen2.5:1.5b"]`,之後 `GET /api/downloads`、`GET /api/curated`,再放行 0.5b-instruct 的閘門),執行確認它因為「模型庫失敗時把整個佇列清掉,或把下載中那一筆標成 `failed`」這類實作而失敗
+- [X] T079a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-13 的測試(加入 `["qwen2.5:1.5b"]`,之後 `GET /api/downloads`、`GET /api/curated`,再放行 0.5b-instruct 的閘門),執行確認它因為「模型庫失敗時把整個佇列清掉,或把下載中那一筆標成 `failed`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § 邊界情況;`research.md` § R4;`plan.md` § 待決問題 Q15
-- [ ] T079b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T079a)
+- [X] T079b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T079a)
   - 🧪 `testplan.md` § US2-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § 邊界情況;`research.md` § R4;`plan.md` § 待決問題 Q15
-- [ ] T080a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-14 的測試(試算 `["qwen2.5:7b"]`),執行確認它因為「把 `AdapterError.message` 或 `str(error)` 放進 `message`」這類實作而失敗
+- [X] T080a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-14 的測試(試算 `["qwen2.5:7b"]`),執行確認它因為「把 `AdapterError.message` 或 `str(error)` 放進 `message`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-005;`research.md` § R4
-- [ ] T080b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T080a)
+- [X] T080b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T080a)
   - 🧪 `testplan.md` § US2-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002、FR-005;`research.md` § R4
-- [ ] T081a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-15 的測試(每一個代碼各加入 `["qwen2.5:7b"]` 一次、`["qwen2.5:1.5b"]` 一次),執行確認它因為「訊息用 f-string 嵌入模型名稱或替身的英文說明,同一個代碼兩次不一樣」這類實作而失敗
+- [X] T081a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_downloads.py` 寫 US2-API-15 的測試(每一個代碼各加入 `["qwen2.5:7b"]` 一次、`["qwen2.5:1.5b"]` 一次),執行確認它因為「訊息用 f-string 嵌入模型名稱或替身的英文說明,同一個代碼兩次不一樣」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002;`research.md` § R4;`plan.md` § 待決問題 Q13
-- [ ] T081b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T081a)
+- [X] T081b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T081a)
   - 🧪 `testplan.md` § US2-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-002;`research.md` § R4;`plan.md` § 待決問題 Q13
-- [ ] T082 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T067b~T081b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/domain/errors.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_downloads.py` 的斷言(依賴 T081b)
+- [X] T082 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T067b~T081b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/domain/errors.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_downloads.py` 的斷言(依賴 T081b)
   - 🧪 `testplan.md` § US2-API-01~US2-API-15
   - 📎 `testplan.md` § 3.2
 

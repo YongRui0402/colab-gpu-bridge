@@ -89,6 +89,7 @@ def oauth_error(code: str) -> ApiError:
 # contracts/ui.openapi.yaml § components.schemas.Error:模型庫的失敗依 S2 代碼原樣放在 `code`(002 research.md R4)
 LIBRARY_STATUS = {
     "LIBRARY_NOT_FOUND": 404,
+    "LIBRARY_CLOUD_ONLY": 422,
     "LIBRARY_UNREACHABLE": 502,
     "LIBRARY_SERVER_ERROR": 502,
     "LIBRARY_BAD_RESPONSE": 502,
