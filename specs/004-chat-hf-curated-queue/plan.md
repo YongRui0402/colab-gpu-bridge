@@ -137,3 +137,32 @@ tests/
 | Q31 | S3 | 修改既有 H100 精選項目的選單:A 不列 H100、加「維持目前設定」;B 列出但不能選 | — | A(D45) |
 | Q32 | S3 | 精選清單顯示大小:A 不顯示;B `CuratedModel` 加大小 | — | A(D46) |
 | Q33 | S3 | 自動下載判定中:A 不顯示;B 顯示「正在依精選清單排入…」 | — | B(D47):原型補判定中的狀態 |
+| Q34 | testplan | 案例 ID 和 001~003 測試檔的標記撞號:A 照 003 Q7,註解 `# ---- 004 US1-API-01`、全域案例放 `tests/integration/test_004_g_NN.py`;B ID 帶迭代前綴;C 不處理 | — | A(D48) |
+| Q35 | testplan | 對話轉送要不要有遠端 Ollama 的轉接層方法:A 不新增,`api/chat.py` 以 httpx 打 forward target、`_relay` 轉送,S1 `chat` 的歸類由 E2 經 `FakeOllamaServer`(真 HTTP)測,E7 只測 `pull_model`;B 新增 `RemoteOllama.chat` | — | A(D49):Source 樹 `adapters/remote_ollama.py` 的「/api/chat 串流」照此解讀,不新增方法 |
+| Q36 | testplan | Hugging Face 轉接層的介面:A `HuggingFaceHub` 的 `search_models`、`list_repo_files`、`get_manifest` 加組合用的 `list_quants`(整體 10 秒期限在轉接層),E2 替身 `FakeHuggingFaceHub` 以 `create_app(huggingface=...)` 注入;B 組合放 `api/huggingface.py` | — | A(D50) |
+| Q37 | testplan | 遷移測試的舊資料庫:A 改 schema 前把現行 `create_schema` 的 DDL 凍結成 `tests/fixtures/db/schema_v0.sql`;B 手寫最小舊表;C 每次從 git 取舊版 | — | A(D51) |
+| Q38 | testplan | 帶真實時間的門檻(SC-002、SC-003、SC-004):A 照 003 Q9,行為測試壓到 0.3 秒內,原樣門檻另寫全域 📏 量測、標 `realrun`;B 行為測試用原樣時間、從快速層 deselect | — | A(D52) |
+| Q39 | testplan | 遷移(`user_version` 0 → 1)失敗時怎麼辦?A. `create_schema` 把原例外往上丟,後端起不來;B. 記 log、照舊庫繼續啟動 | — | A,往上丟,後端起不來(D53) |
+| Q40 | testplan | 舊庫已有只差大小寫的名稱,建 `lower()` 唯一索引會讓遷移失敗,怎麼辦?A. 遷移失敗、後端起不來,由使用者手動處理;B. 建索引前在同一個交易裡每組只留 id 最小的那一筆、其他刪掉,刪掉的名稱寫進日誌;C. 有衝突就不建索引,只靠程式檢查;D. 把重複的那幾筆改名 | — | B,同一個交易裡每組留 id 最小的、其他刪掉並寫進日誌(D54) |
+| Q41 | testplan | `auto_download_results.target_count` 要不要加 `CHECK (target_count >= 0)`?A. 加;B. 不加 | — | A,加(D55) |
+| Q42 | testplan | `pull_model` 收到 404 要歸哪個代碼?A. 歸 `OLLAMA_BAD_RESPONSE`;B. 歸 `OLLAMA_NOT_FOUND` | — | A,歸 `OLLAMA_BAD_RESPONSE`(D56) |
+| Q43 | testplan | `pull_model` 串流開始前的失敗在 `await` 時丟,還是第一次迭代時丟?A. 兩者都算通過,呼叫端兩段都包住;B. 規定在 `await` 時丟 | — | A,兩者都算,呼叫端兩段都包住(D57) |
+| Q44 | testplan | 各處的短逾時要從哪裡注入?A. `cgb.app.Timeouts` 加 `chat_connect`(10)、`chat_read`(300)只給對話,加 `hf_expand_deadline`(10)給展開時讀模型清單;`HuggingFaceHub(transport, base_url, request_timeout=10, expand_deadline=10)`;`pull_model` 以半截串流丟 `ReadTimeout` 驗歸類、以 `request.extensions["timeout"]` 驗設定值,真的計時留給 001 的 `D-silent`;B. 對話共用相容端點的 `forward_read`、展開不另設期限 | — | A,照建議的注入點(D58) |
+| Q45 | testplan | `Content-Type: application/x-ndjson; charset=utf-8` 算不算 NDJSON?A. 只比 media type、忽略參數;B. 必須完全相等 | — | A,只比 media type(D59) |
+| Q46 | testplan | `GET /api/downloads` 要不要依目前工作階段的名稱過濾?A. 不過濾;B. 依目前工作階段的名稱過濾 | — | A,不過濾(D60) |
+| Q47 | testplan | 變更類型時,清除後的 `downloads.snapshot` 裡有沒有重新載入的那一筆?A. 快照是空的,接著推那一筆的 `download.updated`;B. 等重新載入的項目排入後才推快照 | — | A,快照空的,接著推那一筆(D61) |
+| Q48 | testplan | 測試檔與 helper 怎麼分?A. 照各端點節節首:新檔 `tests/integration/test_api_queue_clearing.py`、`test_api_chat.py`、`test_api_auto_download.py`、`test_api_huggingface.py`、`test_huggingface.py`,`tests/unit/test_hf_quants.py`、`test_model_name.py`;新 helper `mixed_queue`、`queue_events`、`set_hf`、`curate`、`wait_auto`;`Fakes` 多一個 `huggingface`;B. 全部塞進既有檔 | — | A,照各節節首分檔(D62) |
+| Q49 | testplan | Hugging Face 轉接層、替身與純函式的介面形狀怎麼統一?A. `search_models` 回 `{"items":[{"id","downloads"}],"nextCursor"}`;`list_repo_files` 回套過 `hf_quants` 規則的候選名稱 list(沒有候選丟 `HF_NO_GGUF`);`get_manifest(author=, model=, tag=)` 回 `{"sizeBytes"}`;`list_quants` 回 `[{"quant","sizeBytes"}]`;`hf_quants` 的 `quant_name(path)`、`candidates(paths)`;`model_name` 新增 `match_key`、`is_valid`、`source_of`,`with_version` 沿用;B. 另定 | — | A,照建議統一,`list_quants` 回 list(D63) |
+| Q50 | testplan | 展開時某個量化版本的 manifest 回 200 但沒有模型層,怎麼辦?A. 整個展開歸 `HF_BAD_RESPONSE`;B. 只略過那一個版本,像 400 一樣(要改合約) | — | A,整個展開歸 `HF_BAD_RESPONSE`(D64) |
+| Q51 | testplan | 展開整體期限的預設 10 秒,沒辦法在 0.3 秒內經公開介面斷言,怎麼驗?A. 交給 G-04 原樣量;B. 開一個唯讀屬性來斷言 | — | A,交給 G-04 原樣量(D65) |
+| Q52 | testplan | 自動下載讀不到剩餘磁碟時,已經因為取不到大小或可能無法載入而跳過的項目,原因要不要改?A. 保留原本的原因,只有還沒判定的標 `DISK_SPACE_UNKNOWN`;B. 全部改標 `DISK_SPACE_UNKNOWN` | — | A,保留原本的原因(D66) |
+| Q53 | testplan | `PUT /api/curated/{id}` 同時 id 不存在、本文又不合法,先回哪一個?A. 先驗本文,回 400;B. 先查 id,回 404 | — | A,先驗本文(D67) |
+| Q54 | testplan | 和 004 衝突的既有測試怎麼處理?A. 前者刪掉、由 US4-API-19 取代;後者改成先開工作階段;B. 保留並標 xfail | — | A,刪掉被取代的,另一支改成先開工作階段(D68) |
+| Q55 | testplan | `EMPTY_MODEL_LIST` 這一輪要不要一起做?A. 一起做;B. 照舊範圍外 | — | A,一起做(D69) |
+| Q56 | testplan | `retryDownload` 的 `DOWNLOAD_NOT_FOUND`、`DOWNLOAD_NOT_RETRYABLE`、`OLLAMA_*`、`NO_READY_SESSION` 這一輪要不要補?A. 這一輪補做;B. 只做 `MODEL_ALREADY_DOWNLOADED` | — | A,這一輪補做(D70) |
+| Q57 | testplan | 對話「停止」時,怎麼看出遠端的請求被斷開了?A. `FakeOllamaServer` 新增 `client_closed` 紀錄;B. 只看後端沒有留下例外 | — | A,替身記下 `client_closed`(D71) |
+| Q58 | testplan | `POST /api/chat` 的 400 各情況對到哪個代碼?A. 本文壞了或不是物件 → `INVALID_REQUEST_BODY`;`model` 缺少、型別錯或格式不符 → `INVALID_MODEL_NAME`;`messages` 缺少、不是陣列或是空的 → `EMPTY_CHAT_MESSAGES`;某一則不合法 → `INVALID_CHAT_MESSAGE`;B. 缺欄位一律 `INVALID_REQUEST_BODY` | — | A,照欄位分代碼(D72) |
+| Q59 | testplan | `messages` 每一則多出來的鍵(例如 `images`、`thinking`)怎麼處理?A. 只轉 `role` 與 `content`,US2-API-02 補一條則;B. 原樣轉送 | — | A,只轉 `role` 與 `content`(D73) |
+| Q60 | testplan | 回覆途中工作階段被判定失聯(`lost`),要不要結束轉送(`SESSION_ENDED`)?A. 對話與 Ollama 相容端點都在失聯時結束轉送;B. 只有對話頁這樣做,相容端點不變 | — | B,只有對話頁這樣做(D74) |
+| Q61 | testplan | 對話頁沿用的 `OLLAMA_*` 說明文字怎麼辦?A. 依操作分表;B. 改成兩邊都通的通用說法 | — | B,改成通用說法(D75) |
+| Q62 | testplan | 照 testplan.md 交給 /tasks、實跑案例照護欄執行:A 同意,G-01~G-05 節內實跑、G-06 延後等使用者本人;B 先改再交;C G-01、G-02 也延後 | — | A(D76):G-06 這一輪延後,不實跑(要開 Colab、花 compute units,分身不能核准) |
