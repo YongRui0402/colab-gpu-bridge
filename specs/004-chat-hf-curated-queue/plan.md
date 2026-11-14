@@ -188,3 +188,4 @@ tests/
 | Q82 | implement T218a | 跨端點驗收的 ⚙ 錨點寫原型的 `#lib-form`、`#lib-q`、`#lib-results`、`[data-state="lib-results"]`,現行下載頁是 001 的 `#search-form`、`#q`、`#results`、`[data-state="results"]`,舊 e2e 有 8 處用舊選擇器:A. 照原型改名,舊 e2e 只換選擇器不動斷言;B. 保留舊 id,錨點記成對應;C. 新舊並存 | — | A,照原型改名,舊 e2e 只換選擇器(D116) |
 | Q83 | implement T186b | 接上真的 `HuggingFaceHub` 後,Phase 4 留下的 hf.co 加入回 500、自動下載卡在 `running`,要不要補一個把真的轉接層接進自動下載的案例:A. 不補,US4-HF-22~30(轉接層只丟 `AdapterError`)與 US3-API(`AdapterError` 記成 `SIZE_UNAVAILABLE`)兩半組合成立,報告寫明;B. 補一個 MockTransport 回 503 的整合案例 | — | A,不補,報告寫明兩半組合成立(D117) |
 | Q84 | implement T208b | 試算與加入的本文缺 `models` 或不是陣列時回 500,不是 400 `INVALID_REQUEST_BODY`(003 起的既有行為,沒有案例):A. 這一輪不補,記成已知落差留給下一輪;B. 這一輪補案例與實作 | — | A,這一輪不補,留給下一輪(D118) |
+| Q85 | implement T227b | T227b 從類型選單拿掉 H100 後,既有的 `tests/e2e/test_reopen_after_end.py` 6 支(`open_from` 斷言結束類狀態的選單有 5 個選項,那是 H100 還在時的數量)失敗,tasks.md 沒有任務寫到這個檔:A. 把選項數改成 4,寫明是 FR-017 的連動;B. 不改,T227b 停下;C. 刪掉選項數的斷言 | — | A,選項數改成 4(D120) |
