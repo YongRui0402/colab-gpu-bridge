@@ -45,16 +45,17 @@ const MOCK = {
     { id: "dl-5", name: HF_QWEN25_7B_Q6, size: 6254198944, status: "downloading", origin: "user", addedAt: ago(1), startedAt: new Date(NOW - 35000).toISOString(), doneAt: null, error: null },
     { id: "dl-6", name: "gemma3:12b", size: 8149190253, status: "queued", origin: "user", addedAt: ago(1), startedAt: null, doneAt: null, error: null },
   ],
-  // 精選清單(001 CuratedModel:name、description、recommendedRuntimeType;004 加 autoDownload,順序就是新增的順序)
+  // 精選清單(001 CuratedModel:name、description、recommendedRuntimeType {gpu, highMem};004 加 autoDownload,順序就是新增的順序)
+  // 沒寫版本的名稱存成 <名稱>:latest(合約 CuratedModel.name)
   curated: [
-    { id: 1, name: "qwen2.5:7b", note: "中文對話的主力;T4 上實測約 40 tokens/s", type: "T4", auto: true },
-    { id: 2, name: HF_QWEN3_8B, note: "會先想再答的 8B,想看思考過程時用", type: "T4", auto: true },
-    { id: 3, name: "qwen2.5-coder:32b-instruct-q4_K_M", note: "寫程式用;超過 T4 的顯示記憶體,開 L4 以上再載入", type: "L4", auto: true },
+    { id: 1, name: "qwen2.5:7b", note: "中文對話的主力;T4 上實測約 40 tokens/s", type: { gpu: "T4", highMem: false }, auto: true },
+    { id: 2, name: HF_QWEN3_8B, note: "會先想再答的 8B,想看思考過程時用", type: { gpu: "T4", highMem: false }, auto: true },
+    { id: 3, name: "qwen2.5-coder:32b-instruct-q4_K_M", note: "寫程式用;超過 T4 的顯示記憶體,開 L4 以上再載入", type: { gpu: "L4", highMem: false }, auto: true },
     { id: 4, name: HF_GATED, note: "Google 官方的 QAT 量化版,要先在 Hugging Face 同意條款", type: null, auto: true },
-    { id: 5, name: "llama3.2:3b", note: "小又快,拿來確認 Ollama 相容端點有沒有通", type: "T4", auto: false },
-    { id: 6, name: "nomic-embed-text", note: "知識庫(kb)的 embeddings", type: null, auto: false },
-    { id: 7, name: "llama3.1:70b", note: "等 H100 開放再試;A100 上會有一部分放在 CPU", type: "H100", auto: false },
-    { id: 8, name: "gemma3:27b", note: "", type: "A100", auto: false },
+    { id: 5, name: "llama3.2:3b", note: "小又快,拿來確認 Ollama 相容端點有沒有通", type: { gpu: "T4", highMem: false }, auto: false },
+    { id: 6, name: "nomic-embed-text:latest", note: "知識庫(kb)的 embeddings", type: null, auto: false },
+    { id: 7, name: "llama3.1:70b", note: "等 H100 開放再試;A100 上會有一部分放在 CPU", type: { gpu: "H100", highMem: true }, auto: false },
+    { id: 8, name: "gemma3:27b", note: "", type: { gpu: "A100", highMem: true }, auto: false },
   ],
   // 這個工作階段第一次就緒時的自動下載結果(spec 關鍵實體 AutoDownloadResult)
   autoResult: {
@@ -62,14 +63,13 @@ const MOCK = {
     state: "done",
     at: ago(47),
     added: ["qwen2.5:7b", HF_QWEN3_8B],
+    // 合約 AutoDownloadSkipped:model、reason、reasonCode、message 與選填的 sizeBytes、freeDiskBytes、vramBytes(Q68、D86)
     skipped: [
-      { name: "qwen2.5-coder:32b-instruct-q4_K_M", reason: "vram", detail: "19.9 GB,超過 T4 的顯示記憶體(約 15 GB)" },
-      { name: HF_GATED, reason: "size", detail: "Hugging Face 上這個模型需要登入、私有或不存在" },
+      { model: "qwen2.5-coder:32b-instruct-q4_K_M", reason: "MAY_NOT_FIT", reasonCode: null, message: "這台可能無法載入:大小超過顯示記憶體", sizeBytes: 19851336544, freeDiskBytes: null, vramBytes: 16106127360 },
+      { model: HF_GATED, reason: "SIZE_UNAVAILABLE", reasonCode: "HF_AUTH_REQUIRED", message: "取不到大小:Hugging Face 上這個模型需要登入、同意條款、私有或不存在", sizeBytes: null, freeDiskBytes: null, vramBytes: null },
     ],
     dismissed: false,
   },
-  // 上一個工作階段結束時清掉了幾筆(只用來在模型頁說明「為什麼佇列是空的」)
-  cleared: null,
   settings: { idleMinutes: 30 },
 
   // ---------- 以下是參考資料,不會被寫入 ----------
@@ -126,14 +126,15 @@ const MOCK = {
 // 狀態總覽每一格用的假資料:只寫和 MOCK 不同的部分
 const ENDED_SESSION = { ...MOCK.session, state: "ended", endedAt: ago(1), endReason: "使用者結束" };
 const NO_SESSION = { ...MOCK.session, name: null, state: "none", openedAt: null, readyAt: null, lastRequestAt: null };
-const CLEARED = { session: READY_SESSION, count: 6, at: ago(1) };
 const SCENARIOS = {
   // 工作階段頁
   normal: { session: NO_SESSION, models: [], queue: [], autoResult: null },
-  starting: { session: { ...MOCK.session, state: "starting", name: sessionName(ago(0.5)), openedAt: ago(0.5), readyAt: null }, models: [], queue: [], autoResult: null, cleared: CLEARED },
-  ended: { session: ENDED_SESSION, models: [], queue: [], autoResult: null, cleared: CLEARED },
-  lost: { session: { ...ENDED_SESSION, state: "lost", endReason: "被 Colab 收回" }, models: [], queue: [], autoResult: null, cleared: CLEARED },
-  "ended-offline": { session: { ...ENDED_SESSION, endReason: "系統停機期間結束" }, models: [], queue: [], autoResult: null, cleared: CLEARED },
+  starting: { session: { ...MOCK.session, state: "starting", name: sessionName(ago(0.5)), openedAt: ago(0.5), readyAt: null }, models: [], queue: [], autoResult: null },
+  ended: { session: ENDED_SESSION, models: [], queue: [], autoResult: null },
+  lost: { session: { ...ENDED_SESSION, state: "lost", endReason: "被 Colab 收回" }, models: [], queue: [], autoResult: null },
+  "ended-offline": { session: { ...ENDED_SESSION, endReason: "系統停機期間結束" }, models: [], queue: [], autoResult: null },
+  "lost-timeout": { session: { ...ENDED_SESSION, state: "lost", endReason: "重連逾時" }, models: [], queue: [], autoResult: null },
+  failed: { session: { ...ENDED_SESSION, state: "failed", type: "L4", readyAt: null, lastRequestAt: null, endReason: "Colab 目前沒有可分配的 L4 執行環境" }, models: [], queue: [], autoResult: null },
   stopping: { session: { ...MOCK.session, state: "stopping", stopAt: new Date(NOW).toISOString(), stopReason: "使用者結束" } },
   switching: { session: { ...MOCK.session, state: "stopping", stopAt: new Date(NOW).toISOString(), stopReason: "變更類型", next: { type: "L4", highMem: false, reload: ["qwen2.5:7b"] } } },
   // 模型頁
@@ -149,7 +150,7 @@ const SCENARIOS = {
       at: ago(0.2),
       skipped: [
         ...MOCK.autoResult.skipped,
-        { name: "hf.co/bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0", reason: "disk-unknown", detail: "讀不到執行環境的剩餘磁碟空間,還沒判定的項目都先跳過" },
+        { model: "hf.co/bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0", reason: "DISK_SPACE_UNKNOWN", reasonCode: "COLAB_TIMEOUT", message: "讀不到剩餘空間:讀不到執行環境的剩餘磁碟空間,還沒判定的項目都先跳過", sizeBytes: 3421899552, freeDiskBytes: null, vramBytes: null },
       ],
     },
   },
@@ -160,9 +161,9 @@ const SCENARIOS = {
       ...MOCK.autoResult,
       added: ["qwen2.5:7b", HF_QWEN3_8B, "qwen2.5-coder:32b-instruct-q4_K_M"],
       skipped: [
-        { name: "llama3.1:405b", reason: "disk", detail: "需要 243.2 GB,排入前面幾個之後只剩 186.0 GB" },
-        { name: HF_GATED, reason: "size", detail: "Hugging Face 上這個模型需要登入、私有或不存在" },
-        { name: "hf.co/bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0", reason: "size", detail: "Hugging Face 逾時(10 秒內沒有回應)" },
+        { model: "llama3.1:405b", reason: "DISK_SPACE_INSUFFICIENT", reasonCode: null, message: "空間不足:剩餘磁碟放不下這一個", sizeBytes: 243249652312, freeDiskBytes: 186012456960, vramBytes: null },
+        { model: HF_GATED, reason: "SIZE_UNAVAILABLE", reasonCode: "HF_AUTH_REQUIRED", message: "取不到大小:Hugging Face 上這個模型需要登入、同意條款、私有或不存在", sizeBytes: null, freeDiskBytes: null, vramBytes: null },
+        { model: "hf.co/bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0", reason: "SIZE_UNAVAILABLE", reasonCode: "HF_TIMEOUT", message: "取不到大小:Hugging Face 在 10 秒內沒有回應", sizeBytes: null, freeDiskBytes: null, vramBytes: null },
       ],
     },
   },
@@ -173,16 +174,18 @@ const SCENARIOS = {
     autoResult: { session: READY_SESSION, state: "running", at: new Date(NOW).toISOString(), added: [], skipped: [], dismissed: false },
   },
   "queue-empty": { queue: [], autoResult: null },
-  "queue-cleared": { session: ENDED_SESSION, models: [], queue: [], autoResult: null, cleared: CLEARED },
+  "queue-cleared": { session: ENDED_SESSION, models: [], queue: [], autoResult: null },
   // 下載頁
   "cur-empty": { curated: [] },
   "no-session": { session: ENDED_SESSION, models: [], queue: [], autoResult: null },
   "hf-down": { hfDown: true },
   "hf-expand-down": { hfDown: "expand" },
   "hf-size-down": { hfDown: true },
+  "direct-unchecked": { session: NO_SESSION, models: [], queue: [], autoResult: null },
   // 對話頁
   "chat-no-session": { session: NO_SESSION, models: [], queue: [], autoResult: null },
   "chat-no-models": { session: { ...MOCK.session, readyAt: ago(0.5) }, models: [], queue: [] },
+  "turn-not-found": { models: MOCK.models.filter((m) => m.name !== "llama3.2:3b") },
   "turn-lost": { session: { ...ENDED_SESSION, state: "lost", endReason: "被 Colab 收回" }, models: [], queue: [] },
 };
 
@@ -193,11 +196,17 @@ const DOWNLOAD_BYTES_PER_SEC = 80e6;
 const ESTIMATE_BYTES_PER_SEC = 50e6;
 const RUNTIME_BASE_FREE = 225.3e9;
 const REFERENCE_KEYS = ["runtimeTypes", "library", "hfRepos", "replies"];
-const HF_REASON = {
-  HF_AUTH_REQUIRED: "Hugging Face 上這個模型需要登入、私有或不存在",
-  HF_NO_GGUF: "這個模型沒有可下載的 GGUF 檔",
-  HF_QUANT_UNAVAILABLE: "這個量化版本無法下載",
-  HF_TIMEOUT: "Hugging Face 逾時(10 秒內沒有回應)",
+// 自動下載跳過時的 message(合約 AutoDownloadSkipped.message,後端固定的一句)
+const SKIP_MESSAGE = {
+  DISK_SPACE_INSUFFICIENT: "空間不足:剩餘磁碟放不下這一個",
+  MAY_NOT_FIT: "這台可能無法載入:大小超過顯示記憶體",
+  DISK_SPACE_UNKNOWN: "讀不到剩餘空間:讀不到執行環境的剩餘磁碟空間,還沒判定的項目都先跳過",
+};
+const SIZE_MESSAGE = {
+  HF_AUTH_REQUIRED: "取不到大小:Hugging Face 上這個模型需要登入、同意條款、私有或不存在",
+  HF_QUANT_UNAVAILABLE: "取不到大小:這個量化版本無法下載(不存在、分割檔或不是 GGUF)",
+  HF_TIMEOUT: "取不到大小:Hugging Face 在 10 秒內沒有回應",
+  LIBRARY_NOT_FOUND: "取不到大小:官方模型庫沒有這個模型或版本",
 };
 
 const Proto = {
@@ -236,15 +245,15 @@ const Proto = {
   },
   seed() {
     try {
-      if (localStorage.getItem("proto:seeded-004")) return;
+      if (localStorage.getItem("proto:seeded-004-r1")) return;
       Object.keys(MOCK).filter((key) => !REFERENCE_KEYS.includes(key)).forEach((key) => localStorage.setItem(`proto:${key}`, JSON.stringify(MOCK[key])));
-      localStorage.setItem("proto:seeded-004", "1");
+      localStorage.setItem("proto:seeded-004-r1", "1");
     } catch {}
   },
   reset() {
     try {
       Object.keys(MOCK).forEach((key) => localStorage.removeItem(`proto:${key}`));
-      localStorage.removeItem("proto:seeded-004");
+      localStorage.removeItem("proto:seeded-004-r1");
     } catch {}
     location.reload();
   },
@@ -336,8 +345,9 @@ const Proto = {
   },
 
   // ---------- 名稱 ----------
+  // 合約 ModelName:前綴只收小寫的 hf.co/
   isHf(name) {
-    return /^hf\.co\//i.test(name.trim());
+    return /^hf\.co\//.test(name.trim());
   },
   // FR-018:沒寫版本補 latest;比對時不分大小寫,顯示照使用者輸入的原樣
   withTag(name) {
@@ -347,10 +357,13 @@ const Proto = {
   key(name) {
     return Proto.withTag(name).toLowerCase();
   },
+  // 照合約 ModelName 的 pattern:官方名稱只收小寫、不收 <使用者>/<名稱>;hf.co/ 的作者與模型照原樣
   validName(name) {
-    const n = name.trim();
-    if (Proto.isHf(n)) return /^hf\.co\/[A-Za-z0-9][\w.-]*\/[A-Za-z0-9][\w.-]*(:[\w.-]+)?$/i.test(n);
-    return /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?(:[A-Za-z0-9][\w.-]*)?$/.test(n);
+    return /^([a-z0-9][a-z0-9._-]*|hf\.co\/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*)(:[A-Za-z0-9_][A-Za-z0-9._-]*)?$/.test(name.trim());
+  },
+  // 建議類型 {gpu, highMem} 的顯示
+  typeText(type) {
+    return type ? `${type.gpu}${type.highMem ? " 高 RAM" : ""}` : null;
   },
 
   // ---------- 參考資料 ----------
@@ -379,7 +392,8 @@ const Proto = {
       if (Proto.hfDown()) return { ok: false, code: "HF_TIMEOUT", name };
       const repo = Proto.hfRepo(base.replace(/^hf\.co\//i, ""));
       if (!repo || repo.kind === "auth") return { ok: false, code: "HF_AUTH_REQUIRED", name };
-      if (repo.kind === "no-gguf") return { ok: false, code: "HF_NO_GGUF", name };
+      // 試算與加入不回 HF_NO_GGUF(plan.md Q20):沒有 GGUF 的 repo 取 manifest 時歸成量化版本無法下載
+      if (repo.kind === "no-gguf") return { ok: false, code: "HF_QUANT_UNAVAILABLE", name };
       const quant = tag.toLowerCase() === "latest" ? repo.latest : tag;
       const hit = repo.quants.find(([q]) => q.toLowerCase() === quant.toLowerCase());
       if (!hit) return { ok: false, code: "HF_QUANT_UNAVAILABLE", name };
@@ -387,7 +401,7 @@ const Proto = {
     }
     const model = MOCK.library.find((m) => m.name === base.toLowerCase());
     const hit = model?.tags.find(([t]) => t.toLowerCase() === tag.toLowerCase());
-    if (!hit) return { ok: false, code: "NOT_FOUND", name };
+    if (!hit) return { ok: false, code: "LIBRARY_NOT_FOUND", name };
     return { ok: true, name, size: hit[1] };
   },
   searchLibrary(keyword) {
@@ -428,13 +442,11 @@ const Proto = {
     session.endedAt = at;
     session.endReason = reason;
     session.state = state;
-    const cleared = queue.length;
     queue.splice(0, queue.length);
     (session.next?.reload ?? []).forEach((name, i) => {
       const info = Proto.lookup(name);
       queue.push({ id: `dl-${Date.now()}-r${i}`, name, size: info.size ?? 0, status: "queued", origin: "restore", addedAt: at, startedAt: null, doneAt: null, error: null });
     });
-    Proto.write("cleared", cleared ? { session: session.name, count: cleared, at } : null);
     Proto.write("models", []);
     Proto.write("autoResult", null);
   },
@@ -459,14 +471,16 @@ const Proto = {
       const key = Proto.key(c.name);
       if (models.some((m) => Proto.key(m.name) === key) || queue.some((j) => Proto.key(j.name) === key)) return;
       const info = Proto.lookup(c.name);
-      if (!info.ok) return skipped.push({ name: c.name, reason: "size", detail: HF_REASON[info.code] ?? "官方模型庫沒有這個模型或版本" });
-      if (info.size > vram) return skipped.push({ name: c.name, reason: "vram", detail: `${Proto.bytes(info.size)},超過 ${session.type} 的顯示記憶體(約 ${Math.round(vram / 2 ** 30)} GB)` });
-      if (info.size > room) return skipped.push({ name: c.name, reason: "disk", detail: `需要 ${Proto.bytes(info.size)},排入前面幾個之後只剩 ${Proto.bytes(room)}` });
+      if (!info.ok) return skipped.push({ model: c.name, reason: "SIZE_UNAVAILABLE", reasonCode: info.code, message: SIZE_MESSAGE[info.code], sizeBytes: null, freeDiskBytes: null, vramBytes: null });
+      if (info.size > vram) return skipped.push({ model: c.name, reason: "MAY_NOT_FIT", reasonCode: null, message: SKIP_MESSAGE.MAY_NOT_FIT, sizeBytes: info.size, freeDiskBytes: null, vramBytes: vram });
+      if (info.size > room) return skipped.push({ model: c.name, reason: "DISK_SPACE_INSUFFICIENT", reasonCode: null, message: SKIP_MESSAGE.DISK_SPACE_INSUFFICIENT, sizeBytes: info.size, freeDiskBytes: room, vramBytes: null });
       room -= info.size;
       added.push(c.name);
       queue.push({ id: `dl-${Date.now()}-${c.id}`, name: c.name, size: info.size, status: "queued", origin: "auto", addedAt: session.readyAt, startedAt: null, doneAt: null, error: null });
     });
-    Proto.write("autoResult", { session: session.name, state: "done", at: session.readyAt, added, skipped, dismissed: false });
+    // 判定中就按了關閉的,完成後仍是關閉(合約 dismissAutoDownloadResult)
+    const dismissed = Proto.load("autoResult")?.dismissed ?? false;
+    Proto.write("autoResult", { session: session.name, state: "done", at: session.readyAt, added, skipped, dismissed });
   },
   advance() {
     let session = Proto.load("session");

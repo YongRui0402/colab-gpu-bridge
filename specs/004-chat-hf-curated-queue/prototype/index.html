@@ -129,19 +129,44 @@
         <dt>結束原因</dt><dd id="e-reason">使用者結束</dd>
         <dt>執行階段類型</dt><dd id="e-type">T4</dd>
       </dl>
-      <div class="notice notice-ok" data-cleared>已確認 Colab 帳號下沒有遺留的執行環境;下載佇列的 6 筆已一起清除。</div>
+      <div class="notice notice-ok">已確認 Colab 帳號下沒有遺留的執行環境;下載佇列已一起清空。</div>
       <div class="actions">
         <button type="button" class="btn btn-primary" data-go="open-new">開啟新的工作階段</button>
       </div>
     </section>
 
-    <!-- 失聯(被 Colab 收回、重連逾時) -->
+    <!-- 失聯(被 Colab 收回) -->
     <section data-state="lost" class="panel">
       <h2 class="state-title"><span class="pill pill-danger">失聯</span><span class="mono">cgb-20261114-1442</span></h2>
       <dl class="kv">
         <dt>結束原因</dt><dd>被 Colab 收回(Colab 上已經沒有這台執行環境)</dd>
       </dl>
-      <p class="muted" data-cleared>執行環境上的模型已經消失,下載佇列的 6 筆也一起清除了;上一台的「完成」紀錄不會帶到下一台。</p>
+      <p class="muted">執行環境上的模型已經消失,下載佇列也一起清空了;上一台的「完成」紀錄不會帶到下一台。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-go="open-new">重新開啟</button>
+      </div>
+    </section>
+
+    <!-- 失聯(重連逾時) -->
+    <section data-state="lost-timeout" class="panel">
+      <h2 class="state-title"><span class="pill pill-danger">失聯</span><span class="mono" data-session-name>cgb-20261114-1442</span></h2>
+      <dl class="kv">
+        <dt>結束原因</dt><dd>重連逾時(SSH 通道斷線後,在時限內沒能重新接上)</dd>
+      </dl>
+      <p class="muted">這台執行環境不再使用,下載佇列也一起清空了,下載中的那一筆跟著中斷;上一台的「完成」紀錄不會帶到下一台。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-go="open-new">重新開啟</button>
+      </div>
+    </section>
+
+    <!-- 開啟失敗 -->
+    <section data-state="failed" class="panel">
+      <h2 class="state-title"><span class="pill pill-danger">開啟失敗</span><span class="mono" data-session-name>cgb-20261114-1530</span></h2>
+      <dl class="kv">
+        <dt>失敗原因</dt><dd id="f-reason">Colab 目前沒有可分配的 L4 執行環境</dd>
+        <dt>執行階段類型</dt><dd id="f-type">L4</dd>
+      </dl>
+      <p class="muted">沒有開成的工作階段不會留下佇列;變更類型時為了重新載入而排入的項目也一起清空了。可以換一個類型再開。</p>
       <div class="actions">
         <button type="button" class="btn btn-primary" data-go="open-new">重新開啟</button>
       </div>
@@ -153,7 +178,7 @@
       <dl class="kv">
         <dt>結束原因</dt><dd>系統停機期間,Colab 已經收回這台執行環境</dd>
       </dl>
-      <p class="muted" data-cleared>系統重新啟動時發現它已經不在了;下載佇列的 6 筆已清除,不會帶到下一個工作階段。</p>
+      <p class="muted">系統重新啟動時發現它已經不在了;下載佇列已清空,不會帶到下一個工作階段。</p>
       <div class="actions">
         <button type="button" class="btn btn-primary" data-go="open-new">開啟新的工作階段</button>
       </div>
@@ -195,7 +220,8 @@
       if (s.state === "none") return "normal";
       if (s.state === "stopping") return s.next ? "switching" : "stopping";
       if (s.state === "ended") return s.endReason === "系統停機期間結束" ? "ended-offline" : "ended";
-      if (s.state === "lost") return "lost";
+      if (s.state === "lost") return s.endReason === "重連逾時" ? "lost-timeout" : "lost";
+      if (s.state === "failed") return "failed";
       return s.state;
     };
 
@@ -204,18 +230,13 @@
       const models = Proto.load("models");
       const queue = Proto.load("queue");
       const settings = Proto.load("settings");
-      const cleared = Proto.load("cleared");
       const t = Date.now();
       const view = viewOf(s);
       Proto.showState(view);
       const typeText = `${s.type}${s.highMem ? " 高 RAM" : ""}`;
       const names = (list) => list.map((n) => `<span class="mono">${Proto.escape(n)}</span>`).join("、");
 
-      document.querySelectorAll("[data-cleared]").forEach((el) => {
-        const count = cleared?.count ?? 0;
-        el.hidden = false;
-        if (el.closest("[data-state=\"ended\"]")) el.textContent = `已確認 Colab 帳號下沒有遺留的執行環境;${count ? `下載佇列的 ${count} 筆已一起清除。` : "下載佇列本來就是空的。"}`;
-      });
+      document.querySelectorAll("[data-session-name]").forEach((el) => { el.textContent = s.name; });
 
       if (view === "starting") {
         const elapsed = t - Date.parse(s.openedAt);
@@ -274,6 +295,10 @@
           <li>以 ${to} 開啟新的執行環境</li>
           ${reload.length ? `<li>重新下載並載入 ${names(reload)}</li>` : ""}`;
       }
+      if (view === "failed") {
+        document.getElementById("f-reason").textContent = s.endReason;
+        document.getElementById("f-type").textContent = typeText;
+      }
       if (view === "ended") {
         document.getElementById("e-name").textContent = s.name;
         document.getElementById("e-reason").textContent = s.endReason;
@@ -300,7 +325,6 @@
     document.getElementById("open").addEventListener("click", () => {
       local = null;
       Proto.save("session", Proto.newSession(picked.type, picked.highMem, new Date().toISOString()));
-      Proto.save("cleared", null);
       render();
     });
 

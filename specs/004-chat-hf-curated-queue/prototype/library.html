@@ -81,8 +81,8 @@
       </div>
       <div data-state="hf-expand-down" data-group="hf">
         <div class="notice notice-warn">
-          <strong>暫時無法取得 Hugging Face 的版本清單</strong>
-          huggingface.co 在 10 秒內沒有回應。可以稍後再展開一次;官方模型庫、精選清單與直接輸入名稱照常可以用。
+          <strong>Hugging Face 暫時無法使用,取不到版本清單</strong>
+          huggingface.co 連不到、回應錯誤或看不懂,或在 10 秒內沒有回應。可以稍後再展開一次;官方模型庫、精選清單與直接輸入名稱照常可以用。
         </div>
       </div>
       <div data-state="hf-empty" data-group="hf">
@@ -115,6 +115,7 @@
         </div>
         <button type="submit" class="btn">加入勾選</button>
       </form>
+      <p class="small muted" data-state="direct-unchecked" data-group="direct">現在沒有就緒的工作階段:只檢查名稱的格式就加入勾選,大小要等開好工作階段、按「加入下載」時才確認。</p>
       <p class="field-error" id="direct-error" hidden>名稱的格式不對:官方模型寫成 <span class="mono">qwen2.5:14b</span>,Hugging Face 寫成 <span class="mono">hf.co/作者/模型:量化版本</span>。</p>
     </section>
 
@@ -138,6 +139,8 @@
           <label for="c-type">建議的執行階段類型 <span class="hint">(可以不填)</span></label>
           <select id="c-type"></select>
           <span class="hint" id="c-type-keep" hidden></span>
+          <label class="check"><input type="checkbox" id="c-highmem"> 高 RAM</label>
+          <span class="hint" id="c-highmem-hint"></span>
         </div>
         <label class="switch"><input type="checkbox" id="c-auto"><span class="knob"></span><span class="switch-text">開好就自動下載</span></label>
         <div class="actions">
@@ -204,7 +207,7 @@
       </div>
     </section>
 
-    <!-- 官方模型庫找不到 -->
+    <!-- 官方模型庫找不到(LIBRARY_NOT_FOUND) -->
     <section data-state="not-found" data-group="sheet" class="overlay">
       <div class="sheet">
         <h2>找不到這個模型</h2>
@@ -222,20 +225,11 @@
       </div>
     </section>
 
-    <!-- HF_NO_GGUF -->
-    <section data-state="hf-no-gguf" data-group="sheet" class="overlay">
-      <div class="sheet">
-        <h2>這個模型沒有可下載的 GGUF 檔</h2>
-        <p><strong class="mono" data-fail-name>hf.co/ggml-org/Qwen2.5-VL-7B-Instruct-mmproj-GGUF</strong> 裡沒有 Ollama 能直接下載的 GGUF 模型檔(可能只有 mmproj 或其他格式)。沒有加入佇列。</p>
-        <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
-      </div>
-    </section>
-
-    <!-- HF_QUANT_UNAVAILABLE -->
+    <!-- HF_QUANT_UNAVAILABLE(試算與加入不回 HF_NO_GGUF,沒有 GGUF 的 repo 也落在這裡,plan.md Q20) -->
     <section data-state="hf-quant-unavailable" data-group="sheet" class="overlay">
       <div class="sheet">
         <h2>這個量化版本無法下載</h2>
-        <p><strong class="mono" data-fail-name>hf.co/unsloth/Qwen3-8B-GGUF:Q4_0</strong> 沒有這個量化版本,或它是分割成好幾個檔的版本。沒有加入佇列;可以在上面搜尋這個模型、展開看有哪些版本。</p>
+        <p><strong class="mono" data-fail-name>hf.co/unsloth/Qwen3-8B-GGUF:Q4_0</strong> 沒有這個量化版本、它是分割成好幾個檔的版本,或不是 GGUF。沒有加入佇列;可以在上面搜尋這個模型、展開看有哪些版本。</p>
         <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
       </div>
     </section>
@@ -286,7 +280,7 @@
       Proto.showState(curated.length ? "cur-list" : "cur-empty");
       document.getElementById("curated").innerHTML = curated.map((c) => {
         const s = status(c.name);
-        const meta = [c.type ? `建議 ${c.type}` : "未指定建議類型", c.note ? esc(c.note) : null].filter(Boolean).join(" · ");
+        const meta = [c.type ? `建議 ${Proto.typeText(c.type)}` : "未指定建議類型", c.note ? esc(c.note) : null].filter(Boolean).join(" · ");
         return `
           <li>
             <div>
@@ -303,25 +297,38 @@
       }).join("");
     };
 
+    // 高 RAM 跟著選單:不指定或不支援高 RAM 的類型時停用並取消勾選;維持目前設定時照目前值、可以改(D95)
+    const syncHighMem = () => {
+      const value = document.getElementById("c-type").value;
+      const item = Proto.load("curated").find((c) => c.id === editing);
+      const gpu = value === "__keep" ? item.type.gpu : value;
+      const box = document.getElementById("c-highmem");
+      const supported = Boolean(gpu) && Proto.type(gpu).highMem;
+      box.disabled = !supported;
+      if (!supported) box.checked = false;
+      document.getElementById("c-highmem-hint").textContent = !gpu ? "先選建議類型才能指定高 RAM。" : supported ? "需要 Colab Pro 以上。" : `${gpu} 不支援高 RAM 選項。`;
+    };
     // FR-017:建議類型的選單不列 H100;既有的 H100 照常顯示,加「維持目前設定」,不改就維持(plan.md Q31)
     const openForm = (item) => {
       editing = item ? item.id : null;
       Proto.showState(item ? "cur-form-edit" : "cur-form");
       Proto.hideGroup("form-error");
-      const hiddenType = item?.type && Proto.type(item.type).hidden;
+      const hiddenType = item?.type && Proto.type(item.type.gpu).hidden;
       document.getElementById("c-type").innerHTML = [
         hiddenType ? "<option value=\"__keep\">維持目前設定</option>" : "",
         "<option value=\"\">不指定</option>",
         ...Proto.pickableTypes().map((t) => `<option value="${t.id}">${t.id}(顯示記憶體約 ${Math.round(t.vramMiB / 1024)} GB)</option>`),
       ].join("");
-      document.getElementById("c-type").value = hiddenType ? "__keep" : item?.type ?? "";
+      document.getElementById("c-type").value = hiddenType ? "__keep" : item?.type?.gpu ?? "";
+      document.getElementById("c-highmem").checked = item?.type?.highMem ?? false;
       const keep = document.getElementById("c-type-keep");
       keep.hidden = !hiddenType;
-      keep.textContent = hiddenType ? `目前是 ${item.type},已不開放選擇;不改這個選單就維持 ${item.type}。` : "";
+      keep.textContent = hiddenType ? `目前是 ${item.type.gpu},已不開放選擇;不改這個選單就維持 ${item.type.gpu}。` : "";
       document.getElementById("c-name").value = item?.name ?? "";
       document.getElementById("c-note").value = item?.note ?? "";
       document.getElementById("c-auto").checked = item?.auto ?? false;
       document.getElementById("c-submit").textContent = item ? "儲存" : "加入";
+      syncHighMem();
       document.getElementById("cur-sheet").hidden = false;
     };
     const closeForm = () => {
@@ -334,13 +341,16 @@
       Proto.hideGroup("form-error");
       if (!Proto.validName(name)) return Proto.showState("cur-invalid");
       if (curated.some((c) => c.id !== editing && Proto.key(c.name) === Proto.key(name))) return Proto.showState("cur-duplicate");
+      // updateCurated 整筆取代:建議類型一律送 {gpu, highMem},沒指定才是 null
       const typeValue = document.getElementById("c-type").value;
-      const fields = { name, note: document.getElementById("c-note").value.trim(), auto: document.getElementById("c-auto").checked };
+      const highMem = document.getElementById("c-highmem").checked;
+      const fields = { name: Proto.withTag(name), note: document.getElementById("c-note").value.trim(), auto: document.getElementById("c-auto").checked };
       if (editing === null) {
-        curated.push({ id: Math.max(0, ...curated.map((c) => c.id)) + 1, ...fields, type: typeValue || null });
+        curated.push({ id: Math.max(0, ...curated.map((c) => c.id)) + 1, ...fields, type: typeValue ? { gpu: typeValue, highMem } : null });
       } else {
         const item = curated.find((c) => c.id === editing);
-        Object.assign(item, fields, { type: typeValue === "__keep" ? item.type : typeValue || null });
+        const gpu = typeValue === "__keep" ? item.type.gpu : typeValue;
+        Object.assign(item, fields, { type: gpu ? { gpu, highMem } : null });
       }
       Proto.save("curated", curated);
       closeForm();
@@ -361,11 +371,16 @@
     };
 
     // ---------- Hugging Face ----------
+    // listHfQuants 的 422、502、504(502、504 都是 Hugging Face 暫時無法使用,FR-016)
     const HF_INLINE = {
       HF_NO_GGUF: "這個模型沒有可下載的 GGUF 檔(只有 mmproj 或其他格式),不能加入下載。",
       HF_AUTH_REQUIRED: "這個模型需要登入、要先同意條款或是私有的;這一輪只支援不用登入的公開模型。",
-      HF_TIMEOUT: "暫時無法取得版本清單:huggingface.co 在 10 秒內沒有回應。可以稍後再展開一次。",
+      HF_UNREACHABLE: "Hugging Face 暫時無法使用:連不到 huggingface.co。可以稍後再展開一次。",
+      HF_SERVER_ERROR: "Hugging Face 暫時無法使用:huggingface.co 回應錯誤。可以稍後再展開一次。",
+      HF_BAD_RESPONSE: "Hugging Face 暫時無法使用:huggingface.co 的回應看不懂。可以稍後再展開一次。",
+      HF_TIMEOUT: "Hugging Face 暫時無法使用:huggingface.co 在 10 秒內沒有回應。可以稍後再展開一次。",
     };
+    const HF_DOWN = ["HF_UNREACHABLE", "HF_SERVER_ERROR", "HF_BAD_RESPONSE", "HF_TIMEOUT"];
     const hfVersions = (repo) => {
       const state = expanded[repo.id];
       if (state === "loading") return "<div class=\"versions\"><span class=\"muted small\">正在讀取量化版本與大小…</span></div>";
@@ -423,7 +438,7 @@
       Proto.later(delay, () => {
         const repo = repoOf(id);
         expanded[id] = Proto.hfDown() ? "HF_TIMEOUT" : repo.kind === "no-gguf" ? "HF_NO_GGUF" : repo.kind === "auth" ? "HF_AUTH_REQUIRED" : "ok";
-        if (expanded[id] === "HF_TIMEOUT") Proto.showState("hf-expand-down");
+        if (HF_DOWN.includes(expanded[id])) Proto.showState("hf-expand-down");
         renderHf();
       });
     };
@@ -435,12 +450,15 @@
       document.getElementById("tray-chips").innerHTML = [...selected.values()].map((n) => `<span class="tag mono">${esc(n)}</span>`).join("");
     };
     const renderAll = () => {
+      if (Proto.load("session").state === "ready") Proto.hideGroup("direct");
+      else Proto.showState("direct-unchecked");
       renderCurated();
       if (libKeyword) renderLib();
       renderHf();
       renderTray();
     };
-    const FAIL_STATE = { NOT_FOUND: "not-found", HF_AUTH_REQUIRED: "hf-auth-required", HF_NO_GGUF: "hf-no-gguf", HF_QUANT_UNAVAILABLE: "hf-quant-unavailable", HF_TIMEOUT: "hf-size-down" };
+    // estimateDownloads 的 404、422、502、504(422 沒有 HF_NO_GGUF,plan.md Q20)
+    const FAIL_STATE = { LIBRARY_NOT_FOUND: "not-found", HF_AUTH_REQUIRED: "hf-auth-required", HF_QUANT_UNAVAILABLE: "hf-quant-unavailable", HF_UNREACHABLE: "hf-size-down", HF_SERVER_ERROR: "hf-size-down", HF_BAD_RESPONSE: "hf-size-down", HF_TIMEOUT: "hf-size-down" };
     const showFail = (info) => {
       document.querySelectorAll("[data-fail-name]").forEach((el) => { el.textContent = info.name; });
       Proto.showState(FAIL_STATE[info.code]);
@@ -476,6 +494,7 @@
     // ---------- 事件 ----------
     document.getElementById("cur-add").addEventListener("click", () => openForm(null));
     document.getElementById("c-cancel").addEventListener("click", closeForm);
+    document.getElementById("c-type").addEventListener("change", syncHighMem);
     document.getElementById("cur-form").addEventListener("submit", (event) => {
       event.preventDefault();
       submitForm();
@@ -528,6 +547,12 @@
       const error = document.getElementById("direct-error");
       error.hidden = Proto.validName(raw);
       if (!error.hidden) return;
+      // 沒有就緒的工作階段時取不到大小(estimateDownloads 回 503),只檢查格式就加入勾選(D97)
+      if (Proto.load("session").state !== "ready") {
+        if (!status(raw)) selected.set(Proto.key(raw), raw);
+        event.target.reset();
+        return renderAll();
+      }
       checkingText([raw]);
       Proto.showState("checking");
       Proto.later(Proto.isHf(raw) ? 1200 : 700, () => {
@@ -565,10 +590,10 @@
     // 狀態總覽每一格要先擺好的內容
     const SETUP = {
       "cur-form": () => openForm(null),
-      "cur-form-edit": () => openForm(Proto.load("curated").find((c) => c.type === "H100")),
+      "cur-form-edit": () => openForm(Proto.load("curated").find((c) => c.type?.gpu === "H100")),
       "cur-duplicate": () => {
         openForm(null);
-        document.getElementById("c-name").value = "Qwen2.5:7B";
+        document.getElementById("c-name").value = "nomic-embed-text";
         submitForm();
       },
       "cur-invalid": () => {
@@ -590,10 +615,10 @@
         trial();
       },
       "no-session": () => selected.set(Proto.key(HF_QWEN3_8B), HF_QWEN3_8B),
-      "not-found": () => showFail({ code: "NOT_FOUND", name: "llama3.3:8b" }),
+      "not-found": () => showFail({ code: "LIBRARY_NOT_FOUND", name: "llama3.3:8b" }),
       "hf-auth-required": () => showFail(Proto.lookup(HF_GATED)),
-      "hf-no-gguf": () => showFail(Proto.lookup("hf.co/ggml-org/Qwen2.5-VL-7B-Instruct-mmproj-GGUF")),
       "hf-quant-unavailable": () => showFail(Proto.lookup("hf.co/unsloth/Qwen3-8B-GGUF:Q4_0")),
+      "direct-unchecked": () => ["hf.co/unsloth/Qwen3-0.6B-GGUF:Q8_0"].forEach((n) => selected.set(Proto.key(n), n)),
       "hf-size-down": () => {
         ["hf.co/unsloth/Qwen3-8B-GGUF:Q5_K_M", "qwen3:4b"].forEach((n) => selected.set(Proto.key(n), n));
         showFail(Proto.lookup("hf.co/unsloth/Qwen3-8B-GGUF:Q5_K_M"));

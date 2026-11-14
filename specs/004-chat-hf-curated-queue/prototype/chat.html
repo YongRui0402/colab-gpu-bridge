@@ -61,9 +61,16 @@
       <div class="turn-line" data-state="turn-streaming" data-group="turn"><span class="spinner"></span><span>正在回覆…</span></div>
       <div class="turn-line" data-state="turn-stopped" data-group="turn">已停止這則回覆,留下目前收到的內容;可以接著送下一則。</div>
       <div class="turn-line" data-state="turn-norate" data-group="turn">這則回覆完成了,但模型沒有回報 token 數,所以只顯示耗時。</div>
-      <div class="turn-line is-bad" data-state="turn-error" data-group="turn">這則回覆中斷:模型服務推論失敗(例如記憶體不足)。已收到的內容保留在上面;可以再送一次,或換一個比較小的模型。</div>
-      <div class="turn-line is-bad" data-state="turn-timeout" data-group="turn">這則回覆中斷:模型服務超過 300 秒沒有送來下一段。已收到的內容保留在上面。</div>
-      <div class="turn-line is-bad" data-state="turn-lost" data-group="turn">這則回覆中斷:工作階段已結束或失聯。已收到的內容保留在上面;重新開啟工作階段並下載模型後才能再對話。</div>
+      <!-- 串流開始之後的失敗(200 的最後一行 ChatStreamFailure):固定開頭 + 後端訊息表的通用說法(plan.md Q61) -->
+      <div class="turn-line is-bad" data-state="turn-error" data-group="turn">這則回覆中斷:執行環境上的 Ollama 處理時發生錯誤,請稍後再試。已收到的內容保留在上面;可以再送一次,或換一個模型。</div>
+      <div class="turn-line is-bad" data-state="turn-interrupted" data-group="turn">這則回覆中斷:執行環境上的 Ollama 回應到一半就斷了,請稍後再試。已收到的內容保留在上面;可以再送一次。</div>
+      <div class="turn-line is-bad" data-state="turn-bad-response" data-group="turn">這則回覆中斷:執行環境上的 Ollama 回應無法解讀,請稍後再試。已收到的內容保留在上面;可以再送一次。</div>
+      <div class="turn-line is-bad" data-state="turn-timeout" data-group="turn">這則回覆中斷:執行環境上的 Ollama 在時限內沒有回應,請稍後再試。已收到的內容保留在上面。</div>
+      <div class="turn-line is-bad" data-state="turn-lost" data-group="turn">這則回覆中斷:工作階段已結束、正在變更類型或已失聯。已收到的內容保留在上面;等工作階段就緒、模型下載好後才能再對話。</div>
+      <!-- 串流開始之前的失敗(404、502、504 的 Error.message) -->
+      <div class="turn-line is-bad" data-state="turn-not-found" data-group="turn">沒有送出:執行環境上沒有這個模型,請先下載。模型清單已重新讀取,可以換一個模型再送。</div>
+      <div class="turn-line is-bad" data-state="turn-unavailable" data-group="turn">沒有送出:連不到執行環境上的 Ollama,請確認工作階段仍在運作後再試。你的訊息保留在上面,可以再送一次。</div>
+      <div class="turn-line is-bad" data-state="turn-start-timeout" data-group="turn">沒有送出:執行環境上的 Ollama 在時限內沒有回應,請稍後再試。你的訊息保留在上面,可以再送一次。</div>
     </section>
   </main>
   <script>
@@ -76,10 +83,16 @@
 
     const esc = Proto.escape;
     const isThinkingModel = (name) => /qwen3/i.test(name);
+    // 每個失敗代碼在回覆下方的標示(chat 的 x-stream-error-codes 與串流前的 404、502、504)
     const CUT = {
-      error: "中斷:模型服務推論失敗",
-      timeout: "中斷:模型服務逾時",
-      lost: "中斷:工作階段已結束或失聯",
+      error: "中斷:Ollama 處理時發生錯誤",
+      interrupted: "中斷:回應到一半就斷了",
+      "bad-response": "中斷:回應無法解讀",
+      timeout: "中斷:Ollama 逾時",
+      lost: "中斷:工作階段已結束、變更類型或失聯",
+      "not-found": "沒有回覆:執行環境上沒有這個模型",
+      unavailable: "沒有回覆:連不到 Ollama",
+      "start-timeout": "沒有回覆:Ollama 逾時",
     };
 
     const canSend = () => {
@@ -123,7 +136,7 @@
         const body = m.status === "loading"
           ? "<div class=\"content muted\">正在載入模型…</div>"
           : `<div class="content ${streaming && (m.content || !m.thinking) ? "caret" : ""}">${esc(m.content)}</div>`;
-        const cut = ["error", "timeout", "lost"].includes(m.status);
+        const cut = m.status in CUT;
         return `<div class="msg msg-bot${cut ? " is-cut" : ""}">${thinking}${body}${footer(m)}</div>`;
       }).join("");
       log.scrollTop = log.scrollHeight;
@@ -149,7 +162,7 @@
       m.ms = Date.now() - m.startedAt;
       if (status === "done") m.tps = m.evalCount && m.evalMs ? m.evalCount / (m.evalMs / 1000) : null;
       busy = null;
-      turn({ done: m.tps ? "turn-idle" : "turn-norate", stopped: "turn-stopped", error: "turn-error", timeout: "turn-timeout", lost: "turn-lost" }[status]);
+      turn(status === "done" ? (m.tps ? "turn-idle" : "turn-norate") : `turn-${status}`);
       renderModels();
       render();
     };
@@ -272,7 +285,12 @@
       "turn-norate": () => { convoModel = "qwen2.5:7b"; convo = [...FIRST_ROUND.slice(0, 2), user("整理一下這個專案這次加了什麼"), bot(R.default[2], { ms: 4800, tps: null })]; },
       "turn-error": () => { convoModel = "qwen2.5:7b"; convo = [...FIRST_ROUND.slice(0, 2), user("把下面這份 3 萬字的會議紀錄做摘要:……"), bot("這份會議紀錄主要討論三件事:第一是下一季的", { status: "error", ms: 7400 })]; },
       "turn-timeout": () => { convoModel = "qwen2.5:7b"; convo = [...FIRST_ROUND.slice(0, 2), user("一步一步證明質數有無限多個"), bot("假設質數只有有限多個,把它們全部列出來:p₁、p₂、…、pₙ。", { status: "timeout", ms: 312000 })]; },
+      "turn-interrupted": () => { convoModel = "qwen2.5:7b"; convo = [...FIRST_ROUND.slice(0, 2), user("用表格比較 T4 和 L4"), bot("| 類型 | 顯示記憶體 |\n|---|---|\n| T4 | 15 GB |", { status: "interrupted", ms: 3100 })]; },
+      "turn-bad-response": () => { convoModel = HF_QWEN3_8B; convo = [user("翻譯成英文:今天的會議改到下午三點"), bot("The meeting today", { status: "bad-response", ms: 1900 })]; },
       "turn-lost": () => { convoModel = "qwen2.5:7b"; convo = [...FIRST_ROUND.slice(0, 2), user("那你擅長什麼、不擅長什麼?"), bot("以 7B 的模型來說,日常的中文對話", { status: "lost", ms: 2600 })]; },
+      "turn-not-found": () => { convoModel = "llama3.2:3b"; convo = [user("用一句話說明什麼是 GGUF"), bot("", { status: "not-found", ms: 400 })]; },
+      "turn-unavailable": () => { convoModel = "qwen2.5:7b"; convo = [user("用三句話介紹你自己"), bot("", { status: "unavailable", ms: 10200 })]; },
+      "turn-start-timeout": () => { convoModel = "qwen2.5:7b"; convo = [user("用三句話介紹你自己"), bot("", { status: "start-timeout", ms: 300400 })]; },
     };
 
     document.addEventListener("DOMContentLoaded", () => {

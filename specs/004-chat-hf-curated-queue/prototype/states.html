@@ -54,7 +54,15 @@
         </figure>
         <figure>
           <iframe src="index.html?state=lost" title="工作階段:失聯" loading="lazy"></iframe>
-          <figcaption>失聯:佇列同樣清除(FR-001,US1 情境 2、3)</figcaption>
+          <figcaption>失聯(被 Colab 收回):佇列同樣清空(FR-001,US1 情境 2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=lost-timeout" title="工作階段:重連逾時" loading="lazy"></iframe>
+          <figcaption>重連逾時:失聯,佇列同樣清空,下載中的那一筆中斷(FR-001,US1 情境 3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=failed" title="工作階段:開啟失敗" loading="lazy"></iframe>
+          <figcaption>開啟失敗:佇列同樣清空,含變更類型時排入的重新載入項目(FR-001、FR-002,US1 情境 3)</figcaption>
         </figure>
         <figure>
           <iframe src="index.html?state=ended-offline" title="工作階段:系統停機期間結束" loading="lazy"></iframe>
@@ -79,7 +87,7 @@
         </figure>
         <figure>
           <iframe src="models.html?state=auto-running" title="模型:自動下載判定中" loading="lazy"></iframe>
-          <figcaption>自動下載判定中:提示區顯示「正在依精選清單排入…」(FR-011,plan.md Q33)</figcaption>
+          <figcaption>自動下載判定中:提示區顯示「正在依精選清單排入…」,判定中也能關閉(FR-011、FR-012,plan.md Q33)</figcaption>
         </figure>
         <figure>
           <iframe src="models.html?state=queue-list" title="模型:提示區列出空間不足、取不到大小(需要登入、Hugging Face 逾時)的跳過(FR-012,US3 情境 6、7)" loading="lazy"></iframe>
@@ -91,7 +99,7 @@
         </figure>
         <figure>
           <iframe src="models.html?state=queue-cleared" title="模型:工作階段結束後佇列已清空,不用重新整理(NFR-001、SC-001,US1 情境 1)" loading="lazy"></iframe>
-          <figcaption>工作階段結束後佇列已清空,不用重新整理(NFR-001、SC-001,US1 情境 1)</figcaption>
+          <figcaption>工作階段結束後佇列已清空,不用重新整理;依工作階段已結束、失聯或開啟失敗判斷,不顯示筆數(NFR-001、SC-001,US1 情境 1)</figcaption>
         </figure>
       </div>
     </section>
@@ -108,15 +116,15 @@
         </figure>
         <figure>
           <iframe src="library.html?state=cur-form" title="下載模型:新增精選項目" loading="lazy"></iframe>
-          <figcaption>新增精選項目:說明與建議類型可以不填,選單不列 H100(FR-009、FR-010、FR-017,US3 情境 1)</figcaption>
+          <figcaption>新增精選項目:說明與建議類型可以不填,選單不列 H100;高 RAM 要先選支援的類型(FR-009、FR-010、FR-017,US3 情境 1)</figcaption>
         </figure>
         <figure>
           <iframe src="library.html?state=cur-form-edit" title="下載模型:修改建議類型是 H100 的項目" loading="lazy"></iframe>
-          <figcaption>修改建議類型是 H100 的項目:選單不列 H100,不改就維持(FR-009、FR-017,US3 情境 2)</figcaption>
+          <figcaption>修改建議類型是 H100 高 RAM 的項目:選單不列 H100,不改就維持,高 RAM 照目前值勾好(FR-009、FR-017,US3 情境 2)</figcaption>
         </figure>
         <figure>
           <iframe src="library.html?state=cur-duplicate" title="下載模型:名稱重複(大小寫不同、沒寫版本視為 latest)" loading="lazy"></iframe>
-          <figcaption>名稱重複(大小寫不同、沒寫版本視為 latest):CURATED_DUPLICATE(FR-018,US3 情境 3)</figcaption>
+          <figcaption>名稱重複(沒寫版本視為 latest):輸入 nomic-embed-text,清單已有 nomic-embed-text:latest,CURATED_DUPLICATE(FR-018,US3 情境 3)</figcaption>
         </figure>
         <figure>
           <iframe src="library.html?state=cur-invalid" title="下載模型:名稱格式不對" loading="lazy"></iframe>
@@ -151,16 +159,16 @@
           <figcaption>需要登入、私有或不存在:HF_AUTH_REQUIRED(FR-015,US4 情境 7)</figcaption>
         </figure>
         <figure>
-          <iframe src="library.html?state=hf-no-gguf" title="下載模型:沒有可下載的 GGUF" loading="lazy"></iframe>
-          <figcaption>沒有可下載的 GGUF:HF_NO_GGUF(FR-015,US4 情境 7)</figcaption>
-        </figure>
-        <figure>
           <iframe src="library.html?state=hf-quant-unavailable" title="下載模型:這個量化版本無法下載" loading="lazy"></iframe>
-          <figcaption>這個量化版本無法下載:HF_QUANT_UNAVAILABLE(FR-015)</figcaption>
+          <figcaption>這個量化版本無法下載(不存在、分割檔或不是 GGUF):HF_QUANT_UNAVAILABLE;試算不回 HF_NO_GGUF(FR-015,US4 情境 7,plan.md Q20)</figcaption>
         </figure>
         <figure>
           <iframe src="library.html?state=hf-size-down" title="下載模型:試算時 Hugging Face 暫時無法使用" loading="lazy"></iframe>
           <figcaption>試算時 Hugging Face 暫時無法使用:HF_TIMEOUT 等(FR-016)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=direct-unchecked" title="下載模型:沒有工作階段時直接輸入名稱" loading="lazy"></iframe>
+          <figcaption>沒有就緒的工作階段時直接輸入名稱:只檢查格式就加入勾選,不確認大小(estimateDownloads 回 503,FR-018)</figcaption>
         </figure>
         <figure>
           <iframe src="library.html?state=lib-idle" title="下載模型:官方模型庫搜尋" loading="lazy"></iframe>
@@ -188,7 +196,7 @@
         </figure>
         <figure>
           <iframe src="library.html?state=hf-expand-down" title="下載模型:展開版本逾時" loading="lazy"></iframe>
-          <figcaption>展開版本逾時:10 秒整體期限內沒完成(FR-016、NFR-005、SC-004,US4 情境 6)</figcaption>
+          <figcaption>展開版本時 Hugging Face 暫時無法使用:502 的 HF_UNREACHABLE、HF_SERVER_ERROR、HF_BAD_RESPONSE 與 504 的 HF_TIMEOUT(10 秒整體期限)共用(FR-016、NFR-005、SC-004,US4 情境 6)</figcaption>
         </figure>
         <figure>
           <iframe src="library.html?state=hf-empty" title="下載模型:找不到符合的 GGUF 模型,提示換關鍵字或直接輸入(US4 情境 5)" loading="lazy"></iframe>
@@ -241,15 +249,35 @@
         </figure>
         <figure>
           <iframe src="chat.html?state=turn-error" title="對話:串流開始後模型服務回錯誤" loading="lazy"></iframe>
-          <figcaption>串流開始後模型服務回錯誤:OLLAMA_SERVER_ERROR,顯示推論失敗(FR-008,US2 情境 8,plan.md Q6)</figcaption>
+          <figcaption>串流開始後遠端送了帶 error 的一行:OLLAMA_SERVER_ERROR,通用說法(FR-008,US2 情境 8,plan.md Q6、Q61)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-interrupted" title="對話:回覆到一半遠端斷線" loading="lazy"></iframe>
+          <figcaption>回覆到一半遠端斷線:OLLAMA_STREAM_INTERRUPTED,保留已收到的部分(FR-008,US2 情境 8)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-bad-response" title="對話:回覆中某一行看不懂" loading="lazy"></iframe>
+          <figcaption>回覆中某一行看不懂:OLLAMA_BAD_RESPONSE,保留已收到的部分(FR-008,US2 情境 8)</figcaption>
         </figure>
         <figure>
           <iframe src="chat.html?state=turn-timeout" title="對話:兩段之間超過 300 秒" loading="lazy"></iframe>
-          <figcaption>兩段之間超過 300 秒:OLLAMA_TIMEOUT(FR-008)</figcaption>
+          <figcaption>兩段之間超過 300 秒:OLLAMA_TIMEOUT,通用說法(FR-008,plan.md Q61)</figcaption>
         </figure>
         <figure>
           <iframe src="chat.html?state=turn-lost" title="對話:回覆途中工作階段結束" loading="lazy"></iframe>
-          <figcaption>回覆途中工作階段結束:SESSION_ENDED,保留已收到的部分(FR-008,US2 情境 8)</figcaption>
+          <figcaption>回覆途中工作階段結束、變更類型或失聯:SESSION_ENDED,保留已收到的部分(FR-008,US2 情境 8)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-not-found" title="對話:選的模型不在執行環境上" loading="lazy"></iframe>
+          <figcaption>串流開始前 404:OLLAMA_NOT_FOUND,模型清單過時(FR-008)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-unavailable" title="對話:串流開始前連不到 Ollama" loading="lazy"></iframe>
+          <figcaption>串流開始前 502:OLLAMA_UNREACHABLE、OLLAMA_BAD_REQUEST、OLLAMA_SERVER_ERROR、OLLAMA_BAD_RESPONSE 共用,顯示後端的說明(FR-008,NFR-006)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-start-timeout" title="對話:串流開始前逾時" loading="lazy"></iframe>
+          <figcaption>串流開始前 504:OLLAMA_TIMEOUT,300 秒內沒有回應標頭(FR-008)</figcaption>
         </figure>
       </div>
     </section>
