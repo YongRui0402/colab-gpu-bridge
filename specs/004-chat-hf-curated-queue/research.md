@@ -84,11 +84,12 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
 4. 以 `-` 或 `.` 切開,取最後一段當量化名稱(例:`qwen2.5-0.5b-instruct-q4_k_m` → `q4_k_m`、`llama-2-7b.Q4_K_M` → `Q4_K_M`)。
 5. 依檔案清單的順序去重(不分大小寫,留第一個出現的寫法)。
 6. 每個量化名稱打 `GET https://huggingface.co/v2/<作者>/<模型>/manifests/<量化名稱>`(標頭 `Accept: application/vnd.docker.distribution.manifest.v2+json`),同時最多 4 個,每個 10 秒逾時:
-   - 200:列出,大小 = `layers[].size` 的總和(不含 `config`,和 001 官方模型庫的算法相同)。
+   - 200:列出,大小 = `layers[].size` 的總和(不含 `config`,和 001 官方模型庫的算法相同);200 但 `layers` 是空的或沒有,歸 `HF_BAD_RESPONSE`、不列出(plan.md Q5,D19)。
    - 400:不列(HF 不認的量化名稱、分割檔、不是 llama.cpp 相容的 GGUF)。
    - 401:整個模型視為需要登入、同意條款、私有或不存在,展開回 FR-015 的錯誤。
    - 其他失敗:照 R2 的代碼回錯誤,整個展開失敗(FR-016)。
 7. 一個都沒有列出時,回「沒有可下載的 GGUF 檔」(FR-015)。
+8. 整體期限(plan.md Q4,D18):從送出第 1 步的 tree 起,tree 加上第 6 步所有 manifest 共用一個 10 秒期限,每個請求自己的 10 秒仍在;期限到時還沒完成的請求一律取消,整個展開回 `HF_TIMEOUT`,讓 SC-004 的 11 秒成立。試算、加入下載與自動下載替 `hf.co/` 名稱取大小時,每個 manifest 各自計時,不套用這個整體期限。
 
 **理由**:
 
@@ -105,7 +106,8 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
 - 實測(驗收用,`hf_match.py`):列出的版本中,manifest 的模型層大小和同名檔案大小相符 43/43,不符 0。
 - 實測(調整用 `google/gemma-3-1b-it-qat-q4_0-gguf`,需要同意條款):tree API 回 200,manifest 回 401;不存在的 repo 的 tree 與 manifest 也都回 401 `Invalid username or password.`,兩者分不出來,所以合成一個原因。
 - 查證(Hugging Face 文件〈Use Ollama with any GGUF Model on Hugging Face Hub〉):沒寫量化版本時用 `Q4_K_M`,沒有就挑一個;量化名稱不分大小寫。
-- 估算(驗收樣本 26 個版本 × 每次約 0.23 秒 ÷ 4 個同時):展開一個模型約 1.5 秒,單一請求的 10 秒逾時不變。
+- 估算(驗收樣本 26 個版本 × 每次約 0.23 秒 ÷ 4 個同時):展開一個模型約 1.5 秒,單一請求的 10 秒逾時不變;但只靠單一請求的逾時,26 個候選每批 4 個、每批最壞 10 秒,最壞要約 70 秒,超過 SC-004 的 11 秒,所以要第 8 步的整體期限。
+- 判斷:manifest 200 卻沒有模型層(plan.md Q5,D19),拉下來不是能用的模型,列出只會讓使用者下載完才發現;這次的樣本沒有遇到,歸成格式不符。
 - 判斷:`mmproj` 是多模態的投影檔,不是可以單獨拉的模型;這一輪的樣本沒有出現,規則先略過,列進待驗證。
 
 **考慮過的替代方案**:
@@ -149,7 +151,9 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
 **決策**:UI API 新增 `POST /api/chat`(在 UI 的 8780,不是 Ollama 相容端點),後端轉送到目前工作階段的遠端 Ollama `/api/chat`,NDJSON 原樣串流回瀏覽器。
 
 - **請求**:瀏覽器只送 `model` 與 `messages`(每則 `role` 為 `user` 或 `assistant`、`content` 為字串);後端組成 `{"model", "messages", "stream": true}` 再送,不接受其他參數(spec 假設:不做 system prompt 與 temperature)。keep_alive 依 plan.md Q9(D23)改為帶 -1。
-- **轉送**:取 `lifecycle.forward_target()`(沒有就緒回 503 `NO_READY_SESSION`),以 `httpx` 的 `client.send(..., stream=True)` 送出,回應沿用 `ollama_compat/forward.py` 的 `_relay`(工作階段被結束時補一行 `{"error": ...}`,非預期斷線時補「串流中斷」並觸發健康檢查);逾時沿用 `FORWARD_TIMEOUT`(連線 10 秒、兩段之間 300 秒)。
+- **轉送**:取 `lifecycle.forward_target()`(沒有就緒回 503 `NO_READY_SESSION`),以 `httpx` 的 `client.send(..., stream=True)` 送出,逐段轉送沿用 `ollama_compat/forward.py` 的 `_relay`(不新增 `RemoteOllama.chat`,plan.md Q35);逾時從 `cgb.app.Timeouts` 的 `chat_connect`(10 秒)、`chat_read`(300 秒,收到第一段之前與兩段之間)注入,不直接用 `FORWARD_TIMEOUT`(plan.md Q44,D58;秒數相同,測試才能縮短)。
+- **串流開始後的失敗**(plan.md Q11,D25):最後一行是本系統補的物件 `{"error": {"code", "message"}}`(合約 `ChatStreamFailure`),不是相容端點那種 `{"error": "<字串>"}`;前端以 `code` 分辨原因,代碼是 `OLLAMA_TIMEOUT`、`OLLAMA_STREAM_INTERRUPTED`、`OLLAMA_SERVER_ERROR`(遠端自己送了帶 `error` 的一行,不原樣轉送)、`OLLAMA_BAD_RESPONSE`、`SESSION_ENDED`。`_relay` 產生最後一行的方式改成由呼叫端傳入,相容端點照舊用字串,介面不變。
+- **工作階段結束或失聯**(plan.md Q60,D74):對話路由傳給 `_relay` 的結束事件,在工作階段 `ending`、`ended` 之外,判定失聯(`lost`)時也設,補 `SESSION_ENDED` 的最後一行後結束轉送;Ollama 相容端點照舊只在 `ending`、`ended` 結束,不在這一輪改。
 - **串流開始前的錯誤**:連不到 → 502 `OLLAMA_UNREACHABLE`;遠端回 404(模型不存在)、400、500 → 對應的 `OLLAMA_*` 代碼,UI API 的錯誤本文照 001 的 `{code, message}`;不回 500(NFR-006)。具體代碼由系統分析補進合約。
 - **閒置倒數**(FR-007):轉送期間呼叫 `IdleMonitor.request_started()`,串流結束(含中斷)時 `request_finished()`,和 `ollama_compat/idle_hook.py` 相同。
 - **停止**(FR-006):瀏覽器以 `fetch` + `AbortController` 讀串流,按「停止」就 `abort()`;連線斷開後 Starlette 停止迭代、關閉上游回應,遠端 Ollama 隨之取消產生。
@@ -184,9 +188,10 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
   3. 大小 > 顯示記憶體總量(沿用 003 `Catalog._vram_total` 的快取;讀不到就不檢查)→ 跳過,原因「這台可能無法載入」(和 `mayNotFit` 同一個比較 `size > vram`)。
   4. 已決定排入的大小 + 佇列中尚未完成的大小 + 這一項 > 剩餘磁碟空間(`probe_resources` 讀一次)→ 跳過,原因「空間不足」;後面較小的仍照順序判斷。
   5. 其餘排入。
-  - 取大小同時最多 4 個,每個 10 秒逾時;讀不到剩餘空間時全部跳過,原因「讀不到剩餘空間」(沿用 001 不把讀不到當成夠用)。
+  - 取大小同時最多 4 個,每個 10 秒逾時。
+  - 讀不到剩餘空間時(plan.md Q52,D66;spec FR-012):第 2、3 步已判定跳過的項目保留原本的原因(「取不到大小」「這台可能無法載入」),其餘還沒判定的都跳過,原因「讀不到剩餘空間」(`DISK_SPACE_UNKNOWN`,plan.md Q17),沒有任何一項排入(沿用 001 不把讀不到當成夠用)。
 - **寫入**:排入的一次 `enqueue_many(..., origin="auto")`,寫入當下工作階段名稱,再 `kick()`;結果(排入數量、每個跳過的名稱與原因)寫回那一列並推送事件,`dismissed` 預設否。
-- **讀取與清除**:下載頁讀 UI API 取得這個工作階段的結果(重新整理仍在);按關閉寫 `dismissed`;工作階段結束時照 R1 一併刪除那一列。
+- **讀取與清除**:模型頁下載佇列上方的提示區讀 UI API 取得這個工作階段的結果(plan.md Q29,D43;重新整理仍在);按關閉寫 `dismissed`;工作階段結束時照 R1 一併刪除那一列。
 
 **理由**:
 
@@ -211,6 +216,7 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
 - `download_jobs`:因為 `origin` 的 CHECK 要加 `'auto'`(SQLite 不能改 CHECK),建 `download_jobs_new`(原欄位 + `origin IN ('user','restore','auto')` + `session_name TEXT REFERENCES sessions (name)`)→ 複製原資料 → 刪舊表 → 改名 → 重建 `idx_download_jobs_state`。
 - 新表 `auto_download_results`(R6):`session_name` 主鍵、狀態、排入數量、`dismissed`;排入與跳過的明細改存子表 `auto_download_items`(plan.md Q26),欄位細節以 `contracts/store.dbml` 為準。
 - 不分大小寫的比對(R4、plan.md Q25):`curated_models` 加 `lower(name)`、`download_jobs` 加 `lower(pending_model)` 的唯一索引,在遷移完成之後才建(plan.md Q28)。
+- 建索引前先去重(plan.md Q40,D54):001 的名稱其實不全是小寫(版本允許大寫,`api/curated.py` 沒有驗格式),舊庫可能同時有 `qwen2.5:latest` 與 `qwen2.5:Latest`;所以在同一個交易裡,兩張表各以 `lower(name)`、`lower(pending_model)` 分組,每組只留 `id` 最小的那一筆、其他刪掉,刪掉的名稱逐筆寫進日誌(warning),再建唯一索引。任何一步失敗整個交易 rollback,資料庫維持遷移前的樣子。
 - 全新資料庫:`create_schema` 直接建新版的表,並設 `user_version = 1`。
 - 下載項目的來源(官方或 Hugging Face)由名稱前綴 `hf.co/` 判斷,不另存欄位。
 
@@ -219,12 +225,15 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
 - 查證(`src/cgb/db/schema.py:create_schema`):全部是 `CREATE TABLE IF NOT EXISTS`,沒有任何遷移;已經有資料庫的使用者升級後,新欄位不會出現。
 - 實測(`migrate.py`,桌機 SQLite 3.53.1,以現行 `create_schema` 建庫並寫入 2 筆精選、1 筆下載後跑遷移草稿):精選的 2 筆保留,`auto_download` 都是 0,建議類型 H100 的那筆照常是 H100;下載的 1 筆保留,`origin` 仍是 `user`、`session_name` 是 NULL;寫入 `origin = 'auto'` 成功;同名 `pending_model` 仍被 `UNIQUE constraint failed` 擋下;再跑一次 `create_schema` 不出錯,`user_version` 是 1。
 - 判斷:舊資料的 `session_name` 是 NULL,照 R1 在後端啟動與第一次結束時清掉,不影響之後的行為。
+- 查證(`src/cgb/api/curated.py`、001 `ui.openapi.yaml` 的版本字元規則):名稱的版本可以有大寫,新增精選時沒有驗格式,所以「001 的名稱只收小寫、不會撞到」不成立;不去重的話,舊庫有只差大小寫的兩筆時建索引失敗、遷移 rollback,之後每次啟動都失敗(plan.md Q40 的 Context)。
+- 判斷:只差大小寫的兩筆(D54)在 Ollama 是同一個模型(R4 實測),留一筆不會少任何東西;排隊中的舊項目照 R1 開機時本來也會清掉。
 
 **考慮過的替代方案**:
 
 - 直接刪掉 `download_jobs` 重建、不複製:升級時若剛好有接回中的工作階段,它的佇列會消失。
 - 引入 Alembic 之類的遷移工具:這一輪不新增套件,而且只有一次遷移。
 - `origin` 改成不設 CHECK:就不用重建表,但少了 001 合約要求的限制。
+- 有衝突就不建唯一索引、只靠程式檢查,或把重複的改名:前者兩套行為看資料庫而定,後者留下使用者沒取過的名稱;分身決策紀錄 D54 否決。
 
 ## 待驗證
 
@@ -240,3 +249,7 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
 
 - R5:2026-11-14 system-analysis 依 plan.md Q9(D23),對話請求改為帶 `keep_alive: -1`。
 - R7:2026-11-14 system-analysis 依 plan.md Q25、Q26、Q28(D39、D40、D42),跳過明細改存子表、加不分大小寫的唯一索引並排在遷移之後。
+- R3:2026-11-14 analyze 第 1 輪回修,依 plan.md Q4、Q5(D18、D19),補展開版本的整體 10 秒期限(第 8 步),以及 manifest 200 但沒有模型層時歸 `HF_BAD_RESPONSE`、不列出。原因:research 寫在這兩個決定之前,只有單一請求的逾時,最壞約 70 秒不符 SC-004(analysis.md A38 (a))。連帶:無。
+- R5:2026-11-14 analyze 第 1 輪回修,依 plan.md Q11、Q60、Q44(D25、D74、D58),串流開始後的最後一行從字串改成 `{"error": {"code","message"}}` 物件,失聯時對話頁也結束轉送(相容端點不變),逾時從沿用 `FORWARD_TIMEOUT` 改成 `Timeouts.chat_connect`、`chat_read` 注入。原因:照舊寫法前端分不出原因,和合約 `ChatStreamFailure` 不符(analysis.md A6、A26)。連帶:無。
+- R6:2026-11-14 analyze 第 1 輪回修,依 plan.md Q52、Q29(D66、D43)與 spec FR-012(D82),讀不到剩餘空間時從「全部跳過、原因都改成讀不到剩餘空間」改成保留已判定的原因、只有還沒判定的標 `DISK_SPACE_UNKNOWN`;提示區從下載頁改成模型頁下載佇列上方。原因:舊寫法會把已跳過的項目改標(analysis.md A5、A13)。連帶:無。
+- R7:2026-11-14 analyze 第 1 輪回修,依 plan.md Q40(D54),建不分大小寫的唯一索引前,在同一個交易裡每組留 `id` 最小的一筆、其他刪掉並寫進日誌。原因:001 的名稱不全是小寫,不去重時遷移 rollback、後端起不來(analysis.md A2)。連帶:R4 的不分大小寫比對不變。
