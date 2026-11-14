@@ -25,6 +25,13 @@ class CuratedRepo:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
+    def _reject_duplicate(self, name: str, *, excluding: int | None = None) -> None:
+        """清單裡(不含 `excluding` 那一筆)已有同一個 `match_key` 的名稱就丟 `CuratedDuplicate`;只讀 id 與名稱兩欄。"""
+        key = match_key(name)
+        for row in self._conn.execute("SELECT id, name FROM curated_models ORDER BY id"):
+            if row["id"] != excluding and match_key(row["name"]) == key:
+                raise CuratedDuplicate(row["name"])
+
     def insert(
         self,
         *,
@@ -34,9 +41,7 @@ class CuratedRepo:
         auto_download: bool = False,
     ) -> int:
         gpu, high_mem = _runtime_type_columns(runtime_type)
-        for row in self.all():
-            if match_key(row["name"]) == match_key(name):
-                raise CuratedDuplicate(row["name"])
+        self._reject_duplicate(name)
         try:
             cursor = self._conn.execute(
                 "INSERT INTO curated_models"
@@ -62,9 +67,7 @@ class CuratedRepo:
         if self.get(curated_id) is None:
             return False
         gpu, high_mem = _runtime_type_columns(runtime_type)
-        for row in self.all():
-            if row["id"] != curated_id and match_key(row["name"]) == match_key(name):
-                raise CuratedDuplicate(row["name"])
+        self._reject_duplicate(name, excluding=curated_id)
         cursor = self._conn.execute(
             "UPDATE curated_models SET name = ?, description = ?,"
             " recommended_runtime_type_gpu = ?, recommended_runtime_type_high_mem = ?, auto_download = ? WHERE id = ?",

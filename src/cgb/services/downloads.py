@@ -6,7 +6,7 @@ from typing import Any
 from cgb.adapters.errors import AdapterError
 from cgb.domain.errors import ApiError, library_error, ollama_error
 from cgb.domain.estimate import estimate
-from cgb.domain.model_name import match_key, with_version
+from cgb.domain.model_name import HF_PREFIX, match_key, source_of, with_version
 from cgb.domain.session_state import iso
 from cgb.repos.downloads import DownloadsRepo, QueueConflict
 from cgb.services.event_bus import EventBus
@@ -20,15 +20,6 @@ FAILED_MESSAGES = {
     "OLLAMA_NOT_FOUND": "找不到這個模型或版本,請確認名稱。",
 }
 FAILED_FALLBACK_MESSAGE = "下載失敗,請稍後重新排隊再試。"
-
-# 名稱前綴決定來源與取大小的地方(research.md R4、R7)
-HF_PREFIX = "hf.co/"
-
-
-def source_of(model: str) -> str:
-    """`DownloadJob.source`:`hf.co/` 開頭的是 Hugging Face,其他是官方模型庫(不另存欄位,store.dbml)。"""
-    return "huggingface" if model.startswith(HF_PREFIX) else "library"
-
 
 # 工作階段變成這些狀態時清空下載佇列(`info.x-queue-clearing` (1));重連中(還可能接回同一台)不清
 QUEUE_CLEARING_STATES = frozenset({"ending", "ended", "open_failed", "lost"})

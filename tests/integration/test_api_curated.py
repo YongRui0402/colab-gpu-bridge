@@ -406,3 +406,27 @@ async def test_沒寫版本視為_latest_同一個模型不存兩筆(ui_client: 
     assert (updated.status_code, error_code(updated)) == (400, "INVALID_CURATED_DESCRIPTION")
     assert removed.status_code == 204
     assert [item.get("name") for item in listed.get("items", [])] == ["qwen2.5:7b"]
+
+
+# ---- 004 US3-API-38
+
+
+async def test_修改的檢查順序是本文_id_重複_id_不存在時仍先驗本文(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:沒有工作階段;清單裡有 `qwen2.5:7b`(id a)、`llama3.2:3b`(id b);id 999 不存在
+    ColabWorld(fakes)
+    a = (await curate(ui_client, "qwen2.5:7b", auto=False))["id"]
+    await curate(ui_client, "llama3.2:3b", auto=False)
+
+    # Act
+    invalid_json = await ui_client.put("/api/curated/999", content=b'{"name":', headers={"Content-Type": "application/json"})
+    invalid_name = await ui_client.put("/api/curated/999", json={"name": "Qwen2.5"})
+    missing_id = await ui_client.put("/api/curated/999", json={"name": "llama3.2:3b"})
+    duplicate = await ui_client.put(f"/api/curated/{a}", json={"name": "llama3.2:3B"})
+    listed = (await ui_client.get("/api/curated")).json()["items"]
+
+    # Assert
+    assert (invalid_json.status_code, error_code(invalid_json)) == (400, "INVALID_REQUEST_BODY")  # 則1
+    assert (invalid_name.status_code, error_code(invalid_name)) == (400, "INVALID_MODEL_NAME")  # 則2
+    assert (missing_id.status_code, error_code(missing_id)) == (404, "CURATED_NOT_FOUND")  # 則3
+    assert (duplicate.status_code, error_code(duplicate)) == (409, "CURATED_DUPLICATE")  # 則4
+    assert [item["name"] for item in listed] == ["qwen2.5:7b", "llama3.2:3b"]  # 則5

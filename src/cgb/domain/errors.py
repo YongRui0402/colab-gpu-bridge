@@ -27,6 +27,7 @@ MESSAGES: dict[str, str] = {
     "INVALID_AUTO_DOWNLOAD": "「開好就自動下載」只能是開或關。",
     "CURATED_DUPLICATE": "精選清單已經有這個模型(沒寫版本視為 latest)。",
     "CURATED_NOT_FOUND": "精選清單裡沒有這一筆,可能已被刪除,請重新整理畫面。",
+    "AUTO_DOWNLOAD_RESULT_NOT_FOUND": "目前沒有自動下載的結果可以關閉(可能工作階段已結束),請重新整理畫面。",
     "OLLAMA_NOT_FOUND": "執行環境上沒有這個模型,請先下載。",
     "MODEL_ALREADY_DOWNLOADED": "執行環境上已經有這個模型,不必再下載。",
     "DOWNLOAD_ALREADY_QUEUED": "這個模型已經在下載佇列裡。",

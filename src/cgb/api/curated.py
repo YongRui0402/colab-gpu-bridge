@@ -1,5 +1,6 @@
 """`/api/curated`(contracts/ui.openapi.yaml § paths./curated、paths./curated/{id})。"""
 
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -28,14 +29,15 @@ def _runtime_type_of(row: dict[str, Any]) -> dict[str, Any] | None:
     return {"gpu": row["recommended_runtime_type_gpu"], "highMem": bool(row["recommended_runtime_type_high_mem"])}
 
 
-def curated_payload(row: dict[str, Any], local: set[str] | None = None) -> dict[str, Any]:
+def curated_payload(row: dict[str, Any], local_keys: set[str] | None = None) -> dict[str, Any]:
+    """`local_keys` 是執行環境上已有模型的 `match_key`;None 表示沒有就緒或讀不到(`downloaded` 一律 false)。"""
     return {
         "id": row["id"],
         "name": row["name"],
         "description": row["description"],
         "recommendedRuntimeType": _runtime_type_of(row),
         "autoDownload": bool(row["auto_download"]),
-        "downloaded": local is not None and match_key(row["name"]) in local,
+        "downloaded": local_keys is not None and match_key(row["name"]) in local_keys,
     }
 
 
@@ -48,7 +50,17 @@ def _runtime_type(value: Any) -> dict[str, Any] | None:
     return {"gpu": value["gpu"], "highMem": value["highMem"]}
 
 
-async def _input(request: Request) -> tuple[str, str | None, dict[str, Any] | None, bool]:
+@dataclass(frozen=True)
+class CuratedInput:
+    """驗證過的 `CuratedModelInput`;`name` 已補版本。"""
+
+    name: str
+    description: str | None
+    runtime_type: dict[str, Any] | None
+    auto_download: bool
+
+
+async def _input(request: Request) -> CuratedInput:
     """新增與修改共用的本文驗證(`CuratedModelInput`):任何一項不合法都在寫入之前回 400。"""
     body = await read_json(request)
     if not isinstance(body, dict):
@@ -64,7 +76,7 @@ async def _input(request: Request) -> tuple[str, str | None, dict[str, Any] | No
     auto_download = body.get("autoDownload", False)
     if not isinstance(auto_download, bool):
         raise ApiError(400, "INVALID_AUTO_DOWNLOAD")
-    return normalized(name), description, runtime_type, auto_download
+    return CuratedInput(normalized(name), description, runtime_type, auto_download)
 
 
 def _repo(request: Request) -> CuratedRepo:
@@ -74,17 +86,17 @@ def _repo(request: Request) -> CuratedRepo:
 @router.get("/curated")
 async def list_curated(request: Request) -> JSONResponse:
     # 精選清單是本系統自己的資料,不依賴 ollama.com;就緒時才對照執行環境上的模型,讀不到照常回 200
-    local = await request.app.state.services.downloads.local_keys()
-    items = [curated_payload(row, local) for row in _repo(request).all()]
-    return JSONResponse({"runtimeChecked": local is not None, "items": items})
+    local_keys = await request.app.state.services.downloads.local_keys()
+    items = [curated_payload(row, local_keys) for row in _repo(request).all()]
+    return JSONResponse({"runtimeChecked": local_keys is not None, "items": items})
 
 
 @router.post("/curated")
 async def add_curated(request: Request) -> JSONResponse:
-    name, description, runtime_type, auto_download = await _input(request)
+    body = await _input(request)
     try:
         curated_id = _repo(request).insert(
-            name=name, description=description, runtime_type=runtime_type, auto_download=auto_download
+            name=body.name, description=body.description, runtime_type=body.runtime_type, auto_download=body.auto_download
         )
     except CuratedDuplicate as duplicate:
         raise ApiError(409, "CURATED_DUPLICATE", model=duplicate.existing) from None
@@ -93,10 +105,14 @@ async def add_curated(request: Request) -> JSONResponse:
 
 @router.put("/curated/{curated_id}")
 async def update_curated(request: Request, curated_id: int) -> JSONResponse:
-    name, description, runtime_type, auto_download = await _input(request)
+    body = await _input(request)
     try:
         found = _repo(request).update(
-            curated_id, name=name, description=description, runtime_type=runtime_type, auto_download=auto_download
+            curated_id,
+            name=body.name,
+            description=body.description,
+            runtime_type=body.runtime_type,
+            auto_download=body.auto_download,
         )
     except CuratedDuplicate as duplicate:
         raise ApiError(409, "CURATED_DUPLICATE", model=duplicate.existing) from None

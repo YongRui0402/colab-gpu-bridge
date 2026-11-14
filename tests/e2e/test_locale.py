@@ -782,6 +782,11 @@ def err_curated_not_found(w: World) -> httpx.Response:
     return trigger_ok(w, "DELETE", "/curated/999")
 
 
+def err_auto_download_result_not_found(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/downloads/auto-result/dismiss")
+
+
 def ready_api(w: World, models: dict[str, tuple[int, bool]] | None = None) -> None:
     w.start()
     w.open_via_api()
@@ -904,6 +909,7 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("INVALID_AUTO_DOWNLOAD", err_invalid_auto_download),
     ("CURATED_DUPLICATE", err_curated_duplicate),
     ("CURATED_NOT_FOUND", err_curated_not_found),
+    ("AUTO_DOWNLOAD_RESULT_NOT_FOUND", err_auto_download_result_not_found),
     ("OLLAMA_NOT_FOUND", err_ollama_not_found),
     ("MODEL_ALREADY_DOWNLOADED", err_model_already_downloaded),
     ("DOWNLOAD_ALREADY_QUEUED", err_download_already_queued),

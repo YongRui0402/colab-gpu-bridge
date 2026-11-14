@@ -15,10 +15,13 @@ import httpx
 
 from cgb.adapters.errors import AdapterError
 from integration.test_api_curated import HF_SMOL, HF_SMOL_BYTES, curate, set_hf, wait_auto
-from integration.test_api_downloads import LATEST_SIZES, downloadable, hold_pulls, queue, set_library
+from integration.test_api_downloads import LATEST_SIZES, downloadable, hold_pulls, queue, set_library, states, wait_queue
 from integration.test_api_events import sse_events
 from integration.test_api_models import L4, VRAM_TOTAL, resources, set_loaded, set_tags, tag
+from integration.test_api_recovery import reset_calls, running
 from integration.test_api_session import (  # noqa: F401(ui_client 是 fixture)
+    T4,
+    error_code,
     open_ready,
     ui_client,
     wait_until,
@@ -485,3 +488,428 @@ async def test_判定中就先推送進行中的結果_判定完再推送完成_
     assert done is not None and done["result"]["enqueued"] == ["qwen2.5:7b", HF_SMOL]  # 則3
     assert seven is not None and seven["job"]["origin"] == "auto"  # 則4
     assert smol is not None and (smol["job"]["origin"], smol["job"]["source"]) == ("auto", "huggingface")  # 則5
+
+
+# ---- 004 US3-API-26
+
+
+async def events_until_auto_download(base_url: str, timeout: float = 2.0) -> list[tuple[str, dict[str, Any]]]:
+    """開一條 `GET /api/events`,依序記下事件,讀到 `autoDownload.updated`(或逾時)為止。"""
+    received: list[tuple[str, dict[str, Any]]] = []
+
+    async def read(response: httpx.Response) -> None:
+        async for event in sse_events(response):
+            received.append(event)
+            if event[0] == "autoDownload.updated":
+                return
+
+    async with httpx.AsyncClient(base_url=base_url, timeout=None) as client, client.stream("GET", "/api/events") as response:
+        try:
+            await asyncio.wait_for(read(response), timeout)
+        except TimeoutError:
+            pass
+    return received
+
+
+async def test_連上時的快照在佇列之後帶自動下載結果_沒有結果時是_null(
+    make_app: Callable[..., Any], start_live_servers: Callable[..., Any], fakes: Any, tmp_path: Path
+) -> None:
+    # Arrange:情況 A 沒有工作階段;情況 B 有設自動下載的 `qwen2.5:0.5b`,各用自己的資料庫
+    downloadable(fakes)
+    hold_pulls(fakes)
+    servers_a = start_live_servers(make_app())
+    servers_b = start_live_servers(make_app(db_path=tmp_path / "b.sqlite3"))
+
+    # Act
+    events_a = await events_until_auto_download(servers_a.ui_url)
+    async with httpx.AsyncClient(base_url=servers_b.ui_url, timeout=5.0) as client_b:
+        await curate(client_b, "qwen2.5:0.5b", auto=True)
+        await open_ready(client_b)
+        await wait_auto(client_b, lambda r: r is not None and r["state"] == "done")
+    events_b = await events_until_auto_download(servers_b.ui_url)
+
+    # Assert
+    names_a = [name for name, _ in events_a]
+    names_b = [name for name, _ in events_b]
+    assert "downloads.snapshot" in names_a and "autoDownload.updated" in names_a  # 前提:兩則都收到了
+    assert names_a.index("autoDownload.updated") > names_a.index("downloads.snapshot")  # 則1
+    assert events_a[-1][1]["result"] is None  # 則2
+    assert "downloads.snapshot" in names_b and "autoDownload.updated" in names_b  # 前提:兩則都收到了
+    assert names_b.index("autoDownload.updated") > names_b.index("downloads.snapshot")  # 則3
+    result_b = events_b[-1][1]["result"]
+    assert result_b is not None and (result_b["state"], result_b["enqueued"]) == ("done", ["qwen2.5:0.5b"])  # 則4
+
+
+# ---- 004 US3-API-27
+
+
+async def test_重連接回同一個工作階段不重排_結果與完成時間不變(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:第一次就緒已判定完成
+    downloadable(fakes)
+    hold_pulls(fakes)
+    await curate(ui_client, "qwen2.5:7b", auto=True)
+    await curate(ui_client, "qwen2.5:0.5b", auto=True)
+    await open_ready(ui_client)
+    before = await wait_auto(ui_client, lambda r: r is not None and r["state"] == "done")
+    fakes.model_library.get_manifest.reset_calls()
+
+    # Act:健康檢查失敗一次,重連接回同一個工作階段
+    opens_before = fakes.tunnel.open_tunnel.call_count
+    fakes.tunnel.check_health.then(AdapterError("TUNNEL_UNREACHABLE", "連不到"))
+    await wait_until(
+        ui_client, lambda s: fakes.tunnel.open_tunnel.call_count > opens_before and s.get("state") == "ready", timeout=2.5
+    )
+    await asyncio.sleep(0.3)
+    jobs = (await queue(ui_client))["jobs"]
+    after = (await ui_client.get("/api/downloads/auto-result")).json()["result"]
+
+    # Assert
+    assert fakes.tunnel.open_tunnel.call_count > opens_before  # 前提:真的重連過
+    assert [job["model"] for job in jobs].count("qwen2.5:7b") == 1  # 則1
+    assert [job["model"] for job in jobs].count("qwen2.5:0.5b") == 1  # 則2
+    assert fakes.model_library.get_manifest.call_count == 0  # 則3
+    assert after == before  # 則4
+
+
+# ---- 004 US3-API-28
+
+
+async def test_後端重新啟動接回同一個工作階段不重排_結果與關閉狀態都還在(make_app: Callable[..., Any], fakes: Any) -> None:
+    # Arrange:第一個 app 裡就緒、判定完成、使用者關掉提示
+    downloadable(fakes)
+    hold_pulls(fakes)
+    async with running(make_app()) as client:
+        await curate(client, "qwen2.5:7b", auto=True)
+        await curate(client, "qwen2.5:0.5b", auto=True)
+        name = (await open_ready(client))["name"]
+        before = await wait_auto(client, lambda r: r is not None and r["state"] == "done")
+        dismissed = await client.post("/api/downloads/auto-result/dismiss")
+    reset_calls(fakes)
+    fakes.model_library.get_manifest.reset_calls()
+
+    # Act:以同一個 SQLite 檔再起一個 app,等接回同一個工作階段就緒
+    async with running(make_app()) as client:
+        await wait_until(client, lambda s: s.get("state") == "ready" and s.get("name") == name)
+        await asyncio.sleep(0.3)
+        after = (await client.get("/api/downloads/auto-result")).json()["result"]
+        jobs = (await queue(client))["jobs"]
+
+    # Assert
+    assert dismissed.status_code == 200  # 前提:關閉成功
+    assert before is not None
+    assert after is not None and after["sessionName"] == name  # 則1
+    assert after["enqueued"] == before["enqueued"] == ["qwen2.5:7b", "qwen2.5:0.5b"]  # 則2
+    assert after["dismissed"] is True  # 則3
+    assert [job["model"] for job in jobs if job["model"] == "qwen2.5:7b" and job["state"] in ("queued", "downloading")] == ["qwen2.5:7b"]  # 則4
+    assert fakes.model_library.get_manifest.call_count == 0  # 則5
+
+
+# ---- 004 US3-API-29
+
+
+async def test_關閉提示只標記已關閉_結果與已排入的下載都留著_重複關閉照樣成功_也推送給其他分頁(
+    live_servers: Any, fakes: Any
+) -> None:
+    # Arrange:`qwen2.5:7b` 排入、`llama3.2` 空間不足被跳過
+    downloadable(fakes, disk_free=5_000_000_000)
+    hold_pulls(fakes)
+    async with httpx.AsyncClient(base_url=live_servers.ui_url, timeout=5.0) as client:
+        await curate(client, "qwen2.5:7b", auto=True)
+        await curate(client, "llama3.2", auto=True)
+        await open_ready(client)
+        await wait_auto(client, lambda r: r is not None and r["state"] == "done")
+        async with collect_events(live_servers.ui_url) as events:
+            # Act
+            first = await client.post("/api/downloads/auto-result/dismiss")
+            after = (await client.get("/api/downloads/auto-result")).json()["result"]
+            second = await client.post("/api/downloads/auto-result/dismiss")
+            pushed = await wait_event(events, "autoDownload.updated", lambda p: p["result"] is not None and p["result"]["dismissed"])
+            jobs = (await queue(client))["jobs"]
+
+    # Assert
+    assert first.status_code == 200 and first.json()["dismissed"] is True  # 則1
+    assert [item["model"] for item in first.json()["skipped"]] == ["llama3.2:latest"]  # 則2
+    assert after is not None and after["dismissed"] is True  # 則3
+    assert second.status_code == 200 and second.json()["dismissed"] is True  # 則4
+    assert pushed is not None  # 則5
+    assert [job["model"] for job in jobs] == ["qwen2.5:7b"]  # 則6
+
+
+# ---- 004 US3-API-30
+
+
+async def test_判定中就能關閉提示_判定完成後仍是已關閉(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:取大小停在閘門前
+    downloadable(fakes)
+    hold_pulls(fakes)
+    await curate(ui_client, "qwen2.5:0.5b", auto=True)
+    gate = fakes.model_library.get_manifest.gate()
+    await open_ready(ui_client)
+    await gate.wait_entered_async(1)
+
+    # Act
+    dismissed = await ui_client.post("/api/downloads/auto-result/dismiss")
+    gate.release()
+    result = await wait_auto(ui_client, lambda r: r is not None and r["state"] == "done")
+
+    # Assert
+    assert dismissed.status_code == 200  # 則1
+    assert (dismissed.json()["state"], dismissed.json()["dismissed"]) == ("running", True)  # 則1
+    assert result is not None and result["dismissed"] is True  # 則2
+    assert result["enqueued"] == ["qwen2.5:0.5b"]  # 則3
+
+
+# ---- 004 US3-API-31
+
+
+async def test_沒有結果時關閉提示回_404_沒有工作階段_沒設自動下載_工作階段已結束都一樣(
+    ui_client: httpx.AsyncClient, fakes: Any
+) -> None:
+    # Arrange
+    downloadable(fakes)
+    hold_pulls(fakes)
+
+    # Act:A 沒有工作階段
+    response_a = await ui_client.post("/api/downloads/auto-result/dismiss")
+    # Act:B 精選清單只有一項沒設自動下載,就緒後送關閉
+    item = await curate(ui_client, "qwen2.5:1.5b", auto=False)
+    await open_ready(ui_client)
+    response_b = await ui_client.post("/api/downloads/auto-result/dismiss")
+    await ui_client.delete("/api/session")
+    await wait_until(ui_client, lambda s: s.get("state") == "ended")
+    # Act:C 改成設自動下載,新的工作階段判定完成後結束,再送關閉
+    await ui_client.put(f"/api/curated/{item['id']}", json={"name": "qwen2.5:1.5b", "autoDownload": True})
+    await open_ready(ui_client)
+    await wait_auto(ui_client, lambda r: r is not None and r["state"] == "done")
+    await ui_client.delete("/api/session")
+    await wait_until(ui_client, lambda s: s.get("state") == "ended")
+    response_c = await ui_client.post("/api/downloads/auto-result/dismiss")
+
+    # Assert
+    assert response_a.status_code == 404  # 則1
+    assert error_code(response_a) == "AUTO_DOWNLOAD_RESULT_NOT_FOUND"  # 則1
+    assert response_b.status_code == 404  # 則2
+    assert error_code(response_b) == "AUTO_DOWNLOAD_RESULT_NOT_FOUND"  # 則2
+    assert response_c.status_code == 404  # 則3
+    assert error_code(response_c) == "AUTO_DOWNLOAD_RESULT_NOT_FOUND"  # 則3
+
+
+# ---- 004 US3-API-32
+
+
+async def test_工作階段結束時自動下載的結果一併清掉並推送_result_為_null(live_servers: Any, fakes: Any) -> None:
+    # Arrange:判定已完成
+    downloadable(fakes)
+    hold_pulls(fakes)
+    async with httpx.AsyncClient(base_url=live_servers.ui_url, timeout=5.0) as client:
+        await curate(client, "qwen2.5:0.5b", auto=True)
+        await open_ready(client)
+        await wait_auto(client, lambda r: r is not None and r["state"] == "done")
+        async with collect_events(live_servers.ui_url) as events:
+            # Act
+            await client.delete("/api/session")
+            pushed = await wait_event(events, "autoDownload.updated", lambda p: p["result"] is None, timeout=1.0)
+            await wait_until(client, lambda s: s.get("state") == "ended")
+            result = (await client.get("/api/downloads/auto-result")).json()["result"]
+
+    # Assert
+    assert pushed is not None  # 則1
+    assert result is None  # 則2
+
+
+# ---- 004 US3-API-33
+
+
+async def test_開啟中結束或開啟失敗都不自動下載_結果是_null_佇列是空的(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    hold_pulls(fakes)
+    await curate(ui_client, "qwen2.5:0.5b", auto=True)
+
+    async def observe() -> tuple[Any, list[Any]]:
+        await asyncio.sleep(0.3)
+        result = (await ui_client.get("/api/downloads/auto-result")).json()["result"]
+        return result, (await queue(ui_client))["jobs"]
+
+    # Act:A 開啟停在配置時按結束
+    creating = fakes.colab.create_session.gate()
+    await ui_client.post("/api/session", json={"runtimeType": T4})
+    await wait_until(ui_client, lambda s: s.get("state") == "opening")
+    await ui_client.delete("/api/session")
+    creating.release()
+    await wait_until(ui_client, lambda s: s.get("state") == "ended")
+    observed_a = await observe()
+    # Act:B 開啟時建通道失敗
+    fakes.tunnel.open_tunnel.raises("TUNNEL_UNREACHABLE", "連不到")
+    await ui_client.post("/api/session", json={"runtimeType": T4})
+    await wait_until(ui_client, lambda s: s.get("state") == "open_failed")
+    observed_b = await observe()
+
+    # Assert
+    assert (observed_a[0], observed_b[0]) == (None, None)  # 則1
+    assert (observed_a[1], observed_b[1]) == ([], [])  # 則2
+    assert fakes.model_library.get_manifest.call_count == 0  # 則3
+
+
+# ---- 004 US3-API-34
+
+
+async def test_自動排入後刪除或取消自動下載不影響佇列_照常下載完成_結果也不變(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:兩項都設自動下載,判定完成、下載停在閘門前
+    downloadable(fakes)
+    hold = hold_pulls(fakes)
+    item_a = await curate(ui_client, "qwen2.5:7b", auto=True)
+    item_b = await curate(ui_client, "qwen2.5:0.5b", auto=True)
+    await open_ready(ui_client)
+    await wait_auto(ui_client, lambda r: r is not None and r["state"] == "done")
+
+    # Act
+    deleted = await ui_client.delete(f"/api/curated/{item_a['id']}")
+    edited = await ui_client.put(f"/api/curated/{item_b['id']}", json={"name": "qwen2.5:0.5b", "autoDownload": False})
+    hold.release()
+    final = await wait_queue(ui_client, lambda q: [state for _, state in states(q)] == ["completed", "completed"])
+    result = (await ui_client.get("/api/downloads/auto-result")).json()["result"]
+
+    # Assert
+    assert deleted.status_code == 204  # 則1
+    assert edited.status_code == 200  # 則2
+    assert [state for _, state in states(final)] == ["completed", "completed"]  # 則3
+    pulled = [call.kwargs.get("model") for call in fakes.remote_ollama.pull_model.calls]
+    assert (pulled.count("qwen2.5:7b"), pulled.count("qwen2.5:0.5b")) == (1, 1)  # 則4
+    assert result is not None and result["enqueued"] == ["qwen2.5:7b", "qwen2.5:0.5b"]  # 則5
+
+
+# ---- 004 US3-API-35
+
+
+async def test_重新啟動後精選清單的類型與自動下載設定都還在_就緒時照設定排入(make_app: Callable[..., Any], fakes: Any) -> None:
+    # Arrange:第一個 app 新增兩項後離開
+    downloadable(fakes)
+    hold_pulls(fakes)
+    runtime_type = {"gpu": "H100", "highMem": False}
+    async with running(make_app()) as client:
+        first = await client.post(
+            "/api/curated",
+            json={"name": "qwen2.5:0.5b", "description": "日常用", "recommendedRuntimeType": runtime_type, "autoDownload": True},
+        )
+        second = await client.post("/api/curated", json={"name": HF_SMOL})
+        assert (first.status_code, second.status_code) == (201, 201)
+
+    # Act:以同一個 SQLite 檔建第二個 app
+    async with running(make_app()) as client:
+        listed = (await client.get("/api/curated")).json()["items"]
+        await open_ready(client)
+        await wait_auto(client, lambda r: r is not None and r["state"] == "done")
+        jobs = (await queue(client))["jobs"]
+
+    # Assert
+    assert [item["name"] for item in listed] == ["qwen2.5:0.5b", HF_SMOL]  # 則1
+    assert (listed[0]["autoDownload"], listed[0]["recommendedRuntimeType"], listed[0]["description"]) == (True, runtime_type, "日常用")  # 則2
+    assert listed[1]["autoDownload"] is False  # 則3
+    assert [(job["model"], job["origin"]) for job in jobs] == [("qwen2.5:0.5b", "auto")]  # 則4
+
+
+# ---- 004 US3-API-36
+
+
+async def test_就緒後_0_6_秒內給出結果_8_項都排入或標示跳過_已在執行環境上的不算(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:8 個官方名稱(1 個 LIBRARY_NOT_FOUND、1 個 MAY_NOT_FIT),取大小每次 0.1 秒;`gemma2:2b` 已在執行環境上
+    sizes = {**SIX_SIZES, "qwen2.5:32b": 19_851_336_256}
+
+    async def manifest(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        await asyncio.sleep(0.1)
+        full = f"{kwargs['name']}:{kwargs['tag']}"
+        if full not in sizes:
+            raise AdapterError("LIBRARY_NOT_FOUND", "manifest unknown")
+        return {"name": kwargs["name"], "tag": kwargs["tag"], "sizeBytes": sizes[full]}
+
+    downloadable(fakes)
+    fakes.model_library.get_manifest.side_effect(manifest)
+    set_tags(fakes, tag("gemma2:2b", 1_629_518_495))
+    hold_pulls(fakes)
+    for name in [*sizes, "qwen2.5:999b", "gemma2:2b"]:
+        await curate(ui_client, name, auto=True)
+
+    # Act
+    await open_ready(ui_client)
+    ready_at = time.monotonic()
+    result = await wait_auto(ui_client, lambda r: r is not None and r["state"] == "done", timeout=2.0)
+    elapsed = time.monotonic() - ready_at
+
+    # Assert
+    assert result is not None and result["state"] == "done"
+    assert elapsed < 0.6, elapsed  # 則1
+    assert len(result["enqueued"]) + len(result["skipped"]) == 8  # 則2
+    reasons = {item["model"]: (item["reason"], item["reasonCode"]) for item in result["skipped"]}
+    assert reasons == {"qwen2.5:999b": ("SIZE_UNAVAILABLE", "LIBRARY_NOT_FOUND"), "qwen2.5:32b": ("MAY_NOT_FIT", None)}  # 則3
+    assert "gemma2:2b" not in result["enqueued"] and "gemma2:2b" not in reasons  # 則4
+
+
+# ---- 004 US3-API-37
+
+
+async def test_所有來源都連不到時自動下載照常完成_不回_500_工作階段仍就緒(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:執行環境的模型清單、兩個模型來源、剩餘空間全部讀不到
+    downloadable(fakes)
+    await curate(ui_client, "qwen2.5:0.5b", auto=True)
+    await curate(ui_client, HF_SMOL, auto=True)
+    fakes.remote_ollama.list_local_models.raises("OLLAMA_TIMEOUT", "逾時")
+    fakes.model_library.get_manifest.raises("LIBRARY_UNREACHABLE", "連不到")
+    fakes.huggingface.get_manifest.raises("HF_UNREACHABLE", "連不到")
+    fakes.colab.probe_resources.raises("COLAB_UNREACHABLE", "連不到")
+
+    # Act
+    await open_ready(ui_client)
+    result = await wait_auto(ui_client, lambda r: r is not None and r["state"] == "done")
+    responses = [
+        await ui_client.get("/api/downloads/auto-result"),
+        await ui_client.get("/api/curated"),
+        await ui_client.get("/api/downloads"),
+        await ui_client.get("/api/session"),
+    ]
+
+    # Assert
+    assert [response.status_code for response in responses] == [200, 200, 200, 200]  # 則1
+    assert result is not None and result["state"] == "done"
+    assert [item["reasonCode"] for item in result["skipped"]] == ["LIBRARY_UNREACHABLE", "HF_UNREACHABLE"]  # 則2
+    assert responses[3].json()["state"] == "ready"  # 則3
+
+
+# ---- 004 US3-API-39
+
+
+async def test_跳過的項目帶大小_剩餘空間_顯示記憶體_依原因有值或為_null_重新啟動後不變(
+    make_app: Callable[..., Any], fakes: Any, tmp_path: Path
+) -> None:
+    # Arrange:情況 A 剩餘磁碟 5,200,000,000、顯示記憶體 16,106,127,360;情況 B 讀不到剩餘空間(另一個暫存庫)
+    downloadable(fakes, disk_free=5_200_000_000)
+    set_library(fakes, {**LATEST_SIZES, "qwen2.5:32b": 19_851_336_256})
+    hold_pulls(fakes)
+    async with running(make_app()) as client:
+        for name in ("qwen2.5:999b", "qwen2.5:32b", "qwen2.5:7b", "llama3.2"):
+            await curate(client, name, auto=True)
+        name_a = (await open_ready(client))["name"]
+        before = await wait_auto(client, lambda r: r is not None and r["state"] == "done")
+
+    # Act:情況 A 重新啟動後再讀;情況 B
+    async with running(make_app()) as client:
+        await wait_until(client, lambda s: s.get("state") == "ready" and s.get("name") == name_a)
+        after = (await client.get("/api/downloads/auto-result")).json()["result"]
+    async with running(make_app(db_path=tmp_path / "b.sqlite3")) as client:
+        await curate(client, "qwen2.5:999b", auto=True)
+        await curate(client, "qwen2.5:7b", auto=True)
+        fakes.colab.probe_resources.raises("COLAB_UNREACHABLE", "連不到執行環境")
+        await open_ready(client)
+        result_b = await wait_auto(client, lambda r: r is not None and r["state"] == "done")
+
+    # Assert
+    assert before is not None and after is not None and result_b is not None
+    assert [item["model"] for item in before["skipped"]] == ["qwen2.5:999b", "qwen2.5:32b", "llama3.2:latest"]  # 則1
+    assert before["enqueued"] == ["qwen2.5:7b"]  # 則1
+    figures = {item["model"]: (item["sizeBytes"], item["freeDiskBytes"], item["vramBytes"]) for item in before["skipped"]}
+    assert figures["qwen2.5:999b"] == (None, None, None)  # 則2
+    assert figures["qwen2.5:32b"] == (19_851_336_256, None, 16_106_127_360)  # 則3
+    assert figures["llama3.2:latest"] == (2_019_393_189, 516_912_668, None)  # 則4
+    assert after["skipped"] == before["skipped"]  # 則5
+    unknown = next(item for item in result_b["skipped"] if item["reason"] == "DISK_SPACE_UNKNOWN")
+    assert (unknown["model"], unknown["sizeBytes"], unknown["freeDiskBytes"], unknown["vramBytes"]) == ("qwen2.5:7b", 4_683_087_332, None, None)  # 則6

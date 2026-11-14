@@ -56,8 +56,9 @@ class EventFeed:
 
     async def pump(self, stream: httpx.Response) -> None:
         async for name, payload in sse_events(stream):
-            if name == "session.updated":
-                self.connected.set()  # 連上時先送的快照
+            if not self.connected.is_set():
+                if name == "autoDownload.updated":
+                    self.connected.set()  # 連上時的快照(工作階段、佇列、自動下載結果)到這一則為止
             elif name in QUEUE_EVENT_NAMES:
                 self.seen.append((name, payload, time.monotonic()))
 

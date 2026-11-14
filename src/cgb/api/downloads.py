@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
 from cgb.api._body import read_json
+from cgb.domain.errors import ApiError
 
 router = APIRouter()
 
@@ -19,6 +20,14 @@ async def list_downloads(request: Request) -> JSONResponse:
 @router.get("/downloads/auto-result")
 async def get_auto_download_result(request: Request) -> JSONResponse:
     return JSONResponse({"result": request.app.state.services.auto_download.result()})
+
+
+@router.post("/downloads/auto-result/dismiss")
+async def dismiss_auto_download_result(request: Request) -> JSONResponse:
+    result = request.app.state.services.auto_download.dismiss()
+    if result is None:
+        raise ApiError(404, "AUTO_DOWNLOAD_RESULT_NOT_FOUND")
+    return JSONResponse(result)
 
 
 @router.post("/downloads/estimate")

@@ -8,6 +8,10 @@ _MODEL_NAME = re.compile(
 )
 
 
+# 名稱前綴決定來源與取大小的地方(research.md R4、R7)
+HF_PREFIX = "hf.co/"
+
+
 def is_valid(name: object) -> bool:
     """`name` 是字串且符合 `ModelName` 的格式。"""
     return isinstance(name, str) and _MODEL_NAME.fullmatch(name) is not None
@@ -21,3 +25,8 @@ def with_version(name: str) -> str:
 def match_key(name: str) -> str:
     """比對用的鍵:補版本後 casefold(`info.x-model-name-rule` (2));兩個名稱的鍵相同就是同一個模型。"""
     return with_version(name).casefold()
+
+
+def source_of(model: str) -> str:
+    """`DownloadJob.source`:`hf.co/` 開頭的是 Hugging Face,其他是官方模型庫(不另存欄位,store.dbml)。"""
+    return "huggingface" if model.startswith(HF_PREFIX) else "library"

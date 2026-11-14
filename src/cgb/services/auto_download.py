@@ -49,10 +49,18 @@ class AutoDownload:
         name = self._lifecycle.current().get("name")
         return self._repo.get(name) if name is not None else None
 
+    def dismiss(self) -> dict[str, Any] | None:
+        """關閉提示(`dismissAutoDownloadResult`):記成已關閉並推送;回傳關閉後的結果,沒有結果時是 None。"""
+        if self.result() is None:
+            return None
+        self._repo.dismiss(self._lifecycle.current()["name"])
+        self._publish()
+        return self.result()
+
     def on_ready(self, base_url: str) -> None:
         """工作階段就緒:這個工作階段第一次就緒才判定;精選清單沒有設自動下載的項目時只記下做過一次,不推送。"""
         name = self._lifecycle.current()["name"]
-        targets = [row["name"] for row in self._curated.all() if row["auto_download"]]
+        targets = [with_version(row["name"]) for row in self._curated.all() if row["auto_download"]]
         if not self._repo.start(name, len(targets)) or not targets:
             return
         self._publish()
@@ -60,18 +68,26 @@ class AutoDownload:
 
     async def _decide(self, name: str, targets: list[str], base_url: str) -> None:
         """依精選清單的順序判定每一項:已在執行環境上或佇列中的不排,取不到大小的跳過,其餘一次排入佇列。"""
+        wanted = await self._not_there_yet(targets, base_url)
+        candidates = await self._with_sizes(name, wanted)
+        sized = await self._fit_in_resources(name, candidates)
+        # 排入、記下完成與推送之間沒有 `await`:工作階段結束的清除不會夾在中間
+        self._downloads.enqueue_auto(sized, name, base_url)
+        self._repo.finish(name, iso(self._state.clock.now()))
+        self._publish()
+
+    async def _not_there_yet(self, targets: list[str], base_url: str) -> list[tuple[int, str]]:
+        """(清單位置, 名稱):濾掉執行環境上已有的與佇列裡已有的(不分大小寫);這些不取大小,也不列為跳過。"""
         try:
             local = {match_key(m["name"]) for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
         except AdapterError:
             # 讀不到就當成執行環境上沒有任何模型(新的執行環境本來就是空的)
             local = set()
         queued = {match_key(job["model"]) for job in self._downloads.pending()}
-        wanted = [
-            (position, with_version(target))
-            for position, target in enumerate(targets)
-            if match_key(with_version(target)) not in local | queued
-        ]
-        # 取大小同時最多 4 個;結果仍依清單順序處理
+        return [(position, model) for position, model in enumerate(targets) if match_key(model) not in local | queued]
+
+    async def _with_sizes(self, name: str, wanted: list[tuple[int, str]]) -> list[tuple[int, str, int]]:
+        """取大小同時最多 4 個,結果仍依清單順序處理;取不到的記成 `SIZE_UNAVAILABLE` 跳過,其餘回傳 (位置, 名稱, 大小)。"""
         slots = asyncio.Semaphore(4)
 
         async def size_of(model: str) -> int | AdapterError:
@@ -95,12 +111,16 @@ class AutoDownload:
                 )
                 continue
             candidates.append((position, model, size))
-        # 剩餘磁碟空間讀一次,依清單順序累加:已決定排入的大小 + 佇列裡還沒下載完的大小 + 這一項 > 剩餘 → 跳過,後面較小的照常判斷
+        return candidates
+
+    async def _fit_in_resources(self, name: str, candidates: list[tuple[int, str, int]]) -> list[tuple[str, int]]:
+        """剩餘磁碟空間讀一次,依清單順序累加:已決定排入的大小 + 佇列裡還沒下載完的大小 + 這一項 > 剩餘 → 跳過,
+        後面較小的照常判斷;回傳要排入的 (名稱, 大小)。"""
         try:
             resources = await self._state.colab.probe_resources(name=name)
         except AdapterError as error:
             # 讀不到就無法確認放不放得下,其餘還沒判定的項目都跳過(001 不把讀不到當成夠用)
-            for position, model, _ in candidates:
+            for position, model, size in candidates:
                 self._repo.add_item(
                     name,
                     position,
@@ -108,34 +128,40 @@ class AutoDownload:
                     reason="DISK_SPACE_UNKNOWN",
                     reason_code=error.code,
                     message=SKIPPED_MESSAGES["DISK_SPACE_UNKNOWN"],
+                    size_bytes=size,
                 )
-            candidates = []
-            resources = {"diskFreeBytes": 0, "vramTotalBytes": None}
+            return []
         used = sum(row["size_bytes"] for row in self._downloads.pending())
         sized: list[tuple[str, int]] = []
         vram = resources["vramTotalBytes"]
         for position, model, size in candidates:
             if vram is not None and size > vram:
                 self._repo.add_item(
-                    name, position, model, reason="MAY_NOT_FIT", message=SKIPPED_MESSAGES["MAY_NOT_FIT"]
+                    name,
+                    position,
+                    model,
+                    reason="MAY_NOT_FIT",
+                    message=SKIPPED_MESSAGES["MAY_NOT_FIT"],
+                    size_bytes=size,
+                    vram_bytes=vram,
                 )
                 continue
             if used + size > resources["diskFreeBytes"]:
+                # 剩餘空間扣掉已決定排入與佇列裡還沒下載完的大小,才是這一項實際比較的數字
                 self._repo.add_item(
                     name,
                     position,
                     model,
                     reason="DISK_SPACE_INSUFFICIENT",
                     message=SKIPPED_MESSAGES["DISK_SPACE_INSUFFICIENT"],
+                    size_bytes=size,
+                    free_disk_bytes=resources["diskFreeBytes"] - used,
                 )
                 continue
             used += size
             self._repo.add_item(name, position, model)
             sized.append((model, size))
-        # 排入、記下完成與推送之間沒有 `await`:工作階段結束的清除不會夾在中間
-        self._downloads.enqueue_auto(sized, name, base_url)
-        self._repo.finish(name, iso(self._state.clock.now()))
-        self._publish()
+        return sized
 
     def clear_if_session_over(self) -> None:
         """`SessionsRepo.listeners` 的清除(`info.x-queue-clearing` (5)):工作階段變成結束類的狀態時,

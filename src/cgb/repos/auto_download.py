@@ -22,6 +22,10 @@ class AutoDownloadRepo:
             (finished_at, session_name),
         )
 
+    def dismiss(self, session_name: str) -> None:
+        """使用者關閉提示:只把 `dismissed` 記成 true,結果與每一項都留著。"""
+        self._conn.execute("UPDATE auto_download_results SET dismissed = 1 WHERE session_name = ?", (session_name,))
+
     def add_item(
         self,
         session_name: str,
@@ -32,11 +36,14 @@ class AutoDownloadRepo:
         reason_code: str | None = None,
         message: str | None = None,
         size_bytes: int | None = None,
+        free_disk_bytes: int | None = None,
+        vram_bytes: int | None = None,
     ) -> None:
         self._conn.execute(
-            "INSERT INTO auto_download_items (session_name, position, model, reason, reason_code, message, size_bytes)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (session_name, position, model, reason, reason_code, message, size_bytes),
+            "INSERT INTO auto_download_items"
+            " (session_name, position, model, reason, reason_code, message, size_bytes, free_disk_bytes, vram_bytes)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (session_name, position, model, reason, reason_code, message, size_bytes, free_disk_bytes, vram_bytes),
         )
 
     def get(self, session_name: str) -> dict[str, Any] | None:
