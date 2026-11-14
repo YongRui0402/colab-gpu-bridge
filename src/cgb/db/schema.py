@@ -67,14 +67,17 @@ _DOWNLOAD_JOBS_V0_COLUMNS = (
     " origin, preload_on_complete, added_at, started_at, finished_at"
 )
 
-_CURATED_MODELS = """
+# 全新庫的 DDL 與既有庫的 ADD COLUMN 共用同一份欄位定義
+_CURATED_AUTO_DOWNLOAD_COLUMN = "auto_download INTEGER NOT NULL DEFAULT 0 CHECK (auto_download IN (0, 1))"
+
+_CURATED_MODELS = f"""
 CREATE TABLE curated_models (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
     recommended_runtime_type_gpu TEXT CHECK (recommended_runtime_type_gpu IN ('T4', 'L4', 'G4', 'A100', 'H100')),
     recommended_runtime_type_high_mem INTEGER,
-    auto_download INTEGER NOT NULL DEFAULT 0 CHECK (auto_download IN (0, 1))
+    {_CURATED_AUTO_DOWNLOAD_COLUMN}
 )
 """
 
@@ -160,7 +163,8 @@ def _create_fresh(conn: sqlite3.Connection) -> None:
 
 
 def _migrate_v0_to_v1(conn: sqlite3.Connection) -> None:
-    """既有資料庫(001~003 建的,user_version 為 0):重建 download_jobs(SQLite 不能改 CHECK),session_name 留 NULL。
+    """既有資料庫(001~003 建的,user_version 為 0):重建 download_jobs(SQLite 不能改 CHECK),session_name 留 NULL;
+    精選清單補 auto_download 欄與名稱唯一索引,並建自動下載的兩張新表。
 
     在一個交易裡做,任何一步失敗整個 rollback、原例外往上丟(plan.md Q39);`connect` 是
     `isolation_level=None`,不會自動開交易,所以明寫 BEGIN。
@@ -168,11 +172,22 @@ def _migrate_v0_to_v1(conn: sqlite3.Connection) -> None:
     conn.execute("BEGIN")
     try:
         _rebuild_download_jobs(conn)
+        _migrate_curated_models(conn)
+        conn.execute(_AUTO_DOWNLOAD_RESULTS)
+        conn.execute(_AUTO_DOWNLOAD_ITEMS)
         conn.execute("PRAGMA user_version = 1")
     except BaseException:
         conn.execute("ROLLBACK")
         raise
     conn.execute("COMMIT")
+
+
+def _migrate_curated_models(conn: sqlite3.Connection) -> None:
+    """精選清單:補 auto_download 欄(已有就不再加,R7)、去掉只差大小寫的重複、建不分大小寫的唯一索引。"""
+    if "auto_download" not in [row[1] for row in conn.execute("PRAGMA table_info(curated_models)")]:
+        conn.execute(f"ALTER TABLE curated_models ADD COLUMN {_CURATED_AUTO_DOWNLOAD_COLUMN}")
+    _drop_curated_name_duplicates(conn)
+    conn.execute("CREATE UNIQUE INDEX uq_curated_models_name_ci ON curated_models (lower(name))")
 
 
 def _rebuild_download_jobs(conn: sqlite3.Connection) -> None:
@@ -198,6 +213,16 @@ def _drop_pending_model_duplicates(conn: sqlite3.Connection) -> None:
     for job_id, pending_model in duplicates:
         conn.execute("DELETE FROM download_jobs WHERE id = ?", (job_id,))
         _LOG.warning("升級資料庫時刪除只差大小寫的重複下載項目:%s(id %s)", pending_model, job_id)
+
+
+def _drop_curated_name_duplicates(conn: sqlite3.Connection) -> None:
+    """只差大小寫的精選名稱,每組只留 id 最小的一筆,刪掉的名稱寫進日誌(plan.md Q40)。"""
+    duplicates = conn.execute(
+        "SELECT id, name FROM curated_models WHERE id NOT IN (SELECT min(id) FROM curated_models GROUP BY lower(name))"
+    ).fetchall()
+    for curated_id, name in duplicates:
+        conn.execute("DELETE FROM curated_models WHERE id = ?", (curated_id,))
+        _LOG.warning("升級資料庫時刪除只差大小寫的重複精選名稱:%s(id %s)", name, curated_id)
 
 
 def _create_download_jobs_indexes(conn: sqlite3.Connection) -> None:

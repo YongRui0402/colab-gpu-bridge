@@ -539,3 +539,559 @@ def test_用量快照只留最後一筆_重新開啟後讀得到(tmp_path: Path)
 
     # Assert:則1 只有 1 列且 id 為 1;則2 是最後一次寫入的值
     assert rows == [(1, 380.00, "2026-11-10T08:05:00Z")]
+
+
+# ---- 004 US3-DB-01
+
+
+def test_全新資料庫的精選項目有自動下載欄_且有自動下載結果表_結果項目表與不分大小寫的名稱唯一索引(tmp_path: Path) -> None:
+    # Arrange:tmp_path 裡還沒有資料庫檔
+    conn = connect(tmp_path / "cgb.sqlite3")
+
+    # Act
+    create_schema(conn)
+
+    # Assert:則1 curated_models 有 auto_download 欄,INTEGER、NOT NULL、預設 '0'
+    auto_download = [
+        (row["type"], row["notnull"], row["dflt_value"])
+        for row in conn.execute("PRAGMA table_info(curated_models)")
+        if row["name"] == "auto_download"
+    ]
+    assert auto_download == [("INTEGER", 1, "0")]
+    # Assert:則2 auto_download_results 的欄名依序,主鍵只有 session_name
+    results = [(row["name"], row["pk"]) for row in conn.execute("PRAGMA table_info(auto_download_results)")]
+    assert results == [
+        ("session_name", 1),
+        ("target_count", 0),
+        ("state", 0),
+        ("dismissed", 0),
+        ("finished_at", 0),
+    ]
+    # Assert:則3 auto_download_items 的欄名依序,主鍵依序是 session_name、position
+    items = [(row["name"], row["pk"]) for row in conn.execute("PRAGMA table_info(auto_download_items)")]
+    assert items == [
+        ("session_name", 1),
+        ("position", 2),
+        ("model", 0),
+        ("reason", 0),
+        ("reason_code", 0),
+        ("message", 0),
+        ("size_bytes", 0),
+        ("free_disk_bytes", 0),
+        ("vram_bytes", 0),
+    ]
+    # Assert:則4 index_list(curated_models) 有唯一的 uq_curated_models_name_ci
+    indexes = {row["name"]: row["unique"] for row in conn.execute("PRAGMA index_list(curated_models)")}
+    assert indexes["uq_curated_models_name_ci"] == 1
+    conn.close()
+
+
+# ---- 004 US3-DB-02
+
+
+def test_舊資料庫升級後精選項目的_id_與內容不變_自動下載都是否_刪過的_id_不重用(tmp_path: Path) -> None:
+    # Arrange:舊庫依序寫入 4 筆精選,再刪掉 id 4
+    db_path = tmp_path / "cgb.sqlite3"
+    old = _build_v0(db_path)
+    old.execute(
+        "INSERT INTO curated_models (name, description, recommended_runtime_type_gpu, recommended_runtime_type_high_mem)"
+        " VALUES ('llama3.2:3b', '平常用', 'T4', 0)"
+    )
+    old.execute(
+        "INSERT INTO curated_models (name, recommended_runtime_type_gpu, recommended_runtime_type_high_mem)"
+        " VALUES ('qwen2.5:14b', 'H100', 1)"
+    )
+    old.execute("INSERT INTO curated_models (name) VALUES ('gemma2:2b')")
+    old.execute("INSERT INTO curated_models (name) VALUES ('phi3:mini')")
+    old.execute("DELETE FROM curated_models WHERE id = 4")
+    old.close()
+    conn = connect(db_path)
+
+    # Act:升級後讀出精選清單,再寫入一筆新的
+    create_schema(conn)
+    read_error: sqlite3.Error | None = None
+    rows: list[tuple] = []
+    try:
+        rows = [
+            tuple(row)
+            for row in conn.execute(
+                "SELECT id, name, description, recommended_runtime_type_gpu, recommended_runtime_type_high_mem,"
+                " auto_download FROM curated_models ORDER BY id"
+            )
+        ]
+    except sqlite3.Error as exc:
+        read_error = exc
+    conn.execute("INSERT INTO curated_models (name) VALUES ('mistral:7b')")
+    new_id = conn.execute("SELECT id FROM curated_models WHERE name = 'mistral:7b'").fetchone()["id"]
+
+    # Assert:則1 讀得出來,id 依序為 1、2、3
+    assert read_error is None
+    assert [row[0] for row in rows] == [1, 2, 3]
+    # Assert:則2 3 列的 auto_download 都是 0
+    assert [row[5] for row in rows] == [0, 0, 0]
+    # Assert:則3 id 2 的建議類型 H100、高 RAM 1
+    assert rows[1][3:5] == ("H100", 1)
+    # Assert:則4 id 1 的說明「平常用」、建議 T4
+    assert rows[0][2:4] == ("平常用", "T4")
+    # Assert:則5 id 3 的建議類型與高 RAM 都是 NULL
+    assert rows[2][3:5] == (None, None)
+    # Assert:則6 新寫入的 mistral:7b 的 id 為 5(刪過的 4 不重用)
+    assert new_id == 5
+    conn.close()
+
+
+def _table_info(conn: sqlite3.Connection, table: str) -> list[tuple]:
+    return [tuple(row) for row in conn.execute(f"PRAGMA table_info({table})")]
+
+
+# ---- 004 US3-DB-03
+
+
+def test_舊資料庫升級後的自動下載結果表_結果項目表_自動下載欄與名稱唯一索引和全新庫一致(tmp_path: Path) -> None:
+    # Arrange:舊庫寫入 1 筆精選;另開一個全新庫
+    old = _build_v0(tmp_path / "old.sqlite3")
+    old.execute("INSERT INTO curated_models (name) VALUES ('qwen2.5:latest')")
+    fresh = connect(tmp_path / "fresh.sqlite3")
+
+    # Act:兩個庫各跑 create_schema
+    create_schema(old)
+    create_schema(fresh)
+
+    # Assert:則1 遷移後的 auto_download_results 與全新庫的完全相同
+    assert _table_info(old, "auto_download_results") == _table_info(fresh, "auto_download_results") != []
+    # Assert:則2 遷移後的 auto_download_items 與全新庫的完全相同
+    assert _table_info(old, "auto_download_items") == _table_info(fresh, "auto_download_items") != []
+    # Assert:則3 auto_download 那一列除了 cid 之外與全新庫的相同
+    migrated_column = [row[1:] for row in _table_info(old, "curated_models") if row[1] == "auto_download"]
+    fresh_column = [row[1:] for row in _table_info(fresh, "curated_models") if row[1] == "auto_download"]
+    assert migrated_column == fresh_column != []
+    # Assert:則4 遷移後有唯一的 uq_curated_models_name_ci
+    indexes = {row["name"]: row["unique"] for row in old.execute("PRAGMA index_list(curated_models)")}
+    assert indexes.get("uq_curated_models_name_ci") == 1
+    old.close()
+    fresh.close()
+
+
+# ---- 004 US3-DB-04
+
+
+def test_精選項目已有自動下載欄時升級不重複加欄_使用者設過的值不變_仍補建新表(tmp_path: Path) -> None:
+    # Arrange:舊庫 2 筆精選,已手動加好 auto_download 欄且 id 1 設為 1;user_version 仍是 0
+    db_path = tmp_path / "cgb.sqlite3"
+    old = _build_v0(db_path)
+    old.execute("INSERT INTO curated_models (name) VALUES ('qwen2.5:latest')")
+    old.execute("INSERT INTO curated_models (name) VALUES ('llama3.2:3b')")
+    old.execute("ALTER TABLE curated_models ADD COLUMN auto_download INTEGER NOT NULL DEFAULT 0 CHECK (auto_download IN (0, 1))")
+    old.execute("UPDATE curated_models SET auto_download = 1 WHERE id = 1")
+    old.close()
+    conn = connect(db_path)
+
+    # Act
+    error: sqlite3.Error | None = None
+    try:
+        create_schema(conn)
+    except sqlite3.Error as exc:
+        error = exc
+
+    # Assert:則1 沒有丟出例外
+    assert error is None
+    # Assert:則2 auto_download 欄只有 1 列
+    assert [row["name"] for row in conn.execute("PRAGMA table_info(curated_models)")].count("auto_download") == 1
+    # Assert:則3 id 1 的 auto_download 仍是 1
+    assert conn.execute("SELECT auto_download FROM curated_models WHERE id = 1").fetchone()[0] == 1
+    # Assert:則4 兩張新表都建起來了
+    assert {"auto_download_results", "auto_download_items"} <= _sqlite_master_names(conn)
+    conn.close()
+
+
+# ---- 004 US3-DB-05
+
+
+def test_舊資料庫有只差大小寫的精選名稱時留_id_最小的並把刪掉的名稱寫進日誌(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Arrange:舊庫 3 筆精選,id 1 與 id 3 的名稱只差大小寫
+    db_path = tmp_path / "cgb.sqlite3"
+    old = _build_v0(db_path)
+    old.execute("INSERT INTO curated_models (name) VALUES ('qwen2.5:latest')")
+    old.execute("INSERT INTO curated_models (name) VALUES ('llama3.2:3b')")
+    old.execute("INSERT INTO curated_models (name, description) VALUES ('qwen2.5:Latest', '大寫那筆')")
+    old.close()
+    conn = connect(db_path)
+
+    # Act
+    error: sqlite3.Error | None = None
+    with caplog.at_level(logging.INFO):
+        try:
+            create_schema(conn)
+        except sqlite3.Error as exc:
+            error = exc
+
+    # Assert:則1 沒有丟出例外
+    assert error is None
+    # Assert:則2 讀到 2 列,依序為 id 1 的 qwen2.5:latest、id 2 的 llama3.2:3b
+    rows = [(row["id"], row["name"]) for row in conn.execute("SELECT id, name FROM curated_models ORDER BY id")]
+    assert rows == [(1, "qwen2.5:latest"), (2, "llama3.2:3b")]
+    # Assert:則3 不分大小寫的唯一索引建起來了
+    assert "uq_curated_models_name_ci" in [row["name"] for row in conn.execute("PRAGMA index_list(curated_models)")]
+    # Assert:則4 user_version 為 1
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    # Assert:則5 有一筆 WARNING 以上的日誌含被刪那一筆的名稱
+    assert any(record.levelno >= logging.WARNING and "qwen2.5:Latest" in record.getMessage() for record in caplog.records)
+    conn.close()
+
+
+# ---- 004 US3-DB-06
+
+
+def test_精選項目的遷移中途失敗時整個還原_下次啟動可再升級(tmp_path: Path) -> None:
+    # Arrange:舊庫 1 筆精選;開檔後拒絕設定 user_version
+    db_path = tmp_path / "cgb.sqlite3"
+    old = _build_v0(db_path)
+    old.execute("INSERT INTO curated_models (name, description) VALUES ('qwen2.5:latest', '平常用')")
+    old.close()
+    conn = connect(db_path)
+    conn.set_authorizer(_deny_setting_user_version)
+
+    # Act:第一次呼叫
+    error: Exception | None = None
+    try:
+        create_schema(conn)
+    except Exception as exc:  # noqa: BLE001 - 要確認丟出的是 sqlite3.DatabaseError
+        error = exc
+
+    # Assert:則1 丟出 sqlite3.DatabaseError(含子類)
+    assert isinstance(error, sqlite3.DatabaseError)
+    # Assert:則2 curated_models 沒有 auto_download
+    assert "auto_download" not in [row["name"] for row in conn.execute("PRAGMA table_info(curated_models)")]
+    # Assert:則3、則4 沒有留下兩張新表與 uq_curated_models_name_ci
+    names = _sqlite_master_names(conn)
+    assert names.isdisjoint({"auto_download_results", "auto_download_items", "uq_curated_models_name_ci"})
+    # Assert:則5 id 1 的 name 與 description 沒變
+    assert [tuple(row) for row in conn.execute("SELECT name, description FROM curated_models WHERE id = 1")] == [
+        ("qwen2.5:latest", "平常用")
+    ]
+
+    # Act:放行後第二次呼叫
+    conn.set_authorizer(None)
+    retry_error: Exception | None = None
+    try:
+        create_schema(conn)
+    except Exception as exc:  # noqa: BLE001
+        retry_error = exc
+
+    # Assert:則6 第二次沒有丟出例外,auto_download 只有 1 列
+    assert retry_error is None
+    assert [row["name"] for row in conn.execute("PRAGMA table_info(curated_models)")].count("auto_download") == 1
+    conn.close()
+
+
+def _open_db(tmp_path: Path, kind: str) -> sqlite3.Connection:
+    """`kind` 為 `fresh` 是全新庫;`migrated` 是空的舊庫(001~003 建的)跑過 `create_schema` 的遷移後。"""
+    db_path = tmp_path / f"{kind}.sqlite3"
+    if kind == "migrated":
+        _build_v0(db_path).close()
+    conn = connect(db_path)
+    create_schema(conn)
+    return conn
+
+
+def _rejected(conn: sqlite3.Connection, sql: str, params: tuple = ()) -> bool:
+    """執行 sql,被資料庫的約束(CHECK、NOT NULL、UNIQUE、主鍵)擋下時回 True,寫得進去時回 False。"""
+    try:
+        conn.execute(sql, params)
+    except sqlite3.IntegrityError:
+        return True
+    return False
+
+
+# ---- 004 US3-DB-07
+
+
+@pytest.mark.parametrize("kind", ["fresh", "migrated"])
+def test_精選項目的自動下載只收_0_與_1_預設為否_NULL_與其他值都寫不進去(tmp_path: Path, kind: str) -> None:
+    # Arrange:全新庫,或舊庫跑過遷移後
+    conn = _open_db(tmp_path, kind)
+
+    # Act
+    a_rejected = _rejected(conn, "INSERT INTO curated_models (name) VALUES ('a:latest')")
+    b_rejected = _rejected(conn, "INSERT INTO curated_models (name, auto_download) VALUES ('b:latest', 1)")
+    c_rejected = _rejected(conn, "INSERT INTO curated_models (name, auto_download) VALUES ('c:latest', 2)")
+    d_rejected = _rejected(conn, "INSERT INTO curated_models (name, auto_download) VALUES ('d:latest', -1)")
+    e_rejected = _rejected(conn, "INSERT INTO curated_models (name, auto_download) VALUES ('e:latest', 'true')")
+    f_rejected = _rejected(conn, "INSERT INTO curated_models (name, auto_download) VALUES ('f:latest', NULL)")
+    update_rejected = _rejected(conn, "UPDATE curated_models SET auto_download = 2 WHERE name = 'b:latest'")
+    values = {row["name"]: row["auto_download"] for row in conn.execute("SELECT name, auto_download FROM curated_models")}
+
+    # Assert:則1 a:latest 寫得進去,auto_download 為 0
+    assert not a_rejected
+    assert values["a:latest"] == 0
+    # Assert:則2 b:latest 寫得進去,auto_download 為 1
+    assert not b_rejected
+    assert values["b:latest"] == 1
+    # Assert:則3 c、d、e 各被 CHECK 擋下
+    assert (c_rejected, d_rejected, e_rejected) == (True, True, True)
+    # Assert:則4 f:latest(NULL)被 NOT NULL 擋下
+    assert f_rejected
+    # Assert:則5 UPDATE 被擋下,b:latest 仍是 1
+    assert update_rejected
+    assert values["b:latest"] == 1
+    assert sorted(values) == ["a:latest", "b:latest"]
+    conn.close()
+
+
+# ---- 004 US3-DB-08
+
+
+@pytest.mark.parametrize("kind", ["fresh", "migrated"])
+def test_精選名稱不分大小寫不重複_不同版本可並存_改自己的大小寫可以_名稱照原樣存(tmp_path: Path, kind: str) -> None:
+    # Arrange:全新庫,或舊庫跑過遷移後;先寫入三筆精選
+    conn = _open_db(tmp_path, kind)
+    conn.execute("INSERT INTO curated_models (name) VALUES ('qwen2.5:7b')")
+    conn.execute("INSERT INTO curated_models (name) VALUES ('hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M')")
+    conn.execute("INSERT INTO curated_models (name) VALUES ('llama3.2:3b')")
+
+    # Act
+    upper_rejected = _rejected(conn, "INSERT INTO curated_models (name) VALUES ('Qwen2.5:7B')")
+    hf_rejected = _rejected(
+        conn, "INSERT INTO curated_models (name) VALUES ('hf.co/Bartowski/smollm2-135m-instruct-gguf:q4_k_m')"
+    )
+    other_version_rejected = _rejected(conn, "INSERT INTO curated_models (name) VALUES ('qwen2.5:latest')")
+    own_case_rejected = _rejected(conn, "UPDATE curated_models SET name = 'LLAMA3.2:3b' WHERE id = 3")
+    own_case_name = conn.execute("SELECT name FROM curated_models WHERE id = 3").fetchone()["name"]
+    clash_rejected = _rejected(conn, "UPDATE curated_models SET name = 'QWEN2.5:7b' WHERE id = 3")
+
+    # Assert:則1 前兩句 INSERT 各被擋下
+    assert (upper_rejected, hf_rejected) == (True, True)
+    # Assert:則2 qwen2.5:latest 寫得進去
+    assert not other_version_rejected
+    # Assert:則3 改自己的大小寫成功,id 3 的名稱照原樣是 LLAMA3.2:3b
+    assert not own_case_rejected
+    assert own_case_name == "LLAMA3.2:3b"
+    # Assert:則4 改成和 id 1 只差大小寫被擋下
+    assert clash_rejected
+    conn.close()
+
+
+# ---- 004 US3-DB-09
+
+
+def test_自動下載結果一個工作階段只有一列_目標數可為_0_狀態與撤除旗標有限定值(tmp_path: Path) -> None:
+    # Arrange:全新庫
+    conn = _open_db(tmp_path, "fresh")
+    insert = "INSERT INTO auto_download_results (session_name, target_count) VALUES (?, ?)"
+
+    # Act
+    first_rejected = _rejected(conn, insert, ("cgb-a", 2))
+    first_row = tuple(
+        conn.execute("SELECT state, dismissed, finished_at FROM auto_download_results WHERE session_name = 'cgb-a'").fetchone()
+    )
+    again_rejected = _rejected(conn, insert, ("cgb-a", 2))
+    zero_rejected = _rejected(conn, insert, ("cgb-zero", 0))
+    negative_rejected = _rejected(conn, insert, ("cgb-neg", -1))
+    missing_target_rejected = _rejected(conn, "INSERT INTO auto_download_results (session_name) VALUES ('cgb-null')")
+    bad_state_rejected = _rejected(
+        conn, "INSERT INTO auto_download_results (session_name, target_count, state) VALUES ('cgb-s', 1, 'pending')"
+    )
+    bad_dismissed_rejected = _rejected(
+        conn, "INSERT INTO auto_download_results (session_name, target_count, dismissed) VALUES ('cgb-d', 1, 2)"
+    )
+    update_rejected = _rejected(
+        conn,
+        "UPDATE auto_download_results SET state = 'done', finished_at = '2026-11-14T08:00:30Z', dismissed = 1"
+        " WHERE session_name = 'cgb-a'",
+    )
+    updated_row = tuple(
+        conn.execute("SELECT state, dismissed FROM auto_download_results WHERE session_name = 'cgb-a'").fetchone()
+    )
+
+    # Assert:則1 ① 讀回 state 為 running、dismissed 為 0、finished_at 為 NULL
+    assert not first_rejected
+    assert first_row == ("running", 0, None)
+    # Assert:則2 ② 被擋下
+    assert again_rejected
+    # Assert:則3 ③ 寫得進去
+    assert not zero_rejected
+    # Assert:則4~則7 ④~⑦ 各被擋下
+    assert (negative_rejected, missing_target_rejected, bad_state_rejected, bad_dismissed_rejected) == (True,) * 4
+    # Assert:則8 ⑧ 成功,讀回 state 為 done、dismissed 為 1
+    assert not update_rejected
+    assert updated_row == ("done", 1)
+    conn.close()
+
+
+# ---- 004 US3-DB-10
+
+
+def test_自動下載結果項目的原因只收四種_排入的項目原因可為空_同一位置只有一筆(tmp_path: Path) -> None:
+    # Arrange:全新庫,auto_download_results 已有 cgb-a、cgb-b 兩列
+    conn = _open_db(tmp_path, "fresh")
+    conn.execute("INSERT INTO auto_download_results (session_name, target_count) VALUES ('cgb-a', 5)")
+    conn.execute("INSERT INTO auto_download_results (session_name, target_count) VALUES ('cgb-b', 1)")
+    insert = "INSERT INTO auto_download_items (session_name, position, model, reason, reason_code, message) VALUES (?, ?, ?, ?, ?, ?)"
+
+    # Act
+    accepted = [
+        not _rejected(conn, insert, ("cgb-a", 0, "qwen2.5:7b", None, None, None)),
+        not _rejected(conn, insert, ("cgb-a", 1, "qwen2.5:32b", "DISK_SPACE_INSUFFICIENT", None, "剩餘空間不足")),
+        not _rejected(conn, insert, ("cgb-a", 2, "hf.co/x/y:Q4_K_M", "SIZE_UNAVAILABLE", "HF_TIMEOUT", "取不到大小")),
+        not _rejected(conn, insert, ("cgb-a", 3, "llama3.1:70b", "MAY_NOT_FIT", None, "這台可能無法載入")),
+        not _rejected(conn, insert, ("cgb-b", 0, "qwen2.5:7b", "DISK_SPACE_UNKNOWN", "COLAB_EXEC_FAILED", "讀不到剩餘空間")),
+    ]
+    count = conn.execute("SELECT count(*) FROM auto_download_items").fetchone()[0]
+    unknown_reasons = [row[0] for row in conn.execute("SELECT reason FROM auto_download_items WHERE session_name = 'cgb-b'")]
+    unlisted_reason_rejected = _rejected(conn, insert, ("cgb-a", 4, "gemma2:2b", "DISK_FULL", None, "空間不足"))
+    lowercase_reason_rejected = _rejected(conn, insert, ("cgb-a", 4, "gemma2:2b", "disk_space_insufficient", None, "空間不足"))
+    duplicate_position_rejected = _rejected(conn, insert, ("cgb-a", 1, "phi3:mini", None, None, None))
+    missing_position_rejected = _rejected(conn, insert, ("cgb-a", None, "phi3:mini", None, None, None))
+    missing_model_rejected = _rejected(conn, insert, ("cgb-a", 5, None, None, None, None))
+
+    # Assert:則1 ①~⑤ 都寫得進去,共 5 列
+    assert accepted == [True] * 5
+    assert count == 5
+    # Assert:則2 ⑤ 讀回的 reason 為 DISK_SPACE_UNKNOWN
+    assert unknown_reasons == ["DISK_SPACE_UNKNOWN"]
+    # Assert:則3~則7 ⑥~⑩ 各被擋下
+    assert (
+        unlisted_reason_rejected,
+        lowercase_reason_rejected,
+        duplicate_position_rejected,
+        missing_position_rejected,
+        missing_model_rejected,
+    ) == (True,) * 5
+    conn.close()
+
+
+def _foreign_key_list(conn: sqlite3.Connection, table: str) -> list[tuple]:
+    return [(row["table"], row["from"], row["to"], row["on_delete"]) for row in conn.execute(f"PRAGMA foreign_key_list({table})")]
+
+
+# ---- 004 US3-DB-11
+
+
+def test_外鍵維持關閉_結果項目表與結果表的外鍵宣告在遷移前後相同_刪結果列不會自己刪項目(tmp_path: Path) -> None:
+    # Arrange:全新庫(A)與舊庫跑過遷移後(B)
+    fresh = _open_db(tmp_path, "fresh")
+    migrated = _open_db(tmp_path, "migrated")
+
+    # Act:A 寫入 sessions、結果列、項目後刪掉結果列
+    fresh_foreign_keys = fresh.execute("PRAGMA foreign_keys").fetchone()[0]
+    _insert_session(fresh, "cgb-a", "ready", 1)
+    fresh.execute("INSERT INTO auto_download_results (session_name, target_count) VALUES ('cgb-a', 1)")
+    fresh.execute("INSERT INTO auto_download_items (session_name, position, model) VALUES ('cgb-a', 0, 'qwen2.5:7b')")
+    fresh.execute("DELETE FROM auto_download_results WHERE session_name = 'cgb-a'")
+    remaining_items = fresh.execute("SELECT count(*) FROM auto_download_items WHERE session_name = 'cgb-a'").fetchone()[0]
+
+    # Assert:則1 A 的 foreign_keys 為 0
+    assert fresh_foreign_keys == 0
+    # Assert:則2 A 的 auto_download_items 外鍵指向 auto_download_results,ON DELETE CASCADE
+    assert _foreign_key_list(fresh, "auto_download_items") == [("auto_download_results", "session_name", "session_name", "CASCADE")]
+    # Assert:則3 A 的 auto_download_results 外鍵指向 sessions,ON DELETE CASCADE
+    assert _foreign_key_list(fresh, "auto_download_results") == [("sessions", "session_name", "name", "CASCADE")]
+    # Assert:則4 A 刪除後 auto_download_items 仍有 cgb-a 的 1 列
+    assert remaining_items == 1
+    # Assert:則5 B 的 foreign_keys 為 0
+    assert migrated.execute("PRAGMA foreign_keys").fetchone()[0] == 0
+    # Assert:則6、則7 B 的兩張表外鍵與 A 的相同
+    assert _foreign_key_list(migrated, "auto_download_items") == _foreign_key_list(fresh, "auto_download_items")
+    assert _foreign_key_list(migrated, "auto_download_results") == _foreign_key_list(fresh, "auto_download_results")
+    fresh.close()
+    migrated.close()
+
+
+# ---- 004 US3-DB-12
+
+
+def test_後端重新啟動後精選清單_自動下載設定與自動下載結果都還在(tmp_path: Path) -> None:
+    # Arrange:全新庫寫入兩筆精選、cgb-a 的結果列(已完成、已撤除)與一筆結果項目
+    db_path = tmp_path / "cgb.sqlite3"
+    conn = connect(db_path)
+    create_schema(conn)
+    conn.execute(
+        "INSERT INTO curated_models (name, auto_download, description, recommended_runtime_type_gpu,"
+        " recommended_runtime_type_high_mem) VALUES ('qwen2.5:7b', 1, '每次都要', 'L4', 0)"
+    )
+    conn.execute("INSERT INTO curated_models (name, auto_download) VALUES ('llama3.2:3b', 0)")
+    conn.execute(
+        "INSERT INTO auto_download_results (session_name, target_count, state, dismissed, finished_at)"
+        " VALUES ('cgb-a', 1, 'done', 1, '2026-11-14T08:00:30Z')"
+    )
+    conn.execute(
+        "INSERT INTO auto_download_items (session_name, position, model, reason, reason_code, message)"
+        " VALUES ('cgb-a', 0, 'qwen2.5:7b', NULL, NULL, NULL)"
+    )
+
+    # Act:關閉連線,以新的連線開同一個檔並再跑一次 create_schema(模擬後端重新啟動)
+    conn.close()
+    reopened = connect(db_path)
+    create_schema(reopened)
+
+    # Assert:則1 精選的名稱與自動下載照舊
+    assert [tuple(row) for row in reopened.execute("SELECT name, auto_download FROM curated_models ORDER BY id")] == [
+        ("qwen2.5:7b", 1),
+        ("llama3.2:3b", 0),
+    ]
+    # Assert:則2 qwen2.5:7b 的說明與建議類型照舊
+    assert [
+        tuple(row)
+        for row in reopened.execute(
+            "SELECT description, recommended_runtime_type_gpu FROM curated_models WHERE name = 'qwen2.5:7b'"
+        )
+    ] == [("每次都要", "L4")]
+    # Assert:則3 cgb-a 的結果列仍在,state 為 done、dismissed 為 1
+    assert [
+        tuple(row) for row in reopened.execute("SELECT state, dismissed FROM auto_download_results WHERE session_name = 'cgb-a'")
+    ] == [("done", 1)]
+    # Assert:則4 auto_download_items 仍有 cgb-a 的 1 列
+    assert reopened.execute("SELECT count(*) FROM auto_download_items WHERE session_name = 'cgb-a'").fetchone()[0] == 1
+    # Assert:則5 user_version 為 1
+    assert reopened.execute("PRAGMA user_version").fetchone()[0] == 1
+    reopened.close()
+
+
+# ---- 004 US3-DB-13
+
+
+@pytest.mark.parametrize("kind", ["fresh", "migrated"])
+def test_自動下載結果項目的大小_剩餘空間_顯存三欄可為空_有值時照原值讀回(tmp_path: Path, kind: str) -> None:
+    # Arrange:全新庫,或舊庫跑過遷移後;auto_download_results 先有 cgb-a
+    conn = _open_db(tmp_path, kind)
+    conn.execute("INSERT INTO auto_download_results (session_name, target_count) VALUES ('cgb-a', 2)")
+
+    # Act
+    columns = {
+        row["name"]: (row["type"], row["notnull"])
+        for row in conn.execute("PRAGMA table_info(auto_download_items)")
+        if row["name"] in ("size_bytes", "free_disk_bytes", "vram_bytes")
+    }
+    minimal_rejected = _rejected(
+        conn, "INSERT INTO auto_download_items (session_name, position, model) VALUES ('cgb-a', 0, 'qwen2.5:7b')"
+    )
+    minimal_sizes = [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT size_bytes, free_disk_bytes, vram_bytes FROM auto_download_items WHERE position = 0"
+        )
+    ]
+    full_rejected = _rejected(
+        conn,
+        "INSERT INTO auto_download_items (session_name, position, model, reason, reason_code, message, size_bytes,"
+        " free_disk_bytes, vram_bytes) VALUES ('cgb-a', 1, 'llama3.2:latest', 'DISK_SPACE_INSUFFICIENT', NULL, '空間不足',"
+        " 2019393189, 516912668, NULL)",
+    )
+    full_sizes = [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT size_bytes, free_disk_bytes, vram_bytes FROM auto_download_items WHERE position = 1"
+        )
+    ]
+
+    # Assert:則1 三欄都是 INTEGER、可為 NULL
+    assert columns == {"size_bytes": ("INTEGER", 0), "free_disk_bytes": ("INTEGER", 0), "vram_bytes": ("INTEGER", 0)}
+    # Assert:則2 ① 寫入成功,三欄都是 NULL
+    assert not minimal_rejected
+    assert minimal_sizes == [(None, None, None)]
+    # Assert:則3 ② 讀回 (2019393189, 516912668, None)
+    assert not full_rejected
+    assert full_sizes == [(2019393189, 516912668, None)]
+    conn.close()
