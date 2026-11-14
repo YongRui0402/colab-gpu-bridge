@@ -1,4 +1,5 @@
 # build context 是 repo 根目錄;只放行 Dockerfile 的 COPY 用到的檔,.env、資料夾與其他規格檔都不送進 builder。
+# 用 .dockerignore 而不是 Dockerfile.dockerignore:沒有 buildx 的舊版 builder 只認這個檔名。
 *
 !pyproject.toml
 !src/
