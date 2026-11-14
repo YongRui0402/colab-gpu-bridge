@@ -1,15 +1,17 @@
-"""前端靜態檔:結束類狀態可以再開新的工作階段(docs/觀察紀錄.md 2026-11-14)。
+"""前端靜態檔:結束類狀態可以再開新的工作階段、每一頁都有 favicon(docs/觀察紀錄.md 2026-11-14)。
 
-接縫:`src/cgb/static/` 底下的 HTML 本身(以標準函式庫的 `html.parser` 解析);
+接縫:`src/cgb/static/` 底下的 HTML 本身(以標準函式庫的 `html.parser` 解析)與 UI 伺服器回的靜態檔;
 不需要瀏覽器,快速層就跑得到。按下按鈕真的送出開啟的行為由 `tests/e2e/test_reopen_after_end.py` 驗。
 """
 
 from html.parser import HTMLParser
 from pathlib import Path
 
+import httpx
 import pytest
 
 STATIC = Path(__file__).resolve().parents[2] / "src" / "cgb" / "static"
+PAGES = sorted(path.name for path in STATIC.glob("*.html"))
 
 # 結束類狀態:工作階段已經不占位子,後端允許直接開新的(session_lifecycle.open() 只擋 ending 與未登入)
 ENDED_STATES = ("ended", "ended-idle", "failed", "lost", "lost-timeout", "lost-zero")
@@ -65,3 +67,18 @@ def test_釋放不了的區塊沒有開啟按鈕() -> None:
     assert elements
     assert not [attrs for _, attrs in elements if "data-picker" in attrs]
     assert not [attrs for _, attrs in elements if attrs.get("data-action") == "open" or attrs.get("id") == "open"]
+
+
+@pytest.mark.parametrize("page", PAGES)
+def test_每一頁的head都有favicon(page: str) -> None:
+    icons = [attrs for tag, attrs, _ in parse(page).items if tag == "link" and attrs.get("rel") == "icon"]
+
+    assert icons == [{"rel": "icon", "type": "image/png", "href": "favicon.png"}], f"{page} 的 icon link 是 {icons}"
+
+
+async def test_UI伺服器提供favicon(ui_client: httpx.AsyncClient) -> None:
+    response = await ui_client.get("/favicon.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content.startswith(b"\x89PNG\r\n\x1a\n")
