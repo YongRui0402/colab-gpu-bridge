@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>狀態總覽|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body class="states-page">
+  <header class="topbar">
+    <span class="brand">Colab GPU 橋接 · 004 狀態總覽</span>
+    <nav>
+      <a href="index.html">開啟原型</a>
+      <button type="button" onclick="Proto.reset()">重設假資料</button>
+    </nav>
+  </header>
+  <main>
+    <p class="muted">只收 004 新增或改變的畫面;紀錄、用量與設定、登入頁沿用 001 的原型。每一格讀的是那個狀態自己的假資料,不會改到「開啟原型」裡的資料。</p>
+    <section>
+      <h2 class="states-heading"><a href="index.html">工作階段</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="index.html?state=normal" title="工作階段:未開啟" loading="lazy"></iframe>
+          <figcaption>未開啟:類型選單只列 T4、L4、G4、A100,預設 T4(FR-017、SC-005,US5 情境 1)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=starting" title="工作階段:開啟中" loading="lazy"></iframe>
+          <figcaption>開啟中:就緒後依精選清單自動排入下載(FR-011)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready" title="工作階段:就緒" loading="lazy"></iframe>
+          <figcaption>就緒:對話頁送出也重設閒置倒數(FR-007)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=confirm-stop" title="工作階段:確認結束" loading="lazy"></iframe>
+          <figcaption>確認結束:佇列的所有項目會一起清除(FR-001)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=confirm-switch" title="工作階段:確認變更類型" loading="lazy"></iframe>
+          <figcaption>確認變更類型:選單不列 H100,佇列只留重新載入的那一筆(FR-002、FR-017,US1 情境 4、US5 情境 2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=stopping" title="工作階段:結束中" loading="lazy"></iframe>
+          <figcaption>結束中:釋放後清除佇列(FR-001)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=switching" title="工作階段:變更類型中" loading="lazy"></iframe>
+          <figcaption>變更類型中:只留下為了重新載入而排入的項目(FR-002)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ended" title="工作階段:已結束" loading="lazy"></iframe>
+          <figcaption>已結束:佇列已清除(FR-001,US1 情境 1)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=lost" title="工作階段:失聯" loading="lazy"></iframe>
+          <figcaption>失聯:佇列同樣清除(FR-001,US1 情境 2、3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ended-offline" title="工作階段:系統停機期間結束" loading="lazy"></iframe>
+          <figcaption>系統停機期間結束:重新啟動後清除佇列(FR-003,US1 情境 5)</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="models.html">模型</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="models.html?state=cat-normal" title="模型:目錄與佇列" loading="lazy"></iframe>
+          <figcaption>目錄與佇列:Hugging Face 的模型和其他模型一樣列出;自動下載提示區列出排入與跳過的原因(FR-012,US3 情境 6、9、10;US4 情境 4)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=cat-empty" title="模型:剛就緒" loading="lazy"></iframe>
+          <figcaption>剛就緒:自動排入的正在下載,提示區列出跳過(含讀不到剩餘空間)(FR-011、FR-012,US3 情境 4、7)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=cat-no-session" title="模型:沒有工作階段" loading="lazy"></iframe>
+          <figcaption>沒有工作階段:目錄與佇列都是空的(FR-001)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=auto-running" title="模型:自動下載判定中" loading="lazy"></iframe>
+          <figcaption>自動下載判定中:提示區顯示「正在依精選清單排入…」(FR-011,plan.md Q33)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=queue-list" title="模型:提示區列出空間不足、取不到大小(需要登入、Hugging Face 逾時)的跳過(FR-012,US3 情境 6、7)" loading="lazy"></iframe>
+          <figcaption>提示區列出空間不足、取不到大小(需要登入、Hugging Face 逾時)的跳過(FR-012,US3 情境 6、7)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=queue-empty" title="模型:佇列是空的,沒有自動下載結果時不顯示提示區(邊界" loading="lazy"></iframe>
+          <figcaption>佇列是空的,沒有自動下載結果時不顯示提示區(邊界:沒有任何一項設自動下載;排入與跳過都是空的也不顯示,plan.md Q30)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=queue-cleared" title="模型:工作階段結束後佇列已清空,不用重新整理(NFR-001、SC-001,US1 情境 1)" loading="lazy"></iframe>
+          <figcaption>工作階段結束後佇列已清空,不用重新整理(NFR-001、SC-001,US1 情境 1)</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="library.html">下載模型</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="library.html?state=cur-list" title="下載模型:精選清單" loading="lazy"></iframe>
+          <figcaption>精選清單:含 hf.co 名稱、既有的 H100 建議類型照常顯示、自動下載的標示(FR-009、FR-010、FR-017,US5 情境 4)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=cur-empty" title="下載模型:精選清單是空的(邊界)" loading="lazy"></iframe>
+          <figcaption>精選清單是空的(邊界)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=cur-form" title="下載模型:新增精選項目" loading="lazy"></iframe>
+          <figcaption>新增精選項目:說明與建議類型可以不填,選單不列 H100(FR-009、FR-010、FR-017,US3 情境 1)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=cur-form-edit" title="下載模型:修改建議類型是 H100 的項目" loading="lazy"></iframe>
+          <figcaption>修改建議類型是 H100 的項目:選單不列 H100,不改就維持(FR-009、FR-017,US3 情境 2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=cur-duplicate" title="下載模型:名稱重複(大小寫不同、沒寫版本視為 latest)" loading="lazy"></iframe>
+          <figcaption>名稱重複(大小寫不同、沒寫版本視為 latest):CURATED_DUPLICATE(FR-018,US3 情境 3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=cur-invalid" title="下載模型:名稱格式不對" loading="lazy"></iframe>
+          <figcaption>名稱格式不對:INVALID_MODEL_NAME(邊界情況)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=cur-delete" title="下載模型:刪除前確認(FR-009,US3 情境 2)" loading="lazy"></iframe>
+          <figcaption>刪除前確認(FR-009,US3 情境 2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=checking" title="下載模型:確認大小中" loading="lazy"></iframe>
+          <figcaption>確認大小中:同時向官方模型庫與 Hugging Face 確認(FR-014)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=confirm" title="下載模型:試算" loading="lazy"></iframe>
+          <figcaption>試算:Hugging Face 與官方的模型一起加入(FR-014,US4 情境 3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=no-space" title="下載模型:空間不足時阻止加入(FR-014)" loading="lazy"></iframe>
+          <figcaption>空間不足時阻止加入(FR-014)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=no-session" title="下載模型:沒有就緒的工作階段時不能加入下載" loading="lazy"></iframe>
+          <figcaption>沒有就緒的工作階段時不能加入下載</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=not-found" title="下載模型:官方模型庫沒有這個模型(沿用 001)" loading="lazy"></iframe>
+          <figcaption>官方模型庫沒有這個模型(沿用 001)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-auth-required" title="下載模型:需要登入、私有或不存在" loading="lazy"></iframe>
+          <figcaption>需要登入、私有或不存在:HF_AUTH_REQUIRED(FR-015,US4 情境 7)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-no-gguf" title="下載模型:沒有可下載的 GGUF" loading="lazy"></iframe>
+          <figcaption>沒有可下載的 GGUF:HF_NO_GGUF(FR-015,US4 情境 7)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-quant-unavailable" title="下載模型:這個量化版本無法下載" loading="lazy"></iframe>
+          <figcaption>這個量化版本無法下載:HF_QUANT_UNAVAILABLE(FR-015)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-size-down" title="下載模型:試算時 Hugging Face 暫時無法使用" loading="lazy"></iframe>
+          <figcaption>試算時 Hugging Face 暫時無法使用:HF_TIMEOUT 等(FR-016)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=lib-idle" title="下載模型:官方模型庫搜尋" loading="lazy"></iframe>
+          <figcaption>官方模型庫搜尋:還沒搜尋</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=lib-searching" title="下載模型:官方模型庫搜尋中" loading="lazy"></iframe>
+          <figcaption>官方模型庫搜尋中</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=lib-results" title="下載模型:官方模型庫的結果,可以和 Hugging Face 一起勾選(US4 情境 3)" loading="lazy"></iframe>
+          <figcaption>官方模型庫的結果,可以和 Hugging Face 一起勾選(US4 情境 3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-idle" title="下載模型:Hugging Face 搜尋" loading="lazy"></iframe>
+          <figcaption>Hugging Face 搜尋:還沒搜尋(FR-013)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-searching" title="下載模型:Hugging Face 搜尋中" loading="lazy"></iframe>
+          <figcaption>Hugging Face 搜尋中</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-results" title="下載模型:搜尋結果與展開的量化版本、大小、已下載;另一個沒有 GGUF(FR-013、FR-014,US4 情境 1、2)" loading="lazy"></iframe>
+          <figcaption>搜尋結果與展開的量化版本、大小、已下載;另一個沒有 GGUF(FR-013、FR-014,US4 情境 1、2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-expand-down" title="下載模型:展開版本逾時" loading="lazy"></iframe>
+          <figcaption>展開版本逾時:10 秒整體期限內沒完成(FR-016、NFR-005、SC-004,US4 情境 6)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-empty" title="下載模型:找不到符合的 GGUF 模型,提示換關鍵字或直接輸入(US4 情境 5)" loading="lazy"></iframe>
+          <figcaption>找不到符合的 GGUF 模型,提示換關鍵字或直接輸入(US4 情境 5)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="library.html?state=hf-down" title="下載模型:暫時無法搜尋 Hugging Face,官方模型庫照常可用(FR-016、SC-004,US4 情境 6)" loading="lazy"></iframe>
+          <figcaption>暫時無法搜尋 Hugging Face,官方模型庫照常可用(FR-016、SC-004,US4 情境 6)</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="chat.html">對話</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="chat.html?state=chat-ready" title="對話:兩輪對話" loading="lazy"></iframe>
+          <figcaption>兩輪對話:每則下方顯示耗時與每秒 token 數(FR-004、FR-005,US2 情境 1、2、3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=chat-no-session" title="對話:沒有就緒的工作階段" loading="lazy"></iframe>
+          <figcaption>沒有就緒的工作階段:不能送出並說明原因(FR-008,US2 情境 7)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=chat-no-models" title="對話:執行環境上沒有模型" loading="lazy"></iframe>
+          <figcaption>執行環境上沒有模型:不能送出並說明原因(FR-008,US2 情境 7)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-idle" title="對話:可以送出;送出會重設閒置倒數(FR-007,US2 情境 9)" loading="lazy"></iframe>
+          <figcaption>可以送出;送出會重設閒置倒數(FR-007,US2 情境 9)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-loading" title="對話:選的模型還沒載入" loading="lazy"></iframe>
+          <figcaption>選的模型還沒載入:先載入再回覆(US2 情境 6)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-thinking" title="對話:思考型模型" loading="lazy"></iframe>
+          <figcaption>思考型模型:message.thinking 逐段顯示成可收合的灰字(plan.md Q10)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-streaming" title="對話:逐段出現,可以按停止;前一則的思考過程已收合(FR-004、NFR-003)" loading="lazy"></iframe>
+          <figcaption>逐段出現,可以按停止;前一則的思考過程已收合(FR-004、NFR-003)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-stopped" title="對話:按停止後停在目前的內容(FR-006,US2 情境 4)" loading="lazy"></iframe>
+          <figcaption>按停止後停在目前的內容(FR-006,US2 情境 4)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-norate" title="對話:結束行沒有 token 統計" loading="lazy"></iframe>
+          <figcaption>結束行沒有 token 統計:照樣算完成,只顯示耗時(plan.md Q8)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-error" title="對話:串流開始後模型服務回錯誤" loading="lazy"></iframe>
+          <figcaption>串流開始後模型服務回錯誤:OLLAMA_SERVER_ERROR,顯示推論失敗(FR-008,US2 情境 8,plan.md Q6)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-timeout" title="對話:兩段之間超過 300 秒" loading="lazy"></iframe>
+          <figcaption>兩段之間超過 300 秒:OLLAMA_TIMEOUT(FR-008)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-lost" title="對話:回覆途中工作階段結束" loading="lazy"></iframe>
+          <figcaption>回覆途中工作階段結束:SESSION_ENDED,保留已收到的部分(FR-008,US2 情境 8)</figcaption>
+        </figure>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,132 @@
+Project colab_gpu_bridge {
+  database_type: 'SQLite'
+  Note: '''
+S5(E4 資料庫)依 004 的 spec.md、plan.md(含待決問題 Q15–Q18、Q22、Q23 的決定)、research.md R1、R6、R7 與 S4 的 ui.openapi.yaml、ui-events.asyncapi.yaml 產出;資源與欄位照 S4 原文,只做 camelCase 轉 snake_case。
+
+以 001 的同名檔為底,只收這一輪改變的表與新表;沒有列的表(session_transitions、settings、usage_snapshots)與 sessions 的其他欄位以 001 的 store.dbml 為準。慣例沿用 001:Python 標準函式庫 sqlite3、WAL 模式;時間欄位以 ISO 8601 UTC 字串存;boolean 存成 INTEGER 0/1 並以 CHECK 限制。
+
+這一輪的變更:
+- download_jobs:加 session_name(所屬工作階段,R1);origin 加 auto;「已在佇列」的唯一性改成不分大小寫(FR-018)。
+- curated_models:加 auto_download(FR-010);名稱的唯一性改成不分大小寫(FR-018、CURATED_DUPLICATE)。
+- 新表 auto_download_results、auto_download_items:每個工作階段一次的自動下載結果(FR-011、FR-012,R6)。
+
+不建表的資料(資料表-規範〈只寫要持久化的資料〉):
+- DownloadJob.source:由 model 是否以 `hf.co/` 開頭推出(Q22、R7),不另存欄位。
+- 對話(ChatConversation):只存在瀏覽器頁面(NFR-002)。
+- Hugging Face 模型與量化版本(HfModel、HfQuant):每次查詢取得(spec.md 關鍵實體)。
+- 自動下載判定途中讀到的執行環境模型清單、剩餘磁碟空間、顯示記憶體總量:只在一次判定裡用,讀不到模型清單時視為沒有模型、照常判定(Q16)。
+
+遷移(research.md R7):後端啟動時 create_schema 之後依 PRAGMA user_version 判斷。
+- 全新資料庫(user_version 為 0 且還沒有 sessions 表):直接建這一版的表與 index,設 user_version = 1。
+- 既有資料庫(user_version 為 0 且已有 sessions 表):在一個交易裡做 0 → 1,任何一步失敗整個 rollback、user_version 仍是 0,下次啟動再試:
+  1. curated_models:PRAGMA table_info 確認沒有 auto_download 才 `ALTER TABLE curated_models ADD COLUMN auto_download INTEGER NOT NULL DEFAULT 0 CHECK (auto_download IN (0, 1))`,既有的項目都是 0(spec.md 假設);再 `CREATE UNIQUE INDEX uq_curated_models_name_ci ON curated_models (lower(name))`。001 的名稱只收小寫,既有資料不會撞到。
+  2. download_jobs(SQLite 不能改 CHECK,所以重建):建 download_jobs_new(本檔的欄位,origin 的 CHECK 加 'auto',session_name TEXT REFERENCES sessions (name) ON DELETE CASCADE,pending_model 不再有欄位層級的 UNIQUE)→ `INSERT INTO download_jobs_new (<001 的全部欄位>) SELECT <同一組欄位> FROM download_jobs`(session_name 留 NULL)→ DROP TABLE download_jobs → ALTER TABLE download_jobs_new RENAME TO download_jobs → 建 idx_download_jobs_state、idx_download_jobs_session、uq_download_jobs_pending_model_ci。
+  3. 建 auto_download_results、auto_download_items 與它們的 index。
+  4. PRAGMA user_version = 1。
+- 已經是 1:不做任何事;再跑一次 create_schema 不出錯(R7 實測)。
+- create_schema 裡引用新欄位的 index(idx_download_jobs_session、uq_*_ci)只能在遷移之後建,不能放在遷移前的 CREATE ... IF NOT EXISTS:舊的 download_jobs 還沒有 session_name,建 index 會失敗。
+- 升級前留下的下載項目 session_name 為 NULL,遷移只保留、不判斷;後端啟動時由 Recovery 刪除(ui.openapi.yaml `info.x-queue-clearing` (3))。
+
+關聯的刪除:現行程式沒有開 PRAGMA foreign_keys,SQLite 不執行 Ref 的 delete 行為;下面的 cascade 是約束的意圖,實作時清除佇列與自動下載結果由 repos 在同一個交易裡明寫刪除(R1)。
+'''
+}
+
+Enum gpu_type {
+  T4 [note: 'NVIDIA T4(預設)']
+  L4 [note: 'NVIDIA L4;Colab 會忽略高 RAM 選項']
+  G4 [note: 'Colab CLI 的 G4']
+  A100 [note: 'NVIDIA A100']
+  H100 [note: 'NVIDIA H100;照 001 原樣保留,只在 UI 選單隱藏(FR-017),既有的建議類型照常存']
+}
+
+Enum download_state {
+  queued [note: '排隊中;只屬於 session_name 那個工作階段,工作階段結束類的狀態一出現就刪除(FR-001,取代 001 的「保留到下一個工作階段」)。新的工作階段就緒時只開始屬於它的排隊中項目']
+  downloading [note: '下載中,同一時間最多一筆;工作階段結束類的狀態一出現就中斷並刪除,不先標成 failed(取代 001 的 SESSION_ENDED)。後端重啟後接回同一個工作階段時,仍是 downloading 的那一筆改回 queued、保留 queue_position(沿用 001)']
+  completed [note: '完成;「清除已完成」只清這個狀態(001 Q51)']
+  failed [note: '失敗,一定有 reason_code;可重新排隊或移除']
+}
+
+Enum download_origin {
+  user [note: '使用者加入']
+  restore [note: '變更類型時為了在新的工作階段重新載入原本已載入的模型而加入(FR-002)']
+  auto [note: '工作階段第一次就緒時依精選清單自動排入(FR-011,這一輪新增)']
+}
+
+Enum auto_download_state {
+  running [note: '判定中(還在取大小);開始時先寫入這一列,同一個工作階段之後再就緒就不重做']
+  done [note: '判定完成,finished_at 必填']
+}
+
+Enum auto_download_skip_reason {
+  DISK_SPACE_INSUFFICIENT [note: '空間不足:已決定排入的 + 佇列裡還沒下載完的 + 這一項 > 剩餘磁碟空間']
+  SIZE_UNAVAILABLE [note: '取不到大小;reason_code 帶 LIBRARY_* 或 HF_* 代碼']
+  MAY_NOT_FIT [note: '這台可能無法載入:大小 > 顯示記憶體總量;讀不到顯示記憶體總量時不用這個原因']
+  DISK_SPACE_UNKNOWN [note: '讀不到執行環境的剩餘磁碟空間;reason_code 帶 001 S8 的 COLAB_ 代碼(Q17)']
+}
+
+Table sessions {
+  name varchar(64) [pk, note: '這一輪沒有改變;只列主鍵讓下面的 Ref 有對象,其他欄位、index 與約束以 001 的 store.dbml 為準']
+  Note: '需求: FR-001、FR-003、FR-011'
+}
+
+Table download_jobs {
+  id integer [pk, increment, note: '對外的 DownloadJob.id']
+  session_name varchar(64) [note: '所屬的工作階段(R1,這一輪新增);加入下載與自動下載時寫入當下的工作階段,變更類型的重新載入項目寫入新的工作階段名稱(FR-002)。這個工作階段變成 ending、ended、open_failed 或 lost 時刪除它的每一筆(FR-001、FR-003)。只有升級前留下的項目為 NULL,後端啟動時刪除;之後寫入的一律有值']
+  model varchar(200) [not null, note: '模型名稱含版本,大小寫照加入時的寫法;沒寫版本時存成 <名稱>:latest(FR-018)。以 hf.co/ 開頭的對外 source 為 huggingface,其他為 library(Q22,不另存欄位)']
+  pending_model varchar(200) [note: 'state 為 queued 或 downloading 時等於 model,其他狀態為 NULL;唯一性見 uq_download_jobs_pending_model_ci,同一個模型不分大小寫不會同時排兩次(對外回 DOWNLOAD_ALREADY_QUEUED)']
+  queue_position integer [not null, unique, note: '佇列順序,只增不減;加入時取目前最大值 + 1,retryDownload 重新排到最後時改成最大值 + 1。listDownloads 依此排序']
+  size_bytes integer [not null, note: '加入時 manifest layers[].size 的總和,位元組,>= 0(官方取自 registry,hf.co 取自 Hugging Face)']
+  state download_state [not null, default: 'queued']
+  reason_code varchar(64) [note: 'state 為 failed 時必填,其他為 NULL;S1 的 OLLAMA_ 代碼,或本系統的 DISK_SPACE_INSUFFICIENT。這一輪起不再寫入 SESSION_ENDED']
+  message text [note: '給使用者看的繁體中文失敗說明;沒有時為 NULL']
+  origin download_origin [not null, default: 'user']
+  preload_on_complete boolean [not null, default: false, note: '只有 origin 為 restore 時為 true;auto 一律為 false']
+  added_at datetime [not null, note: '第一次加入的時間;重新排隊不改']
+  started_at datetime [note: '開始下載的時間;重新排隊時清回 NULL']
+  finished_at datetime [note: '完成或失敗的時間;重新排隊時清回 NULL']
+  indexes {
+    (state) [name: 'idx_download_jobs_state', note: '找下一個 queued、找 downloading、清除 completed']
+    (session_name) [name: 'idx_download_jobs_session', note: '工作階段結束時刪除它的項目;listDownloads 只列目前工作階段的項目']
+    (`lower(pending_model)`) [unique, name: 'uq_download_jobs_pending_model_ci', note: '取代 001 欄位層級的 unique;名稱只有 ASCII(ModelName 的 pattern),SQLite 的 lower 與 casefold 結果相同']
+  }
+  Note: '需求: FR-001、FR-002、FR-003、FR-011、FR-018、NFR-001'
+}
+
+Table curated_models {
+  id integer [pk, increment, note: '對外的 CuratedModel.id;listCurated 依此排序(加入順序),修改不改變(FR-009)']
+  name varchar(200) [not null, unique, note: '模型名稱含版本,大小寫照使用者輸入;沒寫版本時存成 <名稱>:latest;可以是官方名稱或 hf.co 名稱(FR-018)。欄位層級的 unique 是 001 留下的,不分大小寫的唯一性見 uq_curated_models_name_ci,對外回 CURATED_DUPLICATE']
+  description varchar(200) [note: '使用者寫的說明,最多 200 字元(對外回 INVALID_CURATED_DESCRIPTION);沒有時為 NULL']
+  recommended_runtime_type_gpu gpu_type [note: '照 S4 recommendedRuntimeType.gpu;沒有建議類型時為 NULL;H100 照常接受(FR-017)']
+  recommended_runtime_type_high_mem boolean [note: '照 S4 recommendedRuntimeType.highMem;與 recommended_runtime_type_gpu 同時有值或同時為 NULL']
+  auto_download boolean [not null, default: false, note: '照 S4 autoDownload:開好就自動下載(FR-010,這一輪新增);和其他欄位一起由 PUT /curated/{id} 整筆取代(Q15)。既有的項目升級後為 false']
+  indexes {
+    (`lower(name)`) [unique, name: 'uq_curated_models_name_ci', note: '補過版本後不分大小寫相同的名稱只能有一筆(FR-018、使用者故事 3 驗收情境 3)']
+  }
+  Note: '需求: FR-009、FR-010、FR-011、FR-018、NFR-004'
+}
+
+Table auto_download_results {
+  session_name varchar(64) [pk, note: '照 S4 AutoDownloadResult.sessionName;一個工作階段最多一列。工作階段第一次就緒時先寫入(state 為 running),之後重連接回、後端重啟接回時看到這一列就不重做(FR-011、驗收情境 8)']
+  target_count integer [not null, note: '開始判定時精選清單裡 auto_download 為 true 的項目數,>= 0;不對外回。為 0 時 getAutoDownloadResult 回 result null、不推送(沒有設任何自動下載就沒有結果),仍寫這一列,讓同一個工作階段之後才打開自動下載的項目不會在重連時被排入。大於 0 而全部不必排(都已在執行環境上或佇列中)時照常回結果、enqueued 與 skipped 皆空(Q18)']
+  state auto_download_state [not null, default: 'running']
+  dismissed boolean [not null, default: false, note: '照 S4 dismissed:使用者按關閉;running 時也可以關閉,判定完成後仍為 true']
+  finished_at datetime [note: '照 S4 finishedAt;state 為 running 時為 NULL,done 時必填']
+  Note: '需求: FR-011、FR-012'
+}
+
+Table auto_download_items {
+  session_name varchar(64) [not null, note: '屬於哪一次自動下載結果']
+  position integer [not null, note: '這一項在精選清單裡的順序(依 curated_models.id 排序後的序號,從 0 起);enqueued 與 skipped 都依它排序']
+  model varchar(200) [not null, note: '照 S4 AutoDownloadSkipped.model 與 enqueued 的名稱:精選清單那一項判定當下的名稱(含版本);之後修改或刪除精選項目不改這裡']
+  reason auto_download_skip_reason [note: '照 S4 AutoDownloadSkipped.reason;NULL 表示這一項已排入(列在 enqueued),有值表示跳過(列在 skipped)。已在執行環境上或佇列中的項目不寫入這張表(驗收情境 5)']
+  reason_code varchar(64) [note: '照 S4 AutoDownloadSkipped.reasonCode,格式照 ReasonCode(^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH|HF)_[A-Z0-9_]+|AUTH_REQUIRED)$);reason 為 SIZE_UNAVAILABLE 時是 LIBRARY_* 或 HF_*,DISK_SPACE_UNKNOWN 時是 COLAB_*,其他為 NULL']
+  message text [note: '照 S4 AutoDownloadSkipped.message:給使用者看的繁體中文原因;reason 有值時必填,排入的項目為 NULL']
+  indexes {
+    (session_name, position) [pk]
+  }
+  Note: '需求: FR-011、FR-012'
+}
+
+Ref: download_jobs.session_name > sessions.name [delete: cascade]
+Ref: auto_download_results.session_name - sessions.name [delete: cascade]
+Ref: auto_download_items.session_name > auto_download_results.session_name [delete: cascade]

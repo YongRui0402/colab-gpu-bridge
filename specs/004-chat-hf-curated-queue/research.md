@@ -148,7 +148,7 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
 
 **決策**:UI API 新增 `POST /api/chat`(在 UI 的 8780,不是 Ollama 相容端點),後端轉送到目前工作階段的遠端 Ollama `/api/chat`,NDJSON 原樣串流回瀏覽器。
 
-- **請求**:瀏覽器只送 `model` 與 `messages`(每則 `role` 為 `user` 或 `assistant`、`content` 為字串);後端組成 `{"model", "messages", "stream": true}` 再送,不接受其他參數(spec 假設:不做 system prompt 與 temperature)。
+- **請求**:瀏覽器只送 `model` 與 `messages`(每則 `role` 為 `user` 或 `assistant`、`content` 為字串);後端組成 `{"model", "messages", "stream": true}` 再送,不接受其他參數(spec 假設:不做 system prompt 與 temperature)。keep_alive 依 plan.md Q9(D23)改為帶 -1。
 - **轉送**:取 `lifecycle.forward_target()`(沒有就緒回 503 `NO_READY_SESSION`),以 `httpx` 的 `client.send(..., stream=True)` 送出,回應沿用 `ollama_compat/forward.py` 的 `_relay`(工作階段被結束時補一行 `{"error": ...}`,非預期斷線時補「串流中斷」並觸發健康檢查);逾時沿用 `FORWARD_TIMEOUT`(連線 10 秒、兩段之間 300 秒)。
 - **串流開始前的錯誤**:連不到 → 502 `OLLAMA_UNREACHABLE`;遠端回 404(模型不存在)、400、500 → 對應的 `OLLAMA_*` 代碼,UI API 的錯誤本文照 001 的 `{code, message}`;不回 500(NFR-006)。具體代碼由系統分析補進合約。
 - **閒置倒數**(FR-007):轉送期間呼叫 `IdleMonitor.request_started()`,串流結束(含中斷)時 `request_finished()`,和 `ollama_compat/idle_hook.py` 相同。
@@ -209,7 +209,8 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
 
 - `curated_models`:`ALTER TABLE ... ADD COLUMN auto_download INTEGER NOT NULL DEFAULT 0 CHECK (auto_download IN (0, 1))`;先以 `PRAGMA table_info` 確認欄位不存在才加。排列順序沿用 `id`(新增的順序,修改不變)。
 - `download_jobs`:因為 `origin` 的 CHECK 要加 `'auto'`(SQLite 不能改 CHECK),建 `download_jobs_new`(原欄位 + `origin IN ('user','restore','auto')` + `session_name TEXT REFERENCES sessions (name)`)→ 複製原資料 → 刪舊表 → 改名 → 重建 `idx_download_jobs_state`。
-- 新表 `auto_download_results`(R6):`session_name` 主鍵、狀態、排入數量、跳過清單(JSON 文字)、`dismissed`;欄位細節由系統分析的 data-plan 定。
+- 新表 `auto_download_results`(R6):`session_name` 主鍵、狀態、排入數量、`dismissed`;排入與跳過的明細改存子表 `auto_download_items`(plan.md Q26),欄位細節以 `contracts/store.dbml` 為準。
+- 不分大小寫的比對(R4、plan.md Q25):`curated_models` 加 `lower(name)`、`download_jobs` 加 `lower(pending_model)` 的唯一索引,在遷移完成之後才建(plan.md Q28)。
 - 全新資料庫:`create_schema` 直接建新版的表,並設 `user_version = 1`。
 - 下載項目的來源(官方或 Hugging Face)由名稱前綴 `hf.co/` 判斷,不另存欄位。
 
@@ -237,4 +238,5 @@ H100 的隱藏(FR-017)只是 UI 選單的常數,沒有技術未知數,不列研�
 
 ## 修訂紀錄
 
-無(2026-11-14 初版,尚未修訂)。
+- R5:2026-11-14 system-analysis 依 plan.md Q9(D23),對話請求改為帶 `keep_alive: -1`。
+- R7:2026-11-14 system-analysis 依 plan.md Q25、Q26、Q28(D39、D40、D42),跳過明細改存子表、加不分大小寫的唯一索引並排在遷移之後。

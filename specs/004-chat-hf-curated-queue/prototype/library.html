@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>下載模型|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-009 FR-010 FR-013 FR-014 FR-015 FR-016 FR-017 FR-018 NFR-005 NFR-007 SC-004 SC-005">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型<span class="badge" id="queue-count" hidden></span></a>
+      <a href="library.html" aria-current="page">下載模型</a>
+      <a href="chat.html">對話</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="pill" id="session-pill">未開啟</span>
+    </div>
+  </header>
+  <main>
+    <h1>下載模型</h1>
+    <p class="muted">勾選一個或多個版本加入下載佇列;模型會在背景下載到目前的執行環境,依序一個一個來。官方模型庫與 Hugging Face 的模型可以一起勾。</p>
+
+    <!-- 精選清單(FR-009、FR-010) -->
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>精選清單</h2>
+          <p class="small muted">不用開工作階段也能編輯。在「修改」裡打開「開好就自動下載」的,每次工作階段一就緒就依清單順序自動排進下載。</p>
+        </div>
+        <button type="button" class="btn btn-small" id="cur-add">新增</button>
+      </div>
+      <ul class="list" id="curated" data-state="cur-list" data-group="curated"></ul>
+      <div data-state="cur-empty" data-group="curated">
+        <p class="empty">精選清單是空的。按「新增」加入常用的模型,可以是官方模型庫的名稱,或 <span class="mono">hf.co/&lt;作者&gt;/&lt;模型&gt;:&lt;量化版本&gt;</span>。</p>
+      </div>
+    </section>
+
+    <!-- 搜尋官方模型庫(這一輪不變,簡化自 001) -->
+    <section class="panel">
+      <h2>搜尋 Ollama 官方模型庫</h2>
+      <form class="inline-form" id="lib-form">
+        <div class="grow">
+          <label for="lib-q" class="small muted">關鍵字</label>
+          <input type="search" id="lib-q" placeholder="例如 qwen、llama、embed" required>
+        </div>
+        <button type="submit" class="btn btn-primary">搜尋</button>
+      </form>
+      <div data-state="lib-idle" data-group="lib">
+        <p class="empty">輸入關鍵字搜尋 ollama.com 上的官方模型。</p>
+      </div>
+      <div data-state="lib-searching" data-group="lib">
+        <p class="empty">正在搜尋 ollama.com…</p>
+      </div>
+      <div data-state="lib-results" data-group="lib">
+        <div id="lib-results"></div>
+      </div>
+    </section>
+
+    <!-- 搜尋 Hugging Face(FR-013、FR-014、FR-016) -->
+    <section class="panel">
+      <h2>搜尋 Hugging Face</h2>
+      <form class="inline-form" id="hf-form">
+        <div class="grow">
+          <label for="hf-q" class="small muted">關鍵字(只列含 GGUF 檔、不用登入就能下載的模型)</label>
+          <input type="search" id="hf-q" placeholder="例如 qwen3、llama-3.2、gemma" required>
+        </div>
+        <button type="submit" class="btn btn-primary">搜尋</button>
+      </form>
+      <div data-state="hf-idle" data-group="hf">
+        <p class="empty">輸入關鍵字搜尋 huggingface.co 上的 GGUF 模型;展開一個模型可以看它的量化版本與大小。</p>
+      </div>
+      <div data-state="hf-searching" data-group="hf">
+        <p class="empty">正在搜尋 huggingface.co…</p>
+      </div>
+      <div data-state="hf-results" data-group="hf">
+        <p class="small muted" id="hf-meta">「qwen」的搜尋結果:20 筆,依下載次數排序</p>
+      </div>
+      <div data-state="hf-expand-down" data-group="hf">
+        <div class="notice notice-warn">
+          <strong>暫時無法取得 Hugging Face 的版本清單</strong>
+          huggingface.co 在 10 秒內沒有回應。可以稍後再展開一次;官方模型庫、精選清單與直接輸入名稱照常可以用。
+        </div>
+      </div>
+      <div data-state="hf-empty" data-group="hf">
+        <div class="empty">
+          <p id="hf-empty-text">Hugging Face 上找不到符合「qwne」的 GGUF 模型。</p>
+          <p class="small">換個關鍵字試試,或在下面直接輸入 <span class="mono">hf.co/&lt;作者&gt;/&lt;模型&gt;</span>。</p>
+        </div>
+      </div>
+      <div data-state="hf-down" data-group="hf">
+        <div class="notice notice-warn">
+          <strong>暫時無法搜尋 Hugging Face</strong>
+          huggingface.co 連不到、逾時或回應看不懂。官方模型庫、精選清單與直接輸入名稱照常可以用,稍後再搜尋一次。
+        </div>
+      </div>
+      <div id="hf-results-box" hidden>
+        <div id="hf-results"></div>
+        <div class="actions" id="hf-more-box">
+          <button type="button" class="btn" id="hf-more">載入更多</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 直接輸入名稱(FR-018) -->
+    <section class="panel">
+      <h2>直接輸入名稱</h2>
+      <form class="inline-form" id="name-form">
+        <div class="grow">
+          <label for="direct" class="small muted">官方模型名稱或 <span class="mono">hf.co/&lt;作者&gt;/&lt;模型&gt;[:&lt;量化版本&gt;]</span>;沒寫版本就是 latest</label>
+          <input type="text" class="mono" id="direct" placeholder="qwen2.5:14b 或 hf.co/unsloth/Qwen3-8B-GGUF:Q4_K_M" required>
+        </div>
+        <button type="submit" class="btn">加入勾選</button>
+      </form>
+      <p class="field-error" id="direct-error" hidden>名稱的格式不對:官方模型寫成 <span class="mono">qwen2.5:14b</span>,Hugging Face 寫成 <span class="mono">hf.co/作者/模型:量化版本</span>。</p>
+    </section>
+
+    <!-- 新增或修改精選項目 -->
+    <section class="overlay" id="cur-sheet" hidden>
+      <form class="sheet" id="cur-form">
+        <h2 data-state="cur-form" data-group="form-title">新增精選項目</h2>
+        <h2 data-state="cur-form-edit" data-group="form-title">修改精選項目</h2>
+        <div class="field">
+          <label for="c-name">模型名稱(含版本)</label>
+          <input type="text" class="mono" id="c-name" placeholder="qwen3:8b 或 hf.co/unsloth/Qwen3-8B-GGUF:Q4_K_M" required>
+          <p class="field-error" data-state="cur-duplicate" data-group="form-error" id="c-dup">這個模型已經在精選清單裡(沒寫版本視為 latest,大小寫不同也算同一個)。</p>
+          <p class="field-error" data-state="cur-invalid" data-group="form-error">名稱的格式不對:官方模型寫成 <span class="mono">qwen2.5:14b</span>,Hugging Face 寫成 <span class="mono">hf.co/作者/模型:量化版本</span>。</p>
+          <span class="hint">新增時不會先查模型是否存在;取不到的模型,自動下載時會跳過並在模型頁提示原因。</span>
+        </div>
+        <div class="field">
+          <label for="c-note">說明 <span class="hint">(可以不填)</span></label>
+          <input type="text" id="c-note" placeholder="例如:會思考的中型模型,回答前會先推理">
+        </div>
+        <div class="field">
+          <label for="c-type">建議的執行階段類型 <span class="hint">(可以不填)</span></label>
+          <select id="c-type"></select>
+          <span class="hint" id="c-type-keep" hidden></span>
+        </div>
+        <label class="switch"><input type="checkbox" id="c-auto"><span class="knob"></span><span class="switch-text">開好就自動下載</span></label>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary" id="c-submit">加入</button>
+          <button type="button" class="btn" id="c-cancel">取消</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 確認刪除精選項目 -->
+    <section data-state="cur-delete" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <h2>從精選清單刪除?</h2>
+        <p><strong class="mono" id="del-name">qwen2.5-coder:32b-instruct-q4_K_M</strong> 會從精選清單移除,之後開工作階段也不會再自動下載。已經在佇列裡或執行環境上的不受影響。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-danger" id="del-go">刪除</button>
+          <button type="button" class="btn" data-back>取消</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 確認中 -->
+    <section data-state="checking" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <p class="empty" id="checking-text">正在向 registry.ollama.ai 與 huggingface.co 確認 2 個版本的大小…</p>
+      </div>
+    </section>
+
+    <!-- 確認加入下載 -->
+    <section data-state="confirm" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <h2>加入下載佇列</h2>
+        <table class="summary" id="confirm-table"></table>
+        <table class="summary" id="confirm-disk"></table>
+        <p>預估下載時間 <strong id="confirm-eta">約 30 秒</strong> <span class="small muted">(估計值,以 50 MB/s 計)</span></p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="confirm-go">確認加入</button>
+          <button type="button" class="btn" data-back>返回修改</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 空間不足 -->
+    <section data-state="no-space" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <h2>執行環境的磁碟空間不夠</h2>
+        <table class="summary" id="space-table"></table>
+        <p>不能加入下載。請少勾幾個,或改選比較小的版本。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" data-back>返回修改</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 沒有就緒的工作階段 -->
+    <section data-state="no-session" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <h2>要先開啟工作階段</h2>
+        <p>模型會下載到 Colab 的執行環境上;現在沒有就緒的工作階段。勾選的項目會保留;想每次開好就有的,可以在精選清單打開「開好就自動下載」。</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="index.html">到工作階段開啟</a>
+          <button type="button" class="btn" data-back>返回</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 官方模型庫找不到 -->
+    <section data-state="not-found" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <h2>找不到這個模型</h2>
+        <p>Ollama 官方模型庫沒有 <strong class="mono" data-fail-name>llama3.3:8b</strong>(名稱或版本不存在)。佇列沒有變動。</p>
+        <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
+      </div>
+    </section>
+
+    <!-- HF_AUTH_REQUIRED -->
+    <section data-state="hf-auth-required" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <h2>這個模型要登入才能下載</h2>
+        <p><strong class="mono" data-fail-name>hf.co/google/gemma-3-1b-it-qat-q4_0-gguf</strong> 在 Hugging Face 上需要登入、要先同意條款、是私有的,或不存在。這一輪只支援不用登入的公開模型,沒有加入佇列。</p>
+        <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
+      </div>
+    </section>
+
+    <!-- HF_NO_GGUF -->
+    <section data-state="hf-no-gguf" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <h2>這個模型沒有可下載的 GGUF 檔</h2>
+        <p><strong class="mono" data-fail-name>hf.co/ggml-org/Qwen2.5-VL-7B-Instruct-mmproj-GGUF</strong> 裡沒有 Ollama 能直接下載的 GGUF 模型檔(可能只有 mmproj 或其他格式)。沒有加入佇列。</p>
+        <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
+      </div>
+    </section>
+
+    <!-- HF_QUANT_UNAVAILABLE -->
+    <section data-state="hf-quant-unavailable" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <h2>這個量化版本無法下載</h2>
+        <p><strong class="mono" data-fail-name>hf.co/unsloth/Qwen3-8B-GGUF:Q4_0</strong> 沒有這個量化版本,或它是分割成好幾個檔的版本。沒有加入佇列;可以在上面搜尋這個模型、展開看有哪些版本。</p>
+        <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
+      </div>
+    </section>
+
+    <!-- HF_TIMEOUT、HF_UNREACHABLE、HF_SERVER_ERROR、HF_BAD_RESPONSE -->
+    <section data-state="hf-size-down" data-group="sheet" class="overlay">
+      <div class="sheet">
+        <h2>暫時無法向 Hugging Face 確認大小</h2>
+        <p><strong class="mono" data-fail-name>hf.co/unsloth/Qwen3-8B-GGUF:Q5_K_M</strong> 的大小取不到(huggingface.co 連不到、逾時或回應看不懂),所以沒有加入佇列。官方模型庫的模型可以先取消勾選這一個再加入。</p>
+        <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="tray" id="tray" hidden>
+    <span>已勾選 <strong id="tray-count">0</strong> 個</span>
+    <div class="chips" id="tray-chips"></div>
+    <button type="button" class="btn btn-small" id="tray-clear">清除</button>
+    <button type="button" class="btn btn-primary" id="add">加入下載</button>
+  </div>
+
+  <script>
+    const selected = new Map(); // 比對鍵 → 照使用者輸入原樣的名稱(FR-018)
+    let libKeyword = "";
+    let hfKeyword = "";
+    let hfPage = 1;
+    let hfShown = [];
+    let hfExtra = [];
+    const expanded = {};
+    let editing = null; // 正在修改的精選項目 id;新增時是 null
+    let deleting = null;
+
+    const repoOf = (id) => Proto.hfRepo(id) ?? hfExtra.find((r) => r.id === id);
+    const status = (fullName) => {
+      const key = Proto.key(fullName);
+      if (Proto.load("session").state === "ready" && Proto.load("models").some((m) => Proto.key(m.name) === key)) return "downloaded";
+      if (Proto.load("queue").some((j) => Proto.key(j.name) === key && (j.status === "queued" || j.status === "downloading"))) return "queued";
+      return null;
+    };
+    const statusPill = (s) => (s === "downloaded" ? "<span class=\"pill pill-ok\">已下載</span>" : s === "queued" ? "<span class=\"pill pill-busy\">已在佇列</span>" : "");
+    const pickBox = (full, s) => `<input type="checkbox" data-pick="${Proto.escape(full)}" ${selected.has(Proto.key(full)) ? "checked" : ""} ${s ? "disabled" : ""}>`;
+    const gb = (n) => `${(n / 1e9).toFixed(2)} GB`;
+    const esc = Proto.escape;
+
+    // ---------- 精選清單(不顯示大小,001 CuratedModel 沒有這個欄位,plan.md Q32) ----------
+    const renderCurated = () => {
+      const curated = Proto.load("curated");
+      Proto.showState(curated.length ? "cur-list" : "cur-empty");
+      document.getElementById("curated").innerHTML = curated.map((c) => {
+        const s = status(c.name);
+        const meta = [c.type ? `建議 ${c.type}` : "未指定建議類型", c.note ? esc(c.note) : null].filter(Boolean).join(" · ");
+        return `
+          <li>
+            <div>
+              <label class="check">${pickBox(c.name, s)} <span class="item-name">${esc(c.name)}</span>${Proto.isHf(c.name) ? " <span class=\"tag\">Hugging Face</span>" : ""}</label>
+              <div class="item-meta">${meta}</div>
+            </div>
+            <div class="item-side">
+              ${statusPill(s)}
+              ${c.auto ? "<span class=\"pill pill-ok pill-plain\">開好就自動下載</span>" : ""}
+              <button type="button" class="btn btn-small" data-edit="${c.id}">修改</button>
+              <button type="button" class="btn btn-small btn-danger" data-delete="${c.id}">刪除</button>
+            </div>
+          </li>`;
+      }).join("");
+    };
+
+    // FR-017:建議類型的選單不列 H100;既有的 H100 照常顯示,加「維持目前設定」,不改就維持(plan.md Q31)
+    const openForm = (item) => {
+      editing = item ? item.id : null;
+      Proto.showState(item ? "cur-form-edit" : "cur-form");
+      Proto.hideGroup("form-error");
+      const hiddenType = item?.type && Proto.type(item.type).hidden;
+      document.getElementById("c-type").innerHTML = [
+        hiddenType ? "<option value=\"__keep\">維持目前設定</option>" : "",
+        "<option value=\"\">不指定</option>",
+        ...Proto.pickableTypes().map((t) => `<option value="${t.id}">${t.id}(顯示記憶體約 ${Math.round(t.vramMiB / 1024)} GB)</option>`),
+      ].join("");
+      document.getElementById("c-type").value = hiddenType ? "__keep" : item?.type ?? "";
+      const keep = document.getElementById("c-type-keep");
+      keep.hidden = !hiddenType;
+      keep.textContent = hiddenType ? `目前是 ${item.type},已不開放選擇;不改這個選單就維持 ${item.type}。` : "";
+      document.getElementById("c-name").value = item?.name ?? "";
+      document.getElementById("c-note").value = item?.note ?? "";
+      document.getElementById("c-auto").checked = item?.auto ?? false;
+      document.getElementById("c-submit").textContent = item ? "儲存" : "加入";
+      document.getElementById("cur-sheet").hidden = false;
+    };
+    const closeForm = () => {
+      document.getElementById("cur-sheet").hidden = true;
+      editing = null;
+    };
+    const submitForm = () => {
+      const name = document.getElementById("c-name").value.trim();
+      const curated = Proto.load("curated");
+      Proto.hideGroup("form-error");
+      if (!Proto.validName(name)) return Proto.showState("cur-invalid");
+      if (curated.some((c) => c.id !== editing && Proto.key(c.name) === Proto.key(name))) return Proto.showState("cur-duplicate");
+      const typeValue = document.getElementById("c-type").value;
+      const fields = { name, note: document.getElementById("c-note").value.trim(), auto: document.getElementById("c-auto").checked };
+      if (editing === null) {
+        curated.push({ id: Math.max(0, ...curated.map((c) => c.id)) + 1, ...fields, type: typeValue || null });
+      } else {
+        const item = curated.find((c) => c.id === editing);
+        Object.assign(item, fields, { type: typeValue === "__keep" ? item.type : typeValue || null });
+      }
+      Proto.save("curated", curated);
+      closeForm();
+      renderCurated();
+    };
+
+    // ---------- 官方模型庫 ----------
+    const versionRow = (full, tag, size) => {
+      const s = status(full);
+      return `<label class="version">${pickBox(full, s)}<span class="mono">${esc(tag)}</span><span class="small muted">${Proto.bytes(size)}</span>${statusPill(s)}</label>`;
+    };
+    const renderLib = () => {
+      document.getElementById("lib-results").innerHTML = Proto.searchLibrary(libKeyword).map((m) => `
+        <div class="result">
+          <div class="result-head"><span class="item-name">${m.name}</span><span class="small muted">${Proto.downloads(m.downloads)}</span></div>
+          <div class="versions">${m.tags.map(([tag, size]) => versionRow(`${m.name}:${tag}`, tag, size)).join("")}</div>
+        </div>`).join("") || `<p class="empty">找不到符合「${esc(libKeyword)}」的官方模型。</p>`;
+    };
+
+    // ---------- Hugging Face ----------
+    const HF_INLINE = {
+      HF_NO_GGUF: "這個模型沒有可下載的 GGUF 檔(只有 mmproj 或其他格式),不能加入下載。",
+      HF_AUTH_REQUIRED: "這個模型需要登入、要先同意條款或是私有的;這一輪只支援不用登入的公開模型。",
+      HF_TIMEOUT: "暫時無法取得版本清單:huggingface.co 在 10 秒內沒有回應。可以稍後再展開一次。",
+    };
+    const hfVersions = (repo) => {
+      const state = expanded[repo.id];
+      if (state === "loading") return "<div class=\"versions\"><span class=\"muted small\">正在讀取量化版本與大小…</span></div>";
+      if (state !== "ok") return `<p class="inline-error">${HF_INLINE[state]}</p>`;
+      const unchecked = Proto.load("session").state !== "ready" ? "<p class=\"small muted\">沒有就緒的工作階段,沒檢查哪些版本已下載。</p>" : "";
+      return `${unchecked}<div class="versions">${repo.quants.map(([quant, size]) => versionRow(`hf.co/${repo.id}:${quant}`, quant, size)).join("")}</div>`;
+    };
+    const renderHf = () => {
+      document.getElementById("hf-meta").textContent = `「${hfKeyword}」的搜尋結果:${hfShown.length} 筆,依下載次數排序`;
+      document.getElementById("hf-results").innerHTML = hfShown.map((repo) => `
+        <div class="result">
+          <div class="result-head">
+            <div><span class="item-name">hf.co/${esc(repo.id)}</span></div>
+            <div class="item-side"><span class="small muted">${Proto.downloads(repo.downloads)}</span><button type="button" class="btn btn-small" data-expand="${esc(repo.id)}">${expanded[repo.id] ? "收起" : "看量化版本"}</button></div>
+          </div>
+          ${expanded[repo.id] ? hfVersions(repo) : ""}
+        </div>`).join("");
+    };
+    const hfSearch = (more) => {
+      if (!more) {
+        hfPage = 1;
+        hfShown = [];
+        Object.keys(expanded).forEach((k) => delete expanded[k]);
+        document.getElementById("hf-results-box").hidden = true;
+        Proto.showState("hf-searching");
+      } else {
+        hfPage += 1;
+        document.getElementById("hf-more").disabled = true;
+        document.getElementById("hf-more").textContent = "讀取中…";
+      }
+      Proto.later(1200, () => {
+        document.getElementById("hf-more").disabled = false;
+        document.getElementById("hf-more").textContent = "載入更多";
+        if (Proto.hfDown() === true) {
+          document.getElementById("hf-results-box").hidden = true;
+          return Proto.showState("hf-down");
+        }
+        const res = Proto.searchHf(hfKeyword, hfPage);
+        hfExtra = res.extra;
+        hfShown = hfShown.concat(res.items);
+        document.getElementById("hf-empty-text").textContent = `Hugging Face 上找不到符合「${hfKeyword}」的 GGUF 模型。`;
+        document.getElementById("hf-more-box").hidden = !res.hasMore;
+        document.getElementById("hf-results-box").hidden = hfShown.length === 0;
+        renderHf();
+        Proto.showState(hfShown.length ? "hf-results" : "hf-empty");
+      });
+    };
+    const hfExpand = (id, delay) => {
+      if (expanded[id] && expanded[id] !== "loading") {
+        delete expanded[id];
+        return renderHf();
+      }
+      expanded[id] = "loading";
+      renderHf();
+      Proto.later(delay, () => {
+        const repo = repoOf(id);
+        expanded[id] = Proto.hfDown() ? "HF_TIMEOUT" : repo.kind === "no-gguf" ? "HF_NO_GGUF" : repo.kind === "auth" ? "HF_AUTH_REQUIRED" : "ok";
+        if (expanded[id] === "HF_TIMEOUT") Proto.showState("hf-expand-down");
+        renderHf();
+      });
+    };
+
+    // ---------- 勾選與加入下載 ----------
+    const renderTray = () => {
+      document.getElementById("tray").hidden = selected.size === 0;
+      document.getElementById("tray-count").textContent = selected.size;
+      document.getElementById("tray-chips").innerHTML = [...selected.values()].map((n) => `<span class="tag mono">${esc(n)}</span>`).join("");
+    };
+    const renderAll = () => {
+      renderCurated();
+      if (libKeyword) renderLib();
+      renderHf();
+      renderTray();
+    };
+    const FAIL_STATE = { NOT_FOUND: "not-found", HF_AUTH_REQUIRED: "hf-auth-required", HF_NO_GGUF: "hf-no-gguf", HF_QUANT_UNAVAILABLE: "hf-quant-unavailable", HF_TIMEOUT: "hf-size-down" };
+    const showFail = (info) => {
+      document.querySelectorAll("[data-fail-name]").forEach((el) => { el.textContent = info.name; });
+      Proto.showState(FAIL_STATE[info.code]);
+    };
+    const checkingText = (names) => {
+      const hosts = [names.some((n) => !Proto.isHf(n)) ? "registry.ollama.ai" : null, names.some(Proto.isHf) ? "huggingface.co" : null].filter(Boolean).join(" 與 ");
+      document.getElementById("checking-text").textContent = `正在向 ${hosts} 確認 ${names.length} 個版本的大小…`;
+    };
+    const trial = () => {
+      const items = [...selected.values()].map((n) => Proto.lookup(n));
+      const fail = items.find((i) => !i.ok);
+      if (fail) return showFail(fail);
+      const total = items.reduce((sum, i) => sum + i.size, 0);
+      const free = Proto.diskFree();
+      const pending = Proto.pendingBytes(Proto.load("queue"));
+      const rows = items.map((i) => `<tr><td class="mono">${esc(i.name)}</td><td>${gb(i.size)}</td></tr>`).join("");
+      if (total > free - pending) {
+        document.getElementById("space-table").innerHTML = `${rows}
+          <tr class="total"><td>總大小</td><td>${gb(total)}</td></tr>
+          <tr><td>執行環境剩餘磁碟(扣掉佇列中還沒下載完的)</td><td>${Proto.bytes(free - pending)}</td></tr>
+          <tr class="total over"><td>不足</td><td>${Proto.bytes(total - (free - pending))}</td></tr>`;
+        return Proto.showState("no-space");
+      }
+      document.getElementById("confirm-table").innerHTML = `${rows}<tr class="total"><td>總大小</td><td>${gb(total)}</td></tr>`;
+      document.getElementById("confirm-disk").innerHTML = `
+        <tr><td>執行環境剩餘磁碟</td><td>${Proto.bytes(free)}</td></tr>
+        <tr><td>佇列中還沒下載完的</td><td>${Proto.bytes(pending)}</td></tr>
+        <tr class="total"><td>全部下載完後剩餘</td><td>${Proto.bytes(free - pending - total)}</td></tr>`;
+      document.getElementById("confirm-eta").textContent = `約 ${Proto.duration((total / ESTIMATE_BYTES_PER_SEC) * 1000)}`;
+      Proto.showState("confirm");
+    };
+
+    // ---------- 事件 ----------
+    document.getElementById("cur-add").addEventListener("click", () => openForm(null));
+    document.getElementById("c-cancel").addEventListener("click", closeForm);
+    document.getElementById("cur-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitForm();
+    });
+
+    document.querySelector("main").addEventListener("change", (event) => {
+      const { pick } = event.target.dataset;
+      if (!pick) return;
+      if (event.target.checked) selected.set(Proto.key(pick), pick);
+      else selected.delete(Proto.key(pick));
+      renderAll();
+    });
+
+    document.querySelector("main").addEventListener("click", (event) => {
+      const { edit, expand } = event.target.dataset;
+      if (edit) openForm(Proto.load("curated").find((c) => c.id === Number(edit)));
+      if (event.target.dataset.delete) {
+        deleting = Number(event.target.dataset.delete);
+        document.getElementById("del-name").textContent = Proto.load("curated").find((c) => c.id === deleting).name;
+        Proto.showState("cur-delete");
+      }
+      if (expand) hfExpand(expand, 1400);
+      if (event.target.closest("[data-back]")) Proto.hideGroup("sheet");
+    });
+    document.getElementById("del-go").addEventListener("click", () => {
+      Proto.save("curated", Proto.load("curated").filter((c) => c.id !== deleting));
+      Proto.hideGroup("sheet");
+      renderCurated();
+    });
+
+    document.getElementById("lib-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      libKeyword = document.getElementById("lib-q").value.trim();
+      Proto.showState("lib-searching");
+      Proto.later(800, () => {
+        renderLib();
+        Proto.showState("lib-results");
+      });
+    });
+    document.getElementById("hf-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      hfKeyword = document.getElementById("hf-q").value.trim();
+      hfSearch(false);
+    });
+    document.getElementById("hf-more").addEventListener("click", () => hfSearch(true));
+
+    document.getElementById("name-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const raw = document.getElementById("direct").value.trim();
+      const error = document.getElementById("direct-error");
+      error.hidden = Proto.validName(raw);
+      if (!error.hidden) return;
+      checkingText([raw]);
+      Proto.showState("checking");
+      Proto.later(Proto.isHf(raw) ? 1200 : 700, () => {
+        const info = Proto.lookup(raw);
+        if (!info.ok) return showFail({ ...info, name: raw });
+        Proto.hideGroup("sheet");
+        if (!status(raw)) selected.set(Proto.key(raw), raw);
+        event.target.reset();
+        renderAll();
+      });
+    });
+
+    document.getElementById("tray-clear").addEventListener("click", () => {
+      selected.clear();
+      renderAll();
+    });
+    document.getElementById("add").addEventListener("click", () => {
+      if (Proto.load("session").state !== "ready") return Proto.showState("no-session");
+      const names = [...selected.values()];
+      checkingText(names);
+      Proto.showState("checking");
+      Proto.later(names.some(Proto.isHf) ? 1500 : 800, trial);
+    });
+    document.getElementById("confirm-go").addEventListener("click", () => {
+      const queue = Proto.load("queue");
+      const at = new Date().toISOString();
+      [...selected.values()].forEach((n, i) => {
+        const info = Proto.lookup(n);
+        queue.push({ id: `dl-${Date.now()}-${i}`, name: n, size: info.size, status: "queued", origin: "user", addedAt: at, startedAt: null, doneAt: null, error: null });
+      });
+      Proto.save("queue", queue);
+      if (!Proto.forced) location.href = "models.html";
+    });
+
+    // 狀態總覽每一格要先擺好的內容
+    const SETUP = {
+      "cur-form": () => openForm(null),
+      "cur-form-edit": () => openForm(Proto.load("curated").find((c) => c.type === "H100")),
+      "cur-duplicate": () => {
+        openForm(null);
+        document.getElementById("c-name").value = "Qwen2.5:7B";
+        submitForm();
+      },
+      "cur-invalid": () => {
+        openForm(null);
+        document.getElementById("c-name").value = "hf.co/unsloth";
+        submitForm();
+      },
+      "cur-delete": () => { document.getElementById("del-name").textContent = "qwen2.5-coder:32b-instruct-q4_K_M"; },
+      checking: () => {
+        ["hf.co/unsloth/Qwen3-0.6B-GGUF:Q8_0", "qwen3:4b"].forEach((n) => selected.set(Proto.key(n), n));
+        checkingText([...selected.values()]);
+      },
+      confirm: () => {
+        ["hf.co/unsloth/Qwen3-0.6B-GGUF:Q8_0", "qwen3:4b"].forEach((n) => selected.set(Proto.key(n), n));
+        trial();
+      },
+      "no-space": () => {
+        ["llama3.1:405b", "hf.co/lmstudio-community/Qwen3-30B-A3B-GGUF:Q8_0"].forEach((n) => selected.set(Proto.key(n), n));
+        trial();
+      },
+      "no-session": () => selected.set(Proto.key(HF_QWEN3_8B), HF_QWEN3_8B),
+      "not-found": () => showFail({ code: "NOT_FOUND", name: "llama3.3:8b" }),
+      "hf-auth-required": () => showFail(Proto.lookup(HF_GATED)),
+      "hf-no-gguf": () => showFail(Proto.lookup("hf.co/ggml-org/Qwen2.5-VL-7B-Instruct-mmproj-GGUF")),
+      "hf-quant-unavailable": () => showFail(Proto.lookup("hf.co/unsloth/Qwen3-8B-GGUF:Q4_0")),
+      "hf-size-down": () => {
+        ["hf.co/unsloth/Qwen3-8B-GGUF:Q5_K_M", "qwen3:4b"].forEach((n) => selected.set(Proto.key(n), n));
+        showFail(Proto.lookup("hf.co/unsloth/Qwen3-8B-GGUF:Q5_K_M"));
+      },
+      "lib-searching": () => { document.getElementById("lib-q").value = "qwen"; },
+      "lib-results": () => {
+        libKeyword = "qwen";
+        document.getElementById("lib-q").value = libKeyword;
+        renderLib();
+      },
+      "hf-searching": () => { document.getElementById("hf-q").value = "qwen"; },
+      "hf-results": () => {
+        hfKeyword = "qwen";
+        document.getElementById("hf-q").value = hfKeyword;
+        const res = Proto.searchHf(hfKeyword, 1);
+        hfExtra = res.extra;
+        hfShown = res.items;
+        expanded["unsloth/Qwen3-8B-GGUF"] = "ok";
+        expanded["ggml-org/Qwen2.5-VL-7B-Instruct-mmproj-GGUF"] = "HF_NO_GGUF";
+        selected.set(Proto.key("hf.co/unsloth/Qwen3-8B-GGUF:Q6_K"), "hf.co/unsloth/Qwen3-8B-GGUF:Q6_K");
+        document.getElementById("hf-more-box").hidden = !res.hasMore;
+        document.getElementById("hf-results-box").hidden = false;
+      },
+      "hf-expand-down": () => {
+        SETUP["hf-results"]();
+        delete expanded["ggml-org/Qwen2.5-VL-7B-Instruct-mmproj-GGUF"];
+        delete expanded["unsloth/Qwen3-8B-GGUF"];
+        expanded["bartowski/Qwen2.5-7B-Instruct-GGUF"] = "HF_TIMEOUT";
+        selected.clear();
+      },
+      "hf-empty": () => {
+        hfKeyword = "qwne";
+        document.getElementById("hf-q").value = hfKeyword;
+        document.getElementById("hf-empty-text").textContent = `Hugging Face 上找不到符合「${hfKeyword}」的 GGUF 模型。`;
+      },
+      "hf-down": () => { document.getElementById("hf-q").value = "qwen3"; },
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      Proto.showState("lib-idle");
+      Proto.showState("hf-idle");
+      SETUP[Proto.forced]?.();
+      renderAll();
+      if (Proto.forced) Proto.showState(Proto.forced);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+asyncapi: 3.0.0
+info:
+  title: 後端 UI API 的狀態推送事件(SSE;佇列隨工作階段清空與自動下載結果)
+  version: 0.4.0
+  description: >-
+    S4(E2 後端 UI API)依 004 的 spec.md、research.md R1、R6 與 plan.md 產出;REST 操作見同目錄的 `ui.openapi.yaml`,
+    本檔的 payload 直接參照那一份的 schema,兩邊同一個形狀。
+    以 001 的同名檔為底,只收這一輪新增或改變的事件:
+    新增 `autoDownload.updated`(自動下載結果,FR-012);改變 `download.removed`(工作階段結束類的狀態一出現就推送,FR-001–FR-003)、
+    `downloads.snapshot`(清空後推送一次,快照多送 `autoDownload.updated`)、`download.updated`(`DownloadJob` 多了 `source` 與 `origin` 的 `auto`)。
+    `session.updated`、`auth.updated`、`models.updated`、`usage.updated`、`settings.updated` 的內容與時機以 001 的檔為準;
+    對話頁送出訊息重設閒置倒數時,`session.updated` 照 001 Ollama 相容端點請求的時機推送(FR-007),內容不變。
+
+    傳輸照 001:UI 以 `GET /api/events` 開一條 `text/event-stream`,只有伺服器往 UI 推送,所以本檔沒有 `receive` 的操作;
+    每則事件的 SSE `event:` 欄位是訊息的 `name`,`data:` 是一行 JSON(`type` 與 `event:` 相同);每 15 秒 `: ping`、`retry: 3000`。
+    快照:每次連上(含自動重連)先依序送 001 列的快照,這一輪在 `downloads.snapshot` 之後再送一次 `autoDownload.updated`;
+    事件都是完整的現況,UI 收到就整份取代(`download.removed` 例外,是一筆的移除)。
+
+    收件者:家中區網(含 VPN)所有連著的 UI,不需要登入(001 的 NFR-009);單一使用者,每條連線收到的內容相同,
+    不含任何憑證、token、金鑰或遠端位址(001 的 NFR-010)。對話內容不經 SSE(NFR-002;只在 `POST /api/chat` 的回應裡給送出的那個頁面)。
+
+    `x-requirements` 與沒有標前綴的編號指 004 spec.md;`info.x-queue-clearing`、`info.x-auto-download` 指 `ui.openapi.yaml` 的同名段落。
+servers:
+  ui:
+    host: '{uiHost}'
+    pathname: /api/events
+    protocol: http
+    description: 與 UI 靜態檔同一個來源;SSE(`text/event-stream`),port 沿用 001(8780)
+    variables:
+      uiHost:
+        description: 本系統所在主機與 UI 的 port
+channels:
+  uiEvents:
+    address: /api/events
+    messages:
+      downloadsSnapshot:
+        $ref: '#/components/messages/downloadsSnapshot'
+      downloadUpdated:
+        $ref: '#/components/messages/downloadUpdated'
+      downloadRemoved:
+        $ref: '#/components/messages/downloadRemoved'
+      autoDownloadUpdated:
+        $ref: '#/components/messages/autoDownloadUpdated'
+operations:
+  sendDownloadsSnapshot:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/downloadsSnapshot'
+    summary: 下載佇列的完整快照
+    x-requirements: [FR-001, FR-002, FR-003, NFR-001, SC-001]
+    x-callers: >-
+      沿用 001:連上時送一次;工作階段就緒或結束而使佇列暫停狀態改變時。
+      這一輪:工作階段變成結束中、已結束、開啟失敗或失聯而清空佇列時,在每一則 `download.removed` 之後送一次(佇列是空的,或變更類型時只剩重新載入的項目);
+      後端重新啟動時清掉停機期間已結束的工作階段的項目之後也送一次(`info.x-queue-clearing`)。從狀態改變到送出在 5 秒內(SC-001)
+    x-error-codes: []
+  sendDownloadUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/downloadUpdated'
+    summary: 一筆下載項目變化
+    x-requirements: [FR-002, FR-011, FR-014, FR-018]
+    x-callers: >-
+      沿用 001:加入佇列、開始下載、進度更新(最多每秒一次)、完成、失敗、重新排隊時。
+      這一輪:自動下載排入的每一筆(`origin` 為 `auto`)、變更類型時以新的工作階段排入的重新載入項目(`origin` 為 `restore`)也各推一則;
+      hf.co 名稱的項目 `source` 為 `huggingface`。工作階段結束時下載中的那一筆不再推成失敗,改推 `download.removed`
+    x-error-codes: []
+  sendDownloadRemoved:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/downloadRemoved'
+    summary: 一筆下載項目從佇列移除
+    x-requirements: [FR-001, FR-002, FR-003, NFR-001, SC-001]
+    x-callers: >-
+      沿用 001:`removeDownload` 與 `clearCompletedDownloads` 移除的每一筆。
+      這一輪:工作階段變成結束中、已結束、開啟失敗或失聯時,屬於它的每一筆(排隊中、下載中、完成、失敗)各推一則
+      (涵蓋使用者結束、閒置自動結束、被 Colab 收回、重連逾時、開啟失敗與變更類型時舊的那一個);
+      後端重新啟動時移除停機期間已結束的工作階段與升級前留下的項目,每一筆各推一則(還沒有 UI 連上時就不送,連上後由快照反映)。
+      從狀態改變到推完在 5 秒內(SC-001);UI 收到就移除那一筆,不用重新整理(NFR-001)
+    x-error-codes: []
+  sendAutoDownloadUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/autoDownloadUpdated'
+    summary: 目前工作階段的自動下載結果變化
+    x-requirements: [FR-011, FR-012, SC-003]
+    x-callers: >-
+      連上時在 `downloads.snapshot` 之後送一次(沒有結果時 `result` 為 null);工作階段第一次就緒、開始自動下載(`state` 為 `running`)時;
+      判定完成(`state` 為 `done`,寫好排入與跳過的模型)時,在就緒後 30 秒內(SC-003);`dismissAutoDownloadResult` 成功之後;
+      工作階段結束而清除結果時(`result` 為 null)。精選清單沒有任何一項設 `autoDownload` 時就緒也不送(沒有結果,不提示)
+    x-error-codes: []
+components:
+  messages:
+    downloadsSnapshot:
+      name: downloads.snapshot
+      summary: 下載佇列的完整內容與是否暫停
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/DownloadsSnapshot'
+    downloadUpdated:
+      name: download.updated
+      summary: 一筆下載項目的現況
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/DownloadUpdated'
+    downloadRemoved:
+      name: download.removed
+      summary: 被移除的下載項目
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/DownloadRemoved'
+    autoDownloadUpdated:
+      name: autoDownload.updated
+      summary: 目前工作階段的自動下載結果(下載頁佇列上方的提示區)
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/AutoDownloadUpdated'
+  schemas:
+    DownloadsSnapshot:
+      type: object
+      required: [type, queue]
+      properties:
+        type:
+          type: string
+          const: downloads.snapshot
+        queue:
+          $ref: './ui.openapi.yaml#/components/schemas/DownloadQueue'
+    DownloadUpdated:
+      type: object
+      required: [type, job]
+      properties:
+        type:
+          type: string
+          const: download.updated
+        job:
+          $ref: './ui.openapi.yaml#/components/schemas/DownloadJob'
+    DownloadRemoved:
+      type: object
+      required: [type, id]
+      properties:
+        type:
+          type: string
+          const: download.removed
+        id:
+          type: integer
+          minimum: 1
+          description: 被移除的下載項目 id(照 001)
+    AutoDownloadUpdated:
+      type: object
+      required: [type, result]
+      properties:
+        type:
+          type: string
+          const: autoDownload.updated
+        result:
+          description: 目前工作階段的自動下載結果;沒有工作階段、還沒就緒、沒有設自動下載的項目,或工作階段已結束時為 null
+          oneOf:
+            - $ref: './ui.openapi.yaml#/components/schemas/AutoDownloadResult'
+            - type: 'null'

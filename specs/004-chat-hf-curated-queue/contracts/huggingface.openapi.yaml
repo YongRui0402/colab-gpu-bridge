@@ -1,0 +1,437 @@
+openapi: 3.1.0
+info:
+  title: Hugging Face Hub(huggingface.co 公開 API)
+  version: 0.1.0
+  description: >-
+    S2(E12 Hugging Face Hub)依 004 的 spec.md、research.md R2–R4 與 plan.md 產出;新檔,寫法比照 001/002 的
+    `model-library.openapi.yaml`(Ollama 官方模型庫)。
+    這是第三方的介面,路徑、參數與回應欄位都是 Hugging Face 定的,本系統只能照著接;
+    這裡只寫本系統後端轉接層(`adapters/huggingface.py`)會用到的三個操作:
+    搜尋(`/api/models`)、檔案清單(`/api/models/<repo>/tree/main`)、manifest 與大小(`/v2/<repo>/manifests/<tag>`,
+    Hugging Face 給 Ollama 用的 OCI 介面)。三個都是公開的 JSON 介面,不需要登入;本系統不帶任何 token 與 Cookie,
+    本系統不存 Hugging Face 的 token(spec.md 假設),所以需要登入、同意條款(gated)或私有的模型都拿不到,只能擋下並說明原因(FR-015)。
+
+    `x-requirements` 指 004 spec.md 的需求編號。
+    實測:2026-11-14 桌機 curl,不帶 token 的唯讀 GET(research.md R2–R4);S2 另補了 4 個唯讀 GET 確認回應的 Content-Type、
+    manifest 400/401 的本文、tree 不存在的 repo 回 401,以及搜尋的 `Link` 標頭。
+
+    Hugging Face 的英文錯誤原文(例 `Invalid username or password.`)不交給 UI;轉接層只交出下面的原因代碼與固定的繁體中文說明
+    (research.md R4,001 NFR-010)。
+  x-error-code-convention: >-
+    `x-error-codes`、`x-transport-error-codes`、`x-adapter-error-codes` 與 `components.schemas.Error` 列的是
+    本系統後端轉接層把對方的失敗歸成的原因代碼,不是對方回應裡的欄位;對方實際回的內容寫在各回應的 content 與 description。
+    錯誤本文:Hugging Face 的錯誤一律回 `{"error": "<英文說明>"}`(`HfErrorBody`),沒有錯誤碼欄位;
+    除了下面點名的狀態碼,轉接層不讀它的內容,依狀態碼歸類。
+  x-failure-rules: >-
+    三個操作用同一套規則歸類失敗(research.md R2,歸類順序比照 003 `remote-ollama.openapi.yaml` 的 `x-failure-rules`),
+    依下面的順序判定,第一個符合的就是結果:
+    (1)在 `x-timeout` 內沒有完成(連線逾時、讀取逾時,含讀到一半逾時,超過整個請求的期限,以及超過展開版本的整體期限) → `HF_TIMEOUT`;
+    逾時同時也是傳輸層失敗,所以先看是不是逾時。
+    (2)其他沒有完整 HTTP 回應的傳輸層失敗(DNS 失敗、連線被拒、TLS 失敗、讀回應到一半連線中斷) → `HF_UNREACHABLE`。
+    (3)收到了回應,狀態碼 500–599 → `HF_SERVER_ERROR`。
+    (4)收到了回應,狀態碼是該操作點名的狀態碼(`listRepoFiles` 的 401;`getHfManifest` 的 400、401) → 該回應的 `x-error-codes`。
+    (5)其他非 200 的狀態碼(含 3xx,不跟著導向;含 404、429) → `HF_BAD_RESPONSE`。
+    (6)200,但本文無法解讀:底層 HTTP 程式庫解壓本文失敗,或本文不是 JSON → `HF_BAD_RESPONSE`。
+    (7)200 且是 JSON,但不是該操作回應 schema 的形狀(各操作的 `default` 回應寫出判定的欄位) → `HF_BAD_RESPONSE`。
+    轉接層對呼叫它的一方只丟出原因代碼;底層 HTTP 程式庫的例外與解析 JSON 的例外都不越過轉接層往上拋;
+    說明文字是給人讀的固定繁體中文,不帶底層例外的文字、traceback、對方的網址或英文原文。
+    失敗時不自動重試。這些代碼只影響 Hugging Face 的搜尋與版本清單,以及 `hf.co/` 名稱的試算與加入下載(FR-016);
+    官方模型庫、精選清單與直接輸入名稱不呼叫這個介面。
+    UI API 怎麼對應這些代碼(狀態碼與錯誤代碼)由 S4 的 `ui.openapi.yaml` 定(NFR-006,不回 500)。
+  x-timeout: >-
+    每個請求 10 秒(NFR-005,沿用 002 `model-library.openapi.yaml` 的做法,research.md R2):
+    連線、每次讀取各 10 秒,另外整個請求(含讀完本文)也不超過 10 秒;任一個到期都歸 `HF_TIMEOUT`。
+    搜尋的「載入更多」每讀一頁是一個請求,各自計算。
+    展開版本另有整體期限(plan.md Q4 決定 B,分身決策紀錄 D18):從送出 `listRepoFiles` 起,
+    tree 加上所有候選的 `getHfManifest` 共用一個 10 秒期限,每個請求自己的 10 秒仍在;
+    整體期限到時還沒完成的請求一律取消,整個展開歸 `HF_TIMEOUT`,讓 SC-004 的 11 秒一定成立。
+    試算、加入下載與自動下載替 `hf.co/` 名稱取大小時,每個 manifest 各自計算,不套用這個整體期限。
+servers:
+  - url: https://huggingface.co
+    description: Hugging Face Hub;三個操作都在同一個網域,不經 `hf.co` 轉址
+paths:
+  /api/models:
+    get:
+      operationId: searchHfModels
+      summary: 以關鍵字搜尋含 GGUF 檔、不需同意條款的公開模型(可載入更多)
+      description: >-
+        回 JSON 陣列,每筆一個模型(`HfModelSummary`),依下載次數由多到少排序,一頁最多 `limit` 筆。
+        沒有符合的模型時回 200 與 `[]`,是正常結果(驗收情境 5),不是格式不符(實測 `search=zzzqqqnonexist&filter=gguf` 回 `[]`)。
+        `gated=false` 讓需要同意條款的模型在對方就濾掉(實測 `google/gemma-3-1b-it-qat-q4_0-gguf` 帶了就不再出現);
+        不帶 token 的請求本來就看不到私有模型。
+        還有沒有下一頁:以回應標頭 `Link` 有沒有 `rel="next"` 為準,有就從那個網址的 query 取出 `cursor` 的值交給呼叫的一方,
+        「載入更多」時原樣帶回,其他參數由本系統照第一頁再帶一次(不照抄 `Link` 的網址);沒有 `Link` 或沒有 `rel="next"` 就是最後一頁。
+        `cursor` 是對方給的不透明字串,不是頁碼,本系統不解讀它的內容。
+        實測 `search=qwen2.5-0.5b&filter=gguf` 與 `search=qwen&filter=gguf&gated=false&limit=2` 都有 `Link ... rel="next"`;
+        連打 3 次 0.385–0.405 秒。
+      x-requirements: [FR-013, FR-016, NFR-005, SC-004]
+      x-callers: 本系統後端轉接層(UI API 的 Hugging Face 搜尋與載入更多);不需要工作階段,不帶 token 與 Cookie
+      x-transport-error-codes: [HF_UNREACHABLE, HF_TIMEOUT]
+      parameters:
+        - name: search
+          in: query
+          required: true
+          description: 使用者輸入的關鍵字,原樣帶入(URL 編碼);載入更多時每一頁帶同一個值
+          schema:
+            type: string
+            minLength: 1
+          example: qwen
+        - name: filter
+          in: query
+          required: true
+          description: 只列標籤含 `gguf` 的模型;本系統每一頁固定帶 `gguf`
+          schema:
+            type: string
+            enum: [gguf]
+        - name: gated
+          in: query
+          required: true
+          description: 只列不需同意條款的模型;本系統每一頁固定帶 `false`(FR-013「不需登入即可下載」)
+          schema:
+            type: string
+            enum: ['false']
+        - name: sort
+          in: query
+          required: true
+          description: 依下載次數排序;本系統每一頁固定帶 `downloads`
+          schema:
+            type: string
+            enum: [downloads]
+        - name: limit
+          in: query
+          required: true
+          description: 一頁的筆數;本系統每一頁固定帶 20
+          schema:
+            type: integer
+            enum: [20]
+        - name: expand[]
+          in: query
+          required: true
+          description: >-
+            要回的欄位;本系統每一頁固定帶兩次:`expand[]=downloads&expand[]=gated`。
+            帶了 `expand[]` 之後每筆只回 `_id`、`id` 與這兩個欄位(實測)
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [downloads, gated]
+        - name: cursor
+          in: query
+          required: false
+          description: 載入更多時帶上一頁 `Link` 標頭 `rel="next"` 網址裡的 `cursor` 值,原樣帶回;第一頁不帶
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: >-
+            這一頁的模型(Content-Type `application/json; charset=utf-8`);0 筆是正常結果。
+            有下一頁時帶 `Link` 標頭
+          x-recipients: 本系統後端轉接層(呼叫者)
+          headers:
+            Link:
+              description: >-
+                有下一頁時是 `<https://huggingface.co/api/models?...&cursor=<不透明字串>>; rel="next"`;最後一頁沒有這個標頭
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfModelSearchResult'
+        '5XX':
+          description: huggingface.co 伺服器錯誤
+          x-error-codes: [HF_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfErrorBody'
+        default:
+          description: >-
+            其他非預期的狀態碼(含 3xx 不跟著導向、4xx、429);或 200 但本文不是 JSON 陣列,
+            或其中一筆不是物件、沒有字串的 `id`。`downloads`、`gated` 缺少或型別不符不算格式不符(只用來顯示);
+            `id` 不是 `<作者>/<模型>`、或作者與模型不符 `[A-Za-z0-9][A-Za-z0-9._-]*`(research.md R4,組不出 `hf.co/` 名稱)的那一筆略過,
+            不算整頁格式不符
+          x-error-codes: [HF_BAD_RESPONSE]
+  /api/models/{author}/{model}/tree/main:
+    get:
+      operationId: listRepoFiles
+      summary: 列出一個模型 main 分支的所有檔案(找出量化版本的候選)
+      description: >-
+        回 JSON 陣列,每筆一個檔案或資料夾(`HfTreeEntry`),`recursive=true` 時含子資料夾裡的檔案。
+        量化版本的候選照 research.md R3 第 1–5 步從這份清單取出:`type` 是 `file`、`path` 以 `.gguf` 結尾(不分大小寫)、
+        檔名不含 `mmproj`;去掉 `.gguf` 與分割編號 `-NNNNN-of-NNNNN`,以 `-` 或 `.` 切開取最後一段當量化名稱,依清單順序不分大小寫去重。
+        候選再逐一以 `getHfManifest` 驗證並取大小;這裡的 `size` 只是單一檔案的大小,不當成試算的大小。
+        需要同意條款的模型這裡仍回 200(實測 `google/gemma-3-1b-it-qat-q4_0-gguf`),擋下要等 manifest 的 401。
+        實測 `unsloth/Qwen3-0.6B-GGUF` 回 32 筆,沒有 `Link` 標頭;本系統只讀第一個回應,不跟 `Link` 翻頁(plan.md Q3 決定 A)。
+      x-requirements: [FR-014, FR-015, FR-016, NFR-005, SC-004]
+      x-callers: 本系統後端轉接層(UI API 的 Hugging Face 展開版本);不需要工作階段,不帶 token 與 Cookie
+      x-transport-error-codes: [HF_UNREACHABLE, HF_TIMEOUT]
+      x-adapter-error-codes-on-200:
+        HF_NO_GGUF: >-
+          200,但照上面的規則一個候選都沒有(沒有 `.gguf` 檔,或只有 `mmproj`);
+          候選都經 `getHfManifest` 判定為 400 而一個都沒有列出時也是這個代碼(research.md R3 第 7 步,FR-015)
+      parameters:
+        - name: author
+          in: path
+          required: true
+          description: 作者,取自 `searchHfModels` 的 `id` 或 `hf.co/<作者>/<模型>` 名稱
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+          example: unsloth
+        - name: model
+          in: path
+          required: true
+          description: 模型名稱(不含 `:量化版本`)
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+          example: Qwen3-0.6B-GGUF
+        - name: recursive
+          in: query
+          required: true
+          description: 本系統固定帶 `true`,子資料夾裡的 GGUF 檔也列出
+          schema:
+            type: string
+            enum: ['true']
+      responses:
+        '200':
+          description: 這個模型 main 分支的檔案清單(Content-Type `application/json; charset=utf-8`)
+          x-recipients: 本系統後端轉接層(呼叫者)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfTree'
+        '401':
+          description: >-
+            私有或不存在的模型(實測不存在的 repo 回 401 `{"error":"Invalid username or password."}`,
+            兩者分不出來);和 manifest 的 401 合成同一個原因(research.md R3,plan.md Q2 決定 A)
+          x-error-codes: [HF_AUTH_REQUIRED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfErrorBody'
+        '5XX':
+          description: huggingface.co 伺服器錯誤
+          x-error-codes: [HF_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfErrorBody'
+        default:
+          description: >-
+            其他非預期的狀態碼(含 3xx 不跟著導向,例如模型改名後的轉址;含 404、429);或 200 但本文不是 JSON 陣列,
+            或其中一筆不是物件、缺少字串的 `type` 或 `path`,或 `type` 是 `file` 的那一筆缺少非負整數的 `size`。
+            `oid`、`lfs` 等其他欄位不讀,缺少或型別不符都不算失敗
+          x-error-codes: [HF_BAD_RESPONSE]
+  /v2/{author}/{model}/manifests/{tag}:
+    get:
+      operationId: getHfManifest
+      summary: 取得一個量化版本的 manifest(驗證能不能下載,並取精確大小)
+      description: >-
+        Hugging Face 給 Ollama 拉 `hf.co/<作者>/<模型>:<量化版本>` 用的 OCI manifest;回應形狀和官方 registry 的 `Manifest` 相同
+        (`config` 加 `layers`)。模型大小是 `layers[].size` 的總和,不含 `config`,和 001 官方模型庫的算法相同
+        (research.md R3、R4;實測 `unsloth/Qwen3-0.6B-GGUF:Q4_K_M` 三層 396,705,472 + 1,482 + 178,`config` 549 不計)。
+        用在兩處:展開版本時逐一驗證 `listRepoFiles` 的候選(同時最多 4 個,第一個非 200/400 的失敗或超過 `info.x-timeout` 的展開整體期限就取消其他還沒完成的請求,
+        整個展開失敗);試算與加入下載時替 `hf.co/` 名稱取大小,`tag` 是補過版本的那一段,`latest` 也照送(research.md R4)。
+        量化名稱不分大小寫(實測 `F16`、`f16` 回同一個大小);`latest` 對方會挑一個版本回(實測等於 `Q4_K_M`)。
+        Content-Type 是 `application/json; charset=utf-8`(實測),不是 `Accept` 要求的媒體型別;轉接層依本文判斷,不依 Content-Type。
+      x-requirements: [FR-014, FR-015, FR-016, FR-018, NFR-005, SC-004]
+      x-callers: >-
+        本系統後端轉接層(UI API 的 Hugging Face 展開版本;`hf.co/` 名稱的試算、加入下載與自動下載取大小);
+        不需要工作階段,不帶 token 與 Cookie
+      x-transport-error-codes: [HF_UNREACHABLE, HF_TIMEOUT]
+      parameters:
+        - name: author
+          in: path
+          required: true
+          description: 作者
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+          example: unsloth
+        - name: model
+          in: path
+          required: true
+          description: 模型名稱(不含 `:量化版本`)
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+          example: Qwen3-0.6B-GGUF
+        - name: tag
+          in: path
+          required: true
+          description: >-
+            量化名稱,展開時取自 `listRepoFiles` 的候選;試算時是名稱補過版本的那一段,沒寫時是 `latest`。
+            字元規則沿用 001 的版本(research.md R4)
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_][A-Za-z0-9._-]*$'
+          example: Q4_K_M
+        - name: Accept
+          in: header
+          required: true
+          description: 一定要帶;和 Ollama 拉取時送的相同
+          schema:
+            type: string
+            enum: [application/vnd.docker.distribution.manifest.v2+json]
+      responses:
+        '200':
+          description: 這個量化版本的 manifest,可以下載
+          x-recipients: 本系統後端轉接層(呼叫者)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfManifest'
+        '400':
+          description: >-
+            Hugging Face 不認這個量化版本:不是有效的量化名稱、是分割檔,或這個 repo 不是 GGUF
+            (實測本文 `{"error":"The specified tag is not a valid quantization scheme. Please use another tag or \"latest\""}`、
+            `This tag is a sharded GGUF`)。展開版本時這一個候選不列出,不算失敗;
+            試算與加入下載時歸 `HF_QUANT_UNAVAILABLE`,阻止加入(research.md R3 第 6 步、R4)
+          x-error-codes: [HF_QUANT_UNAVAILABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfErrorBody'
+        '401':
+          description: >-
+            需要登入、同意條款、私有或不存在(實測需要同意條款的 `google/gemma-3-1b-it-qat-q4_0-gguf` 與不存在的 repo
+            都回 401 `{"error":"Invalid username or password."}`,帶 `WWW-Authenticate: Bearer ...`,分不出來,合成一個原因)。
+            展開時整個模型回這個代碼;試算與加入下載時阻止加入(FR-015)
+          x-error-codes: [HF_AUTH_REQUIRED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfErrorBody'
+        '5XX':
+          description: huggingface.co 伺服器錯誤
+          x-error-codes: [HF_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfErrorBody'
+        default:
+          description: >-
+            其他非預期的狀態碼(含 3xx 不跟著導向、404、429);或 200 但本文不是 JSON 物件、`layers` 不是陣列、
+            某一層不是物件或沒有非負整數的 `size`,或 `layers` 裡沒有 `mediaType` 是 `application/vnd.ollama.image.model` 的那一層
+            (拉下來不是模型,不能當成可下載;plan.md Q5 決定 A)。`schemaVersion`、`mediaType`、`config`、`digest` 不讀,缺少或型別不符都不算失敗
+          x-error-codes: [HF_BAD_RESPONSE]
+components:
+  schemas:
+    HfModelSearchResult:
+      type: array
+      description: 一頁的搜尋結果,最多 20 筆;沒有符合的模型時是空陣列
+      maxItems: 20
+      items:
+        $ref: '#/components/schemas/HfModelSummary'
+    HfModelSummary:
+      type: object
+      required: [id]
+      properties:
+        _id:
+          type: string
+          description: Hugging Face 內部編號;本系統不讀
+        id:
+          type: string
+          pattern: '^[^/]+/[^/]+$'
+          description: '`<作者>/<模型>`;本系統以它組成 `hf.co/<作者>/<模型>` 名稱(大小寫照原樣)'
+          example: unsloth/Qwen3-0.6B-GGUF
+        downloads:
+          type: integer
+          minimum: 0
+          description: 下載次數(對方的統計期間);只用來顯示
+        gated:
+          description: >-
+            `false` 表示不需同意條款;`auto`、`manual` 表示需要。帶了 `gated=false` 的搜尋只會回 `false`,本系統不再以它過濾
+          oneOf:
+            - type: boolean
+              enum: [false]
+            - type: string
+              enum: [auto, manual]
+    HfTree:
+      type: array
+      description: main 分支的檔案與資料夾
+      items:
+        $ref: '#/components/schemas/HfTreeEntry'
+    HfTreeEntry:
+      type: object
+      required: [type, path]
+      properties:
+        type:
+          type: string
+          enum: [file, directory]
+          description: 本系統只看 `file`
+        path:
+          type: string
+          description: 從 repo 根目錄算起的路徑,例 `Qwen3-0.6B-Q4_K_M.gguf`、`Q8_0/model-Q8_0-00001-of-00002.gguf`
+          example: Qwen3-0.6B-Q4_K_M.gguf
+        size:
+          type: integer
+          minimum: 0
+          description: 檔案大小,位元組;`type` 是 `file` 時一定有
+        oid:
+          type: string
+          description: git 物件編號;本系統不讀
+    HfManifest:
+      type: object
+      required: [layers]
+      properties:
+        schemaVersion:
+          type: integer
+          enum: [2]
+        mediaType:
+          type: string
+          enum: [application/vnd.docker.distribution.manifest.v2+json]
+        config:
+          $ref: '#/components/schemas/HfDescriptor'
+        layers:
+          type: array
+          minItems: 1
+          description: >-
+            模型的各層:一層 `application/vnd.ollama.image.model`(GGUF 權重),
+            可能另有 `application/vnd.ollama.image.template`、`application/vnd.ollama.image.params` 等;大小是這些層的 `size` 總和
+          items:
+            $ref: '#/components/schemas/HfDescriptor'
+    HfDescriptor:
+      type: object
+      required: [size]
+      properties:
+        mediaType:
+          type: string
+          description: 例:`application/vnd.docker.container.image.v1+json`(config)、`application/vnd.ollama.image.model`(模型權重)
+        digest:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+        size:
+          type: integer
+          minimum: 0
+          description: 這一層的大小,位元組
+    HfErrorBody:
+      type: object
+      description: Hugging Face 的錯誤本文;英文說明不交給 UI
+      required: [error]
+      properties:
+        error:
+          type: string
+    Error:
+      type: object
+      description: >-
+        本系統後端轉接層把對方的失敗歸成的原因代碼;Hugging Face 不會回這個格式。
+        UI API 怎麼把這些原因呈現給 UI 由 S4(E2 後端 UI API)決定。
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [HF_TIMEOUT, HF_UNREACHABLE, HF_SERVER_ERROR, HF_BAD_RESPONSE, HF_AUTH_REQUIRED, HF_QUANT_UNAVAILABLE, HF_NO_GGUF]
+          description: >-
+            代碼名稱見 plan.md Q1(決定 A)。`HF_TIMEOUT` 逾時(含展開版本超過整體期限);`HF_UNREACHABLE` 連不到 huggingface.co;`HF_SERVER_ERROR` 對方回 5xx;
+            `HF_BAD_RESPONSE` 非預期的狀態碼,或回應的格式不符;
+            `HF_AUTH_REQUIRED` 這個模型需要登入、同意條款、私有或不存在(這一輪不支援);
+            `HF_QUANT_UNAVAILABLE` 這個量化版本無法下載(不存在、分割檔或不是 GGUF);
+            `HF_NO_GGUF` 這個模型沒有可下載的 GGUF 檔
+        message:
+          type: string
+          description: 給人讀的固定繁體中文說明,不帶 Hugging Face 的英文原文

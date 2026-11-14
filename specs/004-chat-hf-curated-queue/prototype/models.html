@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>模型|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-001 FR-002 FR-011 FR-012 FR-014 FR-018 NFR-001 NFR-007 SC-001">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html" aria-current="page">模型<span class="badge" id="queue-count" hidden></span></a>
+      <a href="library.html">下載模型</a>
+      <a href="chat.html">對話</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="pill" id="session-pill">未開啟</span>
+    </div>
+  </header>
+  <main>
+    <h1>模型</h1>
+
+    <!-- 目錄:執行環境上已下載的模型 -->
+    <section data-state="cat-normal" data-group="catalog" class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>執行環境上的模型</h2>
+          <p class="small muted" id="cat-meta"><span class="mono">cgb-20261114-1442</span> · T4,顯示記憶體約 15 GB · 剩餘磁碟 195.0 GB</p>
+        </div>
+        <a class="btn" href="chat.html">拿來對話</a>
+      </div>
+      <ul class="list" id="catalog"></ul>
+      <p class="small muted">官方模型庫與 Hugging Face 下載的模型都列在這裡;區網的程式指名其中任何一個都可以直接用,也可以在「對話」選用。</p>
+    </section>
+
+    <section data-state="cat-empty" data-group="catalog" class="panel">
+      <h2>執行環境上的模型</h2>
+      <div class="empty">
+        <p>這台執行環境上還沒有下載完成的模型。每次新開的執行環境都是空的;精選清單自動排入的模型下載完就會出現在這裡。</p>
+        <a class="btn btn-primary" href="library.html">挑選要下載的模型</a>
+      </div>
+    </section>
+
+    <section data-state="cat-no-session" data-group="catalog" class="panel">
+      <h2>執行環境上的模型</h2>
+      <div class="empty">
+        <p>目前沒有就緒的工作階段。執行環境結束後,上面的模型會跟著消失,下載佇列也一起清空。</p>
+        <a class="btn btn-primary" href="index.html">到工作階段開啟</a>
+      </div>
+    </section>
+
+    <!-- 下載佇列 -->
+    <section class="panel" id="queue-panel">
+      <div class="panel-head">
+        <h2>下載佇列</h2>
+        <div class="item-side">
+          <a class="btn btn-small" href="library.html">加入更多</a>
+        </div>
+      </div>
+
+      <!-- 自動下載提示區(FR-012):放在模型頁的佇列上方(plan.md Q29),留到工作階段結束或按關閉,重新整理後仍在 -->
+      <div class="notice auto-notice" data-state="auto-running" data-group="auto">
+        <span class="turn-line"><span class="spinner"></span><strong>正在依精選清單排入…</strong><span>正在確認設了「開好就自動下載」的模型大小與剩餘空間,完成後會列出排入與跳過的模型。</span></span>
+      </div>
+      <div class="notice auto-notice" id="auto-notice" hidden></div>
+
+      <ul class="list" id="queue" data-state="queue-list" data-group="queue"></ul>
+      <div data-state="queue-empty" data-group="queue">
+        <p class="empty">佇列是空的。到「下載模型」挑選要下載的模型。</p>
+      </div>
+      <div data-state="queue-cleared" data-group="queue">
+        <div class="empty">
+          <p id="qc-text">工作階段 <span class="mono">cgb-20261114-1442</span> 結束時,佇列的 6 筆已一起清除。</p>
+          <p class="small">上一台的「完成」不代表新的執行環境上有那個模型;下次開好就想有的,到精選清單打開「開好就自動下載」。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div class="toast" id="toast" hidden></div>
+  <script>
+    let lastSignature = "";
+    let lastQueueLength = null;
+
+    const toast = (text) => {
+      const el = document.getElementById("toast");
+      el.textContent = text;
+      el.hidden = false;
+      Proto.later(5000, () => { el.hidden = true; });
+    };
+    const name = (n) => `<span class="item-name">${Proto.escape(n)}</span>`;
+    const sourceTag = (n) => (Proto.isHf(n) ? "<span class=\"tag\">Hugging Face</span>" : "");
+    const originTag = (job) => (Proto.originLabel(job.origin) ? `<span class="tag">${Proto.originLabel(job.origin)}</span>` : "");
+
+    const catalogItem = (m, session) => {
+      const tooBig = m.size > Proto.vramBytes(session.type);
+      return `
+        <li>
+          <div>
+            <div>${name(m.name)} ${sourceTag(m.name)}</div>
+            <div class="item-meta">${Proto.bytes(m.size)}${m.loaded ? " · 保留到工作階段結束" : ""}</div>
+          </div>
+          <div class="item-side">${tooBig ? `<span class="pill pill-warn">超過 ${session.type} 顯示記憶體,可能無法載入</span>` : ""}${m.loaded ? "<span class=\"pill pill-ok\">已載入</span>" : ""}</div>
+        </li>`;
+    };
+
+    const queueItem = (job, index) => {
+      const head = `<div>${name(job.name)} ${sourceTag(job.name)}${originTag(job)}</div>`;
+      if (job.status === "downloading") {
+        const p = Proto.progress(job);
+        return `
+          <li>
+            <div>${head}
+              <div class="item-meta" data-progress-text="${job.id}">下載中 ${Math.floor(p.ratio * 100)}% · ${Proto.bytes(p.completed)} / ${Proto.bytes(job.size)}</div>
+              <progress max="1" value="${p.ratio}" data-progress-bar="${job.id}"></progress>
+            </div>
+            <div class="item-side"><span class="pill pill-busy">下載中</span></div>
+          </li>`;
+      }
+      if (job.status === "queued") {
+        return `
+          <li>
+            <div>${head}<div class="item-meta">${Proto.bytes(job.size)} · 第 ${index} 個${job.origin === "restore" ? " · 完成後自動載入" : ""}</div></div>
+            <div class="item-side"><span class="pill">排隊中</span><button type="button" class="btn btn-small" data-cancel="${job.id}">取消</button></div>
+          </li>`;
+      }
+      if (job.status === "failed") {
+        return `
+          <li>
+            <div>${head}<div class="item-meta">${Proto.bytes(job.size)} · ${Proto.escape(job.error)}</div></div>
+            <div class="item-side"><span class="pill pill-danger">失敗</span><button type="button" class="btn btn-small" data-retry="${job.id}">重新排隊</button><button type="button" class="btn btn-small" data-remove="${job.id}">移除</button></div>
+          </li>`;
+      }
+      return `
+        <li>
+          <div>${head}<div class="item-meta">${Proto.bytes(job.size)} · ${Proto.clock(job.doneAt)} 完成</div></div>
+          <div class="item-side"><span class="pill pill-ok">完成</span></div>
+        </li>`;
+    };
+
+    const REASON = { disk: "空間不足", "disk-unknown": "讀不到剩餘空間", size: "取不到大小", vram: "這台可能無法載入" };
+    // 判定中顯示「正在依精選清單排入…」(plan.md Q33);判定完成但排入與跳過都是空的不顯示(plan.md Q30)
+    const renderNotice = (session) => {
+      const box = document.getElementById("auto-notice");
+      const r = Proto.load("autoResult");
+      const mine = r && !r.dismissed && r.session === session.name;
+      if (mine && r.state === "running") Proto.showState("auto-running");
+      else Proto.hideGroup("auto");
+      const show = mine && r.state === "done" && (r.added.length || r.skipped.length);
+      box.hidden = !show;
+      if (!show) return;
+      box.className = `notice auto-notice${r.skipped.length ? " notice-warn" : ""}`;
+      box.innerHTML = `
+        <div class="notice-head">
+          <strong>開好就自動下載:排入 ${r.added.length} 個${r.skipped.length ? `,跳過 ${r.skipped.length} 個` : ""}</strong>
+          <button type="button" class="btn btn-small" id="dismiss">關閉</button>
+        </div>
+        <span class="small muted">${Proto.clock(r.at)} 工作階段就緒時依精選清單的順序排入${r.added.length ? `:${r.added.map((n) => `<span class="mono">${Proto.escape(n)}</span>`).join("、")}` : ""}</span>
+        ${r.skipped.length ? `<ul>${r.skipped.map((s) => `<li><span class="mono">${Proto.escape(s.name)}</span> · <strong>${REASON[s.reason]}</strong>:${Proto.escape(s.detail)}</li>`).join("")}</ul>` : ""}`;
+    };
+
+    const render = () => {
+      const session = Proto.load("session");
+      const models = Proto.load("models");
+      const queue = Proto.load("queue");
+      const cleared = Proto.load("cleared");
+      const ready = session.state === "ready";
+
+      // NFR-001:工作階段結束時佇列清空,不用重新整理
+      if (lastQueueLength && queue.length === 0 && cleared) toast(`工作階段 ${cleared.session} 已結束,下載佇列的 ${cleared.count} 筆已清除`);
+      lastQueueLength = queue.length;
+
+      const order = { downloading: 0, queued: 1, failed: 2, done: 3 };
+      const sorted = queue.slice().sort((a, b) => order[a.status] - order[b.status]);
+      const catalogView = ready ? (models.length ? "cat-normal" : "cat-empty") : "cat-no-session";
+      const queueView = queue.length ? "queue-list" : cleared ? "queue-cleared" : "queue-empty";
+      const signature = JSON.stringify([catalogView, queueView, session.name, models.map((m) => [m.name, m.loaded]), sorted.map((j) => [j.id, j.status]), Proto.load("autoResult")]);
+      if (signature === lastSignature) {
+        sorted.filter((j) => j.status === "downloading").forEach((job) => {
+          const p = Proto.progress(job);
+          const text = document.querySelector(`[data-progress-text="${job.id}"]`);
+          const bar = document.querySelector(`[data-progress-bar="${job.id}"]`);
+          if (text) text.textContent = `下載中 ${Math.floor(p.ratio * 100)}% · ${Proto.bytes(p.completed)} / ${Proto.bytes(job.size)}`;
+          if (bar) bar.value = p.ratio;
+        });
+        return;
+      }
+      lastSignature = signature;
+      Proto.showState(catalogView);
+      Proto.showState(queueView);
+
+      if (ready) {
+        document.getElementById("cat-meta").innerHTML = `<span class="mono">${session.name}</span> · ${session.type},顯示記憶體約 ${Math.round(Proto.type(session.type).vramMiB / 1024)} GB · 剩餘磁碟 ${Proto.bytes(Proto.diskFree())}`;
+        document.getElementById("catalog").innerHTML = models.map((m) => catalogItem(m, session)).join("");
+      }
+      let position = 0;
+      document.getElementById("queue").innerHTML = sorted.map((job) => queueItem(job, job.status === "queued" ? ++position : 0)).join("");
+      if (cleared) document.getElementById("qc-text").innerHTML = `工作階段 <span class="mono">${cleared.session}</span> 結束時,佇列的 ${cleared.count} 筆已一起清除(含完成、失敗與排隊中的)。`;
+      renderNotice(session);
+    };
+
+    document.querySelector("main").addEventListener("click", (event) => {
+      const { cancel, retry, remove } = event.target.dataset;
+      if (event.target.id === "dismiss") {
+        const r = Proto.load("autoResult");
+        Proto.save("autoResult", { ...r, dismissed: true });
+        return render();
+      }
+      const queue = Proto.load("queue");
+      if (cancel) Proto.save("queue", queue.filter((j) => j.id !== cancel));
+      if (remove) Proto.save("queue", queue.filter((j) => j.id !== remove));
+      if (retry) {
+        const job = queue.find((j) => j.id === retry);
+        job.status = "queued";
+        job.error = null;
+        job.addedAt = new Date().toISOString();
+        Proto.save("queue", [...queue.filter((j) => j.id !== retry), job]);
+      }
+      if (cancel || remove || retry) render();
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const tick = () => {
+        Proto.badge();
+        render();
+        Proto.later(1000, tick);
+      };
+      tick();
+    });
+  </script>
+</body>
+</html>
