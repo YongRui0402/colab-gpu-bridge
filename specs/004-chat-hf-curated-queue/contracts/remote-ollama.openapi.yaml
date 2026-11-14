@@ -33,7 +33,8 @@ info:
     (2)其他沒有完整 HTTP 回應標頭的傳輸層失敗(本機轉發沒有在聽、連線被拒、SSH 通道斷了) → `OLLAMA_UNREACHABLE`。
     (3)收到回應但狀態碼不是 200:400 → `OLLAMA_BAD_REQUEST`、404 → `OLLAMA_NOT_FOUND`(只有 `chat`)、500 → `OLLAMA_SERVER_ERROR`,
     其他狀態碼(含 3xx,不跟著導向) → `OLLAMA_BAD_RESPONSE`;都不讀 `error` 的內容。
-    (4)200,但 `Content-Type` 不是 `application/x-ndjson` → `OLLAMA_BAD_RESPONSE`。
+    (4)200,但 `Content-Type` 的 media type 不是 `application/x-ndjson` → `OLLAMA_BAD_RESPONSE`;只比 media type(`;` 之前、去掉前後空白,
+    依 RFC 9110 不分大小寫),忽略 `charset` 等參數,例如 `application/x-ndjson; charset=utf-8` 算 NDJSON(004 plan.md Q45,D59);沒有 `Content-Type` 也歸這一條。
     串流開始之後(已收到 200 的 NDJSON):
     (5)兩行之間超過 `x-timeout` 的間隔沒有收到資料 → `OLLAMA_TIMEOUT`。
     (6)讀到一半傳輸層中斷,或串流正常結束但還沒出現最後一行(`chat` 的 `done: true`、`pullModel` 的 `status: success`)

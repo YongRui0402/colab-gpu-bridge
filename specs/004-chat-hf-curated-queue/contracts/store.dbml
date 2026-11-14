@@ -1,7 +1,7 @@
 Project colab_gpu_bridge {
   database_type: 'SQLite'
   Note: '''
-S5(E4 資料庫)依 004 的 spec.md、plan.md(含待決問題 Q15–Q18、Q22、Q23 的決定)、research.md R1、R6、R7 與 S4 的 ui.openapi.yaml、ui-events.asyncapi.yaml 產出;資源與欄位照 S4 原文,只做 camelCase 轉 snake_case。
+S5(E4 資料庫)依 004 的 spec.md、plan.md(含待決問題 Q15–Q18、Q22、Q23 的決定;analyze 第 1 輪回修另照 Q40、Q41、Q46、Q68)、research.md R1、R6、R7 與 S4 的 ui.openapi.yaml、ui-events.asyncapi.yaml 產出;資源與欄位照 S4 原文,只做 camelCase 轉 snake_case。
 
 以 001 的同名檔為底,只收這一輪改變的表與新表;沒有列的表(session_transitions、settings、usage_snapshots)與 sessions 的其他欄位以 001 的 store.dbml 為準。慣例沿用 001:Python 標準函式庫 sqlite3、WAL 模式;時間欄位以 ISO 8601 UTC 字串存;boolean 存成 INTEGER 0/1 並以 CHECK 限制。
 
@@ -19,10 +19,11 @@ S5(E4 資料庫)依 004 的 spec.md、plan.md(含待決問題 Q15–Q18、Q22、
 遷移(research.md R7):後端啟動時 create_schema 之後依 PRAGMA user_version 判斷。
 - 全新資料庫(user_version 為 0 且還沒有 sessions 表):直接建這一版的表與 index,設 user_version = 1。
 - 既有資料庫(user_version 為 0 且已有 sessions 表):在一個交易裡做 0 → 1,任何一步失敗整個 rollback、user_version 仍是 0,下次啟動再試:
-  1. curated_models:PRAGMA table_info 確認沒有 auto_download 才 `ALTER TABLE curated_models ADD COLUMN auto_download INTEGER NOT NULL DEFAULT 0 CHECK (auto_download IN (0, 1))`,既有的項目都是 0(spec.md 假設);再 `CREATE UNIQUE INDEX uq_curated_models_name_ci ON curated_models (lower(name))`。001 的名稱只收小寫,既有資料不會撞到。
-  2. download_jobs(SQLite 不能改 CHECK,所以重建):建 download_jobs_new(本檔的欄位,origin 的 CHECK 加 'auto',session_name TEXT REFERENCES sessions (name) ON DELETE CASCADE,pending_model 不再有欄位層級的 UNIQUE)→ `INSERT INTO download_jobs_new (<001 的全部欄位>) SELECT <同一組欄位> FROM download_jobs`(session_name 留 NULL)→ DROP TABLE download_jobs → ALTER TABLE download_jobs_new RENAME TO download_jobs → 建 idx_download_jobs_state、idx_download_jobs_session、uq_download_jobs_pending_model_ci。
-  3. 建 auto_download_results、auto_download_items 與它們的 index。
+  1. curated_models:PRAGMA table_info 確認沒有 auto_download 才 `ALTER TABLE curated_models ADD COLUMN auto_download INTEGER NOT NULL DEFAULT 0 CHECK (auto_download IN (0, 1))`,既有的項目都是 0(spec.md 假設);接著去重(Q40,D54):001 的名稱版本允許大寫、新增精選時沒有驗格式,舊庫可能有只差大小寫的兩筆(例 `qwen2.5:latest` 與 `qwen2.5:Latest`),所以依 `lower(name)` 分組,每組只留 `id` 最小的那一筆、其他刪掉,刪掉的每一筆名稱寫進日誌(warning);最後才 `CREATE UNIQUE INDEX uq_curated_models_name_ci ON curated_models (lower(name))`。
+  2. download_jobs(SQLite 不能改 CHECK,所以重建):建 download_jobs_new(本檔的欄位,origin 的 CHECK 加 'auto',session_name TEXT REFERENCES sessions (name) ON DELETE CASCADE,pending_model 不再有欄位層級的 UNIQUE)→ `INSERT INTO download_jobs_new (<001 的全部欄位>) SELECT <同一組欄位> FROM download_jobs`(session_name 留 NULL)→ DROP TABLE download_jobs → ALTER TABLE download_jobs_new RENAME TO download_jobs → 去重(Q40,D54):只看 pending_model 不是 NULL 的列(排隊中、下載中),依 `lower(pending_model)` 分組,每組只留 `id` 最小的那一筆、其他刪掉,刪掉的每一筆名稱寫進日誌(warning);pending_model 為 NULL 的列(完成、失敗)不分組、不刪,也不依 `lower(model)` 分組 → 建 idx_download_jobs_state、idx_download_jobs_session、uq_download_jobs_pending_model_ci。
+  3. 建 auto_download_results(含 `CHECK (target_count >= 0)`,Q41)、auto_download_items 與它們的 index。
   4. PRAGMA user_version = 1。
+- 去重與建索引都在同一個交易裡;去重後建索引仍失敗時整個 rollback(同上),不跳過索引、不把重複的改名(D54)。
 - 已經是 1:不做任何事;再跑一次 create_schema 不出錯(R7 實測)。
 - create_schema 裡引用新欄位的 index(idx_download_jobs_session、uq_*_ci)只能在遷移之後建,不能放在遷移前的 CREATE ... IF NOT EXISTS:舊的 download_jobs 還沒有 session_name,建 index 會失敗。
 - 升級前留下的下載項目 session_name 為 NULL,遷移只保留、不判斷;後端啟動時由 Recovery 刪除(ui.openapi.yaml `info.x-queue-clearing` (3))。
@@ -86,7 +87,7 @@ Table download_jobs {
   finished_at datetime [note: '完成或失敗的時間;重新排隊時清回 NULL']
   indexes {
     (state) [name: 'idx_download_jobs_state', note: '找下一個 queued、找 downloading、清除 completed']
-    (session_name) [name: 'idx_download_jobs_session', note: '工作階段結束時刪除它的項目;listDownloads 只列目前工作階段的項目']
+    (session_name) [name: 'idx_download_jobs_session', note: '工作階段結束時刪除它的項目;listDownloads 不依它過濾(Q46、D60),清除是同步的,表裡只會有目前(或變更類型後新的)工作階段的項目']
     (`lower(pending_model)`) [unique, name: 'uq_download_jobs_pending_model_ci', note: '取代 001 欄位層級的 unique;名稱只有 ASCII(ModelName 的 pattern),SQLite 的 lower 與 casefold 結果相同']
   }
   Note: '需求: FR-001、FR-002、FR-003、FR-011、FR-018、NFR-001'
@@ -107,7 +108,7 @@ Table curated_models {
 
 Table auto_download_results {
   session_name varchar(64) [pk, note: '照 S4 AutoDownloadResult.sessionName;一個工作階段最多一列。工作階段第一次就緒時先寫入(state 為 running),之後重連接回、後端重啟接回時看到這一列就不重做(FR-011、驗收情境 8)']
-  target_count integer [not null, note: '開始判定時精選清單裡 auto_download 為 true 的項目數,>= 0;不對外回。為 0 時 getAutoDownloadResult 回 result null、不推送(沒有設任何自動下載就沒有結果),仍寫這一列,讓同一個工作階段之後才打開自動下載的項目不會在重連時被排入。大於 0 而全部不必排(都已在執行環境上或佇列中)時照常回結果、enqueued 與 skipped 皆空(Q18)']
+  target_count integer [not null, note: '開始判定時精選清單裡 auto_download 為 true 的項目數;建表時加 CHECK (target_count >= 0)(Q41、D55;寫入負數丟 IntegrityError。pydbml 1.x 解析不了 DBML 的 checks 語法,所以寫在這裡),= 0 合法;不對外回。為 0 時 getAutoDownloadResult 回 result null、不推送(沒有設任何自動下載就沒有結果),仍寫這一列,讓同一個工作階段之後才打開自動下載的項目不會在重連時被排入。大於 0 而全部不必排(都已在執行環境上或佇列中)時照常回結果、enqueued 與 skipped 皆空(Q18)']
   state auto_download_state [not null, default: 'running']
   dismissed boolean [not null, default: false, note: '照 S4 dismissed:使用者按關閉;running 時也可以關閉,判定完成後仍為 true']
   finished_at datetime [note: '照 S4 finishedAt;state 為 running 時為 NULL,done 時必填']
@@ -121,6 +122,9 @@ Table auto_download_items {
   reason auto_download_skip_reason [note: '照 S4 AutoDownloadSkipped.reason;NULL 表示這一項已排入(列在 enqueued),有值表示跳過(列在 skipped)。已在執行環境上或佇列中的項目不寫入這張表(驗收情境 5)']
   reason_code varchar(64) [note: '照 S4 AutoDownloadSkipped.reasonCode,格式照 ReasonCode(^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH|HF)_[A-Z0-9_]+|AUTH_REQUIRED)$);reason 為 SIZE_UNAVAILABLE 時是 LIBRARY_* 或 HF_*,DISK_SPACE_UNKNOWN 時是 COLAB_*,其他為 NULL']
   message text [note: '照 S4 AutoDownloadSkipped.message:給使用者看的繁體中文原因;reason 有值時必填,排入的項目為 NULL']
+  size_bytes integer [note: '照 S4 AutoDownloadSkipped.sizeBytes(Q68、D86):這一項的 manifest 大小,位元組,>= 0;reason 為 SIZE_UNAVAILABLE 或排入的項目為 NULL,其他跳過原因都有值']
+  free_disk_bytes integer [note: '照 S4 AutoDownloadSkipped.freeDiskBytes:只在 reason 為 DISK_SPACE_INSUFFICIENT 時有值,剩餘磁碟扣掉已決定排入與佇列未完成之後剩下的,位元組,>= 0;其他為 NULL']
+  vram_bytes integer [note: '照 S4 AutoDownloadSkipped.vramBytes:只在 reason 為 MAY_NOT_FIT 時有值,顯示記憶體總量,位元組,>= 0;其他為 NULL']
   indexes {
     (session_name, position) [pk]
   }

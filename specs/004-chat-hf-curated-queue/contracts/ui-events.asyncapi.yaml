@@ -52,7 +52,9 @@ operations:
     x-requirements: [FR-001, FR-002, FR-003, NFR-001, SC-001]
     x-callers: >-
       沿用 001:連上時送一次;工作階段就緒或結束而使佇列暫停狀態改變時。
-      這一輪:工作階段變成結束中、已結束、開啟失敗或失聯而清空佇列時,在每一則 `download.removed` 之後送一次(佇列是空的,或變更類型時只剩重新載入的項目);
+      這一輪:工作階段變成結束中、已結束、開啟失敗或失聯而清空佇列時,屬於它的每一筆都推完 `download.removed` 之後送一次(只送一次,不是每一則之後各送),
+      這時快照的 `jobs` 是空的;變更類型時也一樣先送空的快照,接著為重新載入的項目各推一則 `download.updated`(`origin` 為 `restore`;Q47、D61),
+      快照裡不含那幾筆;
       後端重新啟動時清掉停機期間已結束的工作階段的項目之後也送一次(`info.x-queue-clearing`)。從狀態改變到送出在 5 秒內(SC-001)
     x-error-codes: []
   sendDownloadUpdated:
@@ -118,7 +120,7 @@ components:
         $ref: '#/components/schemas/DownloadRemoved'
     autoDownloadUpdated:
       name: autoDownload.updated
-      summary: 目前工作階段的自動下載結果(下載頁佇列上方的提示區)
+      summary: 目前工作階段的自動下載結果(模型頁下載佇列上方的提示區,Q29、D43)
       x-recipients: 所有連著的 UI(內容相同)
       payload:
         $ref: '#/components/schemas/AutoDownloadUpdated'
