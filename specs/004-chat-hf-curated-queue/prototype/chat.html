@@ -67,7 +67,7 @@
       <div class="turn-line is-bad" data-state="turn-bad-response" data-group="turn">這則回覆中斷:執行環境上的 Ollama 回應無法解讀,請稍後再試。已收到的內容保留在上面;可以再送一次。</div>
       <div class="turn-line is-bad" data-state="turn-timeout" data-group="turn">這則回覆中斷:執行環境上的 Ollama 在時限內沒有回應,請稍後再試。已收到的內容保留在上面。</div>
       <div class="turn-line is-bad" data-state="turn-lost" data-group="turn">這則回覆中斷:工作階段已結束、正在變更類型或已失聯。已收到的內容保留在上面;等工作階段就緒、模型下載好後才能再對話。</div>
-      <!-- 串流開始之前的失敗(404、502、504 的 Error.message) -->
+      <!-- 串流開始之前的失敗(404、502、504 的 Error.message):「沒有送出:」加後端的 message;turn-unavailable 是 502 四個代碼(OLLAMA_UNREACHABLE、OLLAMA_BAD_REQUEST、OLLAMA_SERVER_ERROR、OLLAMA_BAD_RESPONSE)共用的畫面,這裡的中間那句是 OLLAMA_UNREACHABLE 的範例(D96、D105) -->
       <div class="turn-line is-bad" data-state="turn-not-found" data-group="turn">沒有送出:執行環境上沒有這個模型,請先下載。模型清單已重新讀取,可以換一個模型再送。</div>
       <div class="turn-line is-bad" data-state="turn-unavailable" data-group="turn">沒有送出:連不到執行環境上的 Ollama,請確認工作階段仍在運作後再試。你的訊息保留在上面,可以再送一次。</div>
       <div class="turn-line is-bad" data-state="turn-start-timeout" data-group="turn">沒有送出:執行環境上的 Ollama 在時限內沒有回應,請稍後再試。你的訊息保留在上面,可以再送一次。</div>
@@ -91,7 +91,7 @@
       timeout: "中斷:Ollama 逾時",
       lost: "中斷:工作階段已結束、變更類型或失聯",
       "not-found": "沒有回覆:執行環境上沒有這個模型",
-      unavailable: "沒有回覆:連不到 Ollama",
+      unavailable: "沒有回覆:Ollama 暫時無法使用",
       "start-timeout": "沒有回覆:Ollama 逾時",
     };
 
