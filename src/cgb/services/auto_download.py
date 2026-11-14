@@ -8,7 +8,7 @@ import asyncio
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
-from cgb.domain.model_name import with_version
+from cgb.domain.model_name import match_key, with_version
 from cgb.domain.session_state import iso
 from cgb.repos.auto_download import AutoDownloadRepo
 from cgb.repos.curated import CuratedRepo
@@ -56,15 +56,15 @@ class AutoDownload:
     async def _decide(self, name: str, targets: list[str], base_url: str) -> None:
         """依精選清單的順序判定每一項:已在執行環境上或佇列中的不排,取不到大小的跳過,其餘一次排入佇列。"""
         try:
-            local = {m["name"].casefold() for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
+            local = {match_key(m["name"]) for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
         except AdapterError:
             # 讀不到就當成執行環境上沒有任何模型(新的執行環境本來就是空的)
             local = set()
-        queued = {job["model"].casefold() for job in self._downloads.pending()}
+        queued = {match_key(job["model"]) for job in self._downloads.pending()}
         sized: list[tuple[str, int]] = []
         for position, target in enumerate(targets):
             model = with_version(target)
-            if model.casefold() in local or model.casefold() in queued:
+            if match_key(model) in local or match_key(model) in queued:
                 continue
             try:
                 size = await self._downloads.manifest_size(model)

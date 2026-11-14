@@ -766,10 +766,20 @@ def err_invalid_curated_description(w: World) -> httpx.Response:
     return trigger_ok(w, "POST", "/curated", json={"name": MODEL, "description": "長" * 201})
 
 
+def err_invalid_auto_download(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/curated", json={"name": MODEL, "autoDownload": "true"})
+
+
 def err_curated_duplicate(w: World) -> httpx.Response:
     w.start()
     trigger_ok(w, "POST", "/curated", json={"name": MODEL})
     return trigger_ok(w, "POST", "/curated", json={"name": MODEL})
+
+
+def err_curated_not_found(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "DELETE", "/curated/999")
 
 
 def ready_api(w: World, models: dict[str, tuple[int, bool]] | None = None) -> None:
@@ -891,7 +901,9 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("INVALID_RUNTIME_TYPE", err_invalid_runtime_type),
     ("NO_READY_SESSION", err_no_ready_session),
     ("INVALID_CURATED_DESCRIPTION", err_invalid_curated_description),
+    ("INVALID_AUTO_DOWNLOAD", err_invalid_auto_download),
     ("CURATED_DUPLICATE", err_curated_duplicate),
+    ("CURATED_NOT_FOUND", err_curated_not_found),
     ("OLLAMA_NOT_FOUND", err_ollama_not_found),
     ("MODEL_ALREADY_DOWNLOADED", err_model_already_downloaded),
     ("DOWNLOAD_ALREADY_QUEUED", err_download_already_queued),

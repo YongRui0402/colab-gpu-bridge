@@ -6,7 +6,7 @@ from typing import Any
 from cgb.adapters.errors import AdapterError
 from cgb.domain.errors import ApiError, library_error, ollama_error
 from cgb.domain.estimate import estimate
-from cgb.domain.model_name import with_version
+from cgb.domain.model_name import match_key, with_version
 from cgb.domain.session_state import iso
 from cgb.repos.downloads import DownloadsRepo, QueueConflict
 from cgb.services.event_bus import EventBus
@@ -20,6 +20,15 @@ FAILED_MESSAGES = {
     "OLLAMA_NOT_FOUND": "找不到這個模型或版本,請確認名稱。",
 }
 FAILED_FALLBACK_MESSAGE = "下載失敗,請稍後重新排隊再試。"
+
+# 名稱前綴決定來源與取大小的地方(research.md R4、R7)
+HF_PREFIX = "hf.co/"
+
+
+def source_of(model: str) -> str:
+    """`DownloadJob.source`:`hf.co/` 開頭的是 Hugging Face,其他是官方模型庫(不另存欄位,store.dbml)。"""
+    return "huggingface" if model.startswith(HF_PREFIX) else "library"
+
 
 # 工作階段變成這些狀態時清空下載佇列(`info.x-queue-clearing` (1));重連中(還可能接回同一台)不清
 QUEUE_CLEARING_STATES = frozenset({"ending", "ended", "open_failed", "lost"})
@@ -40,6 +49,7 @@ class DownloadsService:
         return {
             "id": row["id"],
             "model": row["model"],
+            "source": source_of(row["model"]),
             "sizeBytes": row["size_bytes"],
             "state": row["state"],
             "progress": self._progress.get(row["id"]) if row["state"] == "downloading" else None,
@@ -91,9 +101,23 @@ class DownloadsService:
         return sized
 
     async def manifest_size(self, model: str) -> int:
-        """補過版本的名稱向模型庫取精確大小(位元組);失敗時丟 `AdapterError`。"""
+        """補過版本的名稱取精確大小(位元組),依前綴分流:`hf.co/` 向 Hugging Face,其他向官方模型庫;失敗時丟 `AdapterError`。"""
         name, tag = model.split(":", 1)
+        if source_of(model) == "huggingface":
+            author, repo = name.removeprefix(HF_PREFIX).split("/", 1)
+            return int((await self._state.huggingface.get_manifest(author=author, model=repo, tag=tag))["sizeBytes"])
         return int((await self._state.model_library.get_manifest(name=name, tag=tag))["sizeBytes"])
+
+    async def local_keys(self) -> set[str] | None:
+        """執行環境上已下載的模型(`match_key`,不分大小寫);沒有就緒的工作階段或讀不到時是 None。"""
+        base_url = self._lifecycle.ready_base_url()
+        if base_url is None:
+            return None
+        try:
+            models = (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]
+        except AdapterError:
+            return None
+        return {match_key(m["name"]) for m in models}
 
     async def _checked(self, models: list[str]) -> list[str]:
         """試算與加入共用的重複檢查(contracts/ui.openapi.yaml § info.x-download-check-order):回傳補過版本的名稱。"""

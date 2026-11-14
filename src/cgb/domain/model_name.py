@@ -13,7 +13,11 @@ def is_valid(name: object) -> bool:
     return isinstance(name, str) and _MODEL_NAME.fullmatch(name) is not None
 
 
-
 def with_version(name: str) -> str:
     """含 `:` 就照原樣;不含就接 `:latest`。不轉大小寫、不去空白(`qwen2.5:Latest` 不等於 `qwen2.5:latest`)。"""
     return name if ":" in name else f"{name}:latest"
+
+
+def match_key(name: str) -> str:
+    """比對用的鍵:補版本後 casefold(`info.x-model-name-rule` (2));兩個名稱的鍵相同就是同一個模型。"""
+    return with_version(name).casefold()

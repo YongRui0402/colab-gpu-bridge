@@ -87,6 +87,8 @@ class AppState:
     remote_ollama: Any
     model_library: Any
     google_oauth: Any
+    # Hugging Face Hub 轉接層(plan.md Q65):正式的 `HuggingFaceHub()` 由故事 4 的 T186b 接上,在那之前沒有注入就是 None
+    huggingface: Any = None
     tunnel_local_port: int = DEFAULT_TUNNEL_LOCAL_PORT
 
 
@@ -117,6 +119,7 @@ def create_app(
     remote_ollama: Any,
     model_library: Any,
     google_oauth: Any,
+    huggingface: Any = None,
     tunnel_local_port: int = DEFAULT_TUNNEL_LOCAL_PORT,
 ) -> AppPair:
     """建立兩個空的 app 與共用狀態;五個轉接層(Q96)由呼叫端注入。"""
@@ -133,6 +136,7 @@ def create_app(
         remote_ollama=remote_ollama,
         model_library=model_library,
         google_oauth=google_oauth,
+        huggingface=huggingface,
         tunnel_local_port=tunnel_local_port,
     )
     ui = _empty_app("colab-gpu-bridge UI", state)

@@ -751,107 +751,107 @@
 
 > E2 與 E4 兩節平行;E2 不改 `src/cgb/db/schema.py`(自動下載的欄位與表已由故事 1 的 E4 節照 `contracts/store.dbml` 建立,這一輪的約束與遷移案例在本故事的 E4 節)。US3-API-01~11 寫進 `tests/integration/test_api_curated.py`,US3-API-12~37 寫進新的 `tests/integration/test_api_auto_download.py`(從前者匯入 `set_hf`、`curate`、`wait_auto`)。精選清單的錯誤代碼沿用 001;自動下載的判定照 `contracts/ui.openapi.yaml` 的 `info.x-auto-download` (1)~(6)。精選清單操作的案例(US3-API-01~10)不開工作階段,最後斷言兩個 `get_manifest` 被呼叫 0 次
 
-- [ ] T072a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-01 的測試(新增 `{"name":"qwen2.5","description":"日常用","recommendedRuntimeType":{"gpu":"T4","highMem":false}}`;新增 `{"name":"hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF","autoDownload":true}`;之後 `GET /api/curated`;分隔註解寫 `# ---- 004 US3-API-01`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/fakes/adapters.py` 建 `FakeHuggingFaceHub`(照 `_FakeAdapter`,`search_models(query, cursor=None)`、`list_repo_files(author, model)`、`get_manifest(author, model, tag)`、`list_quants(author, model)` 四個方法照 `plan.md` § 待決問題 Q49 一次寫齊)並從 `tests/fakes/__init__.py` 匯出,`tests/conftest.py` 的 `Fakes` 加 `huggingface` 欄位並放進 `as_kwargs()`;在 `tests/integration/test_api_curated.py` 新增 `set_hf`、`curate`、`wait_auto`(`plan.md` § 待決問題 Q65),執行確認它因為「照現況 `curated_payload` 固定回 `recommendedRuntimeType: null`」這類實作而失敗(`autoDownload` 的存讀已由 T013b 做到,不能當失敗的理由;若一執行就通過,照 `plan.md` § 待決問題 Q63 改當對照組)
+- [X] T072a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-01 的測試(新增 `{"name":"qwen2.5","description":"日常用","recommendedRuntimeType":{"gpu":"T4","highMem":false}}`;新增 `{"name":"hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF","autoDownload":true}`;之後 `GET /api/curated`;分隔註解寫 `# ---- 004 US3-API-01`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/fakes/adapters.py` 建 `FakeHuggingFaceHub`(照 `_FakeAdapter`,`search_models(query, cursor=None)`、`list_repo_files(author, model)`、`get_manifest(author, model, tag)`、`list_quants(author, model)` 四個方法照 `plan.md` § 待決問題 Q49 一次寫齊)並從 `tests/fakes/__init__.py` 匯出,`tests/conftest.py` 的 `Fakes` 加 `huggingface` 欄位並放進 `as_kwargs()`;在 `tests/integration/test_api_curated.py` 新增 `set_hf`、`curate`、`wait_auto`(`plan.md` § 待決問題 Q65),執行確認它因為「照現況 `curated_payload` 固定回 `recommendedRuntimeType: null`」這類實作而失敗(`autoDownload` 的存讀已由 T013b 做到,不能當失敗的理由;若一執行就通過,照 `plan.md` § 待決問題 Q63 改當對照組)
   - 🧪 `testplan.md` § US3-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010、FR-018、使用者故事 3 驗收情境 1、邊界情況;`plan.md` § 待決問題 Q65
-- [ ] T072b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py`、`src/cgb/app.py`、`src/cgb/api/__init__.py` 只寫讓 US3-API-01 通過的程式碼;`curated_payload` 回 `recommendedRuntimeType` 與 `autoDownload`;`src/cgb/app.py` 的 `create_app` 接受 `huggingface=`(預設 None;正式的 `HuggingFaceHub()` 由故事 4 的 T186b接上,`plan.md` § 待決問題 Q65),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T072a)
+- [X] T072b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py`、`src/cgb/app.py`、`src/cgb/api/__init__.py` 只寫讓 US3-API-01 通過的程式碼;`curated_payload` 回 `recommendedRuntimeType` 與 `autoDownload`;`src/cgb/app.py` 的 `create_app` 接受 `huggingface=`(預設 None;正式的 `HuggingFaceHub()` 由故事 4 的 T186b接上,`plan.md` § 待決問題 Q65),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T072a)
   - 🧪 `testplan.md` § US3-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010、FR-018、使用者故事 3 驗收情境 1、邊界情況;`plan.md` § 待決問題 Q65
-- [ ] T073a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-02 的測試(`PUT /api/curated/{b}` 帶 `{"name":"hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M","description":"小模型","recommendedRuntimeType":{"gpu":"L4","highMem":true},"autoDownload":true}`;之後列出;分隔註解寫 `# ---- 004 US3-API-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改以「刪除再新增」實作,b 換了新 id、排到最後」這類實作而失敗
+- [X] T073a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-02 的測試(`PUT /api/curated/{b}` 帶 `{"name":"hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M","description":"小模型","recommendedRuntimeType":{"gpu":"L4","highMem":true},"autoDownload":true}`;之後列出;分隔註解寫 `# ---- 004 US3-API-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改以「刪除再新增」實作,b 換了新 id、排到最後」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010、使用者故事 3 驗收情境 2
-- [ ] T073b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T073a)
+- [X] T073b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T073a)
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010、使用者故事 3 驗收情境 2
-- [ ] T074a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-03 的測試(`PUT /api/curated/{a}` 只帶 `{"name":"qwen2.5:7b"}`;之後列出;分隔註解寫 `# ---- 004 US3-API-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改做成部分更新,沒給的欄位保留舊值(合約是整筆取代,Q15、D29),前端只切換自動下載時舊的說明被意外留下或清不掉」這類實作而失敗
+- [X] T074a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-03 的測試(`PUT /api/curated/{a}` 只帶 `{"name":"qwen2.5:7b"}`;之後列出;分隔註解寫 `# ---- 004 US3-API-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改做成部分更新,沒給的欄位保留舊值(合約是整筆取代,Q15、D29),前端只切換自動下載時舊的說明被意外留下或清不掉」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010;`plan.md` § 待決問題 Q15
-- [ ] T074b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T074a)
+- [X] T074b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T074a)
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010;`plan.md` § 待決問題 Q15
-- [ ] T075a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-04 的測試(`DELETE /api/curated/{b}`;再 `DELETE /api/curated/{b}`;`PUT /api/curated/{b}` 帶 `{"name":"qwen2.5:1.5b"}`;`DELETE /api/curated/999`;之後列出;分隔註解寫 `# ---- 004 US3-API-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現況 `remove_curated` 不看有沒有刪到就回 204」這類實作而失敗
+- [X] T075a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-04 的測試(`DELETE /api/curated/{b}`;再 `DELETE /api/curated/{b}`;`PUT /api/curated/{b}` 帶 `{"name":"qwen2.5:1.5b"}`;`DELETE /api/curated/999`;之後列出;分隔註解寫 `# ---- 004 US3-API-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現況 `remove_curated` 不看有沒有刪到就回 204」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.delete`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`、`components.schemas.CuratedModel`、`paths./curated/{id}.put`、`components.schemas.CuratedModelInput`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、NFR-006
-- [ ] T075b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py`、`src/cgb/domain/errors.py` 只寫讓 US3-API-04 通過的程式碼;刪除與修改對不存在的 id 回 404 `CURATED_NOT_FOUND`;若要把 `CURATED_NOT_FOUND` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T075a)
+- [X] T075b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py`、`src/cgb/domain/errors.py` 只寫讓 US3-API-04 通過的程式碼;刪除與修改對不存在的 id 回 404 `CURATED_NOT_FOUND`;若要把 `CURATED_NOT_FOUND` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T075a)
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.delete`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`、`components.schemas.CuratedModel`、`paths./curated/{id}.put`、`components.schemas.CuratedModelInput`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、NFR-006
-- [ ] T076a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-05 的測試(情況 A:新增 `qwen2.5:LATEST`;情況 B:新增 `hf.co/bartowski/smollm2-135m-instruct-gguf:q4_k_m`;情況 C:新增 `hf.co/UNSLOTH/qwen3-0.6b-gguf:latest`;對照組 D:新增 `hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF:Q8_0`;對照組 E:新增 `qwen2.5:7b`;之後列出;分隔註解寫 `# ---- 004 US3-API-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現況以 SQLite `UNIQUE` 照原樣比對,大小寫不同的 A、B、C 都存進去」這類實作而失敗
+- [X] T076a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-05 的測試(情況 A:新增 `qwen2.5:LATEST`;情況 B:新增 `hf.co/bartowski/smollm2-135m-instruct-gguf:q4_k_m`;情況 C:新增 `hf.co/UNSLOTH/qwen3-0.6b-gguf:latest`;對照組 D:新增 `hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF:Q8_0`;對照組 E:新增 `qwen2.5:7b`;之後列出;分隔註解寫 `# ---- 004 US3-API-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現況以 SQLite `UNIQUE` 照原樣比對,大小寫不同的 A、B、C 都存進去」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018、使用者故事 3 驗收情境 3
-- [ ] T076b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py`、`src/cgb/domain/model_name.py` 只寫讓 US3-API-05 通過的程式碼;`src/cgb/domain/model_name.py` 新增 `match_key`(補版本後 casefold,`plan.md` § 待決問題 Q49),重複檢查改用它,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T076a)
+- [X] T076b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py`、`src/cgb/domain/model_name.py` 只寫讓 US3-API-05 通過的程式碼;`src/cgb/domain/model_name.py` 新增 `match_key`(補版本後 casefold,`plan.md` § 待決問題 Q49),重複檢查改用它,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T076a)
   - 🧪 `testplan.md` § US3-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018、使用者故事 3 驗收情境 3
-- [ ] T077a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-06 的測試(`PUT /api/curated/{b}` 帶 `{"name":"hf.co/bartowski/SMOLLM2-135M-Instruct-GGUF:q4_k_m"}`;`PUT /api/curated/{a}` 帶 `{"name":"hf.co/bartowski/smollm2-135m-instruct-gguf:q4_k_m"}`(只改自己的大小寫);之後列出;分隔註解寫 `# ---- 004 US3-API-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改的重複檢查沒排除自己,只改自己大小寫也回 409」這類實作而失敗
+- [X] T077a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-06 的測試(`PUT /api/curated/{b}` 帶 `{"name":"hf.co/bartowski/SMOLLM2-135M-Instruct-GGUF:q4_k_m"}`;`PUT /api/curated/{a}` 帶 `{"name":"hf.co/bartowski/smollm2-135m-instruct-gguf:q4_k_m"}`(只改自己的大小寫);之後列出;分隔註解寫 `# ---- 004 US3-API-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改的重複檢查沒排除自己,只改自己大小寫也回 409」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018、使用者故事 3 驗收情境 3、NFR-006
-- [ ] T077b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T077a)
+- [X] T077b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T077a)
   - 🧪 `testplan.md` § US3-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018、使用者故事 3 驗收情境 3、NFR-006
-- [ ] T078a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-07 的測試(依序新增名稱為 `Qwen2.5`、`huggingface.co/bartowski/x-GGUF`、`HF.co/bartowski/x-GGUF`、`bartowski/x`(社群名稱)、`hf.co/bartowski`、`""`、`123`(數字)的本文,以及不帶 `name` 的 `{"description":"x"}`;`PUT /api/curated/{a}` 帶 `{"name":"Qwen2.5"}`;之後列出;分隔註解寫 `# ---- 004 US3-API-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現況完全不驗名稱,`Qwen2.5` 存成 `Qwen2.5:latest`」這類實作而失敗
+- [X] T078a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-07 的測試(依序新增名稱為 `Qwen2.5`、`huggingface.co/bartowski/x-GGUF`、`HF.co/bartowski/x-GGUF`、`bartowski/x`(社群名稱)、`hf.co/bartowski`、`""`、`123`(數字)的本文,以及不帶 `name` 的 `{"description":"x"}`;`PUT /api/curated/{a}` 帶 `{"name":"Qwen2.5"}`;之後列出;分隔註解寫 `# ---- 004 US3-API-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現況完全不驗名稱,`Qwen2.5` 存成 `Qwen2.5:latest`」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated/{id}.put`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-018、NFR-006、邊界情況
-- [ ] T078b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T078a)
+- [X] T078b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T078a)
   - 🧪 `testplan.md` § US3-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated/{id}.put`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-018、NFR-006、邊界情況
-- [ ] T079a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-08 的測試(情況 A:本文 `{"name":`(不是合法 JSON);B:本文 `[]`;C:`description` 為 201 個字;C 對照:`description` 為 200 個字;D:`recommendedRuntimeType` 為 `{"gpu":"V100","highMem":false}`;E:`{"gpu":"T4","highMem":"no"}`;F:`{"highMem":false}`;G:`autoDownload` 為 `"true"`;H:`autoDownload` 為 `1`;每個情況名稱各用不同的合法名稱;之後列出;分隔註解寫 `# ---- 004 US3-API-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「`[]` 讓 `body.get` 丟 `AttributeError`、回 500」這類實作而失敗
+- [X] T079a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-08 的測試(情況 A:本文 `{"name":`(不是合法 JSON);B:本文 `[]`;C:`description` 為 201 個字;C 對照:`description` 為 200 個字;D:`recommendedRuntimeType` 為 `{"gpu":"V100","highMem":false}`;E:`{"gpu":"T4","highMem":"no"}`;F:`{"highMem":false}`;G:`autoDownload` 為 `"true"`;H:`autoDownload` 為 `1`;每個情況名稱各用不同的合法名稱;之後列出;分隔註解寫 `# ---- 004 US3-API-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「`[]` 讓 `body.get` 丟 `AttributeError`、回 500」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010、NFR-006
-- [ ] T079b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/domain/errors.py` 只寫讓 US3-API-08 通過的程式碼;新代碼 `INVALID_AUTO_DOWNLOAD` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T079a)
+- [X] T079b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/domain/errors.py` 只寫讓 US3-API-08 通過的程式碼;新代碼 `INVALID_AUTO_DOWNLOAD` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T079a)
   - 🧪 `testplan.md` § US3-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010、NFR-006
-- [ ] T080a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-09 的測試(對 a 依序 `PUT` 與 US3-API-08 情況 A~H 相同的本文(名稱都用 `qwen2.5:7b`);之後列出;分隔註解寫 `# ---- 004 US3-API-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改與新增各寫一套驗證,修改漏了 `recommendedRuntimeType` 或 `autoDownload` 的檢查」這類實作而失敗
+- [X] T080a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-09 的測試(對 a 依序 `PUT` 與 US3-API-08 情況 A~H 相同的本文(名稱都用 `qwen2.5:7b`);之後列出;分隔註解寫 `# ---- 004 US3-API-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改與新增各寫一套驗證,修改漏了 `recommendedRuntimeType` 或 `autoDownload` 的檢查」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010、NFR-006
-- [ ] T080b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T080a)
+- [X] T080b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T080a)
   - 🧪 `testplan.md` § US3-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010、NFR-006
-- [ ] T081a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_curated.py` 寫 US3-API-10 的測試(新增 `{"name":"qwen2.5:32b","recommendedRuntimeType":{"gpu":"H100","highMem":false}}`(id a);新增 `qwen2.5:7b`(id b),再 `PUT /api/curated/{b}` 帶 `{"name":"qwen2.5:7b","recommendedRuntimeType":{"gpu":"H100","highMem":true}}`;之後列出;分隔註解寫 `# ---- 004 US3-API-10`(`plan.md` § 待決問題 Q34));既有 `src/cgb/api/curated.py` 的執行階段類型檢查(`GpuType` 含 H100)與 T072b 回傳的 `recommendedRuntimeType`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把 FR-017 的「選單不列 H100」做進後端驗證,`GpuType` 少了 H100,送 H100 回 400 `INVALID_RUNTIME_TYPE`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T081a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_curated.py` 寫 US3-API-10 的測試(新增 `{"name":"qwen2.5:32b","recommendedRuntimeType":{"gpu":"H100","highMem":false}}`(id a);新增 `qwen2.5:7b`(id b),再 `PUT /api/curated/{b}` 帶 `{"name":"qwen2.5:7b","recommendedRuntimeType":{"gpu":"H100","highMem":true}}`;之後列出;分隔註解寫 `# ---- 004 US3-API-10`(`plan.md` § 待決問題 Q34));既有 `src/cgb/api/curated.py` 的執行階段類型檢查(`GpuType` 含 H100)與 T072b 回傳的 `recommendedRuntimeType`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把 FR-017 的「選單不列 H100」做進後端驗證,`GpuType` 少了 H100,送 H100 回 400 `INVALID_RUNTIME_TYPE`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US3-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated/{id}.put`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-017
-- [ ] T081b [US3] 🟢 /tdd 綠燈:US3-API-10 由 既有 `src/cgb/api/curated.py` 的執行階段類型檢查(`GpuType` 含 H100)與 T072b 回傳的 `recommendedRuntimeType` 滿足,確認 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-10 通過的程式碼(依賴 T081a)
+- [X] T081b [US3] 🟢 /tdd 綠燈:US3-API-10 由 既有 `src/cgb/api/curated.py` 的執行階段類型檢查(`GpuType` 含 H100)與 T072b 回傳的 `recommendedRuntimeType` 滿足,確認 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py` 只寫讓 US3-API-10 通過的程式碼(依賴 T081a)
   - 🧪 `testplan.md` § US3-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated/{id}.put`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-017
-- [ ] T082a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-11 的測試(情況 A:沒有工作階段時列出;B:`open_ready` 後,`set_tags(fakes, tag("hf.co/bartowski/smollm2-135m-instruct-gguf:q4_k_m", 105_471_520), tag("qwen2.5:latest", 4_683_087_332))` 再列出;C:`list_local_models.raises("OLLAMA_UNREACHABLE")` 再列出;分隔註解寫 `# ---- 004 US3-API-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現況固定回 `runtimeChecked: false`、`downloaded: false`」這類實作而失敗
+- [X] T082a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-11 的測試(情況 A:沒有工作階段時列出;B:`open_ready` 後,`set_tags(fakes, tag("hf.co/bartowski/smollm2-135m-instruct-gguf:q4_k_m", 105_471_520), tag("qwen2.5:latest", 4_683_087_332))` 再列出;C:`list_local_models.raises("OLLAMA_UNREACHABLE")` 再列出;分隔註解寫 `# ---- 004 US3-API-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現況固定回 `runtimeChecked: false`、`downloaded: false`」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.get`、`components.schemas.CuratedList`、`components.schemas.CuratedModel`
   - 📎 `spec.md` § FR-009、FR-018、NFR-006
-- [ ] T082b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py`、`src/cgb/services/downloads.py` 只寫讓 US3-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T082a)
+- [X] T082b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py`、`src/cgb/repos/curated.py`、`src/cgb/services/downloads.py` 只寫讓 US3-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T082a)
   - 🧪 `testplan.md` § US3-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.get`、`components.schemas.CuratedList`、`components.schemas.CuratedModel`
   - 📎 `spec.md` § FR-009、FR-018、NFR-006
-- [ ] T083a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-12 的測試(`open_ready`;`wait_auto` 等 `state` 為 `done`;之後 `GET /api/downloads` 與 `GET /api/downloads/auto-result`;分隔註解寫 `# ---- 004 US3-API-12`(`plan.md` § 待決問題 Q34)),執行確認它因為「T013b 的最小版本排入時不取大小,hf.co 名稱沒向 `huggingface.get_manifest` 取大小(則8)、`source` 沒依前綴推出(則4)」這類實作而失敗(第一次就緒時排入已由 T013b 做到,不能當失敗的理由;若一執行就通過,照 `plan.md` § 待決問題 Q63 改當對照組)
+- [X] T083a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-12 的測試(`open_ready`;`wait_auto` 等 `state` 為 `done`;之後 `GET /api/downloads` 與 `GET /api/downloads/auto-result`;分隔註解寫 `# ---- 004 US3-API-12`(`plan.md` § 待決問題 Q34)),執行確認它因為「T013b 的最小版本排入時不取大小,hf.co 名稱沒向 `huggingface.get_manifest` 取大小(則8)、`source` 沒依前綴推出(則4)」這類實作而失敗(第一次就緒時排入已由 T013b 做到,不能當失敗的理由;若一執行就通過,照 `plan.md` § 待決問題 Q63 改當對照組)
   - 🧪 `testplan.md` § US3-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 4、SC-003
-- [ ] T083b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/services/downloads.py`、`src/cgb/api/__init__.py` 只寫讓 US3-API-12 通過的程式碼;`src/cgb/services/auto_download.py` 依精選清單順序判定;hf.co 名稱向 `huggingface.get_manifest` 取大小、官方名稱向 `model_library` 取,分流寫在 `src/cgb/services/downloads.py` 的取大小函式(`info.x-download-check-order` (6)),自動下載與試算共用,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T083a)
+- [X] T083b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/services/downloads.py`、`src/cgb/api/__init__.py` 只寫讓 US3-API-12 通過的程式碼;`src/cgb/services/auto_download.py` 依精選清單順序判定;hf.co 名稱向 `huggingface.get_manifest` 取大小、官方名稱向 `model_library` 取,分流寫在 `src/cgb/services/downloads.py` 的取大小函式(`info.x-download-check-order` (6)),自動下載與試算共用,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T083a)
   - 🧪 `testplan.md` § US3-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 4、SC-003
-- [ ] T084a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-13 的測試(`open_ready`;`wait_auto` 等 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-13`(`plan.md` § 待決問題 Q34)),執行確認它因為「已在執行環境上的比對照原樣,大小寫不同就重排一次」這類實作而失敗
+- [X] T084a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-13 的測試(`open_ready`;`wait_auto` 等 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-13`(`plan.md` § 待決問題 Q34)),執行確認它因為「已在執行環境上的比對照原樣,大小寫不同就重排一次」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、FR-018、使用者故事 3 驗收情境 5
-- [ ] T084b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/domain/model_name.py` 只寫讓 US3-API-13 通過的程式碼;已在執行環境上與已在佇列的比對改用 `src/cgb/domain/model_name.py` 的 `match_key`(依賴 T076b),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T084a)
+- [X] T084b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/domain/model_name.py` 只寫讓 US3-API-13 通過的程式碼;已在執行環境上與已在佇列的比對改用 `src/cgb/domain/model_name.py` 的 `match_key`(依賴 T076b),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T084a)
   - 🧪 `testplan.md` § US3-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、FR-018、使用者故事 3 驗收情境 5

@@ -31,6 +31,7 @@ from cgb.server import Servers
 from fakes import (
     FakeColabControl,
     FakeGoogleOAuth,
+    FakeHuggingFaceHub,
     FakeModelLibrary,
     FakeOllamaServer,
     FakeRemoteOllama,
@@ -140,6 +141,7 @@ class Fakes:
     remote_ollama: FakeRemoteOllama
     model_library: FakeModelLibrary
     google_oauth: FakeGoogleOAuth
+    huggingface: FakeHuggingFaceHub
     server: FakeOllamaServer
 
     def as_kwargs(self) -> dict[str, Any]:
@@ -149,6 +151,7 @@ class Fakes:
             "remote_ollama": self.remote_ollama,
             "model_library": self.model_library,
             "google_oauth": self.google_oauth,
+            "huggingface": self.huggingface,
         }
 
 
@@ -169,6 +172,7 @@ def fakes(ollama_server: FakeOllamaServer) -> Fakes:
         remote_ollama=FakeRemoteOllama(ollama_server),
         model_library=FakeModelLibrary(),
         google_oauth=FakeGoogleOAuth(),
+        huggingface=FakeHuggingFaceHub(),
         server=ollama_server,
     )
 
