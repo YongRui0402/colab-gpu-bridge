@@ -760,6 +760,7 @@ def err_download_in_progress(w: World) -> httpx.Response:
 
 
 def err_download_not_found(w: World) -> httpx.Response:
+    w.start()
     return trigger_ok(w, "POST", "/downloads/999999/retry")
 
 
