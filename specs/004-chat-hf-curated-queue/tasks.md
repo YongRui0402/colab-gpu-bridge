@@ -2162,41 +2162,41 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(Playwright)接測試行程內真的後端(`tests/e2e/conftest.py` 的 `e2e_servers`,UI 127.0.0.1:8781),轉接層用替身;e2e 用固定 port,同一時間只跑一份
 
-- [ ] T227a [US5] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-01 的測試(打開首頁的開啟面板;分隔註解寫 `# ---- 004 US5-AJ-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「只從畫面藏掉 H100 的文字、`<input value="H100">` 還在」這類實作而失敗
+- [x] T227a [US5] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-01 的測試(打開首頁的開啟面板;分隔註解寫 `# ---- 004 US5-AJ-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「只從畫面藏掉 H100 的文字、`<input value="H100">` 還在」這類實作而失敗
   - 🧪 `testplan.md` § US5-AJ-01
   - ⚙ `prototype/index.html` § `#open`、`#switch`、`[data-state="normal"]`、`[data-state="ready"]`、`[data-state="confirm-switch"]`
   - 📎 `spec.md` § FR-017、SC-005
-- [ ] T227b [US5] 🟢 /tdd 綠燈:在 `src/cgb/static/js/session.js` 只寫讓 US5-AJ-01 通過的程式碼;開啟面板的選單改用不含 H100 的清單,`RUNTIME_TYPES` 與 `typeInfo` 保留 H100(頁首、紀錄與精選清單照常顯示),預設仍是 T4,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T227a)
+- [x] T227b [US5] 🟢 /tdd 綠燈:在 `src/cgb/static/js/session.js` 只寫讓 US5-AJ-01 通過的程式碼;開啟面板的選單改用不含 H100 的清單,`RUNTIME_TYPES` 與 `typeInfo` 保留 H100(頁首、紀錄與精選清單照常顯示),預設仍是 T4,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T227a)
   - 🧪 `testplan.md` § US5-AJ-01
   - ⚙ `prototype/index.html` § `#open`、`#switch`、`[data-state="normal"]`、`[data-state="ready"]`、`[data-state="confirm-switch"]`
   - 📎 `spec.md` § FR-017、SC-005
-- [ ] T228a [US5] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-02 的測試(按「變更類型」打開選單;分隔註解寫 `# ---- 004 US5-AJ-02`(`plan.md` § 待決問題 Q34));T227b 改的類型選單(開啟面板與變更類型共用 `src/cgb/static/js/session.js` 的同一段 `RUNTIME_TYPES.map`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只改了開啟面板的清單,變更類型的選單用的是另一份 `RUNTIME_TYPES`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [x] T228a [US5] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-02 的測試(按「變更類型」打開選單;分隔註解寫 `# ---- 004 US5-AJ-02`(`plan.md` § 待決問題 Q34));T227b 改的類型選單(開啟面板與變更類型共用 `src/cgb/static/js/session.js` 的同一段 `RUNTIME_TYPES.map`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只改了開啟面板的清單,變更類型的選單用的是另一份 `RUNTIME_TYPES`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US5-AJ-02
   - ⚙ `prototype/index.html` § `#open`、`#switch`、`[data-state="normal"]`、`[data-state="ready"]`、`[data-state="confirm-switch"]`
   - 📎 `spec.md` § FR-017、SC-005
-- [ ] T228b [US5] 🟢 /tdd 綠燈:US5-AJ-02 由 T227b 改的類型選單(開啟面板與變更類型共用 `src/cgb/static/js/session.js` 的同一段 `RUNTIME_TYPES.map`) 滿足,確認 `src/cgb/static/js/session.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/session.js` 只寫讓 US5-AJ-02 通過的程式碼(依賴 T228a)
+- [x] T228b [US5] 🟢 /tdd 綠燈:US5-AJ-02 由 T227b 改的類型選單(開啟面板與變更類型共用 `src/cgb/static/js/session.js` 的同一段 `RUNTIME_TYPES.map`) 滿足,確認 `src/cgb/static/js/session.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/session.js` 只寫讓 US5-AJ-02 通過的程式碼(依賴 T228a)
   - 🧪 `testplan.md` § US5-AJ-02
   - ⚙ `prototype/index.html` § `#open`、`#switch`、`[data-state="normal"]`、`[data-state="ready"]`、`[data-state="confirm-switch"]`
   - 📎 `spec.md` § FR-017、SC-005
-- [ ] T229a [US5] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-03 的測試(打開紀錄頁;分隔註解寫 `# ---- 004 US5-AJ-03`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/history.js` 的類型顯示,加上 T227b 只從選單拿掉 H100、`RUNTIME_TYPES` 保留 H100已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「從 `RUNTIME_TYPES` 刪掉 H100,紀錄頁查不到就顯示空白或「未知」」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [x] T229a [US5] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-03 的測試(打開紀錄頁;分隔註解寫 `# ---- 004 US5-AJ-03`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/history.js` 的類型顯示,加上 T227b 只從選單拿掉 H100、`RUNTIME_TYPES` 保留 H100已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「從 `RUNTIME_TYPES` 刪掉 H100,紀錄頁查不到就顯示空白或「未知」」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US5-AJ-03
   - 📎 `spec.md` § FR-017、SC-005
-- [ ] T229b [US5] 🟢 /tdd 綠燈:US5-AJ-03 由 既有 `src/cgb/static/js/history.js` 的類型顯示,加上 T227b 只從選單拿掉 H100、`RUNTIME_TYPES` 保留 H100 滿足,確認 `src/cgb/static/js/history.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/history.js` 只寫讓 US5-AJ-03 通過的程式碼(依賴 T229a)
+- [x] T229b [US5] 🟢 /tdd 綠燈:US5-AJ-03 由 既有 `src/cgb/static/js/history.js` 的類型顯示,加上 T227b 只從選單拿掉 H100、`RUNTIME_TYPES` 保留 H100 滿足,確認 `src/cgb/static/js/history.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/history.js` 只寫讓 US5-AJ-03 通過的程式碼(依賴 T229a)
   - 🧪 `testplan.md` § US5-AJ-03
   - 📎 `spec.md` § FR-017、SC-005
-- [ ] T230a [US5] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-04 的測試(情況 A 看清單;情況 B 打開 `llama3.2:3b` 的修改表單;情況 C 打開 `qwen2.5` 的修改表單,不改類型就送出;分隔註解寫 `# ---- 004 US5-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改既有 H100 項目時選單沒有對應的選項,預設跳成「不指定」,一送出就把 H100 清掉(`plan.md` Q31)」這類實作而失敗
+- [x] T230a [US5] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-04 的測試(情況 A 看清單;情況 B 打開 `llama3.2:3b` 的修改表單;情況 C 打開 `qwen2.5` 的修改表單,不改類型就送出;分隔註解寫 `# ---- 004 US5-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改既有 H100 項目時選單沒有對應的選項,預設跳成「不指定」,一送出就把 H100 清掉(`plan.md` Q31)」這類實作而失敗
   - 🧪 `testplan.md` § US5-AJ-04
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-017、SC-005;`plan.md` § 待決問題 Q31
-- [ ] T230b [US5] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US5-AJ-04 通過的程式碼;精選清單建議類型選單不列 H100,修改既有 H100 項目時加「維持目前設定」(`#c-type-keep`,`plan.md` § 待決問題 Q31),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T230a)
+- [x] T230b [US5] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US5-AJ-04 通過的程式碼;精選清單建議類型選單不列 H100,修改既有 H100 項目時加「維持目前設定」(`#c-type-keep`,`plan.md` § 待決問題 Q31),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T230a)
   - 🧪 `testplan.md` § US5-AJ-04
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-017、SC-005;`plan.md` § 待決問題 Q31
-- [ ] T258a [US5] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-05 的測試(按「新增」打開新增表單;分隔註解寫 `# ---- 004 US5-AJ-05`(`plan.md` § 待決問題 Q34));T230b 讓精選表單的 `#c-type` 不列 H100(新增與修改共用同一份選項,「維持目前設定」只在修改既有 H100 項目時加)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只在修改表單過濾 H100,新增表單用的是另一份清單」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [x] T258a [US5] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-05 的測試(按「新增」打開新增表單;分隔註解寫 `# ---- 004 US5-AJ-05`(`plan.md` § 待決問題 Q34));T230b 讓精選表單的 `#c-type` 不列 H100(新增與修改共用同一份選項,「維持目前設定」只在修改既有 H100 項目時加)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只在修改表單過濾 H100,新增表單用的是另一份清單」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US5-AJ-05
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-017、SC-005
-- [ ] T258b [US5] 🟢 /tdd 綠燈:US5-AJ-05 由 T230b 讓精選表單的 `#c-type` 不列 H100(新增與修改共用同一份選項,「維持目前設定」只在修改既有 H100 項目時加)滿足,確認 `src/cgb/static/js/library.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/library.js` 只寫讓 US5-AJ-05 通過的程式碼(依賴 T258a)
+- [x] T258b [US5] 🟢 /tdd 綠燈:US5-AJ-05 由 T230b 讓精選表單的 `#c-type` 不列 H100(新增與修改共用同一份選項,「維持目前設定」只在修改既有 H100 項目時加)滿足,確認 `src/cgb/static/js/library.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/library.js` 只寫讓 US5-AJ-05 通過的程式碼(依賴 T258a)
   - 🧪 `testplan.md` § US5-AJ-05
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-017、SC-005

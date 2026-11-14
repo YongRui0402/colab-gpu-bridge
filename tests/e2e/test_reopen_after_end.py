@@ -18,7 +18,7 @@ def open_from(page: Page, state: str) -> None:
     """在結束類狀態的區塊裡改選 L4 再按「開啟」:送出 `POST /api/session`,之後開到就緒。"""
     panel = page.locator(f'[data-state="{state}"]')
     expect(panel).to_be_visible()
-    expect(panel.locator('input[type="radio"]')).to_have_count(5)
+    expect(panel.locator('input[type="radio"]')).to_have_count(4)
     panel.locator('input[type="radio"][value="L4"]').check()
 
     with page.expect_request(lambda r: r.method == "POST" and r.url.endswith("/api/session")) as sent:

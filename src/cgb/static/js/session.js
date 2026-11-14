@@ -4,6 +4,8 @@ import { startHeader } from "./header.js";
 import { RUNTIME_TYPES, cu, duration, mmss, showState, typeInfo, typeText } from "./view.js";
 
 // 可選的類型與顯示記憶體在 view.js(FR-009 預設 T4、不開高 RAM)
+// 選單不列開不到的 H100(FR-017);`RUNTIME_TYPES` 仍保留它,頁首與既有的 H100 工作階段照常顯示
+const PICKABLE_TYPES = RUNTIME_TYPES.filter((t) => !t.hidden);
 
 // 開啟的步驟(contracts/ui.openapi.yaml § OpeningStep)與畫面上的文字
 const OPEN_STEPS = [
@@ -49,7 +51,7 @@ function renderPicker() {
     box.innerHTML = `
       <label>執行階段類型</label>
       <div class="type-picker">
-        ${RUNTIME_TYPES.map((t) => `
+        ${PICKABLE_TYPES.map((t) => `
           <label class="type-option">
             <input type="radio" name="type-${key}" value="${t.id}" ${picked.gpu === t.id ? "checked" : ""}>
             <strong>${t.id}${t.id === "T4" ? "(預設)" : ""}</strong>
