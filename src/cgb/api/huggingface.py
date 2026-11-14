@@ -32,6 +32,17 @@ def _model_payload(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _quant_payload(author: str, model: str, local_keys: set[str] | None, quant: dict[str, Any]) -> dict[str, Any]:
+    """`HfQuant`:「已下載」不分大小寫比對(FR-018);讀不到模型清單(`local_keys` 為 None)時一律 false。"""
+    name = f"{HF_PREFIX}{author}/{model}:{quant['quant']}"
+    return {
+        "quant": quant["quant"],
+        "name": name,
+        "sizeBytes": quant["sizeBytes"],
+        "downloaded": local_keys is not None and match_key(name) in local_keys,
+    }
+
+
 @router.get("/huggingface/search")
 async def search_hf_models(request: Request, q: str | None = None, cursor: str | None = None) -> JSONResponse:
     # 不以 FastAPI 的 `Query(...)` 驗:它的 422 與 `detail` 不是合約的 `Error`
@@ -55,15 +66,12 @@ async def search_hf_models(request: Request, q: str | None = None, cursor: str |
     )
 
 
-@router.get("/huggingface/models/{author}/{model}/quants")
-async def list_hf_quants(request: Request, author: str, model: str) -> JSONResponse:
-    # 不以 FastAPI 的 `Path(pattern=...)` 驗:它的 422 與 `detail` 不是合約的 `Error`
-    if not (_HF_ID_PART.fullmatch(author) and _HF_ID_PART.fullmatch(model)):
-        raise ApiError(400, "INVALID_HF_MODEL_ID")
+async def _expand(request: Request, author: str, model: str) -> tuple[list[dict[str, Any]], set[str] | None]:
+    """展開的兩段並行、期限都從收到請求起算(Q67):回傳 (量化版本, 執行環境已下載的比對鍵);
+    後者在沒有就緒的工作階段、讀不到或期限內沒讀完時是 None。離開時兩段都取消(Hugging Face 逾時或出錯時不留背景讀取)。"""
     deadline = request.app.state.cgb.timeouts.hf_expand_deadline
     loop = asyncio.get_running_loop()
     started = loop.time()
-    # Hugging Face 這一段與讀模型清單同時開始,期限都從收到請求起算(Q67;兩段不串接)
     quants_task = asyncio.create_task(request.app.state.cgb.huggingface.list_quants(author=author, model=model))
     keys_task = asyncio.create_task(request.app.state.services.downloads.local_keys())
     try:
@@ -73,7 +81,6 @@ async def list_hf_quants(request: Request, author: str, model: str) -> JSONRespo
             raise hf_error(error.code) from None
         except TimeoutError:
             raise hf_error("HF_TIMEOUT") from None
-        # 「已下載」不分大小寫比對(FR-018);沒有就緒的工作階段、讀不到或期限內沒讀完時 `runtimeChecked` 為 false
         try:
             local_keys = await asyncio.wait_for(keys_task, timeout=max(0.0, deadline - (loop.time() - started)))
         except TimeoutError:
@@ -81,21 +88,20 @@ async def list_hf_quants(request: Request, author: str, model: str) -> JSONRespo
     finally:
         quants_task.cancel()
         keys_task.cancel()
+    return quants, local_keys
 
-    def quant_payload(quant: dict[str, Any]) -> dict[str, Any]:
-        name = f"{HF_PREFIX}{author}/{model}:{quant['quant']}"
-        return {
-            "quant": quant["quant"],
-            "name": name,
-            "sizeBytes": quant["sizeBytes"],
-            "downloaded": local_keys is not None and match_key(name) in local_keys,
-        }
 
+@router.get("/huggingface/models/{author}/{model}/quants")
+async def list_hf_quants(request: Request, author: str, model: str) -> JSONResponse:
+    # 不以 FastAPI 的 `Path(pattern=...)` 驗:它的 422 與 `detail` 不是合約的 `Error`
+    if not (_HF_ID_PART.fullmatch(author) and _HF_ID_PART.fullmatch(model)):
+        raise ApiError(400, "INVALID_HF_MODEL_ID")
+    quants, local_keys = await _expand(request, author, model)
     return JSONResponse(
         {
             "author": author,
             "model": model,
             "runtimeChecked": local_keys is not None,
-            "quants": [quant_payload(quant) for quant in quants],
+            "quants": [_quant_payload(author, model, local_keys, quant) for quant in quants],
         }
     )

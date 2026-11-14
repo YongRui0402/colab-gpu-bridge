@@ -1,6 +1,7 @@
 """下載佇列(FR-017、FR-021、FR-010;contracts/ui.openapi.yaml § DownloadQueue)。一次一個,依佇列順序(research.md R5)。"""
 
 import asyncio
+from collections.abc import Iterable
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
@@ -23,6 +24,11 @@ FAILED_FALLBACK_MESSAGE = "下載失敗,請稍後重新排隊再試。"
 
 # 工作階段變成這些狀態時清空下載佇列(`info.x-queue-clearing` (1));重連中(還可能接回同一台)不清
 QUEUE_CLEARING_STATES = frozenset({"ending", "ended", "open_failed", "lost"})
+
+
+def _key_set(names: Iterable[str]) -> set[str]:
+    """名稱集合轉成比對鍵集合(不分大小寫、補過版本)。"""
+    return {match_key(name) for name in names}
 
 
 class DownloadsService:
@@ -109,7 +115,15 @@ class DownloadsService:
             models = (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]
         except AdapterError:
             return None
-        return {match_key(m["name"]) for m in models}
+        return _key_set(m["name"] for m in models)
+
+    async def _runtime_keys(self, base_url: str) -> set[str]:
+        """執行環境上已下載的模型的比對鍵;讀不到時依代碼轉成 502 或 504(和 `local_keys` 不同,它不吞錯誤)。"""
+        try:
+            models = (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]
+        except AdapterError as error:
+            raise ollama_error(error.code) from None
+        return _key_set(m["name"] for m in models)
 
     async def _checked(self, models: list[str]) -> list[str]:
         """試算與加入共用的重複檢查(contracts/ui.openapi.yaml § info.x-download-check-order):回傳補過版本的名稱。"""
@@ -119,11 +133,8 @@ class DownloadsService:
         for model in models:
             merged.setdefault(match_key(model), with_version(model))
         versioned = list(merged.values())
-        try:
-            local = {match_key(m["name"]) for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
-        except AdapterError as error:
-            raise ollama_error(error.code) from None
-        pending = {match_key(row["model"]) for row in self.pending()}
+        local = await self._runtime_keys(base_url)
+        pending = _key_set(row["model"] for row in self.pending())
         for model in versioned:
             if match_key(model) in local:
                 raise ApiError(409, "MODEL_ALREADY_DOWNLOADED", model=model)
@@ -201,11 +212,7 @@ class DownloadsService:
         if row["state"] != "failed":
             raise ApiError(409, "DOWNLOAD_NOT_RETRYABLE")
         base_url = self._lifecycle.require_ready_base_url()
-        try:
-            local = {match_key(m["name"]) for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
-        except AdapterError as error:
-            raise ollama_error(error.code) from None
-        if match_key(row["model"]) in local:
+        if match_key(row["model"]) in await self._runtime_keys(base_url):
             raise ApiError(409, "MODEL_ALREADY_DOWNLOADED", model=row["model"])
         self._repo.requeue(job_id)
         self._publish(job_id)

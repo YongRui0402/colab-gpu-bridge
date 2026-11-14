@@ -9,14 +9,17 @@ import asyncio
 import threading
 import time
 from collections.abc import Callable, Iterator
+from dataclasses import replace
 from typing import Any
 
 import httpx
 import pytest
 
 from cgb.adapters.errors import AdapterError
+from cgb.app import AppPair
 from cgb.db.connection import connect
 from cgb.domain.errors import MESSAGES
+from conftest import TEST_TIMEOUTS
 from fakes import Gate, JsonReply
 from integration.test_api_events import sse_events
 from integration.test_api_models import (
@@ -1999,3 +2002,60 @@ async def test_下載完成的_hf_co_模型出現在模型目錄(ui_client: http
     # Assert
     assert [(job["model"], job["state"], job["source"]) for job in done["jobs"]] == [(HF_Q4, "completed", "huggingface")]
     assert HF_Q4 in names
+
+
+# ---- 004 US4-API-30
+
+
+async def test_試算依序取大小的總時間超過展開期限也不逾時_每個大小各算自己的期限(make_app: Callable[..., AppPair], fakes: Any) -> None:
+    # Arrange:每次取大小 0.15 秒,三個依序取共約 0.45 秒;注入的展開整體期限 0.3 秒(plan.md Q44)
+    from integration.test_api_recovery import running  # 延後匯入:test_api_recovery 匯入本檔,頂層匯入會循環
+
+    async def slow_manifest(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        await asyncio.sleep(0.15)
+        return {"sizeBytes": {"Q4_K_M": 100, "Q8_0": 200, "latest": 300}[kwargs["tag"]]}
+
+    downloadable(fakes)
+    fakes.huggingface.get_manifest.side_effect(slow_manifest)
+    fakes.huggingface.list_quants.reset_calls()
+    async with running(make_app(timeouts=replace(TEST_TIMEOUTS, hf_expand_deadline=0.3))) as client:
+        await open_ready(client)
+
+        # Act
+        response = await client.post("/api/downloads/estimate", json={"models": ["hf.co/a/b:Q4_K_M", "hf.co/c/d:Q8_0", "hf.co/e/f"]})
+
+    # Assert
+    assert response.status_code == 200  # 則1
+    assert len(body_of(response).get("items", [])) == 3
+    assert [call.kwargs for call in fakes.huggingface.get_manifest.calls] == [  # 則2
+        {"author": "a", "model": "b", "tag": "Q4_K_M"},
+        {"author": "c", "model": "d", "tag": "Q8_0"},
+        {"author": "e", "model": "f", "tag": "latest"},
+    ]
+    assert fakes.huggingface.list_quants.call_count == 0  # 則3
+
+
+# ---- 004 US4-API-33
+
+
+async def test_重新排隊不讀剩餘磁碟也不重新取大小_讀不到磁碟照樣排回佇列(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:加入 qwen2.5:7b 讓它失敗;之後讀不到執行環境的資源,並清掉呼叫紀錄
+    downloadable(fakes)
+    fakes.remote_ollama.pull_model.raises("OLLAMA_PULL_FAILED")
+    await open_ready(ui_client)
+    await ui_client.post("/api/downloads", json={"models": [QWEN_7B]})
+    failed = await wait_queue(ui_client, lambda q: states(q) == [(QWEN_7B, "failed")])
+    job_id = failed["jobs"][0]["id"]
+    hold = hold_pulls(fakes)
+    fakes.colab.probe_resources.raises("COLAB_UNREACHABLE", "連不到執行環境")
+    fakes.colab.probe_resources.reset_calls()
+    fakes.model_library.get_manifest.reset_calls()
+
+    # Act
+    response = await ui_client.post(f"/api/downloads/{job_id}/retry")
+    hold.release()
+
+    # Assert
+    assert (response.status_code, body_of(response).get("state")) == (200, "queued")  # 則1
+    assert fakes.colab.probe_resources.call_count == 0  # 則2
+    assert fakes.model_library.get_manifest.call_count == 0  # 則3

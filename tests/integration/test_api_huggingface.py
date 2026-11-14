@@ -11,6 +11,7 @@ from typing import Any
 
 import httpx
 
+from cgb.adapters.errors import AdapterError
 from cgb.app import AppPair
 from cgb.domain.errors import MESSAGES
 from conftest import TEST_TIMEOUTS
@@ -342,3 +343,97 @@ async def test_展開的作者或模型名稱組不出_hf_co_名稱時回_400_�
     # Assert
     assert results == {case: (400, "INVALID_HF_MODEL_ID") for case in paths}
     assert fakes.huggingface.list_quants.call_count == 0
+
+
+# ---- 004 US4-API-31
+
+
+async def test_四個操作遇到_Hugging_Face_的七種失敗都回固定訊息與合約的狀態碼_不含底層文字(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:工作階段就緒;底層訊息塞了網址與堆疊,不該出現在任何回應
+    downloadable(fakes)
+    await open_ready(ui_client)
+    leaked = "ConnectError https://huggingface.co/api/models?search=x Traceback (most recent call last)"
+    expected_status = {
+        "HF_UNREACHABLE": 502,
+        "HF_TIMEOUT": 504,
+        "HF_SERVER_ERROR": 502,
+        "HF_BAD_RESPONSE": 502,
+        "HF_AUTH_REQUIRED": 422,
+        "HF_NO_GGUF": 422,
+        "HF_QUANT_UNAVAILABLE": 422,
+    }
+    responses: list[tuple[str, str, httpx.Response]] = []
+
+    # Act
+    for code in expected_status:
+        for method in (fakes.huggingface.search_models, fakes.huggingface.list_quants, fakes.huggingface.get_manifest):
+            method.raises(code, leaked)
+        for operation, call in {
+            "搜尋": lambda: ui_client.get("/api/huggingface/search?q=x"),
+            "展開": lambda: ui_client.get("/api/huggingface/models/a/b/quants"),
+            "試算": lambda: ui_client.post("/api/downloads/estimate", json={"models": ["hf.co/a/b:Q4_K_M"]}),
+            "加入": lambda: ui_client.post("/api/downloads", json={"models": ["hf.co/a/b:Q4_K_M"]}),
+        }.items():
+            responses.append((code, operation, await call()))
+
+    # Assert
+    assert [(code, operation) for code, operation, r in responses if r.status_code == 500] == []  # 則1
+    assert [(code, operation) for code, operation, r in responses if "huggingface.co/api" in r.text] == []  # 則2
+    assert [(code, operation) for code, operation, r in responses if "Traceback" in r.text] == []  # 則3
+    assert [(code, operation) for code, operation, r in responses if r.json().get("message") != MESSAGES[code]] == []  # 則4、則5
+    assert [(code, operation) for code, operation, r in responses if r.status_code != expected_status[code]] == []  # 則6
+    assert len(responses) == 28
+
+
+# ---- 004 US4-API-32
+
+
+async def test_展開時兩段同時開始_Hugging_Face_逾時或出錯時立刻回應並取消讀模型清單(make_app: Callable[..., AppPair], fakes: Any) -> None:
+    # Arrange:展開的期限縮短成 0.3 秒(plan.md Q44、Q67);`list_local_models` 被取消時記下時間
+    loop = asyncio.get_running_loop()
+    cancelled_at: list[float] = []
+    list_local = {"delay": 0.0}
+
+    async def local_models(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        try:
+            await asyncio.sleep(list_local["delay"])
+        except asyncio.CancelledError:
+            cancelled_at.append(loop.time())
+            raise
+        return {"models": []}
+
+    def quants_after(delay: float, code: str | None = None) -> Callable[..., Any]:
+        async def list_quants(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+            await asyncio.sleep(delay)
+            if code is not None:
+                raise AdapterError(code, "hf failure")
+            return hf_quants(("Q4_K_M", 105_455_145))
+
+        return list_quants
+
+    downloadable(fakes)
+    fakes.remote_ollama.list_local_models.side_effect(local_models)
+    async with running(make_app(timeouts=replace(TEST_TIMEOUTS, hf_expand_deadline=0.3))) as client:
+        await open_ready(client)
+        outcomes: dict[str, tuple[httpx.Response, float, float]] = {}
+
+        async def expand(case: str, *, local_delay: float, quants: Callable[..., Any]) -> None:
+            list_local["delay"] = local_delay
+            fakes.huggingface.list_quants.side_effect(quants)
+            sent = loop.time()
+            response = await client.get(f"/api/huggingface/models/{SMOLLM_QUANTS}/quants")
+            outcomes[case] = (response, loop.time() - sent, loop.time())
+
+        # Act
+        await expand("B", local_delay=0.15, quants=quants_after(0.25))
+        await expand("C", local_delay=5, quants=quants_after(0.3, "HF_TIMEOUT"))
+        await expand("D", local_delay=5, quants=quants_after(0.1, "HF_UNREACHABLE"))
+
+    # Assert
+    assert (outcomes["B"][0].status_code, outcomes["B"][0].json().get("runtimeChecked")) == (200, True)  # 則1
+    assert 0.25 <= outcomes["B"][1] <= 0.37  # 則2:兩段平行;串接時要 0.4 秒
+    assert (outcomes["C"][0].status_code, error_code(outcomes["C"][0])) == (504, "HF_TIMEOUT")  # 則3
+    assert (outcomes["D"][0].status_code, error_code(outcomes["D"][0])) == (502, "HF_UNREACHABLE")  # 則5
+    assert outcomes["D"][1] <= 0.25  # 則6:不等模型清單的期限
+    assert len(cancelled_at) == 2  # 則4、則7:C 與 D 的讀取都被取消
+    assert [abs(at - outcomes[case][2]) <= 0.1 for case, at in zip("CD", cancelled_at)] == [True, True]

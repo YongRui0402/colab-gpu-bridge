@@ -1947,63 +1947,63 @@
   - 🧪 `testplan.md` § US4-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`(`info.x-model-name-rule`、`info.x-download-check-order`)
   - 📎 `spec.md` § FR-014、使用者故事 4 驗收情境 4
-- [ ] T212a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_model_name.py` 寫 US4-API-27 的測試(呼叫 `with_version` 與 `source_of`(`plan.md` § 待決問題 Q49);分隔註解寫 `# ---- 004 US4-API-27`(`plan.md` § 待決問題 Q34)),執行確認它因為「補版本時以 `/` 或 `.` 判斷,把 `hf.co` 的 `.co` 當成版本分隔」這類實作而失敗
+- [X] T212a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_model_name.py` 寫 US4-API-27 的測試(呼叫 `with_version` 與 `source_of`(`plan.md` § 待決問題 Q49);分隔註解寫 `# ---- 004 US4-API-27`(`plan.md` § 待決問題 Q34)),執行確認它因為「補版本時以 `/` 或 `.` 判斷,把 `hf.co` 的 `.co` 當成版本分隔」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018
-- [ ] T212b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/model_name.py` 只寫讓 US4-API-27 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T212a)
+- [X] T212b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/model_name.py` 只寫讓 US4-API-27 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T212a)
   - 🧪 `testplan.md` § US4-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018
-- [ ] T213a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/unit/test_model_name.py` 寫 US4-API-28 的測試(呼叫 `match_key`(`plan.md` § 待決問題 Q49);分隔註解寫 `# ---- 004 US4-API-28`(`plan.md` § 待決問題 Q34));T076b 在 `src/cgb/domain/model_name.py` 建立的 `match_key`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「比對鍵只用 `lower()` 沒先補版本,沒寫版本與 `LATEST` 不相等」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T213a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/unit/test_model_name.py` 寫 US4-API-28 的測試(呼叫 `match_key`(`plan.md` § 待決問題 Q49);分隔註解寫 `# ---- 004 US4-API-28`(`plan.md` § 待決問題 Q34));T076b 在 `src/cgb/domain/model_name.py` 建立的 `match_key`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「比對鍵只用 `lower()` 沒先補版本,沒寫版本與 `LATEST` 不相等」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018
-- [ ] T213b [US4] 🟢 /tdd 綠燈:US4-API-28 由 T076b 在 `src/cgb/domain/model_name.py` 建立的 `match_key` 滿足,確認 `src/cgb/domain/model_name.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/domain/model_name.py` 只寫讓 US4-API-28 通過的程式碼(依賴 T213a)
+- [X] T213b [US4] 🟢 /tdd 綠燈:US4-API-28 由 T076b 在 `src/cgb/domain/model_name.py` 建立的 `match_key` 滿足,確認 `src/cgb/domain/model_name.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/domain/model_name.py` 只寫讓 US4-API-28 通過的程式碼(依賴 T213a)
   - 🧪 `testplan.md` § US4-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018
-- [ ] T214a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/unit/test_model_name.py` 寫 US4-API-29 的測試(呼叫 `is_valid`(`plan.md` § 待決問題 Q49);分隔註解寫 `# ---- 004 US4-API-29`(`plan.md` § 待決問題 Q34));T038b 在 `src/cgb/domain/model_name.py` 建立的 `is_valid`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「pattern 對整條名稱不分大小寫」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T214a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/unit/test_model_name.py` 寫 US4-API-29 的測試(呼叫 `is_valid`(`plan.md` § 待決問題 Q49);分隔註解寫 `# ---- 004 US4-API-29`(`plan.md` § 待決問題 Q34));T038b 在 `src/cgb/domain/model_name.py` 建立的 `is_valid`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「pattern 對整條名稱不分大小寫」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018;`plan.md` § 待決問題 Q9
-- [ ] T214b [US4] 🟢 /tdd 綠燈:US4-API-29 由 T038b 在 `src/cgb/domain/model_name.py` 建立的 `is_valid` 滿足,確認 `src/cgb/domain/model_name.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/domain/model_name.py` 只寫讓 US4-API-29 通過的程式碼(依賴 T214a)
+- [X] T214b [US4] 🟢 /tdd 綠燈:US4-API-29 由 T038b 在 `src/cgb/domain/model_name.py` 建立的 `is_valid` 滿足,確認 `src/cgb/domain/model_name.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/domain/model_name.py` 只寫讓 US4-API-29 通過的程式碼(依賴 T214a)
   - 🧪 `testplan.md` § US4-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018;`plan.md` § 待決問題 Q9
-- [ ] T215a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_downloads.py` 寫 US4-API-30 的測試(試算 `["hf.co/a/b:Q4_K_M", "hf.co/c/d:Q8_0", "hf.co/e/f"]`(三個依序取,共約 0.45 秒);分隔註解寫 `# ---- 004 US4-API-30`(`plan.md` § 待決問題 Q34));T197b 經 `HuggingFaceHub.get_manifest` 取每一個大小(每請求期限,不套展開的整體期限)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「試算取大小重用展開的整體期限(包一層 `asyncio.timeout(展開期限)`),超過 0.3 秒就回 504 `HF_TIMEOUT`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T215a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_downloads.py` 寫 US4-API-30 的測試(試算 `["hf.co/a/b:Q4_K_M", "hf.co/c/d:Q8_0", "hf.co/e/f"]`(三個依序取,共約 0.45 秒);分隔註解寫 `# ---- 004 US4-API-30`(`plan.md` § 待決問題 Q34));T197b 經 `HuggingFaceHub.get_manifest` 取每一個大小(每請求期限,不套展開的整體期限)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「試算取大小重用展開的整體期限(包一層 `asyncio.timeout(展開期限)`),超過 0.3 秒就回 504 `HF_TIMEOUT`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-API-30
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`(`info.x-model-name-rule`、`info.x-download-check-order`)
   - 📎 `spec.md` § NFR-005
-- [ ] T215b [US4] 🟢 /tdd 綠燈:US4-API-30 由 T197b 經 `HuggingFaceHub.get_manifest` 取每一個大小(每請求期限,不套展開的整體期限) 滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/api/downloads.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/api/downloads.py` 只寫讓 US4-API-30 通過的程式碼(依賴 T215a)
+- [X] T215b [US4] 🟢 /tdd 綠燈:US4-API-30 由 T197b 經 `HuggingFaceHub.get_manifest` 取每一個大小(每請求期限,不套展開的整體期限) 滿足,確認 `src/cgb/services/downloads.py`、`src/cgb/api/downloads.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py`、`src/cgb/api/downloads.py` 只寫讓 US4-API-30 通過的程式碼(依賴 T215a)
   - 🧪 `testplan.md` § US4-API-30
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`components.schemas.Error`(`info.x-model-name-rule`、`info.x-download-check-order`)
   - 📎 `spec.md` § NFR-005
-- [ ] T216a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-31 的測試(每一輪各送一次搜尋 `q=x`、展開 `a/b`、試算與加入 `["hf.co/a/b:Q4_K_M"]`;分隔註解寫 `# ---- 004 US4-API-31`(`plan.md` § 待決問題 Q34)),執行確認它因為「把 `AdapterError.message` 或 `str(error)` 放進 `message`」這類實作而失敗
+- [X] T216a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-31 的測試(每一輪各送一次搜尋 `q=x`、展開 `a/b`、試算與加入 `["hf.co/a/b:Q4_K_M"]`;分隔註解寫 `# ---- 004 US4-API-31`(`plan.md` § 待決問題 Q34)),執行確認它因為「把 `AdapterError.message` 或 `str(error)` 放進 `message`」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-31
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`、`paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`paths./downloads.post`、`components.schemas.DownloadJobList`(`info.x-model-name-rule`、`info.x-download-check-order`)
   - 📎 `spec.md` § NFR-006、SC-006、FR-016;`plan.md` § 待決問題 Q69
-- [ ] T216b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/api/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-31 通過的程式碼;四個操作的 `HF_*` 狀態碼共用 `info.x-hf-error-status` 一張對應(502、504、422,`plan.md` § 待決問題 Q69),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T216a)
+- [X] T216b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/api/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-31 通過的程式碼;四個操作的 `HF_*` 狀態碼共用 `info.x-hf-error-status` 一張對應(502、504、422,`plan.md` § 待決問題 Q69),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T216a)
   - 🧪 `testplan.md` § US4-API-31
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`、`paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`paths./downloads.post`、`components.schemas.DownloadJobList`(`info.x-model-name-rule`、`info.x-download-check-order`)
   - 📎 `spec.md` § NFR-006、SC-006、FR-016;`plan.md` § 待決問題 Q69
-- [ ] T253a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-32 的測試(B、C、D 三種情況各展開 `bartowski/SmolLM2-135M-Instruct-GGUF` 一次,記下送出與回應的時間;分隔註解寫 `# ---- 004 US4-API-32`(`plan.md` § 待決問題 Q34)),執行確認它因為「兩段串接(先讀模型清單再問 Hugging Face,或反過來),或 Hugging Face 失敗後沒取消模型清單的讀取」這類實作而失敗
+- [X] T253a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-32 的測試(B、C、D 三種情況各展開 `bartowski/SmolLM2-135M-Instruct-GGUF` 一次,記下送出與回應的時間;分隔註解寫 `# ---- 004 US4-API-32`(`plan.md` § 待決問題 Q34)),執行確認它因為「兩段串接(先讀模型清單再問 Hugging Face,或反過來),或 Hugging Face 失敗後沒取消模型清單的讀取」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-32
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`(`info.x-hf-error-status`)
   - 📎 `spec.md` § FR-014、FR-016、SC-004、NFR-006;`plan.md` § 待決問題 Q67
-- [ ] T253b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-32 通過的程式碼;Hugging Face 這一段與讀模型清單同時開始、都從收到請求起算 `hf_expand_deadline`;Hugging Face 先完成時只等模型清單到同一個期限;Hugging Face 逾時或 400 以外的失敗時取消模型清單的讀取(`contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get` 的時間上限 (a)~(d),`plan.md` § 待決問題 Q67),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T253a)
+- [X] T253b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-32 通過的程式碼;Hugging Face 這一段與讀模型清單同時開始、都從收到請求起算 `hf_expand_deadline`;Hugging Face 先完成時只等模型清單到同一個期限;Hugging Face 逾時或 400 以外的失敗時取消模型清單的讀取(`contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get` 的時間上限 (a)~(d),`plan.md` § 待決問題 Q67),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T253a)
   - 🧪 `testplan.md` § US4-API-32
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`(`info.x-hf-error-status`)
   - 📎 `spec.md` § FR-014、FR-016、SC-004、NFR-006;`plan.md` § 待決問題 Q67
-- [ ] T254a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_downloads.py` 寫 US4-API-33 的測試(送 `POST /api/downloads/{id}/retry`;分隔註解寫 `# ---- 004 US4-API-33`(`plan.md` § 待決問題 Q34));既有 `src/cgb/services/downloads.py` 的 `DownloadsService.retry`(只 `requeue` 與推送,不讀剩餘磁碟)與 T209b、T210b 加的「先確認模型不在執行環境上」已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「照 001 合約先讀剩餘磁碟,讀不到時回 503 `DISK_SPACE_UNKNOWN`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T254a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_downloads.py` 寫 US4-API-33 的測試(送 `POST /api/downloads/{id}/retry`;分隔註解寫 `# ---- 004 US4-API-33`(`plan.md` § 待決問題 Q34));既有 `src/cgb/services/downloads.py` 的 `DownloadsService.retry`(只 `requeue` 與推送,不讀剩餘磁碟)與 T209b、T210b 加的「先確認模型不在執行環境上」已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「照 001 合約先讀剩餘磁碟,讀不到時回 503 `DISK_SPACE_UNKNOWN`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-API-33
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/{id}/retry.post`、`components.schemas.DownloadJob`、`components.schemas.Error`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018、NFR-006;`plan.md` § 待決問題 Q56
-- [ ] T254b [US4] 🟢 /tdd 綠燈:US4-API-33 由 既有 `src/cgb/services/downloads.py` 的 `DownloadsService.retry`(只 `requeue` 與推送,不讀剩餘磁碟)與 T209b、T210b 加的「先確認模型不在執行環境上」滿足,確認 `src/cgb/services/downloads.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py` 只寫讓 US4-API-33 通過的程式碼(依賴 T254a)
+- [X] T254b [US4] 🟢 /tdd 綠燈:US4-API-33 由 既有 `src/cgb/services/downloads.py` 的 `DownloadsService.retry`(只 `requeue` 與推送,不讀剩餘磁碟)與 T209b、T210b 加的「先確認模型不在執行環境上」滿足,確認 `src/cgb/services/downloads.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py` 只寫讓 US4-API-33 通過的程式碼(依賴 T254a)
   - 🧪 `testplan.md` § US4-API-33
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/{id}/retry.post`、`components.schemas.DownloadJob`、`components.schemas.Error`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018、NFR-006;`plan.md` § 待決問題 Q56
-- [ ] T217 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T186b~T216b、T253b~T254b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/unit/test_model_name.py` 的斷言(依賴 T254b)
+- [X] T217 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T186b~T216b、T253b~T254b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/unit/test_model_name.py` 的斷言(依賴 T254b)
   - 🧪 `testplan.md` § US4-API-01~US4-API-31、US4-API-32~US4-API-33
   - 📎 `testplan.md` § 5.3
 
