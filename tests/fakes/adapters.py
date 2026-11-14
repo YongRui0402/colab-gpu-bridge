@@ -22,6 +22,7 @@ from typing import Any
 from cgb.adapters.colab_cli import ColabControl
 from cgb.adapters.errors import AdapterError
 from cgb.adapters.google_oauth import GoogleOAuth
+from cgb.adapters.huggingface import HuggingFaceHub
 from cgb.adapters.model_library import ModelLibrary
 from cgb.adapters.remote_ollama import RemoteOllama
 from cgb.adapters.tunnel import Tunnel
@@ -312,25 +313,13 @@ class FakeModelLibrary(_FakeAdapter):
     METHODS = ("search_library", "list_model_tags", "get_manifest")
 
 
-class _HuggingFaceHubShape:
-    """`FakeHuggingFaceHub` 的簽章來源(plan.md Q49、Q65):真的 `HuggingFaceHub` 由故事 4 的 E12 建好後,`REAL` 改指它。"""
-
-    async def search_models(self, query: str, cursor: str | None = None) -> dict[str, Any]: ...
-
-    async def list_repo_files(self, author: str, model: str) -> list[str]: ...
-
-    async def get_manifest(self, author: str, model: str, tag: str) -> dict[str, Any]: ...
-
-    async def list_quants(self, author: str, model: str) -> list[dict[str, Any]]: ...
-
-
 class FakeHuggingFaceHub(_FakeAdapter):
     """`contracts/huggingface.openapi.yaml` 的 `HuggingFaceHub`(plan.md Q49:四個方法一次寫齊)。
 
     `get_manifest(author=, model=, tag=)` 回 `{"sizeBytes"}`;`list_quants(author=, model=)` 回 `[{"quant", "sizeBytes"}]`。
     """
 
-    REAL = _HuggingFaceHubShape
+    REAL = HuggingFaceHub
     METHODS = ("search_models", "list_repo_files", "get_manifest", "list_quants")
 
 

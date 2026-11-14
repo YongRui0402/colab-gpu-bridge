@@ -1321,35 +1321,35 @@
 
 > E12、E7、E2 三節平行。E12 只改 `src/cgb/adapters/huggingface.py`、`src/cgb/domain/hf_quants.py`、`tests/integration/test_huggingface.py`、`tests/unit/test_hf_quants.py`,以及 T136b 寫明的 `tests/integration/test_fake_signatures.py` 與 `tests/fakes/adapters.py`(`FakeHuggingFaceHub` 由故事 3 建立,簽章照 `plan.md` § 待決問題 Q49;E2 節不改它的簽章)。真的 `HuggingFaceHub` 接 `httpx.MockTransport`,不連網;每請求期限 `request_timeout` 與整體期限 `expand_deadline` 以短值注入(`plan.md` § 待決問題 Q44、Q38)
 
-- [ ] T132a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_hf_quants.py` 寫 US4-HF-01 的測試(對下列路徑各呼叫一次 `quant_name(path)`:A `qwen2.5-0.5b-instruct-q4_k_m.gguf`;B `llama-2-7b.Q4_K_M.gguf`(TheBloke 式 `<模型>.<量化>.gguf`,research.md 待驗證);C `Q4_K_M.gguf`(沒有分隔符);D `Q8_0/SmolLM2-135M-Instruct-Q8_0.gguf`(在子資料夾);E `SmolLM2-135M-Instruct-F16.GGUF`(副檔名大寫);分隔註解寫 `# ---- 004 US4-HF-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「只以 `-` 切開,B 切出 `7b.Q4_K_M`」這類實作而失敗
+- [X] T132a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_hf_quants.py` 寫 US4-HF-01 的測試(對下列路徑各呼叫一次 `quant_name(path)`:A `qwen2.5-0.5b-instruct-q4_k_m.gguf`;B `llama-2-7b.Q4_K_M.gguf`(TheBloke 式 `<模型>.<量化>.gguf`,research.md 待驗證);C `Q4_K_M.gguf`(沒有分隔符);D `Q8_0/SmolLM2-135M-Instruct-Q8_0.gguf`(在子資料夾);E `SmolLM2-135M-Instruct-F16.GGUF`(副檔名大寫);分隔註解寫 `# ---- 004 US4-HF-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「只以 `-` 切開,B 切出 `7b.Q4_K_M`」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-01
   - 📎 `spec.md` § FR-014
-- [ ] T132b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/hf_quants.py` 只寫讓 US4-HF-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T132a)
+- [X] T132b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/hf_quants.py` 只寫讓 US4-HF-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T132a)
   - 🧪 `testplan.md` § US4-HF-01
   - 📎 `spec.md` § FR-014
-- [ ] T133a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_hf_quants.py` 寫 US4-HF-02 的測試(對下列路徑各呼叫一次 `quant_name(path)`:A `Meta-Llama-3.1-70B-Instruct-Q5_K_M-00001-of-00002.gguf`;B `Q8_0/Meta-Llama-3.1-70B-Instruct-Q8_0-00002-of-00002.gguf`;再呼叫 `candidates(["m-Q6_K-00001-of-00003.gguf","m-Q6_K-00002-of-00003.gguf","m-Q6_K-00003-of-00003.gguf"])`;分隔註解寫 `# ---- 004 US4-HF-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒去掉分割編號,A 切出 `00002`(最後一段)」這類實作而失敗
+- [X] T133a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_hf_quants.py` 寫 US4-HF-02 的測試(對下列路徑各呼叫一次 `quant_name(path)`:A `Meta-Llama-3.1-70B-Instruct-Q5_K_M-00001-of-00002.gguf`;B `Q8_0/Meta-Llama-3.1-70B-Instruct-Q8_0-00002-of-00002.gguf`;再呼叫 `candidates(["m-Q6_K-00001-of-00003.gguf","m-Q6_K-00002-of-00003.gguf","m-Q6_K-00003-of-00003.gguf"])`;分隔註解寫 `# ---- 004 US4-HF-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒去掉分割編號,A 切出 `00002`(最後一段)」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-02
   - 📎 `spec.md` § FR-014
-- [ ] T133b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/hf_quants.py` 只寫讓 US4-HF-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T133a)
+- [X] T133b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/hf_quants.py` 只寫讓 US4-HF-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T133a)
   - 🧪 `testplan.md` § US4-HF-02
   - 📎 `spec.md` § FR-014
-- [ ] T134a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_hf_quants.py` 寫 US4-HF-03 的測試(對下列路徑各呼叫一次 `quant_name(path)`:A `mmproj-model-f16.gguf`;B `Qwen2-VL-2B-Instruct-MMPROJ-F16.gguf`(research.md 待驗證的多模態投影檔);C `mmproj/SmolLM2-135M-Instruct-Q4_K_M.gguf`(只有資料夾名稱含 mmproj);D `README.md`;E `model.safetensors`;F `SmolLM2-135M-Instruct-Q4_K_M.gguf.part`;分隔註解寫 `# ---- 004 US4-HF-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒略過 `mmproj`,A 被列成 `f16` 候選、展開時打到 manifest 而被當成可下載的版本」這類實作而失敗
+- [X] T134a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_hf_quants.py` 寫 US4-HF-03 的測試(對下列路徑各呼叫一次 `quant_name(path)`:A `mmproj-model-f16.gguf`;B `Qwen2-VL-2B-Instruct-MMPROJ-F16.gguf`(research.md 待驗證的多模態投影檔);C `mmproj/SmolLM2-135M-Instruct-Q4_K_M.gguf`(只有資料夾名稱含 mmproj);D `README.md`;E `model.safetensors`;F `SmolLM2-135M-Instruct-Q4_K_M.gguf.part`;分隔註解寫 `# ---- 004 US4-HF-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒略過 `mmproj`,A 被列成 `f16` 候選、展開時打到 manifest 而被當成可下載的版本」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-03
   - 📎 `spec.md` § FR-014、FR-015;`research.md` § R3
-- [ ] T134b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/hf_quants.py` 只寫讓 US4-HF-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T134a)
+- [X] T134b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/hf_quants.py` 只寫讓 US4-HF-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T134a)
   - 🧪 `testplan.md` § US4-HF-03
   - 📎 `spec.md` § FR-014、FR-015;`research.md` § R3
-- [ ] T135a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_hf_quants.py` 寫 US4-HF-04 的測試(呼叫 `candidates(["a-Q4_K_M.gguf","b-q4_k_m.gguf","a-f16.gguf","a-F16.gguf","a-Q2_K.gguf","mmproj-a-f16.gguf","README.md"])`;分隔註解寫 `# ---- 004 US4-HF-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「去重分大小寫,`q4_k_m` 與 `F16` 各多出一個」這類實作而失敗
+- [X] T135a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_hf_quants.py` 寫 US4-HF-04 的測試(呼叫 `candidates(["a-Q4_K_M.gguf","b-q4_k_m.gguf","a-f16.gguf","a-F16.gguf","a-Q2_K.gguf","mmproj-a-f16.gguf","README.md"])`;分隔註解寫 `# ---- 004 US4-HF-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「去重分大小寫,`q4_k_m` 與 `F16` 各多出一個」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-04
   - 📎 `spec.md` § FR-014;`research.md` § R3
-- [ ] T135b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/hf_quants.py` 只寫讓 US4-HF-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T135a)
+- [X] T135b [US4] 🟢 /tdd 綠燈:在 `src/cgb/domain/hf_quants.py` 只寫讓 US4-HF-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T135a)
   - 🧪 `testplan.md` § US4-HF-04
   - 📎 `spec.md` § FR-014;`research.md` § R3
-- [ ] T136a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-05 的測試(呼叫 `search_models("qwen 2.5")`;分隔註解寫 `# ---- 004 US4-HF-05`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/integration/test_huggingface.py` 寫 `Recorder` 與 `HalfBody`、`half_body_reply`(照 `tests/integration/test_model_library.py`、`tests/integration/test_remote_ollama.py`),執行確認它因為「漏帶 `gated=false`,需要同意條款的模型也列出來」這類實作而失敗
+- [X] T136a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-05 的測試(呼叫 `search_models("qwen 2.5")`;分隔註解寫 `# ---- 004 US4-HF-05`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/integration/test_huggingface.py` 寫 `Recorder` 與 `HalfBody`、`half_body_reply`(照 `tests/integration/test_model_library.py`、`tests/integration/test_remote_ollama.py`),執行確認它因為「漏帶 `gated=false`,需要同意條款的模型也列出來」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-05
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q65
-- [ ] T136b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py`、`tests/integration/test_fake_signatures.py` 只寫讓 US4-HF-05 通過的程式碼;新增 `src/cgb/adapters/huggingface.py` 的 `HuggingFaceHub(transport=None, base_url="https://huggingface.co", request_timeout=10, expand_deadline=10)`(`plan.md` § 待決問題 Q44);同一個任務在 `tests/integration/test_fake_signatures.py` 的 `PAIRS` 加 `(HuggingFaceHub, FakeHuggingFaceHub)`(`test_adapters裡每個定義了轉接層類別的模組都在比對清單裡` 會要求),`FakeHuggingFaceHub` 的簽章不符時改 `tests/fakes/adapters.py`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T136a)
+- [X] T136b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py`、`tests/integration/test_fake_signatures.py` 只寫讓 US4-HF-05 通過的程式碼;新增 `src/cgb/adapters/huggingface.py` 的 `HuggingFaceHub(transport=None, base_url="https://huggingface.co", request_timeout=10, expand_deadline=10)`(`plan.md` § 待決問題 Q44);同一個任務在 `tests/integration/test_fake_signatures.py` 的 `PAIRS` 加 `(HuggingFaceHub, FakeHuggingFaceHub)`(`test_adapters裡每個定義了轉接層類別的模組都在比對清單裡` 會要求),`FakeHuggingFaceHub` 的簽章不符時改 `tests/fakes/adapters.py`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T136a)
   - 🧪 `testplan.md` § US4-HF-05
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q65

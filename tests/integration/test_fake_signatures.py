@@ -16,18 +16,20 @@ import pytest
 import cgb.adapters
 from cgb.adapters.colab_cli import ColabControl
 from cgb.adapters.google_oauth import GoogleOAuth
+from cgb.adapters.huggingface import HuggingFaceHub
 from cgb.adapters.model_library import ModelLibrary
 from cgb.adapters.remote_ollama import RemoteOllama
 from cgb.adapters.tunnel import Tunnel
-from fakes import FakeColabControl, FakeGoogleOAuth, FakeModelLibrary, FakeRemoteOllama, FakeTunnel
+from fakes import FakeColabControl, FakeGoogleOAuth, FakeHuggingFaceHub, FakeModelLibrary, FakeRemoteOllama, FakeTunnel
 
-# 比對清單:真 adapter → 替身。`RemoteOllama`(E7)、`ModelLibrary`(E8)的 adapter 已經建立,一併比對(Q160、Q175)
+# 比對清單:真 adapter → 替身。`RemoteOllama`(E7)、`ModelLibrary`(E8)、`HuggingFaceHub`(E12,Q65)的 adapter 已經建立,一併比對(Q160、Q175)
 PAIRS: list[tuple[type, type]] = [
     (ColabControl, FakeColabControl),
     (Tunnel, FakeTunnel),
     (GoogleOAuth, FakeGoogleOAuth),
     (RemoteOllama, FakeRemoteOllama),
     (ModelLibrary, FakeModelLibrary),
+    (HuggingFaceHub, FakeHuggingFaceHub),
 ]
 
 UNKNOWN_PARAMETER = "cgb_test_not_a_parameter"
