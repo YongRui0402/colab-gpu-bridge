@@ -565,3 +565,540 @@ async def test_展開時有一個請求失敗就立刻丟出_並取消其他還�
     assert sorted(cancelled) == sorted(set(sent) - {"Q2_K"})
     # 則4:等完 0.3 秒後,沒有任何 200 的 manifest 完成
     assert [item for item in completed if item[1] == 200] == []
+
+
+async def raised(call: Callable[[], Awaitable[object]]) -> Exception | None:
+    """呼叫一次,回傳丟出的例外(沒有丟出就是 None)。"""
+    try:
+        await call()
+    except Exception as error:
+        return error
+    return None
+
+
+def code_of(error: Exception | None) -> str:
+    """`AdapterError` 回它的 `code`;其他例外回型別名稱(讓越過轉接層的原生例外在斷言裡看得到)。"""
+    if error is None:
+        return "沒有丟出例外"
+    return error.code if isinstance(error, AdapterError) else type(error).__name__
+
+
+async def three_calls(hub: HuggingFaceHub) -> dict[str, Exception | None]:
+    """依序呼叫三個方法(`search_models("qwen")`、`list_repo_files("a","b")`、`get_manifest("a","b","Q4_K_M")`)。"""
+    return {
+        "search_models": await raised(lambda: hub.search_models("qwen")),
+        "list_repo_files": await raised(lambda: hub.list_repo_files("a", "b")),
+        "get_manifest": await raised(lambda: hub.get_manifest("a", "b", "Q4_K_M")),
+    }
+
+
+def raising_reply(error: Exception) -> Callable[[httpx.Request], httpx.Response]:
+    def reply(request: httpx.Request) -> httpx.Response:
+        raise error
+
+    return reply
+
+
+# ---- 004 US4-HF-22
+
+
+async def test_傳輸層失敗都歸_HF_UNREACHABLE_不重試_說明不帶底層文字與網址() -> None:
+    """US4-HF-22:A 連線失敗;B 連線被重設;C 伺服器沒回應就斷線;D 回 200 後讀本文到一半連線中斷。"""
+    replies = {
+        "A": raising_reply(httpx.ConnectError("cgb-test-底層細節 huggingface.co")),
+        "B": raising_reply(httpx.ReadError("[Errno 104] Connection reset by peer")),
+        "C": raising_reply(httpx.RemoteProtocolError("Server disconnected without sending a response.")),
+        "D": half_body_reply(httpx.RemoteProtocolError("peer closed connection")),
+    }
+    handlers = {case: Recorder(reply) for case, reply in replies.items()}
+
+    outcomes = {case: await three_calls(handler.hub()) for case, handler in handlers.items()}
+
+    # 則1~3:A~D 的三個方法都是 `HF_UNREACHABLE`
+    for method in ("search_models", "list_repo_files", "get_manifest"):
+        assert {case: code_of(outcomes[case][method]) for case in replies} == dict.fromkeys(replies, "HF_UNREACHABLE")
+    # 則4:每種情況都只收到 3 個請求(不重試)
+    assert {case: len(handler.requests) for case, handler in handlers.items()} == dict.fromkeys(replies, 3)
+    # 則5:A 的 `search_models` 不留例外鏈
+    error_a = outcomes["A"]["search_models"]
+    assert error_a is not None
+    assert error_a.__cause__ is None
+    assert error_a.__suppress_context__ is True
+    # 則6、則7:A 的 `search_models`、`get_manifest` 說明不含底層文字與網址
+    for method in ("search_models", "get_manifest"):
+        error = outcomes["A"][method]
+        assert isinstance(error, AdapterError)
+        assert "cgb-test-底層細節" not in error.message
+        assert "huggingface.co" not in error.message
+
+
+def codes_of(outcomes: dict[str, dict[str, Exception | None]], method: str) -> dict[str, str]:
+    """每種情況的某個方法丟出的代碼,收成 `{情況: code}`。"""
+    return {case: code_of(outcome[method]) for case, outcome in outcomes.items()}
+
+
+# ---- 004 US4-HF-23
+
+
+async def test_逾時先於傳輸層失敗判定_都歸_HF_TIMEOUT_不重試() -> None:
+    """US4-HF-23:A 連線逾時;B 讀取逾時;C 連線池逾時;D 回 200 後讀本文到一半讀取逾時。"""
+    replies = {
+        "A": raising_reply(httpx.ConnectTimeout("timed out")),
+        "B": raising_reply(httpx.ReadTimeout("timed out")),
+        "C": raising_reply(httpx.PoolTimeout("timed out")),
+        "D": half_body_reply(httpx.ReadTimeout("timed out")),
+    }
+    handlers = {case: Recorder(reply) for case, reply in replies.items()}
+
+    outcomes = {case: await three_calls(handler.hub()) for case, handler in handlers.items()}
+
+    # 則1~3:A~D 的三個方法都是 `HF_TIMEOUT`
+    for method in ("search_models", "list_repo_files", "get_manifest"):
+        assert codes_of(outcomes, method) == dict.fromkeys(replies, "HF_TIMEOUT")
+    # 則4:每種情況都只收到 3 個請求(不重試)
+    assert {case: len(handler.requests) for case, handler in handlers.items()} == dict.fromkeys(replies, 3)
+
+
+def valid_body_of(operation: str) -> object:
+    """某個操作(`search`、`tree`、`manifest`)合法的 200 本文。"""
+    if operation == "search":
+        return [{"id": "a/b"}]
+    if operation == "tree":
+        return [{"type": "file", "path": "b-Q4_K_M.gguf", "size": 1}]
+    return QWEN3_MANIFEST
+
+
+def valid_body(request: httpx.Request) -> object:
+    """依請求的路徑回該操作合法的 200 本文。"""
+    if request.url.path == "/api/models":
+        return valid_body_of("search")
+    return valid_body_of("tree" if request.url.path.endswith("/tree/main") else "manifest")
+
+
+# ---- 004 US4-HF-24
+
+
+async def test_5xx_都歸_HF_SERVER_ERROR_即使本文看起來合法_不重試() -> None:
+    """US4-HF-24:A 500 空本文;B 503 帶英文錯誤;C 599 空本文;D 502 但本文是合法的 200 本文。"""
+    replies = {
+        "A": lambda request: httpx.Response(500),
+        "B": lambda request: json_reply({"error": "Internal Error - We're working hard to fix this as soon as we can!"}, 503),
+        "C": lambda request: httpx.Response(599),
+        "D": lambda request: json_reply(valid_body(request), 502),
+    }
+    handlers = {case: Recorder(reply) for case, reply in replies.items()}
+
+    outcomes = {case: await three_calls(handler.hub()) for case, handler in handlers.items()}
+
+    # 則1~3:A~D 的三個方法都是 `HF_SERVER_ERROR`
+    for method in ("search_models", "list_repo_files", "get_manifest"):
+        assert codes_of(outcomes, method) == dict.fromkeys(replies, "HF_SERVER_ERROR")
+    # 則4:每種情況都只收到 3 個請求(不重試)
+    assert {case: len(handler.requests) for case, handler in handlers.items()} == dict.fromkeys(replies, 3)
+
+
+# ---- 004 US4-HF-25
+
+
+async def test_搜尋的_401_與檔案清單的_400_不屬於它們的操作_都歸_HF_BAD_RESPONSE() -> None:
+    """US4-HF-25:A 401 `Invalid username or password.`;B 400 `Bad request`。"""
+    handler_a = Recorder(lambda request: json_reply({"error": "Invalid username or password."}, 401))
+    handler_b = Recorder(lambda request: json_reply({"error": "Bad request"}, 400))
+
+    search_a = await raised(lambda: handler_a.hub().search_models("qwen"))
+    search_b = await raised(lambda: handler_b.hub().search_models("qwen"))
+    files_b = await raised(lambda: handler_b.hub().list_repo_files("a", "b"))
+
+    # 則1:A 的 `search_models`
+    assert code_of(search_a) == "HF_BAD_RESPONSE"
+    # 則2:B 的 `search_models`
+    assert code_of(search_b) == "HF_BAD_RESPONSE"
+    # 則3:B 的 `list_repo_files`
+    assert code_of(files_b) == "HF_BAD_RESPONSE"
+
+
+# ---- 004 US4-HF-26
+
+
+async def test_轉址_404_與_429_都歸_HF_BAD_RESPONSE_不跟著轉址_不重試() -> None:
+    """US4-HF-26:三個操作的路徑回 A 302(`Location` 指到 `/elsewhere`)、B 404、C 429;`/elsewhere` 回合法的 200 本文。"""
+
+    def operation(request: httpx.Request) -> str:
+        if request.url.path == "/api/models":
+            return "search"
+        return "tree" if request.url.path.endswith("/tree/main") else "manifest"
+
+    def redirect(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/elsewhere":  # 跟著轉址才會到這裡,回該操作合法的 200 本文
+            return json_reply(valid_body_of(request.url.params["op"]))
+        return httpx.Response(302, headers={"Location": f"/elsewhere?op={operation(request)}"})
+
+    def status_reply(status: int, error: str) -> Callable[[httpx.Request], httpx.Response]:
+        return lambda request: json_reply({"error": error}, status)
+
+    replies = {
+        "A": redirect,
+        "B": status_reply(404, "Not Found"),
+        "C": status_reply(429, "Too many requests"),
+    }
+    handlers = {case: Recorder(reply) for case, reply in replies.items()}
+
+    outcomes = {case: await three_calls(handler.hub()) for case, handler in handlers.items()}
+
+    # 則1~3:A~C 的三個方法都是 `HF_BAD_RESPONSE`
+    for method in ("search_models", "list_repo_files", "get_manifest"):
+        assert codes_of(outcomes, method) == dict.fromkeys(replies, "HF_BAD_RESPONSE")
+    # 則4:A 的 handler 沒有收到任何 `/elsewhere` 的請求
+    assert [request for request in handlers["A"].requests if request.url.path == "/elsewhere"] == []
+
+
+# ---- 004 US4-HF-27
+
+
+async def test_200_但本文無法解讀_都歸_HF_BAD_RESPONSE() -> None:
+    """US4-HF-27:A 本文是 HTML;B 本文空;C 本文是被截斷的 JSON;D 宣告 gzip 但本文不是 gzip(讀本文時丟 `DecodingError`)。"""
+
+    def truncated(request: httpx.Request) -> httpx.Response:
+        text = json.dumps(valid_body(request))
+        return httpx.Response(200, headers={"Content-Type": "application/json"}, content=text[:10])
+
+    replies = {
+        "A": lambda request: httpx.Response(
+            200, headers={"Content-Type": "text/html"}, content="<!DOCTYPE html><html><body>維護中</body></html>"
+        ),
+        "B": lambda request: httpx.Response(200, headers={"Content-Type": "application/json"}),
+        "C": truncated,
+        "D": lambda request: httpx.Response(
+            200,
+            headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+            stream=httpx.ByteStream(b"not gzip"),
+        ),
+    }
+
+    outcomes = {case: await three_calls(Recorder(reply).hub()) for case, reply in replies.items()}
+
+    # 則1~3:A~D 的三個方法都是 `HF_BAD_RESPONSE`
+    for method in ("search_models", "list_repo_files", "get_manifest"):
+        assert codes_of(outcomes, method) == dict.fromkeys(replies, "HF_BAD_RESPONSE")
+
+
+# ---- 004 US4-HF-28
+
+
+async def test_搜尋回應不是陣列或有一筆沒有字串_id_都歸_HF_BAD_RESPONSE() -> None:
+    """US4-HF-28:A `{}`;B `null`;C 陣列裡是字串;D 沒有 `id`;E `id` 是數字;F 第一筆合法、第二筆 `id` 是 null。"""
+    bodies = {
+        "A": {},
+        "B": None,
+        "C": ["bartowski/SmolLM2-135M-Instruct-GGUF"],
+        "D": [{"_id": "1"}],
+        "E": [{"id": 123}],
+        "F": [{"id": "a/b"}, {"id": None}],
+    }
+
+    codes = {}
+    for case, body in bodies.items():
+        hub = Recorder(lambda request, body=body: json_reply(body)).hub()
+        codes[case] = code_of(await raised(lambda: hub.search_models("qwen")))
+
+    # 則1:A~F 每一種都是 `HF_BAD_RESPONSE`
+    assert codes == dict.fromkeys(bodies, "HF_BAD_RESPONSE")
+
+
+# ---- 004 US4-HF-29
+
+
+async def test_檔案清單的每一筆缺欄位或型別不符_都歸_HF_BAD_RESPONSE_不當成沒有_GGUF() -> None:
+    """US4-HF-29:A `{}`;B 陣列裡是字串;C 沒有 `type`;D 沒有 `path`;E 檔案沒有 `size`;F `size` 是字串;G `size` 是 -1;H `size` 是 true。"""
+    entry = {"type": "file", "path": "a-Q4_K_M.gguf", "size": 1}
+    bodies = {
+        "A": {},
+        "B": ["a-Q4_K_M.gguf"],
+        "C": [{"path": "a-Q4_K_M.gguf", "size": 1}],
+        "D": [{"type": "file", "size": 1}],
+        "E": [{"type": "file", "path": "a-Q4_K_M.gguf"}],
+        "F": [{**entry, "size": "1"}],
+        "G": [{**entry, "size": -1}],
+        "H": [{**entry, "size": True}],
+    }
+
+    codes = {}
+    for case, body in bodies.items():
+        hub = Recorder(lambda request, body=body: json_reply(body)).hub()
+        codes[case] = code_of(await raised(lambda: hub.list_repo_files("a", "b")))
+
+    # 則1:A~H 每一種都是 `HF_BAD_RESPONSE`
+    assert codes == dict.fromkeys(bodies, "HF_BAD_RESPONSE")
+
+
+# ---- 004 US4-HF-30
+
+
+async def test_manifest_的層缺欄位或型別不符_都歸_HF_BAD_RESPONSE() -> None:
+    """US4-HF-30:A 不是物件;B 沒有 `layers`;C `layers` 是 null;D `layers` 是物件;E 有一層是字串;F~I 模型層的 `size` 缺少、是字串、-1、true。"""
+    model_layer, *other_layers = QWEN3_MANIFEST["layers"]
+    rest = {key: value for key, value in QWEN3_MANIFEST.items() if key != "layers"}
+
+    def with_model_layer(layer: dict[str, object]) -> dict[str, object]:
+        return {**rest, "layers": [layer, *other_layers]}
+
+    bodies = {
+        "A": [],
+        "B": rest,
+        "C": {**rest, "layers": None},
+        "D": {**rest, "layers": {}},
+        "E": {**rest, "layers": [model_layer, "layer"]},
+        "F": with_model_layer({"mediaType": model_layer["mediaType"], "digest": model_layer["digest"]}),
+        "G": with_model_layer({**model_layer, "size": "396705472"}),
+        "H": with_model_layer({**model_layer, "size": -1}),
+        "I": with_model_layer({**model_layer, "size": True}),
+    }
+
+    codes = {}
+    for case, body in bodies.items():
+        hub = Recorder(lambda request, body=body: json_reply(body)).hub()
+        codes[case] = code_of(await raised(lambda: hub.get_manifest("unsloth", "Qwen3-0.6B-GGUF", "Q4_K_M")))
+
+    # 則1:A~I 每一種都是 `HF_BAD_RESPONSE`
+    assert codes == dict.fromkeys(bodies, "HF_BAD_RESPONSE")
+
+
+# ---- 004 US4-HF-31
+
+
+async def test_失敗說明是固定的繁體中文_不帶對方的英文原文與網址() -> None:
+    """US4-HF-31:兩組 handler 狀態碼相同(tree 401、manifest 400、搜尋 503),只有本文的英文不同。"""
+    english = {
+        "first": {
+            "tree": "Invalid username or password.",
+            "manifest": 'The specified tag is not a valid quantization scheme. Please use another tag or "latest"',
+            "search": "Internal Error - We're working hard to fix this as soon as we can!",
+        },
+        "second": dict.fromkeys(("tree", "manifest", "search"), "cgb-test english body"),
+    }
+
+    def reply_with(errors: dict[str, str]) -> Callable[[httpx.Request], httpx.Response]:
+        def reply(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/api/models":
+                return json_reply({"error": errors["search"]}, 503)
+            if request.url.path.endswith("/tree/main"):
+                return json_reply({"error": errors["tree"]}, 401)
+            return json_reply({"error": errors["manifest"]}, 400)
+
+        return reply
+
+    outcomes = {group: await three_calls(Recorder(reply_with(errors)).hub()) for group, errors in english.items()}
+
+    def message(group: str, method: str) -> str:
+        error = outcomes[group][method]
+        assert isinstance(error, AdapterError)
+        return error.message
+
+    # 則1~3:兩組的 `message` 相同
+    assert message("first", "list_repo_files") == message("second", "list_repo_files")
+    assert message("first", "get_manifest") == message("second", "get_manifest")
+    assert message("first", "search_models") == message("second", "search_models")
+    # 則4~6:第一組的 `message` 不含對方的英文與網址
+    assert "Invalid username" not in message("first", "list_repo_files")
+    assert "huggingface.co" not in message("first", "list_repo_files")
+    assert "not a valid quantization" not in message("first", "get_manifest")
+    assert "huggingface.co" not in message("first", "get_manifest")
+    assert "Internal Error" not in message("first", "search_models")
+    assert "huggingface.co" not in message("first", "search_models")
+
+
+# ---- 004 US4-HF-32
+
+
+async def test_沒指定逾時時每個請求的連線_讀取_寫入_連線池逾時都是_10_秒() -> None:
+    """US4-HF-32:handler 記下每個請求的 `timeout`;`HuggingFaceHub(transport=...)` 不帶任何逾時參數。"""
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/models":
+            return json_reply([])
+        return json_reply(valid_body(request))
+
+    handler = Recorder(reply)
+    hub = handler.hub()
+
+    await hub.search_models("qwen")
+    await hub.list_repo_files("a", "b")
+    await hub.get_manifest("a", "b", "Q4_K_M")
+
+    ten = {"connect": 10.0, "read": 10.0, "write": 10.0, "pool": 10.0}
+    # 則1~3:三個方法的請求 `timeout` 都是 10 秒
+    assert [request.extensions["timeout"] for request in handler.requests] == [ten, ten, ten]
+
+
+# ---- 004 US4-HF-33
+
+
+async def test_對方一直不回時每個請求在注入的期限到期就歸_HF_TIMEOUT() -> None:
+    """US4-HF-33:`request_timeout=0.2`;handler 對任何請求等 0.5 秒才回 200(MockTransport 不會觸發 httpx 的逾時)。"""
+
+    async def slow(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(0.5)
+        return json_reply(valid_body(request))
+
+    handler = Recorder(slow)
+    hub = handler.hub(request_timeout=0.2)
+
+    results: dict[str, tuple[str, float]] = {}
+    calls = {
+        "search_models": lambda: hub.search_models("qwen"),
+        "list_repo_files": lambda: hub.list_repo_files("a", "b"),
+        "get_manifest": lambda: hub.get_manifest("a", "b", "Q4_K_M"),
+    }
+    for method, call in calls.items():
+        started = time.monotonic()
+        error = await raised(call)
+        results[method] = (code_of(error), time.monotonic() - started)
+
+    # 則1~3:三個方法都丟出 `HF_TIMEOUT`,經過 0.2 到 0.3 秒
+    assert {method: code for method, (code, _) in results.items()} == dict.fromkeys(calls, "HF_TIMEOUT")
+    assert all(0.2 <= elapsed <= 0.3 for _, elapsed in results.values())
+    # 則4:handler 總共收到 3 個請求(不重試)
+    assert len(handler.requests) == 3
+
+
+# ---- 004 US4-HF-34
+
+
+class SlowBody(httpx.AsyncByteStream):
+    """每 0.08 秒送 1 個位元組、共送 8 次(約 0.64 秒)的本文。"""
+
+    async def __aiter__(self):
+        for _ in range(8):
+            await asyncio.sleep(0.08)
+            yield b" "
+
+
+async def test_讀本文太慢時也在每個請求的期限內歸_HF_TIMEOUT() -> None:
+    """US4-HF-34:`request_timeout=0.2`;handler 立刻回 200 與標頭,本文約 0.64 秒才送完。"""
+    handler = Recorder(
+        lambda request: httpx.Response(200, headers={"Content-Type": "application/json"}, stream=SlowBody())
+    )
+    hub = handler.hub(request_timeout=0.2)
+
+    results: dict[str, tuple[str, float]] = {}
+    calls = {
+        "search_models": lambda: hub.search_models("qwen"),
+        "list_repo_files": lambda: hub.list_repo_files("a", "b"),
+        "get_manifest": lambda: hub.get_manifest("a", "b", "Q4_K_M"),
+    }
+    for method, call in calls.items():
+        started = time.monotonic()
+        error = await raised(call)
+        results[method] = (code_of(error), time.monotonic() - started)
+
+    # 則1~3:三個方法都丟出 `HF_TIMEOUT`,經過 0.2 到 0.3 秒
+    assert {method: code for method, (code, _) in results.items()} == dict.fromkeys(calls, "HF_TIMEOUT")
+    assert all(0.2 <= elapsed <= 0.3 for _, elapsed in results.values())
+
+
+# ---- 004 US4-HF-35
+
+
+async def test_載入更多時每一頁各自計算期限() -> None:
+    """US4-HF-35:同一個 `HuggingFaceHub(request_timeout=0.2)`;handler 每個請求等 0.15 秒才回 200,第一頁帶 `rel="next"`。"""
+    link = '<https://huggingface.co/api/models?search=qwen&cursor=c2>; rel="next"'
+
+    async def reply(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(0.15)
+        return httpx.Response(200, json=[{"id": "a/b"}], headers={"Link": link})
+
+    hub = Recorder(reply).hub(request_timeout=0.2)
+
+    pages: list[str | int] = []
+    for cursor in (None, "c2"):
+        try:
+            result = await hub.search_models("qwen", cursor=cursor)
+            pages.append(len(result["items"]))
+        except Exception as error:
+            pages.append(code_of(error))
+
+    # 則1、則2:兩頁都正常回傳 1 筆
+    assert pages == [1, 1]
+
+
+# ---- 004 US4-HF-36
+
+
+async def test_展開版本整體超過期限就取消進行中的請求_歸_HF_TIMEOUT() -> None:
+    """US4-HF-36:`request_timeout=0.2`、`expand_deadline=0.25`;tree 與每個 manifest 各等 0.15 秒才回 200(5 個版本,沒有整體期限時約 0.45 秒完成)。"""
+    tags = ["Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M", "Q6_K"]
+    cancelled: list[str] = []
+    completed: list[str] = []
+
+    async def reply(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/tree/main"):
+            await asyncio.sleep(0.15)
+            return tree_reply(*(f"SmolLM2-135M-Instruct-{tag}.gguf" for tag in tags))
+        tag = request.url.path.rsplit("/", 1)[-1]
+        try:
+            await asyncio.sleep(0.15)
+        except asyncio.CancelledError:
+            cancelled.append(tag)
+            raise
+        completed.append(tag)
+        return json_reply(manifest_body(1000))
+
+    hub = Recorder(reply).hub(request_timeout=0.2, expand_deadline=0.25)
+    started = time.monotonic()
+    error = await raised(lambda: hub.list_quants("bartowski", "SmolLM2-135M-Instruct-GGUF"))
+    elapsed = time.monotonic() - started
+    await asyncio.sleep(0.3)
+
+    # 則1:`HF_TIMEOUT`
+    assert code_of(error) == "HF_TIMEOUT"
+    # 則2:從呼叫到丟出經過 0.25 到 0.33 秒
+    assert 0.25 <= elapsed <= 0.33
+    # 則3:取消紀錄含到期時進行中的 4 個 manifest 請求
+    assert sorted(cancelled) == ["Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M"]
+    # 則4:等完 0.3 秒後,沒有任何 manifest 完成
+    assert completed == []
+
+
+# ---- 004 US4-HF-37
+
+
+async def test_展開時每個_manifest_請求仍受每請求期限限制_一個逾時就整個展開失敗() -> None:
+    """US4-HF-37:`request_timeout=0.15`、`expand_deadline=0.6`;tree 立刻回三個檔,`Q8_0` 的 manifest 等 1 秒,其他立刻回 200。"""
+
+    async def reply(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/tree/main"):
+            return tree_reply("SmolLM2-135M-Instruct-Q4_K_M.gguf", "SmolLM2-135M-Instruct-Q8_0.gguf", "SmolLM2-135M-Instruct-F16.gguf")
+        if request.url.path.endswith("/Q8_0"):
+            await asyncio.sleep(1)
+        return json_reply(manifest_body(1000))
+
+    hub = Recorder(reply).hub(request_timeout=0.15, expand_deadline=0.6)
+    started = time.monotonic()
+    error = await raised(lambda: hub.list_quants("bartowski", "SmolLM2-135M-Instruct-GGUF"))
+    elapsed = time.monotonic() - started
+
+    # 則1:`HF_TIMEOUT`
+    assert code_of(error) == "HF_TIMEOUT"
+    # 則2:從呼叫到丟出經過 0.15 到 0.25 秒
+    assert 0.15 <= elapsed <= 0.25
+
+
+# ---- 004 US4-HF-38
+
+
+async def test_單獨取_manifest_大小不套展開的整體期限() -> None:
+    """US4-HF-38:`request_timeout=0.3`、`expand_deadline=0.1`;manifest 等 0.15 秒才回 200。"""
+
+    async def slow(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(0.15)
+        return httpx.Response(200, content=json.dumps(QWEN3_MANIFEST), headers={"Content-Type": "application/json"})
+
+    hub = Recorder(slow).hub(request_timeout=0.3, expand_deadline=0.1)
+
+    try:
+        outcome: object = await hub.get_manifest("unsloth", "Qwen3-0.6B-GGUF", "Q4_K_M")
+    except Exception as error:
+        outcome = code_of(error)
+
+    # 則1:回傳大小
+    assert outcome == {"sizeBytes": 396707132}

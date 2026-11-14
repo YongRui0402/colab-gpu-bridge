@@ -1471,139 +1471,139 @@
 - [X] T152b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-21 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T152a)
   - 🧪 `testplan.md` § US4-HF-21
   - 📎 `spec.md` § FR-016、FR-014
-- [ ] T153a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-22 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(`search_models("qwen")`、`list_repo_files("a","b")`、`get_manifest("a","b","Q4_K_M")`);分隔註解寫 `# ---- 004 US4-HF-22`(`plan.md` § 待決問題 Q34)),執行確認它因為「只接 `httpx.ConnectError`,屬於 `ProtocolError` 的 C 原樣往上拋」這類實作而失敗
+- [X] T153a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-22 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(`search_models("qwen")`、`list_repo_files("a","b")`、`get_manifest("a","b","Q4_K_M")`);分隔註解寫 `# ---- 004 US4-HF-22`(`plan.md` § 待決問題 Q34)),執行確認它因為「只接 `httpx.ConnectError`,屬於 `ProtocolError` 的 C 原樣往上拋」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-22
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、使用者故事 4 驗收情境 6
-- [ ] T153b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T153a)
+- [X] T153b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T153a)
   - 🧪 `testplan.md` § US4-HF-22
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、使用者故事 4 驗收情境 6
-- [ ] T154a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-23 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-23`(`plan.md` § 待決問題 Q34)),執行確認它因為「先寫 `except httpx.TransportError` 再判逾時,逾時被攔成 `HF_UNREACHABLE`(合約第 1 條:先看逾時)」這類實作而失敗
+- [X] T154a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-23 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-23`(`plan.md` § 待決問題 Q34)),執行確認它因為「先寫 `except httpx.TransportError` 再判逾時,逾時被攔成 `HF_UNREACHABLE`(合約第 1 條:先看逾時)」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-23
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、NFR-005、使用者故事 4 驗收情境 6
-- [ ] T154b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T154a)
+- [X] T154b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T154a)
   - 🧪 `testplan.md` § US4-HF-23
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、NFR-005、使用者故事 4 驗收情境 6
-- [ ] T155a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-24 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-24`(`plan.md` § 待決問題 Q34)),執行確認它因為「不看狀態碼就解析本文,D 照常回傳結果」這類實作而失敗
+- [X] T155a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-24 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-24`(`plan.md` § 待決問題 Q34)),執行確認它因為「不看狀態碼就解析本文,D 照常回傳結果」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-24
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、使用者故事 4 驗收情境 6
-- [ ] T155b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-24 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T155a)
+- [X] T155b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-24 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T155a)
   - 🧪 `testplan.md` § US4-HF-24
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、使用者故事 4 驗收情境 6
-- [ ] T156a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-25 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫 `search_models("qwen")` 與 `list_repo_files("a","b")`;分隔註解寫 `# ---- 004 US4-HF-25`(`plan.md` § 待決問題 Q34)),執行確認它因為「三個方法共用一張狀態碼對照表,搜尋的 401 也歸 `HF_AUTH_REQUIRED`、tree 的 400 也歸 `HF_QUANT_UNAVAILABLE`(合約第 4 條:點名的狀態碼只屬於該操作;搜尋的 UI API 對不到這兩個代碼)」這類實作而失敗
+- [X] T156a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-25 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫 `search_models("qwen")` 與 `list_repo_files("a","b")`;分隔註解寫 `# ---- 004 US4-HF-25`(`plan.md` § 待決問題 Q34)),執行確認它因為「三個方法共用一張狀態碼對照表,搜尋的 401 也歸 `HF_AUTH_REQUIRED`、tree 的 400 也歸 `HF_QUANT_UNAVAILABLE`(合約第 4 條:點名的狀態碼只屬於該操作;搜尋的 UI API 對不到這兩個代碼)」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-25
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T156b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-25 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T156a)
+- [X] T156b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-25 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T156a)
   - 🧪 `testplan.md` § US4-HF-25
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T157a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-26 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-26`(`plan.md` § 待決問題 Q34));T136b 建立的 `httpx.AsyncClient`(httpx 預設 `follow_redirects=False`)與 T155b 的狀態碼歸類已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「client 開了 `follow_redirects=True`,模型改名後的轉址被跟過去,讀到別的 repo」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T157a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-26 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-26`(`plan.md` § 待決問題 Q34));T136b 建立的 `httpx.AsyncClient`(httpx 預設 `follow_redirects=False`)與 T155b 的狀態碼歸類已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「client 開了 `follow_redirects=True`,模型改名後的轉址被跟過去,讀到別的 repo」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-HF-26
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T157b [US4] 🟢 /tdd 綠燈:US4-HF-26 由 T136b 建立的 `httpx.AsyncClient`(httpx 預設 `follow_redirects=False`)與 T155b 的狀態碼歸類 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-26 通過的程式碼(依賴 T157a)
+- [X] T157b [US4] 🟢 /tdd 綠燈:US4-HF-26 由 T136b 建立的 `httpx.AsyncClient`(httpx 預設 `follow_redirects=False`)與 T155b 的狀態碼歸類 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-26 通過的程式碼(依賴 T157a)
   - 🧪 `testplan.md` § US4-HF-26
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T158a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-27 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-27`(`plan.md` § 待決問題 Q34)),執行確認它因為「`json.JSONDecodeError` 原樣往上拋」這類實作而失敗
+- [X] T158a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-27 的測試(每種情況各用一個新的 `HuggingFaceHub`,依序呼叫三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-27`(`plan.md` § 待決問題 Q34)),執行確認它因為「`json.JSONDecodeError` 原樣往上拋」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-27
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、使用者故事 4 驗收情境 6
-- [ ] T158b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-27 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T158a)
+- [X] T158b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-27 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T158a)
   - 🧪 `testplan.md` § US4-HF-27
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、使用者故事 4 驗收情境 6
-- [ ] T159a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-28 的測試(每種情況各用一個新的 `HuggingFaceHub` 呼叫一次 `search_models("qwen")`;分隔註解寫 `# ---- 004 US4-HF-28`(`plan.md` § 待決問題 Q34)),執行確認它因為「只要 JSON 解析成功就原樣回傳,E2 讀 `item["id"]` 時 `KeyError` 變 500」這類實作而失敗
+- [X] T159a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-28 的測試(每種情況各用一個新的 `HuggingFaceHub` 呼叫一次 `search_models("qwen")`;分隔註解寫 `# ---- 004 US4-HF-28`(`plan.md` § 待決問題 Q34)),執行確認它因為「只要 JSON 解析成功就原樣回傳,E2 讀 `item["id"]` 時 `KeyError` 變 500」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-28
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T159b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-28 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T159a)
+- [X] T159b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-28 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T159a)
   - 🧪 `testplan.md` § US4-HF-28
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T160a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-29 的測試(每種情況各用一個新的 `HuggingFaceHub` 呼叫一次 `list_repo_files("a","b")`;分隔註解寫 `# ---- 004 US4-HF-29`(`plan.md` § 待決問題 Q34)),執行確認它因為「只檢查是陣列、不檢查每一筆,C、D 的 `KeyError` 原樣往上拋」這類實作而失敗
+- [X] T160a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-29 的測試(每種情況各用一個新的 `HuggingFaceHub` 呼叫一次 `list_repo_files("a","b")`;分隔註解寫 `# ---- 004 US4-HF-29`(`plan.md` § 待決問題 Q34)),執行確認它因為「只檢查是陣列、不檢查每一筆,C、D 的 `KeyError` 原樣往上拋」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-29
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models/{author}/{model}/tree/main.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T160b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-29 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T160a)
+- [X] T160b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-29 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T160a)
   - 🧪 `testplan.md` § US4-HF-29
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models/{author}/{model}/tree/main.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T161a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-30 的測試(每種情況各用一個新的 `HuggingFaceHub` 呼叫一次 `get_manifest("unsloth","Qwen3-0.6B-GGUF","Q4_K_M")`;分隔註解寫 `# ---- 004 US4-HF-30`(`plan.md` § 待決問題 Q34)),執行確認它因為「寫成 `manifest.get("layers") or []`,B、C 被當成沒有層」這類實作而失敗
+- [X] T161a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-30 的測試(每種情況各用一個新的 `HuggingFaceHub` 呼叫一次 `get_manifest("unsloth","Qwen3-0.6B-GGUF","Q4_K_M")`;分隔註解寫 `# ---- 004 US4-HF-30`(`plan.md` § 待決問題 Q34)),執行確認它因為「寫成 `manifest.get("layers") or []`,B、C 被當成沒有層」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-30
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T161b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-30 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T161a)
+- [X] T161b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-30 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T161a)
   - 🧪 `testplan.md` § US4-HF-30
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016
-- [ ] T162a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-31 的測試(用兩組 handler 各呼叫一次三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-31`(`plan.md` § 待決問題 Q34)),執行確認它因為「message 把對方的 `error` 原文接在後面(合約:固定繁體中文,不帶英文原文)」這類實作而失敗
+- [X] T162a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-31 的測試(用兩組 handler 各呼叫一次三個方法(參數同 US4-HF-22);分隔註解寫 `# ---- 004 US4-HF-31`(`plan.md` § 待決問題 Q34)),執行確認它因為「message 把對方的 `error` 原文接在後面(合約:固定繁體中文,不帶英文原文)」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-31
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`、`paths./api/models.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、FR-015
-- [ ] T162b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-31 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T162a)
+- [X] T162b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-31 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T162a)
   - 🧪 `testplan.md` § US4-HF-31
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`、`paths./api/models.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § FR-016、FR-015
-- [ ] T163a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-32 的測試(依序呼叫三個方法;分隔註解寫 `# ---- 004 US4-HF-32`(`plan.md` § 待決問題 Q34)),執行確認它因為「建 client 時沒帶 `timeout`,沿用 httpx 預設的 5 秒」這類實作而失敗
+- [X] T163a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-32 的測試(依序呼叫三個方法;分隔註解寫 `# ---- 004 US4-HF-32`(`plan.md` § 待決問題 Q34)),執行確認它因為「建 client 時沒帶 `timeout`,沿用 httpx 預設的 5 秒」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-32
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005
-- [ ] T163b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-32 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T163a)
+- [X] T163b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-32 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T163a)
   - 🧪 `testplan.md` § US4-HF-32
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005
-- [ ] T164a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-33 的測試(依序呼叫三個方法,各自量從呼叫到丟出的時間;分隔註解寫 `# ---- 004 US4-HF-33`(`plan.md` § 待決問題 Q34)),執行確認它因為「只設 `httpx.Timeout`、沒有 `asyncio.timeout` 包住整個請求(MockTransport 不會觸發 httpx 的逾時,對方一直不回時就沒有期限),等到 0.5 秒才回傳結果」這類實作而失敗
+- [X] T164a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-33 的測試(依序呼叫三個方法,各自量從呼叫到丟出的時間;分隔註解寫 `# ---- 004 US4-HF-33`(`plan.md` § 待決問題 Q34)),執行確認它因為「只設 `httpx.Timeout`、沒有 `asyncio.timeout` 包住整個請求(MockTransport 不會觸發 httpx 的逾時,對方一直不回時就沒有期限),等到 0.5 秒才回傳結果」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-33
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005、SC-004;`plan.md` § 待決問題 Q38
-- [ ] T164b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-33 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T164a)
+- [X] T164b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-33 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T164a)
   - 🧪 `testplan.md` § US4-HF-33
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005、SC-004;`plan.md` § 待決問題 Q38
-- [ ] T165a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-34 的測試(依序呼叫三個方法,各自量時間;分隔註解寫 `# ---- 004 US4-HF-34`(`plan.md` § 待決問題 Q34));T164b 以 `asyncio.timeout` 包住整個請求(`client.get` 讀完本文才回)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「改用 `client.stream`,期限只包住收標頭,讀本文不受限(合約 `x-timeout`:整個請求含讀完本文不超過 10 秒)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T165a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-34 的測試(依序呼叫三個方法,各自量時間;分隔註解寫 `# ---- 004 US4-HF-34`(`plan.md` § 待決問題 Q34));T164b 以 `asyncio.timeout` 包住整個請求(`client.get` 讀完本文才回)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「改用 `client.stream`,期限只包住收標頭,讀本文不受限(合約 `x-timeout`:整個請求含讀完本文不超過 10 秒)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-HF-34
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005、SC-004
-- [ ] T165b [US4] 🟢 /tdd 綠燈:US4-HF-34 由 T164b 以 `asyncio.timeout` 包住整個請求(`client.get` 讀完本文才回) 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-34 通過的程式碼(依賴 T165a)
+- [X] T165b [US4] 🟢 /tdd 綠燈:US4-HF-34 由 T164b 以 `asyncio.timeout` 包住整個請求(`client.get` 讀完本文才回) 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-34 通過的程式碼(依賴 T165a)
   - 🧪 `testplan.md` § US4-HF-34
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`、`paths./api/models/{author}/{model}/tree/main.get`、`paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005、SC-004
-- [ ] T166a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-35 的測試(依序呼叫 `search_models("qwen")` 與 `search_models("qwen", cursor="c2")`(合計約 0.3 秒);分隔註解寫 `# ---- 004 US4-HF-35`(`plan.md` § 待決問題 Q34));T164b 每次呼叫各自起算的期限已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把期限放在 `HuggingFaceHub` 建立時起算或整個搜尋共用一個計時器,第二頁在 0.2 秒到期時被歸 `HF_TIMEOUT`(合約:每讀一頁各自計算)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T166a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-35 的測試(依序呼叫 `search_models("qwen")` 與 `search_models("qwen", cursor="c2")`(合計約 0.3 秒);分隔註解寫 `# ---- 004 US4-HF-35`(`plan.md` § 待決問題 Q34));T164b 每次呼叫各自起算的期限已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把期限放在 `HuggingFaceHub` 建立時起算或整個搜尋共用一個計時器,第二頁在 0.2 秒到期時被歸 `HF_TIMEOUT`(合約:每讀一頁各自計算)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-HF-35
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005
-- [ ] T166b [US4] 🟢 /tdd 綠燈:US4-HF-35 由 T164b 每次呼叫各自起算的期限 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-35 通過的程式碼(依賴 T166a)
+- [X] T166b [US4] 🟢 /tdd 綠燈:US4-HF-35 由 T164b 每次呼叫各自起算的期限 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-35 通過的程式碼(依賴 T166a)
   - 🧪 `testplan.md` § US4-HF-35
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./api/models.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005
-- [ ] T167a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-36 的測試(呼叫 `list_quants("bartowski","SmolLM2-135M-Instruct-GGUF")`,量從呼叫到丟出的時間,丟出後再等 0.3 秒;分隔註解寫 `# ---- 004 US4-HF-36`(`plan.md` § 待決問題 Q34)),執行確認它因為「只有每個請求各自的期限(`plan.md` Q4 的 A),0.45 秒回傳 5 筆」這類實作而失敗
+- [X] T167a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_huggingface.py` 寫 US4-HF-36 的測試(呼叫 `list_quants("bartowski","SmolLM2-135M-Instruct-GGUF")`,量從呼叫到丟出的時間,丟出後再等 0.3 秒;分隔註解寫 `# ---- 004 US4-HF-36`(`plan.md` § 待決問題 Q34)),執行確認它因為「只有每個請求各自的期限(`plan.md` Q4 的 A),0.45 秒回傳 5 筆」這類實作而失敗
   - 🧪 `testplan.md` § US4-HF-36
   - 📎 `spec.md` § SC-004、NFR-005;`plan.md` § 待決問題 Q4
-- [ ] T167b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-36 通過的程式碼;`list_quants` 整個展開套 `expand_deadline` 的整體期限,到期取消還在跑的請求,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T167a)
+- [X] T167b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-36 通過的程式碼;`list_quants` 整個展開套 `expand_deadline` 的整體期限,到期取消還在跑的請求,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T167a)
   - 🧪 `testplan.md` § US4-HF-36
   - 📎 `spec.md` § SC-004、NFR-005;`plan.md` § 待決問題 Q4
-- [ ] T168a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-37 的測試(呼叫 `list_quants("bartowski","SmolLM2-135M-Instruct-GGUF")`,量時間;分隔註解寫 `# ---- 004 US4-HF-37`(`plan.md` § 待決問題 Q34));T148b 的 `list_quants` 經 `get_manifest` 取每個版本(共用每請求期限)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`list_quants` 自己開 client 打 manifest、繞過 `get_manifest` 共用的每請求期限,只剩整體期限,0.6 秒才丟」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T168a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-37 的測試(呼叫 `list_quants("bartowski","SmolLM2-135M-Instruct-GGUF")`,量時間;分隔註解寫 `# ---- 004 US4-HF-37`(`plan.md` § 待決問題 Q34));T148b 的 `list_quants` 經 `get_manifest` 取每個版本(共用每請求期限)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`list_quants` 自己開 client 打 manifest、繞過 `get_manifest` 共用的每請求期限,只剩整體期限,0.6 秒才丟」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-HF-37
   - 📎 `spec.md` § NFR-005、SC-004;`research.md` § R3
-- [ ] T168b [US4] 🟢 /tdd 綠燈:US4-HF-37 由 T148b 的 `list_quants` 經 `get_manifest` 取每個版本(共用每請求期限) 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-37 通過的程式碼(依賴 T168a)
+- [X] T168b [US4] 🟢 /tdd 綠燈:US4-HF-37 由 T148b 的 `list_quants` 經 `get_manifest` 取每個版本(共用每請求期限) 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-37 通過的程式碼(依賴 T168a)
   - 🧪 `testplan.md` § US4-HF-37
   - 📎 `spec.md` § NFR-005、SC-004;`research.md` § R3
-- [ ] T169a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-38 的測試(呼叫 `get_manifest("unsloth","Qwen3-0.6B-GGUF","Q4_K_M")`;分隔註解寫 `# ---- 004 US4-HF-38`(`plan.md` § 待決問題 Q34));T167b 只在 `list_quants` 套整體期限已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把整體期限做在三個方法共用的 `_get` 裡,單獨取大小也在 0.1 秒被歸 `HF_TIMEOUT`(合約 `x-timeout`:試算、加入下載與自動下載取大小時每個 manifest 各自計算,不套整體期限)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T169a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_huggingface.py` 寫 US4-HF-38 的測試(呼叫 `get_manifest("unsloth","Qwen3-0.6B-GGUF","Q4_K_M")`;分隔註解寫 `# ---- 004 US4-HF-38`(`plan.md` § 待決問題 Q34));T167b 只在 `list_quants` 套整體期限已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把整體期限做在三個方法共用的 `_get` 裡,單獨取大小也在 0.1 秒被歸 `HF_TIMEOUT`(合約 `x-timeout`:試算、加入下載與自動下載取大小時每個 manifest 各自計算,不套整體期限)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-HF-38
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005、FR-018
-- [ ] T169b [US4] 🟢 /tdd 綠燈:US4-HF-38 由 T167b 只在 `list_quants` 套整體期限 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-38 通過的程式碼(依賴 T169a)
+- [X] T169b [US4] 🟢 /tdd 綠燈:US4-HF-38 由 T167b 只在 `list_quants` 套整體期限 滿足,確認 `src/cgb/adapters/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/huggingface.py` 只寫讓 US4-HF-38 通過的程式碼(依賴 T169a)
   - 🧪 `testplan.md` § US4-HF-38
   - ⚙ `contracts/huggingface.openapi.yaml` § `paths./v2/{author}/{model}/manifests/{tag}.get`(`info.x-failure-rules`、`info.x-timeout`)
   - 📎 `spec.md` § NFR-005、FR-018
-- [ ] T170 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T132b~T169b 記下的重構清單(範圍限 `src/cgb/adapters/huggingface.py`、`src/cgb/domain/hf_quants.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_huggingface.py`、`tests/unit/test_hf_quants.py` 的斷言(依賴 T169b)
+- [X] T170 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T132b~T169b 記下的重構清單(範圍限 `src/cgb/adapters/huggingface.py`、`src/cgb/domain/hf_quants.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_huggingface.py`、`tests/unit/test_hf_quants.py` 的斷言(依賴 T169b)
   - 🧪 `testplan.md` § US4-HF-01~US4-HF-38
   - 📎 `testplan.md` § 5.1
 
