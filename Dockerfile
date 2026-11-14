@@ -1,5 +1,5 @@
 # S10(E10 檔案系統)產出;映像組成照 research.md R11。S11(E11 部署與網路)補上 HTTP 健康檢查與兩個入口的 port。
-# build context 是 repo 根目錄(compose.yaml 的 build.context);只送進下面 COPY 用到的檔,見 Dockerfile.dockerignore。
+# build context 是 repo 根目錄(compose.yaml 的 build.context);只送進下面 COPY 用到的檔,見 .dockerignore。
 FROM python:3.12-slim
 
 RUN apt-get update \

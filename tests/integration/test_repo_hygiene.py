@@ -1,6 +1,8 @@
 """全域:機密與資料不進版本控制、也不送進映像的 build context(testplan.md § G-03;spec.md § NFR-010)。
 
-testplan 寫的 `deploy/Dockerfile.dockerignore` 依 plan.md Q85、Q118 搬到 repo 根目錄的 `Dockerfile.dockerignore`。
+testplan 寫的 `deploy/Dockerfile.dockerignore` 依 plan.md Q85、Q118 搬到 repo 根目錄的 `Dockerfile.dockerignore`,
+再改名為 `.dockerignore`:沒有 buildx 的舊版 builder 不認 `Dockerfile.dockerignore`,會把 `.env` 送進 build context
+(2026-11-14 以 docker 29.1.3 的 legacy builder 實測);`.dockerignore` 兩種 builder 都認。
 `.gitignore` 的排除與否交給 git 自己判定(`git check-ignore --no-index`,在暫存的空 repo 裡只放這份 `.gitignore`);
 dockerignore 照 Docker 的規則判定:每一行依序比對路徑本身或它的上層目錄,`!` 開頭是放行,最後比對到的那一行決定。
 """
@@ -10,7 +12,7 @@ import subprocess
 from pathlib import Path, PurePosixPath
 
 REPO = Path(__file__).resolve().parents[2]
-DOCKERIGNORE = REPO / "Dockerfile.dockerignore"
+DOCKERIGNORE = REPO / ".dockerignore"
 
 FORBIDDEN_NAMES = ("token.json", "sessions.json", ".env")
 
@@ -73,6 +75,7 @@ def test_gitignore_排除_env_資料夾與資料庫(tmp_path: Path) -> None:
 
 def test_dockerignore_排除_env_與資料夾() -> None:
     # Act
+    assert not (REPO / "Dockerfile.dockerignore").exists(), "BuildKit 會優先讀 Dockerfile.dockerignore,兩份並存時 .dockerignore 被略過"
     ignored = {path: docker_ignores(DOCKERIGNORE, path) for path in (".env", "data", "data/cgb.sqlite3", "data/colab-cli/token.json")}
 
     # Assert(則3);對照:Dockerfile 要 COPY 的檔沒有被排除,確認判定不是一律回「排除」
