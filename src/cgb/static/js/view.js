@@ -23,6 +23,8 @@ export const RUNTIME_TYPES = [
   { id: "H100", vramMiB: 81559, highMem: true, hidden: true },
 ];
 export const typeInfo = (id) => RUNTIME_TYPES.find((t) => t.id === id);
+// 選單列得出來的類型:不列開不到的 H100(FR-017);`RUNTIME_TYPES` 仍保留它,頁首、紀錄與精選清單照常顯示
+export const PICKABLE_TYPES = RUNTIME_TYPES.filter((t) => !t.hidden);
 
 // 執行階段類型的顯示文字,例如「T4 高 RAM」(contracts/ui.openapi.yaml § RuntimeType)
 export const typeText = (runtimeType) => `${runtimeType.gpu}${runtimeType.highMem ? " 高 RAM" : ""}`;

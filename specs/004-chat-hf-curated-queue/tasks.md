@@ -2200,7 +2200,7 @@
   - 🧪 `testplan.md` § US5-AJ-05
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-017、SC-005
-- [ ] T231 [US5] 🔵 /tdd 重構:在全部測試綠燈下整理 T227b~T230b、T258b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T258b)
+- [x] T231 [US5] 🔵 /tdd 重構:在全部測試綠燈下整理 T227b~T230b、T258b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T258b)
   - 🧪 `testplan.md` § US5-AJ-01~US5-AJ-04、US5-AJ-05
   - 📎 `testplan.md` § 6.1
 

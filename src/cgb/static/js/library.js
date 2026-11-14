@@ -1,7 +1,7 @@
 // 下載模型頁:精選清單、搜尋官方模型庫、輸入名稱、勾選、試算與加入下載佇列(FR-017、FR-020、FR-021、FR-022;prototype/library.html)
 import { request } from "./api.js";
 import { startHeader } from "./header.js";
-import { RUNTIME_TYPES, bytes, duration, escape, showGroupState, typeInfo, typeText } from "./view.js";
+import { PICKABLE_TYPES, bytes, duration, escape, showGroupState, typeInfo, typeText } from "./view.js";
 
 const gb = (n) => `${(n / 1e9).toFixed(2)} GB`;
 
@@ -35,8 +35,7 @@ function pickBox(name, size, disabled) {
   return `<input type="checkbox" data-pick="${escape(name)}" data-size="${size ?? 0}" ${selected.has(name) ? "checked" : ""} ${disabled ? "disabled" : ""}>`;
 }
 
-// 建議類型的選單不列 H100(FR-017);既有項目是 H100 的照常顯示,修改時「維持目前設定」(plan.md Q31)
-const PICKABLE_TYPES = RUNTIME_TYPES.filter((t) => !t.hidden);
+// 建議類型的選單用 view.js 的 PICKABLE_TYPES(不列 H100,FR-017);既有項目是 H100 的照常顯示,修改時「維持目前設定」(plan.md Q31)
 
 // 精選清單(GET /api/curated 的 items,依加入的順序)
 let curated = [];

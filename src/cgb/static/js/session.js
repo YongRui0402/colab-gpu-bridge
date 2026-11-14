@@ -1,11 +1,9 @@
 // 首頁(工作階段面板):依後端推送的 `Session` 顯示對應的狀態區塊(prototype/index.html)
 import { readThenFollow, request } from "./api.js";
 import { startHeader } from "./header.js";
-import { RUNTIME_TYPES, cu, duration, mmss, showState, typeInfo, typeText } from "./view.js";
+import { PICKABLE_TYPES, cu, duration, mmss, showState, typeInfo, typeText } from "./view.js";
 
 // 可選的類型與顯示記憶體在 view.js(FR-009 預設 T4、不開高 RAM)
-// 選單不列開不到的 H100(FR-017);`RUNTIME_TYPES` 仍保留它,頁首與既有的 H100 工作階段照常顯示
-const PICKABLE_TYPES = RUNTIME_TYPES.filter((t) => !t.hidden);
 
 // 開啟的步驟(contracts/ui.openapi.yaml § OpeningStep)與畫面上的文字
 const OPEN_STEPS = [
