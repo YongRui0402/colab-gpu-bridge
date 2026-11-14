@@ -714,6 +714,11 @@ def err_invalid_model_name(w: World) -> httpx.Response:
     return trigger_ok(w, "POST", "/chat", json={"model": "Qwen2.5", "messages": [{"role": "user", "content": "你好"}]})
 
 
+def err_empty_model_list(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/downloads/estimate", json={"models": []})
+
+
 def err_empty_chat_messages(w: World) -> httpx.Response:
     w.start()
     return trigger_ok(w, "POST", "/chat", json={"model": MODEL, "messages": []})
@@ -813,6 +818,12 @@ def err_hf_expand_fails(code: str) -> Callable[[World], httpx.Response]:
     return trigger
 
 
+def err_hf_quant_unavailable(w: World) -> httpx.Response:
+    ready_api(w)
+    w.fakes.huggingface.get_manifest.raises("HF_QUANT_UNAVAILABLE", "hf_quant_unavailable")
+    return trigger_ok(w, "POST", "/downloads/estimate", json={"models": ["hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_L"]})
+
+
 def err_invalid_hf_model_id(w: World) -> httpx.Response:
     w.start()
     return trigger_ok(w, "GET", "/huggingface/models/-bartowski/SmolLM2-135M-Instruct-GGUF/quants")
@@ -860,6 +871,15 @@ def err_download_in_progress(w: World) -> httpx.Response:
 def err_download_not_found(w: World) -> httpx.Response:
     w.start()
     return trigger_ok(w, "POST", "/downloads/999999/retry")
+
+
+def err_download_not_retryable(w: World) -> httpx.Response:
+    ready_api(w)
+    gated_pull(w)
+    job = trigger_ok(w, "POST", "/downloads", json={"models": [MODEL]}).json()["jobs"][0]
+    with w.api() as client:
+        wait_until(lambda: client.get("/api/downloads").json()["jobs"][0]["state"] == "downloading", "沒有開始下載")
+    return trigger_ok(w, "POST", f"/downloads/{job['id']}/retry")
 
 
 def err_disk_space_insufficient(w: World) -> httpx.Response:
@@ -948,6 +968,7 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("DISK_SPACE_UNKNOWN", err_disk_space_unknown),
     ("DOWNLOAD_IN_PROGRESS", err_download_in_progress),
     ("DOWNLOAD_NOT_FOUND", err_download_not_found),
+    ("DOWNLOAD_NOT_RETRYABLE", err_download_not_retryable),
     ("LIBRARY_NOT_FOUND", err_manifest("LIBRARY_NOT_FOUND")),
     ("LIBRARY_UNREACHABLE", err_search("LIBRARY_UNREACHABLE")),
     ("LIBRARY_SERVER_ERROR", err_search("LIBRARY_SERVER_ERROR")),
@@ -960,6 +981,7 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("INVALID_IDLE_TIMEOUT", err_settings({"idleTimeoutMinutes": 0, "lowBalanceThreshold": 10})),
     ("INVALID_BALANCE_THRESHOLD", err_settings({"idleTimeoutMinutes": 30, "lowBalanceThreshold": -1})),
     ("INVALID_MODEL_NAME", err_invalid_model_name),
+    ("EMPTY_MODEL_LIST", err_empty_model_list),
     ("EMPTY_CHAT_MESSAGES", err_empty_chat_messages),
     ("INVALID_CHAT_MESSAGE", err_invalid_chat_message),
     ("OLLAMA_BAD_REQUEST", err_chat_remote_status(400)),
@@ -974,6 +996,7 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("HF_BAD_RESPONSE", err_hf_search_fails("HF_BAD_RESPONSE")),
     ("HF_AUTH_REQUIRED", err_hf_expand_fails("HF_AUTH_REQUIRED")),
     ("HF_NO_GGUF", err_hf_expand_fails("HF_NO_GGUF")),
+    ("HF_QUANT_UNAVAILABLE", err_hf_quant_unavailable),
     ("HF_TIMEOUT", err_hf_search_fails("HF_TIMEOUT")),
 ]
 

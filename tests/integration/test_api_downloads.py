@@ -44,6 +44,13 @@ QWEN_MID_BYTES = 986_061_892
 MANIFEST_SIZES = {QWEN_SMALL: QWEN_SMALL_BYTES, QWEN_7B: QWEN_7B_BYTES, QWEN_MID: QWEN_MID_BYTES}
 LATEST_SIZES = {**MANIFEST_SIZES, "qwen2.5:latest": 4_683_087_332, "llama3.2:latest": 2_019_393_189}
 
+# 故事 4 的測試資料(testplan.md § 5.3);不從 test_api_huggingface、test_api_curated 匯入,它們反過來匯入本檔(會循環)
+HF_Q4 = "hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M"
+HF_Q4_BYTES = 105_455_145
+HF_GEMMA = "hf.co/google/gemma-3-1b-it-qat-q4_0-gguf:Q4_0"  # 需要登入的 repo
+HF_Q4_L = "hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_L"  # 不存在的量化版本
+HF_NOT_GGUF = "hf.co/Qwen/Qwen2.5-0.5B-Instruct"  # 不是 GGUF 的 repo(沒寫量化版本,補成 `:latest`)
+
 
 def set_library(fakes: Any, sizes: dict[str, int] = MANIFEST_SIZES) -> None:
     """`get_manifest` 依 `<名稱>:<版本>` 回精確大小,其他回 `LIBRARY_NOT_FOUND`。"""
@@ -55,6 +62,33 @@ def set_library(fakes: Any, sizes: dict[str, int] = MANIFEST_SIZES) -> None:
         return {"name": kwargs["name"], "tag": kwargs["tag"], "sizeBytes": sizes[full]}
 
     fakes.model_library.get_manifest.side_effect(manifest)
+
+
+def set_hf(fakes: Any, sizes: dict[str, int], raises: dict[str, str] | None = None) -> None:
+    """`FakeHuggingFaceHub.get_manifest` 依 `hf.co/<作者>/<模型>:<tag>` 回 `sizes` 裡的大小,其他回 `HF_AUTH_REQUIRED`(plan.md Q36、Q65)。
+
+    `raises` 對某個完整名稱指定要丟的代碼,優先於 `sizes`(與 test_api_curated 的 `set_hf` 同一個行為)。
+    """
+    failing = raises or {}
+
+    def manifest(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        full = f"hf.co/{kwargs['author']}/{kwargs['model']}:{kwargs['tag']}"
+        if full in failing:
+            raise AdapterError(failing[full], "manifest failure")
+        if full not in sizes:
+            raise AdapterError("HF_AUTH_REQUIRED", "manifest unknown")
+        return {"sizeBytes": sizes[full]}
+
+    fakes.huggingface.get_manifest.side_effect(manifest)
+
+
+def set_hf_refusals(fakes: Any) -> None:
+    """Hugging Face 拒絕的三種名稱(testplan.md § US4-API-16 的鋪陳):需要登入、量化版本不存在、不是 GGUF 的 repo(Q20)。"""
+    set_hf(
+        fakes,
+        {},
+        raises={HF_GEMMA: "HF_AUTH_REQUIRED", HF_Q4_L: "HF_QUANT_UNAVAILABLE", f"{HF_NOT_GGUF}:latest": "HF_QUANT_UNAVAILABLE"},
+    )
 
 
 def downloadable(fakes: Any, *, disk_free: int = DISK_FREE) -> ColabWorld:
@@ -456,8 +490,9 @@ def insert_jobs(db_path: Any, *jobs: tuple[str, str, str | None], sizes: dict[st
 
 
 async def test_重新排隊排到最後_清除已完成只清完成的(ui_client: httpx.AsyncClient, fakes: Any, db_path: Any) -> None:
-    # Arrange:依序有 completed 的 A、failed 的 B(SESSION_ENDED)、queued 的 C;沒有工作階段
+    # Arrange:依序有 completed 的 A、failed 的 B(SESSION_ENDED)、queued 的 C;工作階段就緒(重新排隊前要讀執行環境上的模型清單)
     downloadable(fakes)
+    await open_ready(ui_client)
     insert_jobs(db_path, (QWEN_SMALL, "completed", None), (QWEN_7B, "failed", "SESSION_ENDED"), (QWEN_MID, "queued", None))
     ids = {job["model"]: job["id"] for job in (await queue(ui_client))["jobs"]}
 
@@ -1147,25 +1182,6 @@ async def test_佇列裡同名的那筆已完成時加入沒寫版本的名稱�
     assert [job["state"] in ("queued", "downloading") for job in after["jobs"] if job["model"] == "qwen2.5:latest"][1:] == [True]
 
 
-# ---- 003 US1-API-12
-
-
-async def test_版本大小寫不同的名稱照原樣比對_不當成已下載(ui_client: httpx.AsyncClient, fakes: Any) -> None:
-    # Arrange
-    downloadable(fakes)
-    set_library(fakes, {**LATEST_SIZES, "qwen2.5:Latest": 1_000})
-    set_tags(fakes, tag("qwen2.5:latest", 4_683_087_332))
-    await open_ready(ui_client)
-
-    # Act
-    response = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5:Latest"]})
-
-    # Assert
-    estimate = response.json() if response.status_code == 200 else {}
-    assert response.status_code == 200
-    assert [item["name"] for item in estimate.get("items", [])] == ["qwen2.5:Latest"]
-
-
 # ---- 003 US1-API-13
 
 
@@ -1559,3 +1575,427 @@ async def test_讀模型清單失敗的回應只有代碼與固定訊息_不含�
     assert [(operation, body_of(r).get("message") == MESSAGES[code]) for code, operation, r in responses] == [
         (operation, True) for _, operation, _ in responses
     ]
+
+
+# ---- 004 US4-API-12
+
+
+async def test_試算同一批的_hf_co_與官方模型_各依來源取大小_一起加總(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_hf(fakes, {HF_Q4: HF_Q4_BYTES})
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": [HF_Q4, QWEN_7B]})
+
+    # Assert
+    estimate = body_of(response)
+    assert response.status_code == 200
+    assert [(item["name"], item["sizeBytes"]) for item in estimate.get("items", [])] == [
+        (HF_Q4, 105_455_145),
+        (QWEN_7B, 4_683_087_332),
+    ]
+    assert estimate.get("totalBytes") == 4_788_542_477
+    assert (estimate.get("freeDiskBytes"), estimate.get("fits")) == (DISK_FREE, True)
+    assert estimate.get("estimatedSeconds") == 95
+    assert [call.kwargs for call in fakes.huggingface.get_manifest.calls] == [
+        {"author": "bartowski", "model": "SmolLM2-135M-Instruct-GGUF", "tag": "Q4_K_M"}
+    ]
+    assert [call.kwargs for call in fakes.model_library.get_manifest.calls] == [{"name": "qwen2.5", "tag": "7b"}]
+
+
+# ---- 004 US4-API-13
+
+
+async def test_加入同一批的_hf_co_與官方模型_依加入順序一個接一個下載(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_hf(fakes, {HF_Q4: HF_Q4_BYTES})
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads", json={"models": [HF_Q4, QWEN_7B]})
+    during = await wait_queue(ui_client, lambda q: states(q)[:1] == [(HF_Q4, "downloading")])
+    hold.release()
+    final = await wait_queue(ui_client, lambda q: [state for _, state in states(q)] == ["completed", "completed"])
+
+    # Assert
+    accepted = body_of(response).get("jobs", [])
+    assert response.status_code == 201
+    assert [(job["model"], job["source"]) for job in accepted] == [(HF_Q4, "huggingface"), (QWEN_7B, "library")]
+    assert states(during) == [(HF_Q4, "downloading"), (QWEN_7B, "queued")]
+    assert [call.kwargs["model"] for call in fakes.remote_ollama.pull_model.calls] == [HF_Q4, QWEN_7B]
+    assert [(job["model"], job["sizeBytes"]) for job in final["jobs"]] == [(HF_Q4, 105_455_145), (QWEN_7B, 4_683_087_332)]
+
+
+# ---- 004 US4-API-14
+
+
+async def test_加入_hf_co_模型後推出的_download_updated_帶來源_huggingface(live_servers: Any, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_hf(fakes, {HF_Q4: HF_Q4_BYTES})
+    hold = hold_pulls(fakes)
+    updates: list[dict[str, Any]] = []
+    async with httpx.AsyncClient(base_url=live_servers.ui_url, timeout=5.0) as client:
+        await open_ready(client)
+        async with client.stream("GET", "/api/events") as stream:
+
+            async def collect() -> None:
+                async for name, payload in sse_events(stream):
+                    if name == "download.updated":
+                        updates.append(payload["job"])
+
+            collector = asyncio.create_task(collect())
+            await asyncio.sleep(0.1)
+
+            # Act
+            await client.post("/api/downloads", json={"models": [HF_Q4]})
+            deadline = time.monotonic() + 1.0
+            while not updates and time.monotonic() < deadline:
+                await asyncio.sleep(0.01)
+            collector.cancel()
+            hold.release()
+
+    # Assert
+    assert [(job["model"], job["source"]) for job in updates[:1]] == [(HF_Q4, "huggingface")]
+
+
+# ---- 004 US4-API-15
+
+
+async def test_hf_co_的大小也算進空間檢查_放不下時整批不加入(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes, disk_free=4_700_000_000)
+    set_hf(fakes, {HF_Q4: HF_Q4_BYTES})
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    estimated = await ui_client.post("/api/downloads/estimate", json={"models": [HF_Q4, QWEN_7B]})
+    refused = await ui_client.post("/api/downloads", json={"models": [HF_Q4, QWEN_7B]})
+    after = await queue(ui_client)
+    control = await ui_client.post("/api/downloads", json={"models": [QWEN_7B]})
+    hold.release()
+
+    # Assert
+    assert estimated.status_code == 200
+    assert body_of(estimated).get("fits") is False
+    assert (refused.status_code, error_code(refused)) == (409, "DISK_SPACE_INSUFFICIENT")
+    assert "model" not in body_of(refused)
+    assert after["jobs"] == []
+    assert control.status_code == 201
+
+
+# ---- 004 US4-API-16
+
+
+async def test_試算時_hf_co_模型需要登入或量化版本無法下載_回_422_指出是哪一個(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_hf_refusals(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    needs_login = await ui_client.post("/api/downloads/estimate", json={"models": [QWEN_7B, HF_GEMMA]})
+    missing_quant = await ui_client.post("/api/downloads/estimate", json={"models": [HF_Q4_L]})
+    fakes.huggingface.get_manifest.reset_calls()
+    not_gguf = await ui_client.post("/api/downloads/estimate", json={"models": [HF_NOT_GGUF]})
+
+    # Assert
+    assert (needs_login.status_code, error_code(needs_login), body_of(needs_login).get("model")) == (422, "HF_AUTH_REQUIRED", HF_GEMMA)
+    assert (missing_quant.status_code, error_code(missing_quant)) == (422, "HF_QUANT_UNAVAILABLE")
+    assert (not_gguf.status_code, error_code(not_gguf), body_of(not_gguf).get("model")) == (
+        422,
+        "HF_QUANT_UNAVAILABLE",
+        f"{HF_NOT_GGUF}:latest",
+    )
+    assert [call.kwargs["tag"] for call in fakes.huggingface.get_manifest.calls] == ["latest"]
+
+
+# ---- 004 US4-API-17
+
+
+async def test_加入時_hf_co_模型被拒絕_整批不加入_也不影響下載中的(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_hf_refusals(fakes)
+    await open_ready(ui_client)
+    hold = await enqueue_waiting(ui_client, fakes, QWEN_SMALL)
+
+    # Act
+    needs_login = await ui_client.post("/api/downloads", json={"models": [QWEN_7B, HF_GEMMA]})
+    missing_quant = await ui_client.post("/api/downloads", json={"models": [HF_Q4_L]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    assert (needs_login.status_code, error_code(needs_login)) == (422, "HF_AUTH_REQUIRED")
+    assert (missing_quant.status_code, error_code(missing_quant)) == (422, "HF_QUANT_UNAVAILABLE")
+    assert states(after) == [(QWEN_SMALL, "downloading")]
+    assert [call.kwargs["model"] for call in fakes.remote_ollama.pull_model.calls] == [QWEN_SMALL]
+
+
+# ---- 004 US4-API-18
+
+
+async def test_hf_co_取大小失敗時試算與加入依自己的代碼回_指出是哪一個_佇列不變(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    await open_ready(ui_client)
+    outcomes: list[tuple[int, str | None, str | None]] = []
+    library_manifest_calls: list[int] = []
+
+    # Act
+    for code in ("HF_UNREACHABLE", "HF_SERVER_ERROR", "HF_BAD_RESPONSE", "HF_TIMEOUT"):
+        fakes.huggingface.get_manifest.raises(code)
+        fakes.model_library.get_manifest.reset_calls()
+        for path in ("/api/downloads/estimate", "/api/downloads"):
+            response = await ui_client.post(path, json={"models": [HF_Q4, QWEN_7B]})
+            outcomes.append((response.status_code, error_code(response), body_of(response).get("model")))
+        library_manifest_calls.append(fakes.model_library.get_manifest.call_count)
+    after = await queue(ui_client)
+
+    # Assert
+    assert outcomes == [
+        (502, "HF_UNREACHABLE", HF_Q4),
+        (502, "HF_UNREACHABLE", HF_Q4),
+        (502, "HF_SERVER_ERROR", HF_Q4),
+        (502, "HF_SERVER_ERROR", HF_Q4),
+        (502, "HF_BAD_RESPONSE", HF_Q4),
+        (502, "HF_BAD_RESPONSE", HF_Q4),
+        (504, "HF_TIMEOUT", HF_Q4),
+        (504, "HF_TIMEOUT", HF_Q4),
+    ]
+    assert library_manifest_calls == [0, 0, 0, 0]
+    assert after["jobs"] == []
+
+
+# ---- 004 US4-API-19
+
+
+async def test_已下載的比對不分大小寫_hf_co_與官方名稱一樣_回應是使用者的寫法_不取_manifest(
+    ui_client: httpx.AsyncClient, fakes: Any
+) -> None:
+    # Arrange
+    mixed_case = "hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M"
+    downloadable(fakes)
+    set_hf(fakes, {mixed_case: HF_Q4_BYTES})
+    set_library(fakes, LATEST_SIZES)
+    set_tags(fakes, tag("hf.co/bartowski/smollm2-135m-instruct-gguf:q4_k_m", HF_Q4_BYTES), tag("qwen2.5:latest", 4_683_087_332))
+    await open_ready(ui_client)
+    fakes.huggingface.get_manifest.reset_calls()
+    fakes.model_library.get_manifest.reset_calls()
+
+    # Act
+    estimated = await ui_client.post("/api/downloads/estimate", json={"models": [mixed_case]})
+    enqueued = await ui_client.post("/api/downloads", json={"models": [mixed_case]})
+    official = await ui_client.post("/api/downloads/estimate", json={"models": ["qwen2.5:Latest"]})
+
+    # Assert
+    assert (estimated.status_code, error_code(estimated), body_of(estimated).get("model")) == (409, "MODEL_ALREADY_DOWNLOADED", mixed_case)
+    assert (enqueued.status_code, error_code(enqueued)) == (409, "MODEL_ALREADY_DOWNLOADED")
+    assert (official.status_code, error_code(official)) == (409, "MODEL_ALREADY_DOWNLOADED")
+    assert (fakes.huggingface.get_manifest.call_count, fakes.model_library.get_manifest.call_count) == (0, 0)
+
+
+# ---- 004 US4-API-20
+
+
+async def test_已在佇列的比對不分大小寫_試算與加入都回已在佇列_整批不加入(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    lowered = "hf.co/bartowski/smollm2-135m-instruct-gguf:q4_k_m"
+    typed = "hf.co/BARTOWSKI/SmolLM2-135M-Instruct-GGUF:Q4_k_m"
+    downloadable(fakes)
+    set_hf(fakes, {HF_Q4: HF_Q4_BYTES, lowered: HF_Q4_BYTES, typed: HF_Q4_BYTES})
+    await open_ready(ui_client)
+    hold = await enqueue_waiting(ui_client, fakes, QWEN_SMALL, HF_Q4)
+
+    # Act
+    estimated = await ui_client.post("/api/downloads/estimate", json={"models": [lowered]})
+    enqueued = await ui_client.post("/api/downloads", json={"models": [QWEN_7B, typed]})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    assert (estimated.status_code, error_code(estimated)) == (409, "DOWNLOAD_ALREADY_QUEUED")
+    assert (enqueued.status_code, error_code(enqueued), body_of(enqueued).get("model")) == (409, "DOWNLOAD_ALREADY_QUEUED", typed)
+    assert states(after) == [(QWEN_SMALL, "downloading"), (HF_Q4, "queued")]
+
+
+# ---- 004 US4-API-21
+
+
+async def test_同一批的合併不分大小寫_沒寫版本與_latest_是同一筆_與量化版本不是同一筆(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    base = "hf.co/bartowski/SmolLM2-135M-Instruct-GGUF"
+    batch = [base, "hf.co/Bartowski/smollm2-135m-instruct-gguf:LATEST", HF_Q4]
+    downloadable(fakes)
+    set_hf(fakes, {f"{base}:latest": HF_Q4_BYTES, HF_Q4: HF_Q4_BYTES})
+    hold = hold_pulls(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    fakes.huggingface.get_manifest.reset_calls()
+    estimated = await ui_client.post("/api/downloads/estimate", json={"models": batch})
+    estimate_tags = [call.kwargs["tag"] for call in fakes.huggingface.get_manifest.calls]
+    fakes.huggingface.get_manifest.reset_calls()
+    enqueued = await ui_client.post("/api/downloads", json={"models": batch})
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    estimate = body_of(estimated)
+    assert estimated.status_code == 200
+    assert [item["name"] for item in estimate.get("items", [])] == [f"{base}:latest", HF_Q4]
+    assert estimate.get("totalBytes") == 210_910_290
+    assert estimate_tags == ["latest", "Q4_K_M"]
+    assert enqueued.status_code == 201
+    assert [job["model"] for job in body_of(enqueued).get("jobs", [])] == [f"{base}:latest", HF_Q4]
+    assert len(after["jobs"]) == 2
+
+
+# ---- 004 US4-API-22
+
+
+async def test_沒寫量化版本的_hf_co_名稱和已下載的量化版本是不同的名稱_照常試算(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    base = "hf.co/bartowski/SmolLM2-135M-Instruct-GGUF"
+    downloadable(fakes)
+    set_hf(fakes, {f"{base}:latest": HF_Q4_BYTES})
+    set_tags(fakes, tag(HF_Q4, HF_Q4_BYTES))
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/downloads/estimate", json={"models": [base]})
+
+    # Assert
+    assert response.status_code == 200
+    assert [item["name"] for item in body_of(response).get("items", [])] == [f"{base}:latest"]
+
+
+# ---- 004 US4-API-23
+
+
+async def test_模型名稱格式與空清單最先檢查_不需要工作階段_也不取_manifest(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    wrong_names = {
+        "A": [QWEN_7B, "huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M"],
+        "B": ["HF.CO/bartowski/SmolLM2-135M-Instruct-GGUF"],
+        "C": ["Qwen2.5:7b"],
+        "D": ["hf.co/bartowski"],
+        "E": ["hf.co/-bartowski/x"],
+    }
+    downloadable(fakes)
+    fakes.huggingface.get_manifest.reset_calls()
+    fakes.model_library.get_manifest.reset_calls()
+
+    # Act
+    wrong: dict[str, list[httpx.Response]] = {}
+    for case, models in wrong_names.items():
+        wrong[case] = [await ui_client.post(path, json={"models": models}) for path in ("/api/downloads/estimate", "/api/downloads")]
+    empty = [await ui_client.post(path, json={"models": []}) for path in ("/api/downloads/estimate", "/api/downloads")]
+    control = [
+        await ui_client.post(path, json={"models": ["hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF:q4_k_m"]})
+        for path in ("/api/downloads/estimate", "/api/downloads")
+    ]
+
+    # Assert
+    assert [(r.status_code, error_code(r)) for rs in wrong.values() for r in rs] == [(400, "INVALID_MODEL_NAME")] * 10
+    assert [body_of(r).get("model") for r in wrong["A"]] == ["huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M"] * 2
+    assert [(r.status_code, error_code(r)) for r in empty] == [(400, "EMPTY_MODEL_LIST")] * 2
+    assert [(r.status_code, error_code(r)) for r in control] == [(503, "NO_READY_SESSION")] * 2
+    assert (fakes.huggingface.get_manifest.call_count, fakes.model_library.get_manifest.call_count) == (0, 0)
+
+
+# ---- 004 US4-API-24
+
+
+async def test_重新排隊前先看執行環境_已下載的回已下載_其他的照常排到佇列最後(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_hf(fakes, {HF_Q4: HF_Q4_BYTES})
+    fakes.remote_ollama.pull_model.raises("OLLAMA_PULL_FAILED")
+    await open_ready(ui_client)
+    await ui_client.post("/api/downloads", json={"models": [HF_Q4, QWEN_7B]})
+    failed = await wait_queue(ui_client, lambda q: [state for _, state in states(q)] == ["failed", "failed"])
+    ids = {job["model"]: job["id"] for job in failed["jobs"]}
+    set_tags(fakes, tag("hf.co/bartowski/smollm2-135m-instruct-gguf:q4_k_m", HF_Q4_BYTES))
+    hold = hold_pulls(fakes)
+
+    # Act
+    already = await ui_client.post(f"/api/downloads/{ids[HF_Q4]}/retry")
+    control = await ui_client.post(f"/api/downloads/{ids[QWEN_7B]}/retry")
+    after = await queue(ui_client)
+    hold.release()
+
+    # Assert
+    assert (already.status_code, error_code(already)) == (409, "MODEL_ALREADY_DOWNLOADED")
+    assert (control.status_code, body_of(control).get("state")) == (200, "queued")
+    assert states(after) == [(HF_Q4, "failed"), (QWEN_7B, "queued")]
+
+
+# ---- 004 US4-API-25
+
+
+async def test_重新排隊找不到或不是失敗或讀不到執行環境時各回該有的錯誤_失敗的那一筆不動(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:失敗的 HF_Q4(執行環境上沒有它)與停在閘門前、下載中的 qwen2.5:7b
+    downloadable(fakes)
+    set_hf(fakes, {HF_Q4: HF_Q4_BYTES})
+    fakes.remote_ollama.pull_model.raises("OLLAMA_PULL_FAILED")
+    await open_ready(ui_client)
+    await ui_client.post("/api/downloads", json={"models": [HF_Q4]})
+    await wait_queue(ui_client, lambda q: states(q) == [(HF_Q4, "failed")])
+    hold = hold_pulls(fakes)
+    await ui_client.post("/api/downloads", json={"models": [QWEN_7B]})
+    both = await wait_queue(ui_client, lambda q: states(q) == [(HF_Q4, "failed"), (QWEN_7B, "downloading")])
+    ids = {job["model"]: job["id"] for job in both["jobs"]}
+    outcomes: dict[str, httpx.Response] = {}
+
+    # Act
+    outcomes["A"] = await ui_client.post("/api/downloads/9999/retry")
+    outcomes["B"] = await ui_client.post(f"/api/downloads/{ids[QWEN_7B]}/retry")
+    for case, code in (("C", "OLLAMA_UNREACHABLE"), ("D", "OLLAMA_BAD_RESPONSE"), ("E", "OLLAMA_TIMEOUT")):
+        fakes.remote_ollama.list_local_models.raises(code)
+        outcomes[case] = await ui_client.post(f"/api/downloads/{ids[HF_Q4]}/retry")
+    reconnect = fakes.tunnel.open_tunnel.gate()
+    fakes.tunnel.check_health.raises("TUNNEL_UNREACHABLE")
+    await wait_for_state(ui_client, "reconnecting")
+    outcomes["F"] = await ui_client.post(f"/api/downloads/{ids[HF_Q4]}/retry")
+    after = await queue(ui_client)
+    reconnect.release()
+    hold.release()
+
+    # Assert
+    assert {case: (r.status_code, error_code(r)) for case, r in outcomes.items()} == {
+        "A": (404, "DOWNLOAD_NOT_FOUND"),
+        "B": (409, "DOWNLOAD_NOT_RETRYABLE"),
+        "C": (502, "OLLAMA_UNREACHABLE"),
+        "D": (502, "OLLAMA_BAD_RESPONSE"),
+        "E": (504, "OLLAMA_TIMEOUT"),
+        "F": (503, "NO_READY_SESSION"),
+    }
+    assert (HF_Q4, "failed") in states(after)
+
+
+# ---- 004 US4-API-26
+
+
+async def test_下載完成的_hf_co_模型出現在模型目錄(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    set_hf(fakes, {HF_Q4: HF_Q4_BYTES})
+    fakes.remote_ollama.pull_model.returns([{"status": "pulling manifest"}, {"status": "success"}])
+    await open_ready(ui_client)
+
+    # Act
+    await ui_client.post("/api/downloads", json={"models": [HF_Q4]})
+    done = await wait_queue(ui_client, lambda q: states(q) == [(HF_Q4, "completed")])
+    set_tags(fakes, tag(HF_Q4, 105_455_694))
+    names = await catalog_names(ui_client)
+
+    # Assert
+    assert [(job["model"], job["state"], job["source"]) for job in done["jobs"]] == [(HF_Q4, "completed", "huggingface")]
+    assert HF_Q4 in names

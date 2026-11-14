@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
-from cgb.domain.errors import ApiError, library_error, ollama_error
+from cgb.domain.errors import ApiError, hf_error, library_error, ollama_error
 from cgb.domain.estimate import estimate
 from cgb.domain.model_name import HF_PREFIX, match_key, source_of, with_version
 from cgb.domain.session_state import iso
@@ -88,7 +88,8 @@ class DownloadsService:
             try:
                 sized.append((model, await self.manifest_size(model)))
             except AdapterError as error:
-                raise library_error(error.code, model=model) from None
+                # Hugging Face 與官方模型庫的失敗各依自己的代碼表歸類(`info.x-hf-error-status`)
+                raise (hf_error if source_of(model) == "huggingface" else library_error)(error.code, model=model) from None
         return sized
 
     async def manifest_size(self, model: str) -> int:
@@ -113,16 +114,20 @@ class DownloadsService:
     async def _checked(self, models: list[str]) -> list[str]:
         """試算與加入共用的重複檢查(contracts/ui.openapi.yaml § info.x-download-check-order):回傳補過版本的名稱。"""
         base_url = self._lifecycle.require_ready_base_url()
-        versioned = list(dict.fromkeys(with_version(model) for model in models))
+        # 同一批不分大小寫相同的合併成一個,留第一次出現的寫法與順序(`info.x-model-name-rule` (2)(4))
+        merged: dict[str, str] = {}
+        for model in models:
+            merged.setdefault(match_key(model), with_version(model))
+        versioned = list(merged.values())
         try:
-            local = {m["name"] for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
+            local = {match_key(m["name"]) for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
         except AdapterError as error:
             raise ollama_error(error.code) from None
-        pending = {row["model"] for row in self.pending()}
+        pending = {match_key(row["model"]) for row in self.pending()}
         for model in versioned:
-            if model in local:
+            if match_key(model) in local:
                 raise ApiError(409, "MODEL_ALREADY_DOWNLOADED", model=model)
-            if model in pending:
+            if match_key(model) in pending:
                 raise ApiError(409, "DOWNLOAD_ALREADY_QUEUED", model=model)
         return versioned
 
@@ -187,10 +192,21 @@ class DownloadsService:
         self._repo.delete(job_id)
         self._events.download_removed(job_id)
 
-    def retry(self, job_id: int) -> dict[str, Any]:
-        """重新排隊(retryDownload):排到佇列最後,不插回原位;佇列已清空而找不到這一筆時回 404。"""
-        if self._repo.get(job_id) is None:
+    async def retry(self, job_id: int) -> dict[str, Any]:
+        """重新排隊(retryDownload):排到佇列最後,不插回原位;佇列已清空而找不到這一筆時回 404;不是失敗的回 409;
+        執行環境上已經有這個模型(不分大小寫,FR-018)時回 409,那一筆不動。"""
+        row = self._repo.get(job_id)
+        if row is None:
             raise ApiError(404, "DOWNLOAD_NOT_FOUND")
+        if row["state"] != "failed":
+            raise ApiError(409, "DOWNLOAD_NOT_RETRYABLE")
+        base_url = self._lifecycle.require_ready_base_url()
+        try:
+            local = {match_key(m["name"]) for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
+        except AdapterError as error:
+            raise ollama_error(error.code) from None
+        if match_key(row["model"]) in local:
+            raise ApiError(409, "MODEL_ALREADY_DOWNLOADED", model=row["model"])
         self._repo.requeue(job_id)
         self._publish(job_id)
         return self.job_payload(self._repo.get(job_id))

@@ -34,6 +34,7 @@ MESSAGES: dict[str, str] = {
     "DISK_SPACE_INSUFFICIENT": "執行環境的剩餘磁碟空間不夠放下這些模型(含佇列裡還沒下載完的),請少選一些。",
     "DISK_SPACE_UNKNOWN": "讀不到執行環境的剩餘磁碟空間,無法確認放不放得下,請稍後再試。",
     "DOWNLOAD_IN_PROGRESS": "這個模型正在下載,不能取消;請等它下載完成或失敗。",
+    "DOWNLOAD_NOT_RETRYABLE": "只有下載失敗的項目可以重新排隊;這一筆是排隊中、下載中或已完成。",
     "DOWNLOAD_NOT_FOUND": "下載佇列裡已經沒有這一筆(工作階段結束時佇列會清空),請重新整理畫面。",
     "LIBRARY_NOT_FOUND": "官方模型庫找不到這個模型或版本,請確認名稱。",
     "LIBRARY_UNREACHABLE": "連不到 Ollama 官方模型庫,請稍後再試;也可以從精選清單挑選或直接輸入名稱。",
@@ -47,6 +48,7 @@ MESSAGES: dict[str, str] = {
     "INVALID_IDLE_TIMEOUT": "閒置時限要是 1 到 1440 分鐘的整數。",
     "INVALID_BALANCE_THRESHOLD": "餘額警告門檻要是 0 到 10000 之間的數字。",
     "INVALID_MODEL_NAME": "模型名稱的格式不對,請從模型目錄選擇,或輸入官方名稱(小寫,例如 qwen2.5:7b)或 hf.co/<作者>/<模型>。",
+    "EMPTY_MODEL_LIST": "沒有要下載的模型,請先選擇或輸入至少一個模型名稱。",
     "EMPTY_CHAT_MESSAGES": "沒有要送出的訊息,請先輸入內容。",
     "OLLAMA_BAD_REQUEST": "執行環境上的 Ollama 不接受這則請求,請稍後再試。",
     "OLLAMA_SERVER_ERROR": "執行環境上的 Ollama 處理時發生錯誤,請稍後再試。",
@@ -61,6 +63,7 @@ MESSAGES: dict[str, str] = {
     "HF_BAD_RESPONSE": "Hugging Face 的回應無法解讀(可能改版了);可以從精選清單挑選、搜尋官方模型庫或直接輸入名稱。",
     "HF_AUTH_REQUIRED": "這個模型需要登入、同意條款、是私有的,或根本不存在,這一輪不支援下載;請改選其他模型。",
     "HF_NO_GGUF": "這個模型沒有可以下載的 GGUF 檔,請改選其他模型。",
+    "HF_QUANT_UNAVAILABLE": "這個量化版本無法下載(不存在、是分割檔,或這個模型不是 GGUF),請改選其他版本。",
     "HF_TIMEOUT": "Hugging Face 在時限內沒有回應,請稍後再試;也可以從精選清單挑選、搜尋官方模型庫或直接輸入名稱。",
 }
 
@@ -140,6 +143,7 @@ HF_STATUS = {
     "HF_TIMEOUT": 504,
     "HF_AUTH_REQUIRED": 422,
     "HF_NO_GGUF": 422,
+    "HF_QUANT_UNAVAILABLE": 422,
 }
 
 
