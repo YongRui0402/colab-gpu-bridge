@@ -45,8 +45,6 @@ class SessionLifecycle:
         # 進行中的轉送等著的「工作階段被結束」事件(名稱 → 事件);repo 一有變更就檢查
         self._ended_events: dict[str, asyncio.Event] = {}
         repo.listeners.append(self._signal_ended)
-        # 使用者結束工作階段時呼叫(下載佇列中斷正在下載的那一筆)
-        self.end_listeners: list[Any] = []
         # 工作階段變成就緒時呼叫,收到轉發位址(開啟、重啟接回、重連都算;下載佇列自動繼續)
         self.ready_listeners: list[Any] = []
         self._was_ready = False
@@ -262,8 +260,6 @@ class SessionLifecycle:
             raise ApiError(409, "NO_ACTIVE_SESSION")
         name = latest["name"]
         self._repo.update(name, state="ending", active_slot=None, step=None)
-        for listener in list(self.end_listeners):
-            listener()
         self.spawn(self._run_end(name, end_reason))
         return self.current()
 

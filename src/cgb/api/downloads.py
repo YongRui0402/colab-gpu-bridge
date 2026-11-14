@@ -16,6 +16,11 @@ async def list_downloads(request: Request) -> JSONResponse:
     return JSONResponse(services.downloads.queue(paused=paused))
 
 
+@router.get("/downloads/auto-result")
+async def get_auto_download_result(request: Request) -> JSONResponse:
+    return JSONResponse({"result": request.app.state.services.auto_download.result()})
+
+
 @router.post("/downloads/estimate")
 async def estimate_downloads(request: Request) -> JSONResponse:
     body = await read_json(request)

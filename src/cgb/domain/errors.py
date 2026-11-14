@@ -31,6 +31,7 @@ MESSAGES: dict[str, str] = {
     "DISK_SPACE_INSUFFICIENT": "執行環境的剩餘磁碟空間不夠放下這些模型(含佇列裡還沒下載完的),請少選一些。",
     "DISK_SPACE_UNKNOWN": "讀不到執行環境的剩餘磁碟空間,無法確認放不放得下,請稍後再試。",
     "DOWNLOAD_IN_PROGRESS": "這個模型正在下載,不能取消;請等它下載完成或失敗。",
+    "DOWNLOAD_NOT_FOUND": "下載佇列裡已經沒有這一筆(工作階段結束時佇列會清空),請重新整理畫面。",
     "LIBRARY_NOT_FOUND": "官方模型庫找不到這個模型或版本,請確認名稱。",
     "LIBRARY_UNREACHABLE": "連不到 Ollama 官方模型庫,請稍後再試;也可以從精選清單挑選或直接輸入名稱。",
     "LIBRARY_SERVER_ERROR": "Ollama 官方模型庫暫時發生錯誤,請稍後再試;也可以從精選清單挑選或直接輸入名稱。",

@@ -759,6 +759,10 @@ def err_download_in_progress(w: World) -> httpx.Response:
     return trigger_ok(w, "DELETE", f"/downloads/{job['id']}")
 
 
+def err_download_not_found(w: World) -> httpx.Response:
+    return trigger_ok(w, "POST", "/downloads/999999/retry")
+
+
 def err_disk_space_insufficient(w: World) -> httpx.Response:
     ready_api(w)
     w.fakes.model_library.get_manifest.returns({"sizeBytes": SIZE_405B})
@@ -841,6 +845,7 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("DISK_SPACE_INSUFFICIENT", err_disk_space_insufficient),
     ("DISK_SPACE_UNKNOWN", err_disk_space_unknown),
     ("DOWNLOAD_IN_PROGRESS", err_download_in_progress),
+    ("DOWNLOAD_NOT_FOUND", err_download_not_found),
     ("LIBRARY_NOT_FOUND", err_manifest("LIBRARY_NOT_FOUND")),
     ("LIBRARY_UNREACHABLE", err_search("LIBRARY_UNREACHABLE")),
     ("LIBRARY_SERVER_ERROR", err_search("LIBRARY_SERVER_ERROR")),

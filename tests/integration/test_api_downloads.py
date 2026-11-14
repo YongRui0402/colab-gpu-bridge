@@ -439,69 +439,6 @@ async def test_只能在雲端執行的版本不排進佇列(ui_client: httpx.As
     assert states(after) == []
 
 
-# ---------------------------------------------------------------- US3-API-18
-
-
-async def test_結束工作階段時下載中的那筆失敗_排隊中的保留(ui_client: httpx.AsyncClient, fakes: Any) -> None:
-    # Arrange
-    downloadable(fakes)
-    await open_ready(ui_client)
-    set_tags(fakes, tag(QWEN_MID, QWEN_MID_BYTES))
-    hold = await enqueue_waiting(ui_client, fakes, QWEN_SMALL, QWEN_7B)
-
-    # Act
-    await ui_client.delete("/api/session")
-    ended = await wait_queue(ui_client, lambda q: states(q)[:1] == [(QWEN_SMALL, "failed")])
-    await wait_for_state(ui_client, "ended")
-    before_next = await queue(ui_client)
-    hold.release()
-    set_tags(fakes)
-    await open_ready(ui_client)
-    catalog = (await ui_client.get("/api/models")).json()
-
-    # Assert
-    first = ended.get("jobs", [{}])[0]
-    assert (first.get("state"), first.get("reasonCode")) == ("failed", "SESSION_ENDED")
-    assert states(before_next) == [(QWEN_SMALL, "failed"), (QWEN_7B, "queued")]
-    assert catalog.get("items") == []
-
-
-# ---------------------------------------------------------------- US3-API-19
-
-
-async def test_新的工作階段就緒後佇列自動繼續_開始前重新檢查空間(ui_client: httpx.AsyncClient, fakes: Any) -> None:
-    # Arrange:上一個工作階段結束時 qwen2.5:7b 中斷,qwen2.5:0.5b 留在佇列
-    downloadable(fakes)
-    await open_ready(ui_client)
-    hold = await enqueue_waiting(ui_client, fakes, QWEN_7B, QWEN_SMALL)
-    await ui_client.delete("/api/session")
-    await wait_for_state(ui_client, "ended")
-    hold.release()
-    paused = await queue(ui_client)
-    calls: list[tuple[str, float]] = []
-
-    def probe(*args: Any, **kwargs: Any) -> dict[str, Any]:
-        calls.append(("probe_resources", time.monotonic()))
-        return resources()
-
-    def pull(*args: Any, **kwargs: Any) -> list[Any]:
-        calls.append((f"pull {kwargs['model']}", time.monotonic()))
-        return [{"status": "success"}]
-
-    fakes.colab.probe_resources.side_effect(probe)
-    fakes.remote_ollama.pull_model.side_effect(pull)
-
-    # Act
-    ready_at = (await open_ready(ui_client), time.monotonic())[1]
-    await wait_queue(ui_client, lambda q: (QWEN_SMALL, "completed") in states(q), timeout=2.0)
-
-    # Assert
-    assert paused.get("paused") is True and (QWEN_SMALL, "queued") in states(paused)
-    pulls = [at for name, at in calls if name == f"pull {QWEN_SMALL}"]
-    assert pulls and pulls[0] - ready_at <= 1.0, calls
-    assert [name for name, _ in calls][:2] == ["probe_resources", f"pull {QWEN_SMALL}"]
-
-
 def insert_jobs(db_path: Any, *jobs: tuple[str, str, str | None], sizes: dict[str, int] = MANIFEST_SIZES) -> None:
     """直接寫入 `download_jobs`(模型, 狀態, reason_code),依序排在佇列裡;大小取自 `sizes`。"""
     conn = connect(db_path)

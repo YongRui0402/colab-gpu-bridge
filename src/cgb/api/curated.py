@@ -27,16 +27,17 @@ def curated_payload(row: dict[str, Any]) -> dict[str, Any]:
         "name": row["name"],
         "description": row["description"],
         "recommendedRuntimeType": None,
+        "autoDownload": bool(row["auto_download"]),
         "downloaded": False,
     }
 
 
-async def _input(request: Request) -> tuple[str, str | None]:
+async def _input(request: Request) -> tuple[str, str | None, bool]:
     body = await read_json(request)
     description = body.get("description")
     if description is not None and len(description) > DESCRIPTION_MAX_LENGTH:
         raise ApiError(400, "INVALID_CURATED_DESCRIPTION")
-    return normalized(body["name"]), description
+    return normalized(body["name"]), description, bool(body.get("autoDownload", False))
 
 
 def _repo(request: Request) -> CuratedRepo:
@@ -51,9 +52,9 @@ async def list_curated(request: Request) -> JSONResponse:
 
 @router.post("/curated")
 async def add_curated(request: Request) -> JSONResponse:
-    name, description = await _input(request)
+    name, description, auto_download = await _input(request)
     try:
-        curated_id = _repo(request).insert(name=name, description=description)
+        curated_id = _repo(request).insert(name=name, description=description, auto_download=auto_download)
     except CuratedDuplicate:
         raise ApiError(409, "CURATED_DUPLICATE") from None
     return JSONResponse(curated_payload(_repo(request).get(curated_id)), status_code=201)
@@ -61,8 +62,8 @@ async def add_curated(request: Request) -> JSONResponse:
 
 @router.put("/curated/{curated_id}")
 async def update_curated(request: Request, curated_id: int) -> JSONResponse:
-    name, description = await _input(request)
-    _repo(request).update(curated_id, name=name, description=description)
+    name, description, auto_download = await _input(request)
+    _repo(request).update(curated_id, name=name, description=description, auto_download=auto_download)
     return JSONResponse(curated_payload(_repo(request).get(curated_id)))
 
 

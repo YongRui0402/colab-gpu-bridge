@@ -18,9 +18,11 @@ PROGRESS_INTERVAL = 1.0
 # 下載失敗給使用者看的說明(DownloadJob.message);不把遠端的英文原文交給 UI(NFR-010)
 FAILED_MESSAGES = {
     "OLLAMA_NOT_FOUND": "找不到這個模型或版本,請確認名稱。",
-    "SESSION_ENDED": "工作階段結束,下載中斷;可以在新的工作階段重新排隊。",
 }
 FAILED_FALLBACK_MESSAGE = "下載失敗,請稍後重新排隊再試。"
+
+# 工作階段變成這些狀態時清空下載佇列(`info.x-queue-clearing` (1));重連中(還可能接回同一台)不清
+QUEUE_CLEARING_STATES = frozenset({"ending", "ended", "open_failed", "lost"})
 
 
 class DownloadsService:
@@ -32,7 +34,6 @@ class DownloadsService:
         # 下載中那一筆的進度(DownloadProgress);只活在這次執行之中,不存表
         self._progress: dict[int, dict[str, int]] = {}
         self._worker: asyncio.Task[None] | None = None
-        lifecycle.end_listeners.append(self.interrupt)
         lifecycle.ready_listeners.append(self.resume)
 
     def job_payload(self, row: dict[str, Any]) -> dict[str, Any]:
@@ -54,7 +55,11 @@ class DownloadsService:
     def queue(self, *, paused: bool) -> dict[str, Any]:
         return {"paused": paused, "jobs": [self.job_payload(row) for row in self._repo.all()]}
 
-    def _pending(self) -> list[dict[str, Any]]:
+    def _session_name(self) -> str:
+        """目前工作階段的名稱;佇列的項目都記在它底下(`info.x-queue-clearing`)。"""
+        return str(self._lifecycle.current()["name"])
+
+    def pending(self) -> list[dict[str, Any]]:
         """排隊中與下載中(還沒下載完)的項目。"""
         return [row for row in self._repo.all() if row["state"] in ("queued", "downloading")]
 
@@ -77,16 +82,18 @@ class DownloadsService:
 
     async def _sized(self, models: list[str]) -> list[tuple[str, int]]:
         """每個模型(已由 `_checked` 補過版本)以 S2 `get_manifest` 取精確大小(Q11);任何一個不符就整批不加入。"""
-        library = self._state.model_library
         sized = []
         for model in models:
-            name, tag = model.split(":", 1)
             try:
-                manifest = await library.get_manifest(name=name, tag=tag)
+                sized.append((model, await self.manifest_size(model)))
             except AdapterError as error:
                 raise library_error(error.code, model=model) from None
-            sized.append((model, manifest["sizeBytes"]))
         return sized
+
+    async def manifest_size(self, model: str) -> int:
+        """補過版本的名稱向模型庫取精確大小(位元組);失敗時丟 `AdapterError`。"""
+        name, tag = model.split(":", 1)
+        return int((await self._state.model_library.get_manifest(name=name, tag=tag))["sizeBytes"])
 
     async def _checked(self, models: list[str]) -> list[str]:
         """試算與加入共用的重複檢查(contracts/ui.openapi.yaml § info.x-download-check-order):回傳補過版本的名稱。"""
@@ -96,7 +103,7 @@ class DownloadsService:
             local = {m["name"] for m in (await self._state.remote_ollama.list_local_models(base_url=base_url))["models"]}
         except AdapterError as error:
             raise ollama_error(error.code) from None
-        pending = {row["model"] for row in self._pending()}
+        pending = {row["model"] for row in self.pending()}
         for model in versioned:
             if model in local:
                 raise ApiError(409, "MODEL_ALREADY_DOWNLOADED", model=model)
@@ -114,7 +121,7 @@ class DownloadsService:
         except AdapterError as error:
             # 讀不到剩餘空間就無法檢查 FR-022,不當成夠用
             raise ApiError(503, "DISK_SPACE_UNKNOWN", reason_code=error.code) from None
-        pending = sum(row["size_bytes"] for row in self._pending())
+        pending = sum(row["size_bytes"] for row in self.pending())
         return estimate(
             sized,
             pending_queue_bytes=pending,
@@ -133,7 +140,10 @@ class DownloadsService:
             raise ApiError(409, "DISK_SPACE_INSUFFICIENT")
         try:
             ids = self._repo.enqueue_many(
-                sized, origin="user", preload_on_complete=False, added_at=iso(self._state.clock.now())
+                sized, origin="user",
+                preload_on_complete=False,
+                added_at=iso(self._state.clock.now()),
+                session_name=self._session_name(),
             )
         except QueueConflict as conflict:
             # 另一個請求在這個請求取 manifest 時先把同一個模型加進佇列:整批已撤回(research.md R2)
@@ -142,6 +152,17 @@ class DownloadsService:
             self._publish(job_id)
         self.kick(base_url)
         return {"jobs": [self.job_payload(row) for row in self._repo.all() if row["id"] in ids]}
+
+    def enqueue_auto(self, sized: list[tuple[str, int]], session_name: str, base_url: str) -> None:
+        """自動下載排入(`origin` 為 `auto`),每一筆推 `download.updated`,接著開始下載。"""
+        if not sized:
+            return
+        ids = self._repo.enqueue_many(
+            sized, origin="auto", preload_on_complete=False, added_at=iso(self._state.clock.now()), session_name=session_name
+        )
+        for job_id in ids:
+            self._publish(job_id)
+        self.kick(base_url)
 
     def remove(self, job_id: int) -> None:
         """移除一筆(removeDownload):排隊中的取消,正在下載的不能取消。"""
@@ -152,7 +173,9 @@ class DownloadsService:
         self._events.download_removed(job_id)
 
     def retry(self, job_id: int) -> dict[str, Any]:
-        """重新排隊(retryDownload):排到佇列最後,不插回原位。"""
+        """重新排隊(retryDownload):排到佇列最後,不插回原位;佇列已清空而找不到這一筆時回 404。"""
+        if self._repo.get(job_id) is None:
+            raise ApiError(404, "DOWNLOAD_NOT_FOUND")
         self._repo.requeue(job_id)
         self._publish(job_id)
         return self.job_payload(self._repo.get(job_id))
@@ -164,32 +187,46 @@ class DownloadsService:
             self._events.download_removed(job_id)
         return {"removedIds": removed}
 
-    def enqueue_restore(self, model: str, size_bytes: int) -> None:
-        """變更類型時為了重新載入原本已載入的模型而加入(FR-010、Q36)。"""
-        self._repo.enqueue(
+    def enqueue_restore(self, model: str, size_bytes: int, session_name: str) -> None:
+        """變更類型時為了重新載入原本已載入的模型而加入新的工作階段(FR-010、Q36)。"""
+        job_id = self._repo.enqueue(
             model=model,
             size_bytes=size_bytes,
             origin="restore",
             preload_on_complete=True,
             added_at=iso(self._state.clock.now()),
+            session_name=session_name,
         )
+        # 清除時已先送空的快照,這一筆接著以 `download.updated` 推出(Q47、D61)
+        self._publish(job_id)
+
+    def clear_unowned(self) -> None:
+        """後端啟動時呼叫:升級前留下、沒有所屬工作階段的項目一併移除(`info.x-queue-clearing` (3))。"""
+        self._repo.delete_unowned()
 
     def requeue_interrupted(self) -> None:
         """後端重新啟動時呼叫:上一個行程中斷的下載回到排隊中,工作階段接回(就緒)後自動重新下載。"""
         self._repo.requeue_interrupted()
 
-    def interrupt(self) -> None:
-        """工作階段結束:停下背景下載,下載中的那筆標成失敗(SESSION_ENDED),排隊中的保留(邊界情況、FR-018)。"""
+    def clear_if_session_over(self) -> None:
+        """`SessionsRepo.listeners` 的清除(`info.x-queue-clearing` (1)):工作階段變成結束中、已結束、開啟失敗或失聯時,
+        佇列的每一筆都移除(下載中的那筆不先標成失敗),每移除一筆推 `download.removed`,全部移除後推一則 `downloads.snapshot`。"""
+        if self._lifecycle.current()["state"] not in QUEUE_CLEARING_STATES:
+            return
+        # 下載中那一筆的 worker 一起取消:閘門放行後不會再寫成 `completed`,也不會接著下載後面排入的項目
         if self._worker is not None:
             self._worker.cancel()
             self._worker = None
-        for row in self._repo.all():
-            if row["state"] == "downloading":
-                self._fail(row["id"], "SESSION_ENDED")
+        removed = self._repo.delete_all()
+        for job_id in removed:
+            self._progress.pop(job_id, None)
+            self._events.download_removed(job_id)
+        if removed:
+            self._events.downloads_snapshot(self.queue(paused=True))
 
     def resume(self, base_url: str) -> None:
         """工作階段就緒:佇列有排隊中的項目就自動繼續,開始前重新讀剩餘空間(邊界情況、FR-021)。"""
-        if self._repo.next_queued() is not None:
+        if self._repo.next_queued(self._session_name()) is not None:
             self._start(self._resume(base_url))
 
     async def _resume(self, base_url: str) -> None:
@@ -210,7 +247,8 @@ class DownloadsService:
     async def _run_queue(self, base_url: str) -> None:
         """依序下載排隊中的項目;`preloadOnComplete` 的下載完成後預先載入(keep_alive: -1,Q4)。"""
         remote, clock = self._state.remote_ollama, self._state.clock
-        while (job := self._repo.next_queued()) is not None:
+        session_name = self._session_name()
+        while (job := self._repo.next_queued(session_name)) is not None:
             job_id = job["id"]
             self._repo.update(job_id, state="downloading", started_at=iso(clock.now()))
             self._publish(job_id)

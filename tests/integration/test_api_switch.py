@@ -8,8 +8,6 @@ from typing import Any
 
 import httpx
 
-from cgb.adapters.errors import AdapterError
-
 from integration.test_api_session import (  # noqa: F401(ui_client 是 fixture)
     ColabWorld,
     error_code,
@@ -76,37 +74,6 @@ async def test_變更類型先關舊的再開新的_並重新下載原本載入�
     jobs = [job for job in queue.get("jobs", []) if job.get("model") == QWEN_SMALL]
     assert [(job.get("origin"), job.get("preloadOnComplete")) for job in jobs] == [("restore", True)]
     assert [(m, a) for m, a in world.log if m in ("pull_model", "preload")] == [("pull_model", QWEN_SMALL), ("preload", QWEN_SMALL)]
-
-
-# ---------------------------------------------------------------- US1-API-28
-
-
-async def test_新類型開不起來時舊的已結束_要重新下載的項目留在佇列(ui_client: httpx.AsyncClient, fakes: Any) -> None:
-    # Arrange
-    world = ColabWorld(fakes)
-    with_loaded_model(world, fakes)
-    old = (await open_ready(ui_client))["name"]
-
-    def reject_l4(*args: Any, **kwargs: Any) -> dict[str, Any]:
-        if kwargs["gpu"] == "L4":
-            world.log.append(("create_session", kwargs["name"]))
-            raise AdapterError("COLAB_ACCELERATOR_REJECTED", "帳號沒有這種加速器的額度")
-        return world._create(*args, **kwargs)
-
-    fakes.colab.create_session.side_effect(reject_l4)
-
-    # Act
-    await ui_client.post("/api/session/restart", json={"runtimeType": L4})
-    final = await wait_until(ui_client, lambda s: s.get("name") != old and s.get("state") == "open_failed")
-    listed = await fakes.colab.list_sessions()
-    queue = (await ui_client.get("/api/downloads")).json()
-
-    # Assert
-    assert (final.get("state"), final.get("reasonCode")) == ("open_failed", "COLAB_ACCELERATOR_REJECTED")
-    assert old in world.calls("stop_session")
-    assert old not in [entry["name"] for entry in listed["named"]]
-    restore = [job for job in queue.get("jobs", []) if job.get("model") == QWEN_SMALL and job.get("origin") == "restore"]
-    assert [job.get("state") for job in restore] == ["queued"]
 
 
 # ---------------------------------------------------------------- US1-API-29

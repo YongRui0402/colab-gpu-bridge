@@ -12,16 +12,22 @@ class CuratedRepo:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
-    def insert(self, *, name: str, description: str | None) -> int:
+    def insert(self, *, name: str, description: str | None, auto_download: bool = False) -> int:
         try:
-            cursor = self._conn.execute("INSERT INTO curated_models (name, description) VALUES (?, ?)", (name, description))
+            cursor = self._conn.execute(
+                "INSERT INTO curated_models (name, description, auto_download) VALUES (?, ?, ?)",
+                (name, description, int(auto_download)),
+            )
         except sqlite3.IntegrityError as error:
             # 寫入本身就是檢查:name 的 unique 擋下重複
             raise CuratedDuplicate from error
         return int(cursor.lastrowid)
 
-    def update(self, curated_id: int, *, name: str, description: str | None) -> None:
-        self._conn.execute("UPDATE curated_models SET name = ?, description = ? WHERE id = ?", (name, description, curated_id))
+    def update(self, curated_id: int, *, name: str, description: str | None, auto_download: bool = False) -> None:
+        self._conn.execute(
+            "UPDATE curated_models SET name = ?, description = ?, auto_download = ? WHERE id = ?",
+            (name, description, int(auto_download), curated_id),
+        )
 
     def delete(self, curated_id: int) -> None:
         self._conn.execute("DELETE FROM curated_models WHERE id = ?", (curated_id,))

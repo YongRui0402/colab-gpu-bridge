@@ -13,12 +13,14 @@ from cgb.db.connection import connect
 from cgb.db.schema import create_schema
 from cgb.domain.errors import ApiError
 from cgb.domain.session_state import iso
+from cgb.repos.auto_download import AutoDownloadRepo
 from cgb.repos.curated import CuratedRepo
 from cgb.repos.downloads import DownloadsRepo
 from cgb.repos.sessions import SessionsRepo
 from cgb.repos.settings import SettingsRepo
 from cgb.repos.usage import UsageRepo
 from cgb.services.auth import AuthService
+from cgb.services.auto_download import AutoDownload
 from cgb.services.catalog import Catalog
 from cgb.services.downloads import DownloadsService
 from cgb.services.event_bus import EventBus
@@ -40,6 +42,7 @@ class Services:
     auth: AuthService
     lifecycle: SessionLifecycle
     downloads: DownloadsService
+    auto_download: AutoDownload
     switch: RuntimeSwitch
     sessions_repo: SessionsRepo
     events: EventBus
@@ -65,7 +68,8 @@ def install(app: FastAPI) -> None:
         lifecycle = SessionLifecycle(state, repo, auth_service, key_path)
         events = EventBus()
         downloads_service = DownloadsService(state, DownloadsRepo(conn), lifecycle, events)
-        downloads_service.requeue_interrupted()
+        curated_repo = CuratedRepo(conn)
+        auto_download = AutoDownload(state, AutoDownloadRepo(conn), curated_repo, downloads_service, lifecycle, events)
         monitor = HealthMonitor(state, repo, lifecycle)
         settings_service = SettingsService(SettingsRepo(conn), events)
         usage_service = UsageService(state, UsageRepo(conn), events, settings_service)
@@ -76,24 +80,28 @@ def install(app: FastAPI) -> None:
             auth=auth_service,
             lifecycle=lifecycle,
             downloads=downloads_service,
+            auto_download=auto_download,
             switch=RuntimeSwitch(state, repo, lifecycle, downloads_service),
             sessions_repo=repo,
             events=events,
             monitor=monitor,
             catalog=Catalog(state, lifecycle, events),
             library=Library(state, lifecycle),
-            curated=CuratedRepo(conn),
+            curated=curated_repo,
             usage=usage_service,
             settings=settings_service,
             idle=idle,
         )
+        # FR-001:工作階段結束類的狀態一寫入就清空下載佇列(research.md R1,清除只掛在這一處)
+        repo.listeners.append(downloads_service.clear_if_session_over)
+        repo.listeners.append(auto_download.clear_if_session_over)
         repo.listeners.append(lambda: events.session_updated(lifecycle.current()))
         # FR-027:新的閒置時限立即反映在倒數上,已經到了就立即結束;餘額警告依新的門檻判斷(FR-025)
         settings_service.listeners.append(lambda _: events.session_updated(lifecycle.current()))
         settings_service.listeners.append(lambda _: idle.check_now())
         settings_service.listeners.append(lambda _: usage_service.publish())
         auth_service.listeners.append(lambda status: events.auth_updated(status))
-        recovery = Recovery(state, repo, key_path, lifecycle)
+        recovery = Recovery(state, repo, key_path, lifecycle, downloads_service)
         recovery.start()
         monitor.start()
         usage_service.start()
