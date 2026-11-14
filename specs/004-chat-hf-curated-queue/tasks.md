@@ -1611,127 +1611,127 @@
 
 > 只改 `src/cgb/adapters/remote_ollama.py` 與 `tests/integration/test_remote_ollama.py`;只測 `pull_model`(`plan.md` § 待決問題 Q35)。001 的 `test_pull_model_只把帶_total_的行當進度_最後回成功` 與 `test_pull_model_的失敗依串流內容分類` 保留不動。歸類照 `contracts/remote-ollama.openapi.yaml` 的 `info.x-failure-rules`,現行程式和合約不符的地方照 `plan.md` § 待決問題 Q7、Q42、Q43 改;hf.co 的進度行常數照 `testplan.md` § 5.2
 
-- [ ] T171a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-01 的測試(依情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為:A `HF_Q4`;B `hf.co/Bartowski/smollm2-135M-Instruct-GGUF:q4_k_m`;C `hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:latest`;分隔註解寫 `# ---- 004 US4-RO-01`(`plan.md` § 待決問題 Q34));既有 `RemoteOllama.pull_model`(`src/cgb/adapters/remote_ollama.py`)把 `model` 原樣放進本文已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「為了不分大小寫的重複判定(FR-018),把送出的名稱也換成比對鍵(`casefold()`),B 送成全小寫」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T171a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-01 的測試(依情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為:A `HF_Q4`;B `hf.co/Bartowski/smollm2-135M-Instruct-GGUF:q4_k_m`;C `hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:latest`;分隔註解寫 `# ---- 004 US4-RO-01`(`plan.md` § 待決問題 Q34));既有 `RemoteOllama.pull_model`(`src/cgb/adapters/remote_ollama.py`)把 `model` 原樣放進本文已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「為了不分大小寫的重複判定(FR-018),把送出的名稱也換成比對鍵(`casefold()`),B 送成全小寫」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-RO-01
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-018、FR-014、使用者故事 4 驗收情境 3
-- [ ] T171b [US4] 🟢 /tdd 綠燈:US4-RO-01 由 既有 `RemoteOllama.pull_model`(`src/cgb/adapters/remote_ollama.py`)把 `model` 原樣放進本文 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-01 通過的程式碼(依賴 T171a)
+- [X] T171b [US4] 🟢 /tdd 綠燈:US4-RO-01 由 既有 `RemoteOllama.pull_model`(`src/cgb/adapters/remote_ollama.py`)把 `model` 原樣放進本文 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-01 通過的程式碼(依賴 T171a)
   - 🧪 `testplan.md` § US4-RO-01
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-018、FR-014、使用者故事 4 驗收情境 3
-- [ ] T172a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-02 的測試(呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-02`(`plan.md` § 待決問題 Q34));既有 `RemoteOllama.pull_model` 只把帶 `total` 的行當進度(001 的 `test_pull_model_只把帶_total_的行當進度_最後回成功`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把 `pulling manifest`、`verifying sha256 digest`、`writing manifest` 也當進度產出,佇列的進度掉回 0%」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T172a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-02 的測試(呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-02`(`plan.md` § 待決問題 Q34));既有 `RemoteOllama.pull_model` 只把帶 `total` 的行當進度(001 的 `test_pull_model_只把帶_total_的行當進度_最後回成功`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把 `pulling manifest`、`verifying sha256 digest`、`writing manifest` 也當進度產出,佇列的進度掉回 0%」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-RO-02
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-018、FR-014、使用者故事 4 驗收情境 3;`research.md` § R4;`plan.md` § 待決問題 Q7
-- [ ] T172b [US4] 🟢 /tdd 綠燈:US4-RO-02 由 既有 `RemoteOllama.pull_model` 只把帶 `total` 的行當進度(001 的 `test_pull_model_只把帶_total_的行當進度_最後回成功`) 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-02 通過的程式碼(依賴 T172a)
+- [X] T172b [US4] 🟢 /tdd 綠燈:US4-RO-02 由 既有 `RemoteOllama.pull_model` 只把帶 `total` 的行當進度(001 的 `test_pull_model_只把帶_total_的行當進度_最後回成功`) 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-02 通過的程式碼(依賴 T172a)
   - 🧪 `testplan.md` § US4-RO-02
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-018、FR-014、使用者故事 4 驗收情境 3;`research.md` § R4;`plan.md` § 待決問題 Q7
-- [ ] T173a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-03 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「`client.send` 不在 `try` 裡,`ConnectTimeout` 原樣往上拋(現況)」這類實作而失敗
+- [X] T173a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-03 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「`client.send` 不在 `try` 裡,`ConnectTimeout` 原樣往上拋(現況)」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-03
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T173b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T173a)
+- [X] T173b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T173a)
   - 🧪 `testplan.md` § US4-RO-03
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T174a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-04 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「`ConnectError` 原樣往上拋(現況)」這類實作而失敗
+- [X] T174a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-04 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「`ConnectError` 原樣往上拋(現況)」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-04
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T174b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T174a)
+- [X] T174b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T174a)
   - 🧪 `testplan.md` § US4-RO-04
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T175a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-05 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「不看狀態碼,把錯誤本文當成 NDJSON 的 error 行,A 歸成 `OLLAMA_PULL_FAILED`(現況)、B 歸成 `OLLAMA_NOT_FOUND`」這類實作而失敗
+- [X] T175a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-05 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「不看狀態碼,把錯誤本文當成 NDJSON 的 error 行,A 歸成 `OLLAMA_PULL_FAILED`(現況)、B 歸成 `OLLAMA_NOT_FOUND`」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-05
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T175b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T175a)
+- [X] T175b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T175a)
   - 🧪 `testplan.md` § US4-RO-05
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T176a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-06 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「不看狀態碼就讀本文,A 因為含 `file does not exist` 歸成 `OLLAMA_NOT_FOUND`(現況)」這類實作而失敗
+- [X] T176a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-06 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「不看狀態碼就讀本文,A 因為含 `file does not exist` 歸成 `OLLAMA_NOT_FOUND`(現況)」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-06
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T176b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T176a)
+- [X] T176b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T176a)
   - 🧪 `testplan.md` § US4-RO-06
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T177a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-07 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「沿用同檔的 `_STATUS_CODES`,把 pull 的 404 歸成 `OLLAMA_NOT_FOUND`(合約第 3 條:404 → `OLLAMA_NOT_FOUND` 只有 `chat`,`pullModel` 沒有 404 回應,歸 `default`)」這類實作而失敗
+- [X] T177a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-07 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「沿用同檔的 `_STATUS_CODES`,把 pull 的 404 歸成 `OLLAMA_NOT_FOUND`(合約第 3 條:404 → `OLLAMA_NOT_FOUND` 只有 `chat`,`pullModel` 沒有 404 回應,歸 `default`)」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-07
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T177b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T177a)
+- [X] T177b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T177a)
   - 🧪 `testplan.md` § US4-RO-07
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T178a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-08 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「不看 `Content-Type`,A、C 照常回成功(現況),中間的代理或錯誤頁被當成下載完成」這類實作而失敗
+- [X] T178a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-08 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「不看 `Content-Type`,A、C 照常回成功(現況),中間的代理或錯誤頁被當成下載完成」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-08
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T178b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T178a)
+- [X] T178b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T178a)
   - 🧪 `testplan.md` § US4-RO-08
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T179a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-09 的測試(呼叫一次 `pull_model`,`model` 為 `HF_Q4`,邊迭代邊把產出的行記下;分隔註解寫 `# ---- 004 US4-RO-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「修 Q7 時把整段包成一個 `except httpx.TransportError`,串流中的 `ReadTimeout` 被歸成 `OLLAMA_STREAM_INTERRUPTED` 或 `OLLAMA_UNREACHABLE`」這類實作而失敗
+- [X] T179a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-09 的測試(呼叫一次 `pull_model`,`model` 為 `HF_Q4`,邊迭代邊把產出的行記下;分隔註解寫 `# ---- 004 US4-RO-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「修 Q7 時把整段包成一個 `except httpx.TransportError`,串流中的 `ReadTimeout` 被歸成 `OLLAMA_STREAM_INTERRUPTED` 或 `OLLAMA_UNREACHABLE`」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-09
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018;`plan.md` § 待決問題 Q7、Q38
-- [ ] T179b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T179a)
+- [X] T179b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T179a)
   - 🧪 `testplan.md` § US4-RO-09
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018;`plan.md` § 待決問題 Q7、Q38
-- [ ] T180a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-10 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「修 Q7 時把串流開始前與開始後的傳輸層失敗共用一個 `except`,A、B 被歸成 `OLLAMA_UNREACHABLE`」這類實作而失敗
+- [X] T180a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-10 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「修 Q7 時把串流開始前與開始後的傳輸層失敗共用一個 `except`,A、B 被歸成 `OLLAMA_UNREACHABLE`」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-10
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018;`plan.md` § 待決問題 Q7
-- [ ] T180b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T180a)
+- [X] T180b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T180a)
   - 🧪 `testplan.md` § US4-RO-10
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018;`plan.md` § 待決問題 Q7
-- [ ] T181a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-11 的測試(呼叫一次 `pull_model`,`model` 為 `qwen2.5:7b`,邊迭代邊把產出的行記下;分隔註解寫 `# ---- 004 US4-RO-11`(`plan.md` § 待決問題 Q34));既有 `RemoteOllama.pull_model` 對 200 之後 error 行的歸類(001 的 `test_pull_model_的失敗依串流內容分類`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「加 Content-Type 與型別檢查時改寫歸類,error 行一律歸 `OLLAMA_PULL_FAILED`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T181a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-11 的測試(呼叫一次 `pull_model`,`model` 為 `qwen2.5:7b`,邊迭代邊把產出的行記下;分隔註解寫 `# ---- 004 US4-RO-11`(`plan.md` § 待決問題 Q34));既有 `RemoteOllama.pull_model` 對 200 之後 error 行的歸類(001 的 `test_pull_model_的失敗依串流內容分類`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「加 Content-Type 與型別檢查時改寫歸類,error 行一律歸 `OLLAMA_PULL_FAILED`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-RO-11
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T181b [US4] 🟢 /tdd 綠燈:US4-RO-11 由 既有 `RemoteOllama.pull_model` 對 200 之後 error 行的歸類(001 的 `test_pull_model_的失敗依串流內容分類`) 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-11 通過的程式碼(依賴 T181a)
+- [X] T181b [US4] 🟢 /tdd 綠燈:US4-RO-11 由 既有 `RemoteOllama.pull_model` 對 200 之後 error 行的歸類(001 的 `test_pull_model_的失敗依串流內容分類`) 滿足,確認 `src/cgb/adapters/remote_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-11 通過的程式碼(依賴 T181a)
   - 🧪 `testplan.md` § US4-RO-11
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T182a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-12 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`;分隔註解寫 `# ---- 004 US4-RO-12`(`plan.md` § 待決問題 Q34)),執行確認它因為「從 error 原文裡的 `400:` 判成 `OLLAMA_BAD_REQUEST`(A、C;合約第 3 條的 400 只看 HTTP 狀態碼)」這類實作而失敗
+- [X] T182a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-12 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`;分隔註解寫 `# ---- 004 US4-RO-12`(`plan.md` § 待決問題 Q34)),執行確認它因為「從 error 原文裡的 `400:` 判成 `OLLAMA_BAD_REQUEST`(A、C;合約第 3 條的 400 只看 HTTP 狀態碼)」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-12
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018;`research.md` § R4
-- [ ] T182b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T182a)
+- [X] T182b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T182a)
   - 🧪 `testplan.md` § US4-RO-12
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018;`research.md` § R4
-- [ ] T183a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-13 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-13`(`plan.md` § 待決問題 Q34)),執行確認它因為「`json.loads` 的 `JSONDecodeError` 原樣往上拋(現況 A)」這類實作而失敗
+- [X] T183a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-13 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-13`(`plan.md` § 待決問題 Q34)),執行確認它因為「`json.loads` 的 `JSONDecodeError` 原樣往上拋(現況 A)」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-13
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T183b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T183a)
+- [X] T183b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T183a)
   - 🧪 `testplan.md` § US4-RO-13
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018
-- [ ] T184a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-14 的測試(每種情況呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-14`(`plan.md` § 待決問題 Q34)),執行確認它因為「修 Q7 時改用推論類的 `stream_timeout`(300 秒)或清單的 `LIST_TIMEOUT`(10 秒)建 client」這類實作而失敗
+- [X] T184a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-14 的測試(每種情況呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-14`(`plan.md` § 待決問題 Q34)),執行確認它因為「修 Q7 時改用推論類的 `stream_timeout`(300 秒)或清單的 `LIST_TIMEOUT`(10 秒)建 client」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-14
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018;`plan.md` § 待決問題 Q7、Q38
-- [ ] T184b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T184a)
+- [X] T184b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T184a)
   - 🧪 `testplan.md` § US4-RO-14
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018;`plan.md` § 待決問題 Q7、Q38
-- [ ] T252a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-15 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-15`(`plan.md` § 待決問題 Q34)),執行確認它因為「以整個標頭字串和 `application/x-ndjson` 比相等,帶 `charset` 的回應被歸成 `OLLAMA_BAD_RESPONSE`」這類實作而失敗
+- [X] T252a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-15 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-15`(`plan.md` § 待決問題 Q34)),執行確認它因為「以整個標頭字串和 `application/x-ndjson` 比相等,帶 `charset` 的回應被歸成 `OLLAMA_BAD_RESPONSE`」這類實作而失敗
   - 🧪 `testplan.md` § US4-RO-15
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-018、NFR-006;`plan.md` § 待決問題 Q45
-- [ ] T252b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-15 通過的程式碼;`Content-Type` 只比 `;` 之前、去掉空白、不分大小寫的 media type(`info.x-failure-rules` (4),`plan.md` § 待決問題 Q45),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T252a)
+- [X] T252b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-15 通過的程式碼;`Content-Type` 只比 `;` 之前、去掉空白、不分大小寫的 media type(`info.x-failure-rules` (4),`plan.md` § 待決問題 Q45),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T252a)
   - 🧪 `testplan.md` § US4-RO-15
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-018、NFR-006;`plan.md` § 待決問題 Q45
-- [ ] T185 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T171b~T184b、T252b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_remote_ollama.py` 的斷言(依賴 T252b)
+- [X] T185 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T171b~T184b、T252b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_remote_ollama.py` 的斷言(依賴 T252b)
   - 🧪 `testplan.md` § US4-RO-01~US4-RO-14、US4-RO-15
   - 📎 `testplan.md` § 5.2
 
