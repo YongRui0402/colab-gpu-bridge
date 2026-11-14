@@ -4,9 +4,9 @@
 
 ## 判定
 
-**最新一輪:第 1 輪(2026-11-14)— ⛔ 不能進 `/implement`**
+**最新一輪:第 2 輪(2026-11-14)— ✅ 可以進 `/implement`**
 
-還沒解決的 HIGH:A1~A12、A14~A18。最上游的是 `research.md` 停在 plan.md 決定之前的說法(A5、A6、A2 的 R7),其次是合約與 store.dbml 沒跟上 testplan 階段的決定(A2、A7、A14~A18)、原型與合約的錯誤代碼對不上(A9、A10、A12)、testplan 有案例鋪不出來或違反自己的護欄(A8、A9、A11),以及 tasks 故事 1 沒有任務建 T013b 要用的表(A1)。另有 MEDIUM 10 個、LOW 11 個,不擋實作,建議跟著修正順序一起改。
+第 1 輪的 A1~A38 都已修正,兩項轉交(SC-003、FR-012)都已澄清,沒有還沒解決的 CRITICAL 或 HIGH。這一輪新找到 MEDIUM 2 個(A39、A40),都出在修 A19 時新增的對話頁錯誤說明:一個是原型把 502 的四個代碼都標成「連不到」,一個是 tasks 沒有替前端要顯示的兩個後端訊息指定文字。兩個都不擋實作,建議開工前照修正順序先改;不先改的話,至少要在 `/implement` 做到故事 2 的 T043b、T047b、T068b、T244b 時一併處理。
 
 ## 檢查範圍
 
@@ -20,7 +20,7 @@
 | `prototype/`(index、chat、library、models、states、mock.js、style.css) | `/ui-plan` |
 | `testplan.md` | `/testplan` |
 | `tasks.md` | `/tasks` |
-| `分身決策紀錄.md`(D1~D80,對照 `plan.md` § 待決問題 Q1~Q66;依使用者 2026-11-14 授權由分身代答) | 各步驟的 kevin-twin 代答 |
+| `分身決策紀錄.md`(D1~D104,對照 `plan.md` § 待決問題 Q1~Q74;依使用者 2026-11-14 授權由分身代答) | 各步驟的 kevin-twin 代答 |
 | `constitution/_shared/語言.md` | `/constitution` |
 | 前一次迭代的 `../003-download-dedup-model-cache/plan.md`;護欄另讀 `../001-session-model-catalog/testplan.md` § 實跑案例的共同護欄;D75 另讀 `src/cgb/domain/errors.py` 的訊息表 | 001、003 的 `/system-analysis`、`/testplan` |
 
@@ -44,7 +44,7 @@
 | A1 | 無法實作 | HIGH | `tasks.md` § T013b;`tasks.md` § T017b;`tasks.md` § T110a;`plan.md` § 待決問題 Q64 | Q64 決定「欄位與表由故事 1 的 E4 節照 store.dbml 建」,T013b 寫「`curated_models.auto_download`、`auto_download_results`、`auto_download_items` 由 E4 節照 `contracts/store.dbml` 建……這個任務不改那個檔(依賴 T013a、T024b)」;但 T017b 只寫「只寫讓 US1-DB-01 通過的程式碼」,US1-DB-01~08 只斷言 `download_jobs`,沒有任務負責建這三樣。T110a 又是一般紅燈,預期因「全新庫的 `_CURATED_MODELS` DDL 沒有改」而失敗。照嚴格 TDD,T013b 做不下去;讓 T017b 照 ⚙ 全建,T110a 起的紅燈就判斷錯 | `/tasks` |
 | A2 | 矛盾 | HIGH | `plan.md` § 待決問題 Q40;`research.md` § R7;`contracts/store.dbml` § `Project` Note(遷移第 1、2 步);`testplan.md` § US3-DB-05 | Q40(D54)決定「建索引前在同一個交易裡每組只留 id 最小的那一筆、其他刪掉,刪掉的名稱寫進日誌」;store.dbml 第 1 步寫「再 `CREATE UNIQUE INDEX uq_curated_models_name_ci` …… 001 的名稱只收小寫,既有資料不會撞到」,第 2 步重建後直接建 `uq_download_jobs_pending_model_ci`,都沒有去重;R7 也沒有這一步。US3-DB-05 的「要抓的錯」正是照 store.dbml 的假設直接建索引。照 store.dbml 做,舊庫有只差大小寫的名稱時遷移 rollback、後端起不來 | `/technical-research`、`/data-plan` |
 | A3 | 遺漏 | HIGH | `plan.md` § 待決問題 Q40;`testplan.md` § US3-DB-05;`testplan.md` § US1-DB-08;`tasks.md` § T114b | D54 要求刪掉的名稱寫進日誌;`download_jobs` 那一側 US1-DB-08 斷言 `caplog`,`curated_models` 那一側 US3-DB-05 沒有日誌的則,T114b 只寫「只寫讓 US3-DB-05 通過的程式碼」。照 tasks 做,被刪掉的精選名稱不會進日誌 | `/testplan` |
-| A4 | 遺漏 | HIGH | `plan.md` § 待決問題 Q61;`testplan.md` § US2-API-12、US2-API-13;`tasks.md`(無對應任務);`src/cgb/domain/errors.py` § `OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_TIMEOUT` | Q61(D75)決定對話頁沿用的 `OLLAMA_*` 說明改成兩邊都通的通用說法;現行三句都寫「無法確認哪些模型已經下載」,testplan 只驗「說明是中文」,tasks 沒有任務改這三句。決定沒有落地 | `/testplan` |
+| A4 | 遺漏 | HIGH | `plan.md` § 待決問題 Q61;`testplan.md` § US2-API-12、US2-API-13;`tasks.md`(無對應任務);`../../src/cgb/domain/errors.py` § `OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_TIMEOUT` | Q61(D75)決定對話頁沿用的 `OLLAMA_*` 說明改成兩邊都通的通用說法;現行三句都寫「無法確認哪些模型已經下載」,testplan 只驗「說明是中文」,tasks 沒有任務改這三句。決定沒有落地 | `/testplan` |
 | A5 | 矛盾 | HIGH | `research.md` § R6(判定順序後的一點);`plan.md` § 待決問題 Q52;`contracts/ui.openapi.yaml` § `info.x-auto-download` (3)(d);`testplan.md` § US3-API-20 | R6 寫「讀不到剩餘空間時全部跳過,原因『讀不到剩餘空間』」;Q52(D66)決定保留已判定的原因,合約 (d) 寫「其餘還沒判定的項目都跳過」,US3-API-20 則2 的 `999b` 仍是 `SIZE_UNAVAILABLE`。照 R6 做,已跳過的項目會被改標 `DISK_SPACE_UNKNOWN` | `/technical-research` |
 | A6 | 矛盾 | HIGH | `research.md` § R5(轉送);`plan.md` § 待決問題 Q11、Q60;`contracts/ui.openapi.yaml` § `ChatStreamFailure`;`testplan.md` § US2-API-20 | R5 寫「回應沿用 `_relay`(工作階段被結束時補一行 `{"error": ...}`,非預期斷線時補『串流中斷』」;Q11(D25)與合約要最後一行是 `{"error": {"code","message"}}` 物件,Q60(D74)要失聯時對話也結束轉送。照 R5 做,前端收到字串、分不出原因;US2-API-20 的「要抓的錯」正是這種寫法。R5 的修訂紀錄只補了 `keep_alive` | `/technical-research` |
 | A7 | 矛盾 | HIGH | `contracts/ui.openapi.yaml` § `retryDownload`;`testplan.md` § 9. 不在本次範疇;`plan.md` § 待決問題 Q56 | 合約寫「先確認模型不在執行環境上、再檢查剩餘磁碟」,409 列 `DISK_SPACE_INSUFFICIENT`、503 列 `DISK_SPACE_UNKNOWN`;testplan § 9 寫「這一輪重新排隊不讀剩餘磁碟」,D70 寫「`DISK_SPACE_*` 照舊範圍外」。照合約做會讀磁碟並可能回 409、503 | `/api-plan` |
@@ -114,3 +114,83 @@
 6. `/testplan` 改 `testplan.md`:A3、A4、A8、A9、A11、A12、A17、A18、A19、A20、A25、A30、A31、A38 (c)(d),並涵蓋第 4、5 步新增的錨點
 7. `/tasks` 在故事 1 的 E4 節指定建表的綠燈、故事 3 已做到的紅燈改對照組(A1、A33)、Q 編號引用(A32),並照第 6 步從 T238 起補任務
 8. 重跑 `/analyze`
+
+---
+
+## 第 2 輪(2026-11-14)
+
+### 前置檢查
+
+| 腳本 | 結果 |
+|---|---|
+| `specify/scripts/check_spec.py` | ✅ 通過 |
+| `system-analysis/scripts/check_plan.py` | ✅ 通過(`--previous-plan ../003-download-dedup-model-cache/plan.md`) |
+| `testplan/scripts/check_testplan.py` | ✅ 通過 |
+| `tasks/scripts/check_tasks.py` | ✅ 通過 |
+
+### 上一輪的問題
+
+| ID | 狀態 | 依據 |
+|---|---|---|
+| A1 | ✅ 已修正 | `tasks.md` § T017b 照 `store.dbml` 一次建全新庫的整份 DDL(含 `curated_models.auto_download`、`auto_download_results`、`auto_download_items`),T013b 改成依賴 T017b;T110a、T118a、T119a、T248a 改成對照組(`plan.md` Q74、D104) |
+| A2 | ✅ 已修正 | `research.md` § R7 補「建索引前先去重」與修訂紀錄;`store.dbml` § `Project` Note 遷移第 1、2 步在建唯一索引前依 `lower(...)` 分組、留 `id` 最小的一筆並寫日誌,去重後建索引仍失敗就整個 rollback |
+| A3 | ✅ 已修正 | `testplan.md` § US3-DB-05 在 `caplog` 底下執行,則5 斷言被刪名稱 `qwen2.5:Latest` 的 WARNING;`tasks.md` § T114b 寫進日誌 |
+| A4 | ✅ 已修正 | `testplan.md` § US2-API-28 斷言三句不含「無法確認哪些模型已經下載」;`tasks.md` § T241a、T241b 改 `src/cgb/domain/errors.py` 的三句 |
+| A5 | ✅ 已修正 | `research.md` § R6 改成保留已判定的原因、只有還沒判定的標 `DISK_SPACE_UNKNOWN`;`spec.md` § FR-012 與使用者故事 3 驗收情境 11 同一個說法 |
+| A6 | ✅ 已修正 | `research.md` § R5 補「串流開始後的失敗」(最後一行是 `{"error": {"code","message"}}`)與「工作階段結束或失聯」(失聯時也結束轉送) |
+| A7 | ✅ 已修正 | `ui.openapi.yaml` § `retryDownload` 寫明不讀剩餘磁碟,409、503 拿掉 `DISK_SPACE_*`,和 `testplan.md` § 9、D70 一致 |
+| A8 | ✅ 已修正 | `testplan.md` § US3-AJ-08 改成兩個工作階段各鋪一次(`plan.md` Q70、D100),則2、則3 分開斷言 |
+| A9 | ✅ 已修正 | `testplan.md` § US3-AJ-03 情況 A 改成合法的 `qwen2.5:Latest`;`prototype/library.html` 的 `cur-duplicate` 範例改成 `nomic-embed-text` 對 `nomic-embed-text:latest` |
+| A10 | ✅ 已修正 | `prototype/library.html` § `#c-highmem`、`submitForm` 改送 `{gpu, highMem}`(D95);`testplan.md` § US3-AJ-11 |
+| A11 | ✅ 已修正 | `testplan.md` § 7.0 的 Hugging Face 護欄改成同時最多 4 個、不重試、每次最多 40 個請求(`plan.md` Q71、D101);G-01 則9 斷言請求總數 ≤ 40 |
+| A12 | ✅ 已修正 | `prototype/library.html` 刪掉 `hf-no-gguf`,`prototype/mock.js` § `Proto.lookup` 改回 `HF_QUANT_UNAVAILABLE`、文字補「不是 GGUF」(D99);`testplan.md` § US4-AJ-08 不再鋪 `hf-no-gguf`,另加 US4-AJ-09 |
+| A13 | ✅ 已修正 | `plan.md` § Project Structure、`research.md` § R6、`ui.openapi.yaml` § `getAutoDownloadResult`、`ui-events.asyncapi.yaml` § `autoDownloadUpdated` 都改成模型頁下載佇列上方;`testplan.md` § US3-API-26 與 `tasks.md` § T097a 改寫「模型頁」 |
+| A14 | ✅ 已修正 | `ui.openapi.yaml` § `listDownloads`、`DownloadQueue.paused` 分情況寫明:重連中照樣留著、變更類型只有重新載入的項目、其他時候是空的 |
+| A15 | ✅ 已修正 | `ui-events.asyncapi.yaml` § `sendDownloadsSnapshot.x-callers` 改成全部推完 `download.removed` 之後只送一次空的快照,變更類型時接著推重新載入項目的 `download.updated`(Q47、D61) |
+| A16 | ✅ 已修正 | `store.dbml` § `auto_download_results.target_count` 寫明建表加 `CHECK (target_count >= 0)`(pydbml 解析不了 checks,所以寫在 note);`tasks.md` § T017b 與遷移第 3 步照建 |
+| A17 | ✅ 已修正 | `ui.openapi.yaml` § `updateCurated` 補檢查順序 400 → 404 → 409(Q53、D67);`testplan.md` § US3-API-38 |
+| A18 | ✅ 已修正 | `plan.md` Q67(D85)定為兩段平行、都從收到展開請求起算;`ui.openapi.yaml` § `listHfQuants` 的時間上限改寫成 (a)~(d);`testplan.md` § US4-API-08 則5、US4-API-32 |
+| A19 | ✅ 已修正 | `prototype/chat.html` 補 `turn-interrupted`、`turn-bad-response`、`turn-not-found`、`turn-unavailable`、`turn-start-timeout`,`turn-error` 改成通用說法(D96);`testplan.md` § US2-AJ-10 則6、則7、US2-AJ-13、US2-AJ-14。修正帶出的文字問題另開 A39、A40 |
+| A20 | ✅ 已修正 | `prototype/library.html` § `HF_INLINE` 補 502 的三個代碼,`hf-expand-down` 改成「Hugging Face 暫時無法使用」;`testplan.md` § US4-AJ-10、G-04 則3 |
+| A21 | ✅ 已修正 | `prototype/library.html` § `[data-state="direct-unchecked"]`:沒有就緒的工作階段時只檢查格式就加入勾選(D97);`testplan.md` § US4-AJ-11 |
+| A22 | ✅ 已修正 | `ui.openapi.yaml` § `AutoDownloadSkipped` 加選填 `sizeBytes`、`freeDiskBytes`、`vramBytes`,`store.dbml` § `auto_download_items` 加三欄(Q68、D86);`prototype/mock.js` 照合約欄位;`testplan.md` § US3-API-39、US3-DB-13 |
+| A23 | ✅ 已修正 | `prototype/models.html` 與 `prototype/index.html` 拿掉筆數,改依工作階段狀態判斷 `queue-cleared`(D98);`testplan.md` § US1-AJ-07 則4 斷言不含「筆」 |
+| A24 | ✅ 已修正 | `ui.openapi.yaml` § `info.x-hf-error-status` 定下四個操作共用的對應(Q69、D87);`testplan.md` § US4-API-31 則6 |
+| A25 | ✅ 已修正 | `testplan.md` § 10 寫明一律引用 `plan.md` 的 Q 編號,全檔不再有「見待決問題」「待決問題 1~4」 |
+| A26 | ✅ 已修正 | `research.md` § R5 改成從 `Timeouts.chat_connect`、`chat_read` 注入(Q44、D58) |
+| A27 | ✅ 已修正 | `ui.openapi.yaml` § `info.x-auto-download` (1) 寫明不判定、不排入,但仍記下這個工作階段做過(Q24、D38) |
+| A28 | ✅ 已修正 | `store.dbml` § `idx_download_jobs_session`、`ui.openapi.yaml` § `listDownloads`、`DownloadQueue.jobs` 都改成不依工作階段過濾(Q46、D60) |
+| A29 | ✅ 已修正 | `remote-ollama.openapi.yaml` § `info.x-failure-rules` (4) 只比 media type、忽略參數(Q45、D59);`testplan.md` § US2-API-29、US4-RO-15 有帶 charset 的情況 |
+| A30 | ✅ 已修正 | `testplan.md` § US5-AJ-05 驗新增表單的 `#c-type` 沒有 H100 |
+| A31 | ✅ 已修正 | `testplan.md` § 1 受測操作的「關閉自動下載提示」錨點改成 `AutoDownloadResult` |
+| A32 | ✅ 已修正 | `tasks.md` § US3 E4 節首的外鍵改引 `plan.md` Q27 |
+| A33 | ✅ 已修正 | `tasks.md` § T072a、T083a 改寫預期失敗的原因並排除 T013b 已做到的部分;T098a 改成對照組 |
+| A34 | ✅ 已修正 | `prototype/models.html` § `[data-state="auto-running"]` 加關閉鈕(`[data-dismiss]`),`prototype/mock.js` 判定完成時保留 `dismissed`;`testplan.md` § US3-AJ-10 |
+| A35 | ✅ 已修正 | `prototype/mock.js` § `validName`、`isHf` 改用 `ModelName` 的 pattern |
+| A36 | ✅ 已修正 | `prototype/index.html` 補 `[data-state="lost-timeout"]`、`[data-state="failed"]`;`testplan.md` § US1-AJ-05、US1-AJ-06 |
+| A37 | ✅ 已修正 | `prototype/chat.html` § `[data-state="turn-lost"]` 含「正在變更類型」;`testplan.md` § US2-AJ-15 |
+| A38 | ✅ 已修正 | (a)`research.md` § R3 補第 8 步整體期限與 200 沒有模型層;(b)`spec.md` § 使用者故事 4 獨立測試改成 manifest `layers[].size` 的總和;(c)`testplan.md` § G-01 改寫成「research.md R2 研究時用過,調整用」;(d)G-06 的授權取得留到實跑前由使用者本人決定(`plan.md` Q72、D102) |
+| SC-003 | ✅ 已澄清 | `spec.md` § SC-003 的分母限定在 FR-011 的範圍(D81);`testplan.md` § US3-API-36 則4 |
+| FR-012 | ✅ 已澄清 | `spec.md` § FR-012 列出四種跳過原因,新增使用者故事 3 驗收情境 11(D82);`testplan.md` § US3-API-20 追溯到驗收情境 11 |
+
+### 新問題
+
+| ID | 類別 | 嚴重度 | 位置 | 摘要 | 回哪一步 |
+|---|---|---|---|---|---|
+| A39 | 矛盾 | MEDIUM | `prototype/chat.html` § `[data-state="turn-unavailable"]`、`CUT.unavailable`;`contracts/ui.openapi.yaml` § `chat` 502;`分身決策紀錄.md` § D96;`testplan.md` § US2-AJ-14 | 合約的 502 有 `OLLAMA_UNREACHABLE`、`OLLAMA_BAD_REQUEST`、`OLLAMA_SERVER_ERROR`(「回 500,例如記憶體不足載入失敗」)、`OLLAMA_BAD_RESPONSE` 四個代碼,D96 決定四個共用一個畫面、顯示後端的 `message`;原型的 `turn-unavailable` 卻寫死「沒有送出:連不到執行環境上的 Ollama」,回覆下方的標示 `CUT.unavailable` 也寫死「沒有回覆:連不到 Ollama」。照原型做,遠端記憶體不足、載入失敗也會被標成「連不到」;US2-AJ-14 B 只驗 `OLLAMA_UNREACHABLE`,測不出來(考慮過 HIGH:T244b 已寫「說明用錯誤回應的 `message`」,會錯的只剩標示文字,畫面狀態不受影響) | `/ui-plan` |
+| A40 | 無法實作 | MEDIUM | `tasks.md` § T068b;`tasks.md` § T043b、T047b;`testplan.md` § US2-AJ-10 則6、US2-AJ-13 則2、US2-API-13 則4;`prototype/chat.html` § `[data-state="turn-error"]`、`[data-state="turn-interrupted"]`;`tasks.md` § T241b | T068b 要求 `turn-error`「照 `prototype/chat.html` 寫成固定開頭加後端 `error.message` 的通用說法」,檔案範圍只有 `js/chat.js`;US2-AJ-10 則6 要畫面含「處理時發生錯誤」,這段字只能來自 `MESSAGES` 的 `OLLAMA_SERVER_ERROR`,但新增它的 T043b 只寫「加進 `MESSAGES`」、沒有指定文字,US2-API-13 則4 也只驗「是中文」;`OLLAMA_STREAM_INTERRUPTED`(T047b;US2-AJ-13 則2「回應到一半就斷了」)同樣。T241b 已替另外三個代碼指定照原型文字,這兩個沒有。照 tasks 做,T043b 寫的文字不一定含原型的那句,T068b 的綠燈得去改不在它檔案範圍的 `errors.py`(考慮過 HIGH:US2-AJ-10 會紅燈,不會靜默做錯) | `/tasks` |
+
+### 追溯缺口
+
+只列有缺口的需求;其餘需求從規格檔到任務都接得上。
+
+| 需求 | 規格檔元素 | 任務 | 缺口 |
+|---|---|---|---|
+| FR-008 對話中斷的原因(串流前 502 的四個代碼、串流中的伺服器錯誤與中斷) | `ui.openapi.yaml` § `chat` 502、`x-stream-error-codes`;`prototype/chat.html` § `turn-unavailable`、`turn-error`、`turn-interrupted` | T043b、T047b(沒指定文字)、T068b、T243b、T244b | A39、A40 |
+
+### 修正順序
+
+1. `/ui-plan` 改 `prototype/chat.html`:`turn-unavailable` 的說明改成「沒有送出:」加後端 `message` 的寫法,`CUT.unavailable` 改成不指名原因的標示(例如「沒有回覆:Ollama 暫時無法使用」)(A39)
+2. `/testplan` 在 US2-AJ-14 補一個 502 不是 `OLLAMA_UNREACHABLE` 的情況(例如遠端回 500 的 `OLLAMA_SERVER_ERROR`),斷言畫面顯示那個代碼的 `message`、不含「連不到」(照 Q73 在原案例上補,A39)
+3. `/tasks`:T043b、T047b 指定 `OLLAMA_SERVER_ERROR`、`OLLAMA_STREAM_INTERRUPTED` 的 `MESSAGES` 文字照 `prototype/chat.html` 的 `turn-error`、`turn-interrupted`(A40),並照第 2 步更新 T244a、T244b 的描述
+4. 重跑 `/analyze`
