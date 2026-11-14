@@ -1739,91 +1739,91 @@
 
 > 搜尋與展開的案例寫進新的 `tests/integration/test_api_huggingface.py`,試算、加入、重新排隊、SSE 與目錄的案例寫進 `tests/integration/test_api_downloads.py`,`model_name` 的案例寫進新的 `tests/unit/test_model_name.py`。Hugging Face 用 `FakeHuggingFaceHub`(`fakes.huggingface`);`src/cgb/app.py` 接上正式的 `HuggingFaceHub()` 的 T186b 依賴 E12 節的 T136b。001~003 的試算與加入案例照原樣回歸;要改寫或刪掉的兩支舊測試寫在 T204b、T209b
 
-- [ ] T186a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-01 的測試(送 `GET /api/huggingface/search?q=%20qwen%20`;分隔註解寫 `# ---- 004 US4-API-01`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/integration/test_api_huggingface.py` 新增 `HF_Q4`、`hf_page`、`hf_quants`,並把 `set_hf` 擴充成可以對某個完整名稱指定要丟的代碼(`testplan.md` § 5.3),執行確認它因為「搜尋前先呼叫 `require_ready_base_url()`,沒有工作階段時回 503 `NO_READY_SESSION`」這類實作而失敗
+- [X] T186a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-01 的測試(送 `GET /api/huggingface/search?q=%20qwen%20`;分隔註解寫 `# ---- 004 US4-API-01`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/integration/test_api_huggingface.py` 新增 `HF_Q4`、`hf_page`、`hf_quants`,並把 `set_hf` 擴充成可以對某個完整名稱指定要丟的代碼(`testplan.md` § 5.3),執行確認它因為「搜尋前先呼叫 `require_ready_base_url()`,沒有工作階段時回 503 `NO_READY_SESSION`」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、使用者故事 4 驗收情境 1
-- [ ] T186b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/api/__init__.py`、`src/cgb/app.py` 只寫讓 US4-API-01 通過的程式碼;新增 `src/cgb/api/huggingface.py` 並在 `src/cgb/api/__init__.py` 註冊路由;`src/cgb/app.py` 的 `create_app` 沒給 `huggingface` 時用 `HuggingFaceHub()`(`src/cgb/adapters/huggingface.py` 由 E12 節建立),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T186a、T136b)
+- [X] T186b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/api/__init__.py`、`src/cgb/app.py` 只寫讓 US4-API-01 通過的程式碼;新增 `src/cgb/api/huggingface.py` 並在 `src/cgb/api/__init__.py` 註冊路由;`src/cgb/app.py` 的 `create_app` 沒給 `huggingface` 時用 `HuggingFaceHub()`(`src/cgb/adapters/huggingface.py` 由 E12 節建立),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T186a、T136b)
   - 🧪 `testplan.md` § US4-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、使用者故事 4 驗收情境 1
-- [ ] T187a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-02 的測試(送 `GET /api/huggingface/search?q=qwen&cursor=c1`;分隔註解寫 `# ---- 004 US4-API-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「載入更多時把 `cursor` 當頁碼轉成整數或丟掉,轉接層每次都拿到 `cursor=None`、一直回第一頁」這類實作而失敗
+- [X] T187a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-02 的測試(送 `GET /api/huggingface/search?q=qwen&cursor=c1`;分隔註解寫 `# ---- 004 US4-API-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「載入更多時把 `cursor` 當頁碼轉成整數或丟掉,轉接層每次都拿到 `cursor=None`、一直回第一頁」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013
-- [ ] T187b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T187a)
+- [X] T187b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T187a)
   - 🧪 `testplan.md` § US4-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013
-- [ ] T188a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_huggingface.py` 寫 US4-API-03 的測試(送 `GET /api/huggingface/search?q=zzzqqqnonexist`;分隔註解寫 `# ---- 004 US4-API-03`(`plan.md` § 待決問題 Q34));T186b 原樣交回轉接層的結果(0 筆照樣 200)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「0 筆時當成格式不符回 502 `HF_BAD_RESPONSE`,或回 404」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T188a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_huggingface.py` 寫 US4-API-03 的測試(送 `GET /api/huggingface/search?q=zzzqqqnonexist`;分隔註解寫 `# ---- 004 US4-API-03`(`plan.md` § 待決問題 Q34));T186b 原樣交回轉接層的結果(0 筆照樣 200)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「0 筆時當成格式不符回 502 `HF_BAD_RESPONSE`,或回 404」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、使用者故事 4 驗收情境 5
-- [ ] T188b [US4] 🟢 /tdd 綠燈:US4-API-03 由 T186b 原樣交回轉接層的結果(0 筆照樣 200) 滿足,確認 `src/cgb/api/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-03 通過的程式碼(依賴 T188a)
+- [X] T188b [US4] 🟢 /tdd 綠燈:US4-API-03 由 T186b 原樣交回轉接層的結果(0 筆照樣 200) 滿足,確認 `src/cgb/api/huggingface.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-03 通過的程式碼(依賴 T188a)
   - 🧪 `testplan.md` § US4-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、使用者故事 4 驗收情境 5
-- [ ] T189a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-04 的測試(情況 A:`q` 只有三個空白;B:`q` 是 101 個字元;C:不帶 `q`;D:`q=qwen&cursor=`(空字串);分隔註解寫 `# ---- 004 US4-API-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「以 FastAPI 的 `Query(min_length=1)` 驗,缺少或空字串時回 FastAPI 預設的 422 與 `detail`,不是合約的 `Error`」這類實作而失敗
+- [X] T189a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-04 的測試(情況 A:`q` 只有三個空白;B:`q` 是 101 個字元;C:不帶 `q`;D:`q=qwen&cursor=`(空字串);分隔註解寫 `# ---- 004 US4-API-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「以 FastAPI 的 `Query(min_length=1)` 驗,缺少或空字串時回 FastAPI 預設的 422 與 `detail`,不是合約的 `Error`」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、NFR-006
-- [ ] T189b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-04 通過的程式碼;新代碼 `INVALID_QUERY`、`INVALID_CURSOR` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T189a)
+- [X] T189b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-04 通過的程式碼;新代碼 `INVALID_QUERY`、`INVALID_CURSOR` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T189a)
   - 🧪 `testplan.md` § US4-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、NFR-006
-- [ ] T190a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-05 的測試(依序以 `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`、`HF_TIMEOUT` 各送一次 `GET /api/huggingface/search?q=qwen`;分隔註解寫 `# ---- 004 US4-API-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「路由沒接 `AdapterError`,或 `MESSAGES` 沒補 `HF_*`、`ApiError.body()` 丟 `KeyError`,回 500」這類實作而失敗
+- [X] T190a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-05 的測試(依序以 `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`、`HF_TIMEOUT` 各送一次 `GET /api/huggingface/search?q=qwen`;分隔註解寫 `# ---- 004 US4-API-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「路由沒接 `AdapterError`,或 `MESSAGES` 沒補 `HF_*`、`ApiError.body()` 丟 `KeyError`,回 500」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-016、NFR-006、使用者故事 4 驗收情境 6
-- [ ] T190b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-05 通過的程式碼;若要把 `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`、`HF_TIMEOUT` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T190a)
+- [X] T190b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-05 通過的程式碼;若要把 `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`、`HF_TIMEOUT` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T190a)
   - 🧪 `testplan.md` § US4-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`
   - 📎 `spec.md` § FR-016、NFR-006、使用者故事 4 驗收情境 6
-- [ ] T191a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-06 的測試(依序送 Hugging Face 搜尋 `q=qwen`、展開 `bartowski/SmolLM2-135M-Instruct-GGUF`、官方搜尋 `q=qwen2.5`、`GET /api/curated`、試算 `["qwen2.5:7b"]`(直接輸入的官方名稱);分隔註解寫 `# ---- 004 US4-API-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「試算取大小時不分前綴一律先問 Hugging Face,官方名稱也被 HF 的失敗擋下」這類實作而失敗
+- [X] T191a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-06 的測試(依序送 Hugging Face 搜尋 `q=qwen`、展開 `bartowski/SmolLM2-135M-Instruct-GGUF`、官方搜尋 `q=qwen2.5`、`GET /api/curated`、試算 `["qwen2.5:7b"]`(直接輸入的官方名稱);分隔註解寫 `# ---- 004 US4-API-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「試算取大小時不分前綴一律先問 Hugging Face,官方名稱也被 HF 的失敗擋下」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`、`paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`paths./curated.get`、`components.schemas.CuratedList`、`components.schemas.CuratedModel`、`paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`(`info.x-model-name-rule`、`info.x-download-check-order`)
   - 📎 `spec.md` § FR-016、使用者故事 4 驗收情境 6、SC-004、SC-006
-- [ ] T191b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T191a)
+- [X] T191b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T191a)
   - 🧪 `testplan.md` § US4-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`、`paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`paths./curated.get`、`components.schemas.CuratedList`、`components.schemas.CuratedModel`、`paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`(`info.x-model-name-rule`、`info.x-download-check-order`)
   - 📎 `spec.md` § FR-016、使用者故事 4 驗收情境 6、SC-004、SC-006
-- [ ] T192a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-07 的測試(送 `GET /api/huggingface/models/bartowski/SmolLM2-135M-Instruct-GGUF/quants`;分隔註解寫 `# ---- 004 US4-API-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「「已下載」照原樣比對,大小寫不同的 `q4_k_m` 比不到、標成 false」這類實作而失敗
+- [X] T192a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-07 的測試(送 `GET /api/huggingface/models/bartowski/SmolLM2-135M-Instruct-GGUF/quants`;分隔註解寫 `# ---- 004 US4-API-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「「已下載」照原樣比對,大小寫不同的 `q4_k_m` 比不到、標成 false」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014、FR-018、使用者故事 4 驗收情境 2
-- [ ] T192b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T192a)
+- [X] T192b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T192a)
   - 🧪 `testplan.md` § US4-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014、FR-018、使用者故事 4 驗收情境 2
-- [ ] T193a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-08 的測試(情況 A:沒有開工作階段;B:工作階段就緒,`list_local_models.raises("OLLAMA_UNREACHABLE")`;C:工作階段就緒,`list_local_models.gate()` 一直不放行;`list_quants` 以 async `side_effect` 先等 0.2 秒再回(C 的期限從收到請求起算,`plan.md` § 待決問題 Q67);三種各展開 `bartowski/SmolLM2-135M-Instruct-GGUF` 一次;分隔註解寫 `# ---- 004 US4-API-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「展開沿用試算的 `require_ready_base_url()`,沒有工作階段時回 503」這類實作而失敗
+- [X] T193a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-08 的測試(情況 A:沒有開工作階段;B:工作階段就緒,`list_local_models.raises("OLLAMA_UNREACHABLE")`;C:工作階段就緒,`list_local_models.gate()` 一直不放行;`list_quants` 以 async `side_effect` 先等 0.2 秒再回(C 的期限從收到請求起算,`plan.md` § 待決問題 Q67);三種各展開 `bartowski/SmolLM2-135M-Instruct-GGUF` 一次;分隔註解寫 `# ---- 004 US4-API-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「展開沿用試算的 `require_ready_base_url()`,沒有工作階段時回 503」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014、NFR-006、SC-004;`plan.md` § 待決問題 Q21、Q67
-- [ ] T193b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/app.py` 只寫讓 US4-API-08 通過的程式碼;`src/cgb/app.py` 的 `Timeouts` 加 `hf_expand_deadline`(10),展開時讀模型清單套它,並和 Hugging Face 這一段同時開始、從收到展開請求起算(`plan.md` § 待決問題 Q44、Q21、Q67),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T193a)
+- [X] T193b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/app.py` 只寫讓 US4-API-08 通過的程式碼;`src/cgb/app.py` 的 `Timeouts` 加 `hf_expand_deadline`(10),展開時讀模型清單套它,並和 Hugging Face 這一段同時開始、從收到展開請求起算(`plan.md` § 待決問題 Q44、Q21、Q67),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T193a)
   - 🧪 `testplan.md` § US4-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014、NFR-006、SC-004;`plan.md` § 待決問題 Q21、Q67
-- [ ] T194a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-09 的測試(依序以 `HF_AUTH_REQUIRED`、`HF_NO_GGUF` 各展開一次 `google/gemma-3-1b-it-qat-q4_0-gguf`;分隔註解寫 `# ---- 004 US4-API-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「不能下載的原因照連不到處理回 502,前端顯示成「暫時無法使用」而不是說明原因」這類實作而失敗
+- [X] T194a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-09 的測試(依序以 `HF_AUTH_REQUIRED`、`HF_NO_GGUF` 各展開一次 `google/gemma-3-1b-it-qat-q4_0-gguf`;分隔註解寫 `# ---- 004 US4-API-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「不能下載的原因照連不到處理回 502,前端顯示成「暫時無法使用」而不是說明原因」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-015、使用者故事 4 驗收情境 7
-- [ ] T194b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-09 通過的程式碼;若要把 `HF_AUTH_REQUIRED`、`HF_NO_GGUF` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T194a)
+- [X] T194b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-09 通過的程式碼;若要把 `HF_AUTH_REQUIRED`、`HF_NO_GGUF` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T194a)
   - 🧪 `testplan.md` § US4-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-015、使用者故事 4 驗收情境 7
-- [ ] T195a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-10 的測試(依序以 `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`、`HF_TIMEOUT` 各展開一次 `bartowski/SmolLM2-135M-Instruct-GGUF`;分隔註解寫 `# ---- 004 US4-API-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「展開只接了 422 那兩個代碼,其他 `AdapterError` 往上拋回 500」這類實作而失敗
+- [X] T195a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-10 的測試(依序以 `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`、`HF_TIMEOUT` 各展開一次 `bartowski/SmolLM2-135M-Instruct-GGUF`;分隔註解寫 `# ---- 004 US4-API-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「展開只接了 422 那兩個代碼,其他 `AdapterError` 往上拋回 500」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-016、NFR-006、使用者故事 4 驗收情境 6
-- [ ] T195b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T195a)
+- [X] T195b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T195a)
   - 🧪 `testplan.md` § US4-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-016、NFR-006、使用者故事 4 驗收情境 6
-- [ ] T196a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-11 的測試(情況 A:作者 `-bartowski`;B:模型 `Smol%20LM`(含空白);C:作者 `_x`;各展開一次;分隔註解寫 `# ---- 004 US4-API-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「以 FastAPI 的 `Path(pattern=...)` 驗,回預設的 422」這類實作而失敗
+- [X] T196a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-11 的測試(情況 A:作者 `-bartowski`;B:模型 `Smol%20LM`(含空白);C:作者 `_x`;各展開一次;分隔註解寫 `# ---- 004 US4-API-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「以 FastAPI 的 `Path(pattern=...)` 驗,回預設的 422」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014、NFR-006
-- [ ] T196b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-11 通過的程式碼;新代碼 `INVALID_HF_MODEL_ID` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T196a)
+- [X] T196b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-11 通過的程式碼;新代碼 `INVALID_HF_MODEL_ID` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T196a)
   - 🧪 `testplan.md` § US4-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014、NFR-006

@@ -15,6 +15,8 @@ from typing import Any, Protocol
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from cgb.adapters.huggingface import HuggingFaceHub
+
 # Q109:S5 `Session.name` 的 pattern 是 `^cgb-`,注入的前綴必須以它開頭(實跑用 `cgb-test-`)
 REQUIRED_NAME_PREFIX = "cgb-"
 
@@ -61,6 +63,7 @@ class Timeouts:
     - tunnel_ready:通道建立後等 `/api/version` 就緒的期限 30 秒(Q68)
     - chat_connect:對話轉送到遠端 Ollama 的連線時限 10 秒(004 Q44)
     - chat_read:對話轉送收到回應標頭之前與兩段之間的逾時 300 秒(004 Q44)
+    - hf_expand_deadline:展開 Hugging Face 模型時,Hugging Face 這一段與讀模型清單各自從收到請求起算的期限 10 秒(004 Q44、Q67)
     """
 
     open_total: float = 300.0
@@ -72,6 +75,7 @@ class Timeouts:
     tunnel_ready: float = 30.0
     chat_connect: float = 10.0
     chat_read: float = 300.0
+    hf_expand_deadline: float = 10.0
 
 
 @dataclass
@@ -87,7 +91,7 @@ class AppState:
     remote_ollama: Any
     model_library: Any
     google_oauth: Any
-    # Hugging Face Hub 轉接層(plan.md Q65):正式的 `HuggingFaceHub()` 由故事 4 的 T186b 接上,在那之前沒有注入就是 None
+    # Hugging Face Hub 轉接層(plan.md Q65):`create_app` 沒給時用正式的 `HuggingFaceHub()`
     huggingface: Any = None
     tunnel_local_port: int = DEFAULT_TUNNEL_LOCAL_PORT
 
@@ -136,7 +140,7 @@ def create_app(
         remote_ollama=remote_ollama,
         model_library=model_library,
         google_oauth=google_oauth,
-        huggingface=huggingface,
+        huggingface=huggingface if huggingface is not None else HuggingFaceHub(),
         tunnel_local_port=tunnel_local_port,
     )
     ui = _empty_app("colab-gpu-bridge UI", state)

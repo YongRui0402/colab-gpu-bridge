@@ -787,6 +787,37 @@ def err_auto_download_result_not_found(w: World) -> httpx.Response:
     return trigger_ok(w, "POST", "/downloads/auto-result/dismiss")
 
 
+def err_hf_search(params: dict[str, str]) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        w.start()
+        return trigger_ok(w, "GET", "/huggingface/search", params=params)
+
+    return trigger
+
+
+def err_hf_search_fails(code: str) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        w.fakes.huggingface.search_models.raises(code, code.lower())
+        w.start()
+        return trigger_ok(w, "GET", "/huggingface/search", params={"q": "qwen"})
+
+    return trigger
+
+
+def err_hf_expand_fails(code: str) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        w.fakes.huggingface.list_quants.raises(code, code.lower())
+        w.start()
+        return trigger_ok(w, "GET", "/huggingface/models/google/gemma-3-1b-it-qat-q4_0-gguf/quants")
+
+    return trigger
+
+
+def err_invalid_hf_model_id(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "GET", "/huggingface/models/-bartowski/SmolLM2-135M-Instruct-GGUF/quants")
+
+
 def ready_api(w: World, models: dict[str, tuple[int, bool]] | None = None) -> None:
     w.start()
     w.open_via_api()
@@ -935,6 +966,15 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("OLLAMA_SERVER_ERROR", err_chat_remote_status(500)),
     ("OLLAMA_STREAM_INTERRUPTED", err_chat_stream_failure("end")),
     ("SESSION_ENDED", err_chat_session_ended),
+    ("INVALID_QUERY", err_hf_search({"q": "   "})),
+    ("INVALID_CURSOR", err_hf_search({"q": "qwen", "cursor": ""})),
+    ("INVALID_HF_MODEL_ID", err_invalid_hf_model_id),
+    ("HF_UNREACHABLE", err_hf_search_fails("HF_UNREACHABLE")),
+    ("HF_SERVER_ERROR", err_hf_search_fails("HF_SERVER_ERROR")),
+    ("HF_BAD_RESPONSE", err_hf_search_fails("HF_BAD_RESPONSE")),
+    ("HF_AUTH_REQUIRED", err_hf_expand_fails("HF_AUTH_REQUIRED")),
+    ("HF_NO_GGUF", err_hf_expand_fails("HF_NO_GGUF")),
+    ("HF_TIMEOUT", err_hf_search_fails("HF_TIMEOUT")),
 ]
 
 

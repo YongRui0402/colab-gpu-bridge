@@ -9,7 +9,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from cgb.api import auth, chat, curated, downloads, events, history, library, models, session, settings, usage
+from cgb.api import auth, chat, curated, downloads, events, history, huggingface, library, models, session, settings, usage
 from cgb.db.connection import connect
 from cgb.db.schema import create_schema
 from cgb.domain.errors import ApiError
@@ -135,6 +135,7 @@ def install(app: FastAPI) -> None:
     app.include_router(models.router, prefix="/api")
     app.include_router(library.router, prefix="/api")
     app.include_router(curated.router, prefix="/api")
+    app.include_router(huggingface.router, prefix="/api")
     app.include_router(events.router, prefix="/api")
     app.include_router(usage.router, prefix="/api")
     app.include_router(settings.router, prefix="/api")

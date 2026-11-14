@@ -25,11 +25,17 @@ HF_SMOL = "hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M"
 HF_SMOL_BYTES = 105_471_520
 
 
-def set_hf(fakes: Any, sizes: dict[str, int]) -> None:
-    """`FakeHuggingFaceHub.get_manifest` 依 `hf.co/<作者>/<模型>:<tag>` 回 `sizes` 裡的大小,其他回 `HF_AUTH_REQUIRED`(plan.md Q36、Q65)。"""
+def set_hf(fakes: Any, sizes: dict[str, int], raises: dict[str, str] | None = None) -> None:
+    """`FakeHuggingFaceHub.get_manifest` 依 `hf.co/<作者>/<模型>:<tag>` 回 `sizes` 裡的大小,其他回 `HF_AUTH_REQUIRED`(plan.md Q36、Q65)。
+
+    `raises` 對某個完整名稱指定要丟的代碼(例:`{"hf.co/x/y:Q4_0": "HF_QUANT_UNAVAILABLE"}`),優先於 `sizes`(testplan.md § 5.3)。
+    """
+    failing = raises or {}
 
     def manifest(*args: Any, **kwargs: Any) -> dict[str, Any]:
         full = f"hf.co/{kwargs['author']}/{kwargs['model']}:{kwargs['tag']}"
+        if full in failing:
+            raise AdapterError(failing[full], "manifest failure")
         if full not in sizes:
             raise AdapterError("HF_AUTH_REQUIRED", "manifest unknown")
         return {"sizeBytes": sizes[full]}

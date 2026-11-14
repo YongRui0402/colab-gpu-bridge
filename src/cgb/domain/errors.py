@@ -53,6 +53,15 @@ MESSAGES: dict[str, str] = {
     "OLLAMA_STREAM_INTERRUPTED": "執行環境上的 Ollama 回應到一半就斷了,請稍後再試。",
     "SESSION_ENDED": "工作階段已結束,這次回應中斷。",
     "INVALID_CHAT_MESSAGE": "對話裡有一則訊息的格式不對(角色只能是 user 或 assistant,內容要是文字)。",
+    "INVALID_QUERY": "關鍵字要有 1 到 100 個字(前後的空白不算),請重新輸入。",
+    "INVALID_CURSOR": "載入更多的位置標記不正確,請重新搜尋。",
+    "INVALID_HF_MODEL_ID": "模型的作者或名稱格式不對(只能用英數字、「.」、「_」、「-」,且要以英數字開頭),請從搜尋結果展開。",
+    "HF_UNREACHABLE": "連不到 Hugging Face,請稍後再試;也可以從精選清單挑選、搜尋官方模型庫或直接輸入名稱。",
+    "HF_SERVER_ERROR": "Hugging Face 暫時發生錯誤,請稍後再試;也可以從精選清單挑選、搜尋官方模型庫或直接輸入名稱。",
+    "HF_BAD_RESPONSE": "Hugging Face 的回應無法解讀(可能改版了);可以從精選清單挑選、搜尋官方模型庫或直接輸入名稱。",
+    "HF_AUTH_REQUIRED": "這個模型需要登入、同意條款、是私有的,或根本不存在,這一輪不支援下載;請改選其他模型。",
+    "HF_NO_GGUF": "這個模型沒有可以下載的 GGUF 檔,請改選其他模型。",
+    "HF_TIMEOUT": "Hugging Face 在時限內沒有回應,請稍後再試;也可以從精選清單挑選、搜尋官方模型庫或直接輸入名稱。",
 }
 
 
@@ -121,3 +130,18 @@ OLLAMA_STATUS = {"OLLAMA_UNREACHABLE": 502, "OLLAMA_BAD_RESPONSE": 502, "OLLAMA_
 
 def ollama_error(code: str) -> ApiError:
     return ApiError(OLLAMA_STATUS.get(code, 502), code)
+
+
+# contracts/ui.openapi.yaml § info.x-hf-error-status:Hugging Face 的失敗依 S2 代碼原樣放在 `code`(四個操作共用)
+HF_STATUS = {
+    "HF_UNREACHABLE": 502,
+    "HF_SERVER_ERROR": 502,
+    "HF_BAD_RESPONSE": 502,
+    "HF_TIMEOUT": 504,
+    "HF_AUTH_REQUIRED": 422,
+    "HF_NO_GGUF": 422,
+}
+
+
+def hf_error(code: str, model: str | None = None) -> ApiError:
+    return ApiError(HF_STATUS.get(code, 502), code, model=model)
