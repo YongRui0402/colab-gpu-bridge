@@ -421,9 +421,9 @@ def models_preload_failed(w: World) -> None:
 
 def search_for(w: World, keyword: str) -> None:
     w.page.goto("/library.html")
-    expect(w.page.locator("#search-form")).to_be_visible()
-    w.page.fill("#q", keyword)
-    w.page.locator("#search-form").get_by_role("button", name="搜尋").click()
+    expect(w.page.locator("#lib-form")).to_be_visible()
+    w.page.fill("#lib-q", keyword)
+    w.page.locator("#lib-form").get_by_role("button", name="搜尋").click()
 
 
 def type_name(w: World, name: str) -> None:
@@ -607,7 +607,13 @@ SCREENS: list[tuple[str, str, Callable[[World], None]]] = [
 ]
 
 # 「預先載入中」照 T235b 畫在目錄那一列(載入中的標示),不是另一個區塊
-STATE_LOCATORS = {("models", "preloading"): '[data-state="normal"] #catalog .pill-busy'}
+STATE_LOCATORS = {
+    ("models", "preloading"): '[data-state="normal"] #catalog .pill-busy',
+    # 001 原型的 `normal`、`searching`、`results` 在 004 照原型改名成 `lib-*`(分身決策紀錄 D116)
+    ("library", "normal"): '[data-state="lib-idle"]',
+    ("library", "searching"): '[data-state="lib-searching"]',
+    ("library", "results"): '[data-state="lib-results"]',
+}
 
 
 def test_畫面狀態清單涵蓋原型的每一個狀態() -> None:

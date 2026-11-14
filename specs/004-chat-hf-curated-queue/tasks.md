@@ -2012,95 +2012,95 @@
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(Playwright)接測試行程內真的後端(`tests/e2e/conftest.py` 的 `e2e_servers`,UI 127.0.0.1:8781),轉接層用替身;e2e 用固定 port,同一時間只跑一份
 > Hugging Face 與官方模型庫用替身(`FakeHuggingFaceHub`、`FakeModelLibrary`),遠端 Ollama 用 `FakeRemoteOllama`(`testplan.md` § 5.4)
 
-- [ ] T218a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-01 的測試(在 `#hf-q` 輸入 `qwen` 搜尋;按「載入更多」;分隔註解寫 `# ---- 004 US4-AJ-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「載入更多送頁碼而不是原樣的 `cursor`」這類實作而失敗
+- [X] T218a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-01 的測試(在 `#hf-q` 輸入 `qwen` 搜尋;按「載入更多」;分隔註解寫 `# ---- 004 US4-AJ-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「載入更多送頁碼而不是原樣的 `cursor`」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-01
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="hf-idle"]`、`[data-state="hf-searching"]`
   - 📎 `spec.md` § FR-013
-- [ ] T218b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/api.js` 只寫讓 US4-AJ-01 通過的程式碼;下載頁的 Hugging Face 搜尋區與「載入更多」照 `prototype/library.html`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T218a)
+- [X] T218b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/api.js` 只寫讓 US4-AJ-01 通過的程式碼;下載頁的 Hugging Face 搜尋區與「載入更多」照 `prototype/library.html`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T218a)
   - 🧪 `testplan.md` § US4-AJ-01
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="hf-idle"]`、`[data-state="hf-searching"]`
   - 📎 `spec.md` § FR-013
-- [ ] T219a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-02 的測試(搜尋後展開 `bartowski/SmolLM2-135M-Instruct-GGUF`;分隔註解寫 `# ---- 004 US4-AJ-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「已下載的比對分大小寫,`q4_k_m` 對不到 `Q4_K_M`」這類實作而失敗
+- [X] T219a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-02 的測試(搜尋後展開 `bartowski/SmolLM2-135M-Instruct-GGUF`;分隔註解寫 `# ---- 004 US4-AJ-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「已下載的比對分大小寫,`q4_k_m` 對不到 `Q4_K_M`」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-02
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § FR-014、FR-018
-- [ ] T219b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js`、`src/cgb/static/style.css` 只寫讓 US4-AJ-02 通過的程式碼;展開量化版本照 `prototype/library.html`;把 `prototype/style.css` 的「004:Hugging Face 搜尋結果的展開」區段搬進 `src/cgb/static/style.css`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T219a)
+- [X] T219b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js`、`src/cgb/static/style.css` 只寫讓 US4-AJ-02 通過的程式碼;展開量化版本照 `prototype/library.html`;把 `prototype/style.css` 的「004:Hugging Face 搜尋結果的展開」區段搬進 `src/cgb/static/style.css`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T219a)
   - 🧪 `testplan.md` § US4-AJ-02
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § FR-014、FR-018
-- [ ] T220a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-03 的測試(展開後勾 `Q8_0`,在官方模型庫搜尋並勾 `qwen2.5`,按「加入下載」;在確認視窗按「確定」;分隔註解寫 `# ---- 004 US4-AJ-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「Hugging Face 的勾選走另一個加入流程、沒有和官方一起試算」這類實作而失敗
+- [X] T220a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-03 的測試(展開後勾 `Q8_0`,在官方模型庫搜尋並勾 `qwen2.5`,按「加入下載」;在確認視窗按「確定」;分隔註解寫 `# ---- 004 US4-AJ-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「Hugging Face 的勾選走另一個加入流程、沒有和官方一起試算」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-03
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="checking"]`、`[data-state="no-space"]`、`[data-state="no-session"]`
   - 📎 `spec.md` § FR-014;`plan.md` § 待決問題 Q66
-- [ ] T220b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-03 通過的程式碼;⚙ 裡的 `[data-state="no-space"]`、`[data-state="no-session"]` 是沿用 001 的畫面,這個任務不改、不新增斷言(`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T220a)
+- [X] T220b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-03 通過的程式碼;⚙ 裡的 `[data-state="no-space"]`、`[data-state="no-session"]` 是沿用 001 的畫面,這個任務不改、不新增斷言(`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T220a)
   - 🧪 `testplan.md` § US4-AJ-03
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="checking"]`、`[data-state="no-space"]`、`[data-state="no-session"]`
   - 📎 `spec.md` § FR-014;`plan.md` § 待決問題 Q66
-- [ ] T221a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-04 的測試(在 `#hf-q` 搜尋 `qwen`;再在 `#lib-q` 搜尋 `qwen2.5`;分隔註解寫 `# ---- 004 US4-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「HF 失敗時整個下載頁進入錯誤狀態,官方搜尋也被擋」這類實作而失敗
+- [X] T221a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-04 的測試(在 `#hf-q` 搜尋 `qwen`;再在 `#lib-q` 搜尋 `qwen2.5`;分隔註解寫 `# ---- 004 US4-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「HF 失敗時整個下載頁進入錯誤狀態,官方搜尋也被擋」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-04
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="lib-idle"]`、`[data-state="lib-searching"]`
   - 📎 `spec.md` § FR-016
-- [ ] T221b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T221a)
+- [X] T221b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T221a)
   - 🧪 `testplan.md` § US4-AJ-04
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="lib-idle"]`、`[data-state="lib-searching"]`
   - 📎 `spec.md` § FR-016
-- [ ] T222a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-05 的測試(搜尋 `qwne`;分隔註解寫 `# ---- 004 US4-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「空結果被當成失敗顯示「暫時無法搜尋」」這類實作而失敗
+- [X] T222a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-05 的測試(搜尋 `qwne`;分隔註解寫 `# ---- 004 US4-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「空結果被當成失敗顯示「暫時無法搜尋」」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-05
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § FR-013
-- [ ] T222b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T222a)
+- [X] T222b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T222a)
   - 🧪 `testplan.md` § US4-AJ-05
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § FR-013
-- [ ] T223a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-06 的測試(各在直接輸入名稱的欄位輸入名稱、按「加入下載」;分隔註解寫 `# ---- 004 US4-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「試算沒先查 HF manifest,直接加入佇列讓 Ollama 拉取失敗」這類實作而失敗
+- [X] T223a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-06 的測試(各在直接輸入名稱的欄位輸入名稱、按「加入下載」;分隔註解寫 `# ---- 004 US4-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「試算沒先查 HF manifest,直接加入佇列讓 Ollama 拉取失敗」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-06
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="not-found"]`
   - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q66
-- [ ] T223b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-06 通過的程式碼;⚙ 裡的 `[data-state="not-found"]` 是沿用 001 的畫面,這個任務不改、不新增斷言(`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T223a)
+- [X] T223b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-06 通過的程式碼;⚙ 裡的 `[data-state="not-found"]` 是沿用 001 的畫面,這個任務不改、不新增斷言(`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T223a)
   - 🧪 `testplan.md` § US4-AJ-06
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="not-found"]`
   - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q66
-- [ ] T224a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-07 的測試(打開模型頁;再打開對話頁的模型選單;分隔註解寫 `# ---- 004 US4-AJ-07`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/models.js` 的模型目錄與 T059b 的對話頁模型選單(都列 `GET /api/models` 的每一筆)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「模型目錄或對話頁的模型清單過濾掉含 `/` 或 `hf.co/` 的名稱」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T224a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-07 的測試(打開模型頁;再打開對話頁的模型選單;分隔註解寫 `# ---- 004 US4-AJ-07`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/models.js` 的模型目錄與 T059b 的對話頁模型選單(都列 `GET /api/models` 的每一筆)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「模型目錄或對話頁的模型清單過濾掉含 `/` 或 `hf.co/` 的名稱」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-AJ-07
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`、`[data-state="cat-normal"]`、`[data-state="cat-empty"]`;`prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-014;`plan.md` § 待決問題 Q66
-- [ ] T224b [US4] 🟢 /tdd 綠燈:US4-AJ-07 由 既有 `src/cgb/static/js/models.js` 的模型目錄與 T059b 的對話頁模型選單(都列 `GET /api/models` 的每一筆) 滿足,確認 `src/cgb/static/js/models.js`、`src/cgb/static/js/chat.js` 不需要為它改程式碼;⚙ 裡的 `[data-state="cat-empty"]` 是沿用 001 的畫面,這個任務不改、不新增斷言(`plan.md` § 待決問題 Q66),執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js`、`src/cgb/static/js/chat.js` 只寫讓 US4-AJ-07 通過的程式碼(依賴 T224a)
+- [X] T224b [US4] 🟢 /tdd 綠燈:US4-AJ-07 由 既有 `src/cgb/static/js/models.js` 的模型目錄與 T059b 的對話頁模型選單(都列 `GET /api/models` 的每一筆) 滿足,確認 `src/cgb/static/js/models.js`、`src/cgb/static/js/chat.js` 不需要為它改程式碼;⚙ 裡的 `[data-state="cat-empty"]` 是沿用 001 的畫面,這個任務不改、不新增斷言(`plan.md` § 待決問題 Q66),執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js`、`src/cgb/static/js/chat.js` 只寫讓 US4-AJ-07 通過的程式碼(依賴 T224a)
   - 🧪 `testplan.md` § US4-AJ-07
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`、`[data-state="cat-normal"]`、`[data-state="cat-empty"]`;`prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-014;`plan.md` § 待決問題 Q66
-- [ ] T225a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-08 的測試(每種狀態取那個區塊的 `innerText`,去掉模型名稱與量化版本;分隔註解寫 `# ---- 004 US4-AJ-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「Hugging Face 或 Ollama 的英文錯誤原文直接顯示在畫面上」這類實作而失敗
+- [X] T225a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-08 的測試(每種狀態取那個區塊的 `innerText`,去掉模型名稱與量化版本;分隔註解寫 `# ---- 004 US4-AJ-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「Hugging Face 或 Ollama 的英文錯誤原文直接顯示在畫面上」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-08
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § NFR-007、FR-016
-- [ ] T225b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T225a)
+- [X] T225b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T225a)
   - 🧪 `testplan.md` § US4-AJ-08
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § NFR-007、FR-016
-- [ ] T255a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-09 的測試(在直接輸入名稱的欄位輸入 `hf.co/ggml-org/Qwen2.5-VL-7B-Instruct-mmproj-GGUF:Q4_K_M`、按「加入下載」;分隔註解寫 `# ---- 004 US4-AJ-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「收到 `HF_QUANT_UNAVAILABLE` 時說明只寫「沒有這個量化版本」,看不出是 repo 不是 GGUF」這類實作而失敗
+- [X] T255a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-09 的測試(在直接輸入名稱的欄位輸入 `hf.co/ggml-org/Qwen2.5-VL-7B-Instruct-mmproj-GGUF:Q4_K_M`、按「加入下載」;分隔註解寫 `# ---- 004 US4-AJ-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「收到 `HF_QUANT_UNAVAILABLE` 時說明只寫「沒有這個量化版本」,看不出是 repo 不是 GGUF」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-09
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
   - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q20
-- [ ] T255b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US4-AJ-09 通過的程式碼;`[data-state="hf-quant-unavailable"]` 的說明照 `prototype/library.html` 補「不是 GGUF」,不做 `hf-no-gguf` 確認框(分身決策紀錄 D99),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T255a)
+- [X] T255b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US4-AJ-09 通過的程式碼;`[data-state="hf-quant-unavailable"]` 的說明照 `prototype/library.html` 補「不是 GGUF」,不做 `hf-no-gguf` 確認框(分身決策紀錄 D99),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T255a)
   - 🧪 `testplan.md` § US4-AJ-09
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
   - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q20
-- [ ] T256a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-10 的測試(依情況讓 `list_quants` 丟 `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`,各展開一次;分隔註解寫 `# ---- 004 US4-AJ-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只把 `HF_TIMEOUT` 對到 `hf-expand-down`,502 的三個代碼落到預設分支」這類實作而失敗
+- [X] T256a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-10 的測試(依情況讓 `list_quants` 丟 `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`,各展開一次;分隔註解寫 `# ---- 004 US4-AJ-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只把 `HF_TIMEOUT` 對到 `hf-expand-down`,502 的三個代碼落到預設分支」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-10
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
   - 📎 `spec.md` § FR-016
-- [ ] T256b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US4-AJ-10 通過的程式碼;展開的 502、504 四個代碼都顯示 `[data-state="hf-expand-down"]`,說明照 `prototype/library.html`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T256a)
+- [X] T256b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US4-AJ-10 通過的程式碼;展開的 502、504 四個代碼都顯示 `[data-state="hf-expand-down"]`,說明照 `prototype/library.html`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T256a)
   - 🧪 `testplan.md` § US4-AJ-10
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
   - 📎 `spec.md` § FR-016
-- [ ] T257a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-11 的測試(沒有工作階段時在直接輸入名稱的欄位輸入 `hf.co/unsloth/Qwen3-0.6B-GGUF:Q8_0`、按「加入勾選」;分隔註解寫 `# ---- 004 US4-AJ-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有工作階段時照常送 `POST /api/downloads/estimate`,收到 503 就擋下不加入勾選」這類實作而失敗
+- [X] T257a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-11 的測試(沒有工作階段時在直接輸入名稱的欄位輸入 `hf.co/unsloth/Qwen3-0.6B-GGUF:Q8_0`、按「加入勾選」;分隔註解寫 `# ---- 004 US4-AJ-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有工作階段時照常送 `POST /api/downloads/estimate`,收到 503 就擋下不加入勾選」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-11
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
   - 📎 `spec.md` § FR-014、FR-015
-- [ ] T257b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US4-AJ-11 通過的程式碼;沒有就緒的工作階段時只檢查名稱格式就加入勾選,顯示 `[data-state="direct-unchecked"]`,不送試算(分身決策紀錄 D97),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T257a)
+- [X] T257b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US4-AJ-11 通過的程式碼;沒有就緒的工作階段時只檢查名稱格式就加入勾選,顯示 `[data-state="direct-unchecked"]`,不送試算(分身決策紀錄 D97),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T257a)
   - 🧪 `testplan.md` § US4-AJ-11
   - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
   - 📎 `spec.md` § FR-014、FR-015
-- [ ] T226 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T218b~T225b、T255b~T257b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T257b)
+- [X] T226 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T218b~T225b、T255b~T257b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T257b)
   - 🧪 `testplan.md` § US4-AJ-01~US4-AJ-08、US4-AJ-09~US4-AJ-11
   - 📎 `testplan.md` § 5.4
 

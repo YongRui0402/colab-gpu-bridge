@@ -1138,3 +1138,13 @@ progress::-moz-progress-bar {
   align-items: baseline;
   justify-content: space-between;
 }
+
+/* ---------- 004:Hugging Face 搜尋結果的展開 ---------- */
+
+.inline-error {
+  padding: var(--space-sm) var(--space-md);
+  margin-top: var(--space-sm);
+  font-size: 13px;
+  background: var(--color-warn-soft);
+  border-radius: var(--radius-sm);
+}

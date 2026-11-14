@@ -21,8 +21,8 @@ function renderTray() {
 // 搜尋區與加入下載的覆蓋層(`data-group="search"`):和精選清單的狀態分開切換
 const showSearch = (name) => showGroupState("search", name);
 
-// 搜尋區目前的畫面:normal(還沒搜尋)、searching、results、no-results、library-down
-let resultsView = "normal";
+// 搜尋區目前的畫面:lib-idle(還沒搜尋)、lib-searching、lib-results、no-results、library-down
+let resultsView = "lib-idle";
 
 // 回到搜尋區目前的畫面(關掉確認中、確認畫面等覆蓋層)
 const back = () => showSearch(resultsView);
@@ -186,7 +186,7 @@ function versionsHtml(name) {
 
 function renderResults() {
   document.getElementById("results-meta").textContent = `「${keyword}」的搜尋結果:${shown.length} 筆`;
-  document.getElementById("results").innerHTML = shown
+  document.getElementById("lib-results").innerHTML = shown
     .map(
       (m) => `
       <div class="result">
@@ -207,7 +207,7 @@ async function search(more) {
     page = 1;
     shown = [];
     for (const name of Object.keys(expanded)) delete expanded[name];
-    resultsView = "searching";
+    resultsView = "lib-searching";
     showSearch(resultsView);
   }
   const response = await request("GET", `/library/search?q=${encodeURIComponent(keyword)}&page=${page}`);
@@ -219,17 +219,105 @@ async function search(more) {
   shown = shown.concat(response.data.items);
   document.getElementById("more-box").hidden = !response.data.hasMore;
   document.getElementById("nr-text").textContent = `找不到符合「${keyword}」的官方模型。`;
-  resultsView = shown.length ? "results" : "no-results";
+  resultsView = shown.length ? "lib-results" : "no-results";
   renderResults();
   showSearch(resultsView);
 }
 
-document.getElementById("search-form").addEventListener("submit", (event) => {
+document.getElementById("lib-form").addEventListener("submit", (event) => {
   event.preventDefault();
-  keyword = document.getElementById("q").value.trim();
+  keyword = document.getElementById("lib-q").value.trim();
   search(false);
 });
 document.getElementById("more").addEventListener("click", () => search(true));
+
+// ---------------------------------------------------------------- 搜尋 Hugging Face(FR-013;prototype/library.html 的 hfSearch)
+
+let hfKeyword = "";
+// 下一頁的 cursor:照 `HfSearchPage.nextCursor` 原樣送回去,不當頁碼
+let hfCursor = null;
+let hfShown = [];
+// 展開的 Hugging Face 模型:`id` → `HfQuantList`;讀取中是 "loading"
+const hfExpanded = {};
+
+function hfVersionsHtml(id) {
+  const list = hfExpanded[id];
+  if (list === "loading") return '<div class="versions"><span class="muted small">正在讀取量化版本與大小…</span></div>';
+  // 大小是 manifest 的模型層總和(`HfQuant.sizeBytes`);已下載的不分大小寫比對由後端做(FR-018)
+  const unchecked = list.runtimeChecked ? "" : '<p class="small muted">沒有就緒的工作階段,沒檢查哪些版本已下載。</p>';
+  const rows = list.quants.map(
+    (q) =>
+      `<label class="version">${pickBox(q.name, q.sizeBytes, q.downloaded)}<span class="mono">${escape(q.quant)}</span><span class="small muted">${gb(q.sizeBytes)}</span>${q.downloaded ? downloadedPill : ""}</label>`,
+  );
+  return `${unchecked}<div class="versions">${rows.join("")}</div>`;
+}
+
+function renderHf() {
+  document.getElementById("hf-meta").textContent = `「${hfKeyword}」的搜尋結果:${hfShown.length} 筆,依下載次數排序`;
+  document.getElementById("hf-results").innerHTML = hfShown
+    .map(
+      (m) => `
+      <div class="result">
+        <div class="result-head">
+          <div><span class="item-name">${escape(m.name)}</span></div>
+          <div class="item-side">${m.downloads == null ? "" : `<span class="small muted">下載 ${m.downloads.toLocaleString("zh-TW")} 次</span>`}<button type="button" class="btn btn-small" data-hf-expand="${escape(m.id)}">${hfExpanded[m.id] ? "收起" : "看量化版本"}</button></div>
+        </div>
+        ${hfExpanded[m.id] ? hfVersionsHtml(m.id) : ""}
+      </div>`,
+    )
+    .join("");
+}
+
+async function hfSearch(more) {
+  if (!more) {
+    hfCursor = null;
+    hfShown = [];
+    for (const id of Object.keys(hfExpanded)) delete hfExpanded[id];
+    document.getElementById("hf-results-box").hidden = true;
+    showGroupState("hf", "hf-searching");
+  }
+  const cursor = more ? `&cursor=${encodeURIComponent(hfCursor)}` : "";
+  const response = await request("GET", `/huggingface/search?q=${encodeURIComponent(hfKeyword)}${cursor}`);
+  if (!response.ok) {
+    // 502、504:只有 Hugging Face 的搜尋區顯示暫時無法使用,官方模型庫與其他區照常(FR-016)
+    document.getElementById("hf-results-box").hidden = true;
+    return showGroupState("hf", "hf-down");
+  }
+  hfShown = hfShown.concat(response.data.items);
+  hfCursor = response.data.nextCursor;
+  document.getElementById("hf-more-box").hidden = !response.data.hasMore;
+  document.getElementById("hf-results-box").hidden = hfShown.length === 0;
+  document.getElementById("hf-empty-text").textContent = `Hugging Face 上找不到符合「${hfKeyword}」的 GGUF 模型。`;
+  renderHf();
+  // 0 筆不是失敗(200):說找不到,提示可以直接輸入名稱
+  showGroupState("hf", hfShown.length ? "hf-results" : "hf-empty");
+}
+
+document.getElementById("hf-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  hfKeyword = document.getElementById("hf-q").value.trim();
+  hfSearch(false);
+});
+document.getElementById("hf-more").addEventListener("click", () => hfSearch(true));
+
+// 502、504:都是 Hugging Face 暫時無法使用(FR-016);展開時顯示 hf-expand-down,試算與加入時顯示 hf-size-down
+const HF_DOWN = ["HF_UNREACHABLE", "HF_SERVER_ERROR", "HF_BAD_RESPONSE", "HF_TIMEOUT"];
+
+async function toggleQuants(id) {
+  if (hfExpanded[id]) {
+    delete hfExpanded[id];
+    return renderHf();
+  }
+  hfExpanded[id] = "loading";
+  renderHf();
+  const model = hfShown.find((m) => m.id === id);
+  const response = await request("GET", `/huggingface/models/${encodeURIComponent(model.author)}/${encodeURIComponent(model.model)}/quants`);
+  if (response.ok) hfExpanded[id] = response.data;
+  else delete hfExpanded[id];
+  renderHf();
+  // 展開失敗只說 Hugging Face 暫時無法使用,不顯示它的英文原文(FR-016、NFR-007)
+  if (HF_DOWN.includes(response.data?.code)) showGroupState("hf", "hf-expand-down");
+}
 
 async function toggleVersions(name) {
   if (expanded[name]) {
@@ -258,9 +346,23 @@ function estimate(models, text) {
   return request("POST", "/downloads/estimate", { models });
 }
 
+// `ModelName` 的格式(contracts/ui.openapi.yaml;src/cgb/domain/model_name.py 的 is_valid)
+const MODEL_NAME = /^([a-z0-9][a-z0-9._-]*|hf\.co\/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*)(:[A-Za-z0-9_][A-Za-z0-9._-]*)?$/;
+
 document.getElementById("name-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const name = fullName(document.getElementById("direct").value.trim());
+  const raw = document.getElementById("direct").value.trim();
+  if (!MODEL_NAME.test(raw)) return showGroupState("direct", "direct-error");
+  const name = fullName(raw);
+  // 沒有就緒的工作階段:只檢查名稱的格式就加入勾選,不送試算;大小等按「加入下載」時才確認(分身決策紀錄 D97)
+  const session = await request("GET", "/session");
+  if (session.data?.state !== "ready") {
+    selected.set(name, 0);
+    event.target.reset();
+    renderTray();
+    return showGroupState("direct", "direct-unchecked");
+  }
+  showGroupState("direct", "");
   const response = await estimate([name], `正在向 registry.ollama.ai 確認 ${name}…`);
   if (response.status === 404) {
     document.getElementById("nf-name").textContent = name;
@@ -270,12 +372,32 @@ document.getElementById("name-form").addEventListener("submit", async (event) =>
     document.getElementById("co-name").textContent = name;
     return showSearch("cloud-only");
   }
+  if (showHfFail(response.data, name)) return;
   back();
   if (!response.ok) return;
   selected.set(name, response.data.items[0].sizeBytes);
   event.target.reset();
   renderTray();
 });
+
+// 試算與加入的 422:Hugging Face 的名稱為什麼不能下載(FR-015;prototype/library.html 的 FAIL_STATE)
+const HF_FAIL_STATE = {
+  HF_AUTH_REQUIRED: "hf-auth-required",
+  HF_QUANT_UNAVAILABLE: "hf-quant-unavailable",
+  // 502、504:取不到大小(prototype/library.html 的 FAIL_STATE)
+  ...Object.fromEntries(HF_DOWN.map((code) => [code, "hf-size-down"])),
+};
+
+// 有對應說明畫面的失敗就顯示它並回傳 true;`Error.model` 是出問題的那一個名稱
+function showHfFail(data, fallback) {
+  const state = HF_FAIL_STATE[data?.code];
+  if (!state) return false;
+  document.querySelectorAll("[data-fail-name]").forEach((el) => {
+    el.textContent = data.model ?? fallback;
+  });
+  showSearch(state);
+  return true;
+}
 
 const itemRows = (result) => result.items.map((i) => `<tr><td class="mono">${escape(i.name)}</td><td>${gb(i.sizeBytes)}</td></tr>`).join("");
 
@@ -305,6 +427,7 @@ document.getElementById("add").addEventListener("click", async () => {
   const session = await request("GET", "/session");
   if (session.data?.state !== "ready") return showSearch("no-session");
   const response = await estimate([...selected.keys()], `正在向 registry.ollama.ai 確認 ${selected.size} 個版本的大小…`);
+  if (showHfFail(response.data, "")) return;
   if (!response.ok) return back();
   if (!response.data.fits) return showNoSpace(response.data);
   showConfirm(response.data);
@@ -321,8 +444,9 @@ document.getElementById("tray-clear").addEventListener("click", () => {
 });
 
 document.querySelector("main").addEventListener("click", (event) => {
-  const { expand } = event.target.dataset;
+  const { expand, hfExpand } = event.target.dataset;
   if (expand) toggleVersions(expand);
+  if (hfExpand) toggleQuants(hfExpand);
   if (event.target.closest("[data-back]")) back();
 });
 
