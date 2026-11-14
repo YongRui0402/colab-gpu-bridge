@@ -42,7 +42,7 @@ src/cgb/
 ├── ollama_compat/forward.py   # _relay 被呼叫端中斷時不留下未取回的例外(對話頁與相容端點共用,介面不變)
 ├── domain/model_name.py       # hf.co 名稱格式、補 latest、不分大小寫的比對鍵(純函式)
 ├── domain/hf_quants.py        # 新增:檔名切出量化名稱與去重(純函式)
-└── static/                    # E1 前端 UI:新增對話頁,下載頁加 Hugging Face 搜尋、精選清單編輯與自動下載提示區
+└── static/                    # E1 前端 UI:新增對話頁,下載頁加 Hugging Face 搜尋與精選清單編輯,模型頁下載佇列上方加自動下載提示區
 
 tests/
 ├── unit/                      # model_name、hf_quants
@@ -61,7 +61,7 @@ tests/
 
 後端分層沿用 001 的 `api / ollama_compat → services → (repos → db | adapters/*)`:新增的 `adapters/huggingface.py` 接 E12,逾時與錯誤歸類照 `adapters/model_library.py`;對話轉送在 `api/chat.py` 呼叫 `ollama_compat/forward.py` 的 `_relay` 與 `IdleMonitor` 的兩個方法,不經 Ollama 相容端點的路由;佇列清除掛在 `SessionsRepo.listeners` 一處,涵蓋每一種結束方式(research.md R1);自動下載掛在 `SessionLifecycle.ready_listeners`,以 `auto_download_results` 判斷是不是第一次就緒(research.md R6)。
 
-前端沿用 001 的 `static/` 照畫面分檔:新增對話頁與它的 `js/chat.js`,Hugging Face 搜尋、精選清單編輯與自動下載提示區加在下載頁的 `js/library.js`;共用的 API 呼叫與 SSE 訂閱照舊放在 `js/api.js`。
+前端沿用 001 的 `static/` 照畫面分檔:新增對話頁與它的 `js/chat.js`,Hugging Face 搜尋與精選清單編輯加在下載頁的 `js/library.js`,自動下載提示區加在模型頁下載佇列上方的 `js/models.js`(Q29、D43);共用的 API 呼叫與 SSE 訂閱照舊放在 `js/api.js`。
 
 ## 分析流程規劃
 
@@ -170,3 +170,4 @@ tests/
 | Q64 | tasks | US1-API-13 要驗結束時清掉自動下載結果,但精選清單的 `autoDownload`、第一次就緒時排入、`GET /api/downloads/auto-result` 與 `autoDownload.updated` 都屬於故事 3:A. 由 US1-API-13 的綠燈 T013b 只做到讓它通過的最小版本(欄位與表由故事 1 的 E4 節照 store.dbml 建,T013b 依賴 T024b),故事 3 碰到已做到的照 Q63 改當對照組(先採用);B. 把 US1-API-13 的任務移到故事 3 的 E2 節(故事 1 的 Checkpoint 就驗不到結束時清除結果);C. 回 /testplan 把 US1-API-13 改成故事 3 的案例 | — | A,T013b 只做最小版本,故事 3 碰到做過的當對照組(D78) |
 | Q65 | tasks | `FakeHuggingFaceHub` 在故事 3 就要用(US3-API-01 起斷言 `get_manifest` 被呼叫 0 次、自動下載取 hf.co 大小),真的 `HuggingFaceHub` 到故事 4 的 E12 才建,`test_fake_signatures.py` 又要求每個轉接層類別都有一對:A. T072a 在 `tests/fakes/adapters.py` 照 Q49 一次寫齊四個方法的簽章並接進 `Fakes`;T072b 讓 `create_app` 接受 `huggingface=`(預設 None);T136b(US4-HF-05)建 `HuggingFaceHub` 時在 `PAIRS` 加這一對;正式的預設 `HuggingFaceHub()` 由 T186b(US4-API-01)接上(先採用);B. 故事 3 先建 `HuggingFaceHub` 的空殼讓簽章比對成立 | — | A,替身照 Q49 寫齊,T136b 建真類別時才加進 `PAIRS`(D79) |
 | Q66 | tasks | 原型有幾個狀態沒有任何案例直接斷言:`prototype/index.html` 的 `ended-offline`,`library.html` 的 `no-space`、`no-session`、`not-found`,`models.html` 的 `cat-empty`(介面覆蓋要求每個狀態都有紅綠任務):A. 掛在流程最接近的案例的 ⚙,沿用 001 的畫面、不新增斷言:`ended-offline` → T029(US1-AJ-04 的綠燈照原型改說明)、`no-space`、`no-session` → T220(US4-AJ-03)、`not-found` → T223(US4-AJ-06)、`cat-empty` → T224(US4-AJ-07)(先採用);B. 回 /testplan 補案例(例如後端重新啟動判定停機期間結束時首頁的說明)再排紅綠任務 | — | A,掛在最接近的案例;介面覆蓋表那幾列標明「沿用,沒有新斷言」,完成報告列為未直接驗證(D80) |
+| Q67 | S4 | (analyze 第 1 輪回修)展開量化版本(`listHfQuants`)時,讀執行環境模型清單(`Timeouts.hf_expand_deadline`)與 Hugging Face 的 tree 加所有 manifest(`HuggingFaceHub` 的 `expand_deadline`)的期限怎麼組,才讓 SC-004 的 11 秒成立(analysis.md A18)?A. 平行、同一個起點:收到展開請求時兩段同時開始,10 秒都從收到請求起算;HF 先完成時只等模型清單到同一個時間點,到期標 `runtimeChecked` false 回 200;HF 有 400 以外的失敗或到期就取消模型清單的讀取、整個展開回那一個代碼(到期 504 `HF_TIMEOUT`);B. 先 HF 後模型清單,模型清單只用 10 秒裡剩下的時間;C. 先 HF 後模型清單,各自 10 秒(最壞約 20 秒) | — | A,平行、都從收到展開請求起算 10 秒(D85):`ui.openapi.yaml` § `listHfQuants` 的時間上限照此改寫;testplan 要補「HF 先回、模型清單卡住」與「模型清單先回、HF 卡住」兩種,斷言回應在期限加餘裕之內 |
