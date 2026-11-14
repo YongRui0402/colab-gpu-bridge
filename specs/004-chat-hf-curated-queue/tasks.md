@@ -173,71 +173,71 @@
 
 > 連線一律用 `cgb.db.connection.connect`(`isolation_level=None`,遷移的交易要明寫 `BEGIN`);001 的 `US1-DB-01`、`US1-DB-02` 保留不動。失敗注入、舊庫三筆與「13 個舊欄位」照 `testplan.md` § 2.2;遷移失敗時原例外往上丟(`plan.md` § 待決問題 Q39),只差大小寫的 `pending_model` 在同一個交易裡留 id 最小的那筆並寫日誌(`plan.md` § 待決問題 Q40)
 
-- [ ] T017a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-01 的測試(以 `connect` 開檔並呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-01`(`plan.md` § 待決問題 Q34));**在改 `src/cgb/db/schema.py` 之前**,照 `testplan.md` § 2.2 以現行 `create_schema` 建空庫、匯出 `tests/fixtures/db/schema_v0.sql`(10 句,每句以 `;` 結尾,另加 `INSERT INTO settings (id) VALUES (1);`),在 `tests/integration/test_db_schema.py` 加 helper `_build_v0`,`_insert_job` 加 `session_name`、`origin`、`preload_on_complete`、`reason_code`、`message`、`started_at`、`finished_at` 這幾個 keyword 參數(預設值不變;`plan.md` § 待決問題 Q37),執行確認它因為「全新庫照 001 的 DDL 建,只把 `user_version` 設成 1,沒有 `session_name`」這類實作而失敗
+- [X] T017a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-01 的測試(以 `connect` 開檔並呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-01`(`plan.md` § 待決問題 Q34));**在改 `src/cgb/db/schema.py` 之前**,照 `testplan.md` § 2.2 以現行 `create_schema` 建空庫、匯出 `tests/fixtures/db/schema_v0.sql`(10 句,每句以 `;` 結尾,另加 `INSERT INTO settings (id) VALUES (1);`),在 `tests/integration/test_db_schema.py` 加 helper `_build_v0`,`_insert_job` 加 `session_name`、`origin`、`preload_on_complete`、`reason_code`、`message`、`started_at`、`finished_at` 這幾個 keyword 參數(預設值不變;`plan.md` § 待決問題 Q37),執行確認它因為「全新庫照 001 的 DDL 建,只把 `user_version` 設成 1,沒有 `session_name`」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-01
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q27
-- [ ] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-01 通過的程式碼,並照 `contracts/store.dbml` 寫出全新庫的整份 DDL:除了 US1-DB-01 斷言的 `download_jobs` 新欄位,也一併建 `curated_models.auto_download`(`INTEGER NOT NULL DEFAULT 0` 與 CHECK)、`uq_curated_models_name_ci`、`auto_download_results`(含 `CHECK (target_count >= 0)`)、`auto_download_items`(含 `size_bytes`、`free_disk_bytes`、`vram_bytes`)與它們的索引;這幾樣 US1-DB-01 不斷言,是 E2 節 T013b 要用的(`plan.md` § 待決問題 Q64、Q68),故事 3 的 E4 節對全新庫的案例(T110a、T118a、T119a、T248a)是對照組;既有庫的遷移(`curated_models` 加欄、去重與建新表)留給故事 3 的 E4 節,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T017a)
+- [X] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-01 通過的程式碼,並照 `contracts/store.dbml` 寫出全新庫的整份 DDL:除了 US1-DB-01 斷言的 `download_jobs` 新欄位,也一併建 `curated_models.auto_download`(`INTEGER NOT NULL DEFAULT 0` 與 CHECK)、`uq_curated_models_name_ci`、`auto_download_results`(含 `CHECK (target_count >= 0)`)、`auto_download_items`(含 `size_bytes`、`free_disk_bytes`、`vram_bytes`)與它們的索引;這幾樣 US1-DB-01 不斷言,是 E2 節 T013b 要用的(`plan.md` § 待決問題 Q64、Q68),故事 3 的 E4 節對全新庫的案例(T110a、T118a、T119a、T248a)是對照組;既有庫的遷移(`curated_models` 加欄、去重與建新表)留給故事 3 的 E4 節,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T017a)
   - 🧪 `testplan.md` § US1-DB-01
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q27
-- [ ] T018a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-02 的測試(依序插入:(1)`origin='auto'`、`session_name='cgb-a'`、`pending_model='llama3.2:3b'`、`queue_position=2`;(2)`origin='manual'`、`queue_position=3`;(3)`pending_model='Qwen2.5:7B'`、`queue_position=4`;(4)兩筆 `model='qwen2.5:7b'`、`pending_model` NULL、`state='completed'`、`queue_position` 5、6;分隔註解寫 `# ---- 004 US1-DB-02`(`plan.md` § 待決問題 Q34));T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL(`origin` 的 CHECK 含 `auto`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`origin` 的 CHECK 沒加 `auto`,自動下載排入一寫就失敗」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T018a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-02 的測試(依序插入:(1)`origin='auto'`、`session_name='cgb-a'`、`pending_model='llama3.2:3b'`、`queue_position=2`;(2)`origin='manual'`、`queue_position=3`;(3)`pending_model='Qwen2.5:7B'`、`queue_position=4`;(4)兩筆 `model='qwen2.5:7b'`、`pending_model` NULL、`state='completed'`、`queue_position` 5、6;分隔註解寫 `# ---- 004 US1-DB-02`(`plan.md` § 待決問題 Q34));T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL(`origin` 的 CHECK 含 `auto`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`origin` 的 CHECK 沒加 `auto`,自動下載排入一寫就失敗」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-DB-02
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`(`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § FR-001
-- [ ] T018b [US1] 🟢 /tdd 綠燈:US1-DB-02 由 T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL(`origin` 的 CHECK 含 `auto`) 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-02 通過的程式碼(依賴 T018a)
+- [X] T018b [US1] 🟢 /tdd 綠燈:US1-DB-02 由 T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL(`origin` 的 CHECK 含 `auto`) 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-02 通過的程式碼(依賴 T018a)
   - 🧪 `testplan.md` § US1-DB-02
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`(`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § FR-001
-- [ ] T019a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-03 的測試(以 `connect` 開同一個檔,呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「判斷新舊之前就先跑了新版的 `CREATE TABLE IF NOT EXISTS`,或只看 `user_version` 是 0,把舊庫當成全新庫,只設 `user_version=1` 沒有重建,`session_name` 不存在」這類實作而失敗
+- [X] T019a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-03 的測試(以 `connect` 開同一個檔,呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「判斷新舊之前就先跑了新版的 `CREATE TABLE IF NOT EXISTS`,或只看 `user_version` 是 0,把舊庫當成全新庫,只設 `user_version=1` 沒有重建,`session_name` 不存在」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-03
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001、FR-003;`plan.md` § 待決問題 Q28
-- [ ] T019b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T019a)
+- [X] T019b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T019a)
   - 🧪 `testplan.md` § US1-DB-03
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001、FR-003;`plan.md` § 待決問題 Q28
-- [ ] T020a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-04 的測試(依序插入:(1)`origin='auto'`、`session_name='cgb-new'`、`model='phi4:14b'`、`pending_model='phi4:14b'`、`queue_position=4`;(2)`pending_model='Qwen2.5:7B'`、`queue_position=5`(和 A 只差大小寫);(3)`origin='manual'`、`queue_position=6`;(4)`pending_model='mistral:7b'`、`queue_position=1`(和 A 相同);(5)`size_bytes=-1`、`queue_position=7`;分隔註解寫 `# ---- 004 US1-DB-04`(`plan.md` § 待決問題 Q34));T019b 重建 `download_jobs` 時用的新版 DDL(和全新庫同一份)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重建時 `download_jobs_new` 照抄 001 的 `origin IN ('user','restore')`,升級過的使用者自動下載一寫就失敗」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T020a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-04 的測試(依序插入:(1)`origin='auto'`、`session_name='cgb-new'`、`model='phi4:14b'`、`pending_model='phi4:14b'`、`queue_position=4`;(2)`pending_model='Qwen2.5:7B'`、`queue_position=5`(和 A 只差大小寫);(3)`origin='manual'`、`queue_position=6`;(4)`pending_model='mistral:7b'`、`queue_position=1`(和 A 相同);(5)`size_bytes=-1`、`queue_position=7`;分隔註解寫 `# ---- 004 US1-DB-04`(`plan.md` § 待決問題 Q34));T019b 重建 `download_jobs` 時用的新版 DDL(和全新庫同一份)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重建時 `download_jobs_new` 照抄 001 的 `origin IN ('user','restore')`,升級過的使用者自動下載一寫就失敗」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-DB-04
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`、`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § FR-001
-- [ ] T020b [US1] 🟢 /tdd 綠燈:US1-DB-04 由 T019b 重建 `download_jobs` 時用的新版 DDL(和全新庫同一份) 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-04 通過的程式碼(依賴 T020a)
+- [X] T020b [US1] 🟢 /tdd 綠燈:US1-DB-04 由 T019b 重建 `download_jobs` 時用的新版 DDL(和全新庫同一份) 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-04 通過的程式碼(依賴 T020a)
   - 🧪 `testplan.md` § US1-DB-04
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`、`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § FR-001
-- [ ] T021a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-05 的測試(呼叫 `create_schema(conn)`;接著 `conn.set_authorizer(None)`,再呼叫一次 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「遷移沒有包在交易裡,或用 `with conn:` 包起來,但 `connect` 是 `isolation_level=None`,`with` 不會開交易,失敗時前面的 `ALTER`、重建已經各自 commit,留下一半新、一半舊的庫」這類實作而失敗
+- [X] T021a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-05 的測試(呼叫 `create_schema(conn)`;接著 `conn.set_authorizer(None)`,再呼叫一次 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「遷移沒有包在交易裡,或用 `with conn:` 包起來,但 `connect` 是 `isolation_level=None`,`with` 不會開交易,失敗時前面的 `ALTER`、重建已經各自 commit,留下一半新、一半舊的庫」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-05
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001、FR-003;`plan.md` § 待決問題 Q39
-- [ ] T021b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T021a)
+- [X] T021b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T021a)
   - 🧪 `testplan.md` § US1-DB-05
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001、FR-003;`plan.md` § 待決問題 Q39
-- [ ] T022a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-06 的測試(再呼叫一次 `create_schema(conn)`(模擬後端重新啟動);分隔註解寫 `# ---- 004 US1-DB-06`(`plan.md` § 待決問題 Q34));T019b 先看 `user_version` 再看 `sessions` 表存不存在的分辨(`plan.md` § 待決問題 Q28)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只看「`sessions` 表存在」就判定是舊庫,沒有先看 `user_version`,每次啟動都重跑一次重建,以 001 的欄位清單複製,D 的 `session_name` 變回 NULL,下一次啟動被 Recovery 當成升級前的項目刪掉」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T022a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-06 的測試(再呼叫一次 `create_schema(conn)`(模擬後端重新啟動);分隔註解寫 `# ---- 004 US1-DB-06`(`plan.md` § 待決問題 Q34));T019b 先看 `user_version` 再看 `sessions` 表存不存在的分辨(`plan.md` § 待決問題 Q28)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只看「`sessions` 表存在」就判定是舊庫,沒有先看 `user_version`,每次啟動都重跑一次重建,以 001 的欄位清單複製,D 的 `session_name` 變回 NULL,下一次啟動被 Recovery 當成升級前的項目刪掉」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-DB-06
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001、FR-003
-- [ ] T022b [US1] 🟢 /tdd 綠燈:US1-DB-06 由 T019b 先看 `user_version` 再看 `sessions` 表存不存在的分辨(`plan.md` § 待決問題 Q28) 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-06 通過的程式碼(依賴 T022a)
+- [X] T022b [US1] 🟢 /tdd 綠燈:US1-DB-06 由 T019b 先看 `user_version` 再看 `sessions` 表存不存在的分辨(`plan.md` § 待決問題 Q28) 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-06 通過的程式碼(依賴 T022a)
   - 🧪 `testplan.md` § US1-DB-06
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001、FR-003
-- [ ] T023a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-07 的測試(以 `connect` 開檔,呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-07`(`plan.md` § 待決問題 Q34));T019b 以 `sessions` 表存不存在分辨新舊庫(`plan.md` § 待決問題 Q28)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「判斷新舊時看的是 `sessions` 有沒有資料列(`SELECT count(*)`),或看 `download_jobs` 有沒有資料,而不是 `sessions` 表存不存在(Q28),空的舊庫被當成全新庫,只設 `user_version=1`,`download_jobs` 仍是 001 的表」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T023a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-07 的測試(以 `connect` 開檔,呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-07`(`plan.md` § 待決問題 Q34));T019b 以 `sessions` 表存不存在分辨新舊庫(`plan.md` § 待決問題 Q28)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「判斷新舊時看的是 `sessions` 有沒有資料列(`SELECT count(*)`),或看 `download_jobs` 有沒有資料,而不是 `sessions` 表存不存在(Q28),空的舊庫被當成全新庫,只設 `user_version=1`,`download_jobs` 仍是 001 的表」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-DB-07
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q28
-- [ ] T023b [US1] 🟢 /tdd 綠燈:US1-DB-07 由 T019b 以 `sessions` 表存不存在分辨新舊庫(`plan.md` § 待決問題 Q28) 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-07 通過的程式碼(依賴 T023a)
+- [X] T023b [US1] 🟢 /tdd 綠燈:US1-DB-07 由 T019b 以 `sessions` 表存不存在分辨新舊庫(`plan.md` § 待決問題 Q28) 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-07 通過的程式碼(依賴 T023a)
   - 🧪 `testplan.md` § US1-DB-07
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q28
-- [ ] T024a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-08 的測試(以 `connect` 開檔,在 `caplog` 底下呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有先去重就建 `lower()` 唯一索引,遷移丟 `IntegrityError`,只差大小寫的舊庫永遠升不上去」這類實作而失敗
+- [X] T024a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-08 的測試(以 `connect` 開檔,在 `caplog` 底下呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 004 US1-DB-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有先去重就建 `lower()` 唯一索引,遷移丟 `IntegrityError`,只差大小寫的舊庫永遠升不上去」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-08
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001、FR-003;`plan.md` § 待決問題 Q40
-- [ ] T024b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T024a)
+- [X] T024b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T024a)
   - 🧪 `testplan.md` § US1-DB-08
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-001、FR-003;`plan.md` § 待決問題 Q40
-- [ ] T025 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T017b~T024b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T024b)
+- [X] T025 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T017b~T024b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T024b)
   - 🧪 `testplan.md` § US1-DB-01~US1-DB-08
   - 📎 `testplan.md` § 2.2
 
