@@ -351,239 +351,239 @@
 
 > 這一節只有 E2;對話轉送沒有轉接層方法,`src/cgb/api/chat.py` 以 httpx 打 forward target、用 `src/cgb/ollama_compat/forward.py` 的 `_relay` 轉送,失敗歸類照 `contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post` 的 `info.x-failure-rules` 第 1~8 條(`plan.md` § 待決問題 Q35)。串流的案例一律用 `live_servers`,對話送到 `fakes.server`(`FakeOllamaServer`,真的 HTTP);`chat_read` 以 `replace(test_timeouts, chat_read=0.2)` 注入(`plan.md` § 待決問題 Q44)。`_relay` 是 Ollama 相容端點共用的程式,改了它之後 `tests/integration/test_ollama_compat.py` 照原樣回歸。案例裡的 `MODEL`、`chunk`、`DONE` 與「送出」的寫法照 `testplan.md` § 3.1
 
-- [ ] T031a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-01 的測試(送出預設本文;讀到第 1 行後才放行 `g1`,讀到第 2 行後才放行 `g2`;分隔註解寫 `# ---- 004 US2-API-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「整則收完才一次回傳(`client.post` 不帶 `stream`,或把 `aiter_lines` 收進 list 再回)」這類實作而失敗
+- [X] T031a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-01 的測試(送出預設本文;讀到第 1 行後才放行 `g1`,讀到第 2 行後才放行 `g2`;分隔註解寫 `# ---- 004 US2-API-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「整則收完才一次回傳(`client.post` 不帶 `stream`,或把 `aiter_lines` 收進 list 再回)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、FR-005、使用者故事 2 驗收情境 1、使用者故事 2 驗收情境 3、SC-002
-- [ ] T031b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/api/__init__.py`、`src/cgb/app.py` 只寫讓 US2-API-01 通過的程式碼;新增 `src/cgb/api/chat.py`(以 httpx 打 forward target、用 `src/cgb/ollama_compat/forward.py` 的 `_relay` 逐行轉送,`plan.md` § 待決問題 Q35),在 `src/cgb/api/__init__.py` 註冊路由;`src/cgb/app.py` 的 `Timeouts` 加 `chat_connect`(10)、`chat_read`(300)(`plan.md` § 待決問題 Q44),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
+- [X] T031b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/api/__init__.py`、`src/cgb/app.py` 只寫讓 US2-API-01 通過的程式碼;新增 `src/cgb/api/chat.py`(以 httpx 打 forward target、用 `src/cgb/ollama_compat/forward.py` 的 `_relay` 逐行轉送,`plan.md` § 待決問題 Q35),在 `src/cgb/api/__init__.py` 註冊路由;`src/cgb/app.py` 的 `Timeouts` 加 `chat_connect`(10)、`chat_read`(300)(`plan.md` § 待決問題 Q44),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、FR-005、使用者故事 2 驗收情境 1、使用者故事 2 驗收情境 3、SC-002
-- [ ] T032a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-02 的測試(送出本文 `{"model": "hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF", "messages": [{"role":"user","content":"a"}, {"role":"assistant","content":"b","thinking":"想"}, {"role":"user","content":"c","images":["aGk="]}], "stream": false, "keep_alive": "5m", "think": true, "options": {"temperature": 0}, "system": "s", "format": "json"}`;分隔註解寫 `# ---- 004 US2-API-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「把整份本文原樣轉送(像相容端點的 `forward()` 那樣),`stream: false`、`think`、`options`、`system` 跟著送出,或 `keep_alive` 照瀏覽器的 `"5m"`」這類實作而失敗
+- [X] T032a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-02 的測試(送出本文 `{"model": "hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF", "messages": [{"role":"user","content":"a"}, {"role":"assistant","content":"b","thinking":"想"}, {"role":"user","content":"c","images":["aGk="]}], "stream": false, "keep_alive": "5m", "think": true, "options": {"temperature": 0}, "system": "s", "format": "json"}`;分隔註解寫 `# ---- 004 US2-API-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「把整份本文原樣轉送(像相容端點的 `forward()` 那樣),`stream: false`、`think`、`options`、`system` 跟著送出,或 `keep_alive` 照瀏覽器的 `"5m"`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、使用者故事 2 驗收情境 2、NFR-003;`plan.md` § 待決問題 Q9、Q14、Q59
-- [ ] T032b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-02 通過的程式碼;只轉 `role` 與 `content`,`stream` 為 true、帶 `keep_alive: -1`(`plan.md` § 待決問題 Q9、Q59),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T032a)
+- [X] T032b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-02 通過的程式碼;只轉 `role` 與 `content`,`stream` 為 true、帶 `keep_alive: -1`(`plan.md` § 待決問題 Q9、Q59),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T032a)
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、使用者故事 2 驗收情境 2、NFR-003;`plan.md` § 待決問題 Q9、Q14、Q59
-- [ ] T033a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-03 的測試(送出預設本文;分隔註解寫 `# ---- 004 US2-API-03`(`plan.md` § 待決問題 Q34));T031b 的逐行轉送(不檢查結束行的統計欄位)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把缺統計或耗時為 0 的結束行當成必要欄位不符,補一行 `ChatStreamFailure`(`OLLAMA_BAD_RESPONSE`)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T033a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-03 的測試(送出預設本文;分隔註解寫 `# ---- 004 US2-API-03`(`plan.md` § 待決問題 Q34));T031b 的逐行轉送(不檢查結束行的統計欄位)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把缺統計或耗時為 0 的結束行當成必要欄位不符,補一行 `ChatStreamFailure`(`OLLAMA_BAD_RESPONSE`)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-005;`plan.md` § 待決問題 Q8
-- [ ] T033b [US2] 🟢 /tdd 綠燈:US2-API-03 由 T031b 的逐行轉送(不檢查結束行的統計欄位) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-03 通過的程式碼(依賴 T033a)
+- [X] T033b [US2] 🟢 /tdd 綠燈:US2-API-03 由 T031b 的逐行轉送(不檢查結束行的統計欄位) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-03 通過的程式碼(依賴 T033a)
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-005;`plan.md` § 待決問題 Q8
-- [ ] T034a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-04 的測試(送出預設本文;分隔註解寫 `# ---- 004 US2-API-04`(`plan.md` § 待決問題 Q34));T031b 的逐行轉送(`message.thinking` 原樣送出)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「轉送時只留 `message.content`,把 `thinking` 濾掉(Q10、D24)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T034a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-04 的測試(送出預設本文;分隔註解寫 `# ---- 004 US2-API-04`(`plan.md` § 待決問題 Q34));T031b 的逐行轉送(`message.thinking` 原樣送出)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「轉送時只留 `message.content`,把 `thinking` 濾掉(Q10、D24)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US2-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q10
-- [ ] T034b [US2] 🟢 /tdd 綠燈:US2-API-04 由 T031b 的逐行轉送(`message.thinking` 原樣送出) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-04 通過的程式碼(依賴 T034a)
+- [X] T034b [US2] 🟢 /tdd 綠燈:US2-API-04 由 T031b 的逐行轉送(`message.thinking` 原樣送出) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-04 通過的程式碼(依賴 T034a)
   - 🧪 `testplan.md` § US2-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q10
-- [ ] T035a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-05 的測試(送出預設本文;等 0.05 秒後放行 `g`;分隔註解寫 `# ---- 004 US2-API-05`(`plan.md` § 待決問題 Q34));T031b 的逐行轉送(以行為單位判讀,半行等到換行才送)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「逐「chunk」而不是逐「行」判讀,把半行當成不是 JSON 物件,補 `OLLAMA_BAD_RESPONSE`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T035a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-05 的測試(送出預設本文;等 0.05 秒後放行 `g`;分隔註解寫 `# ---- 004 US2-API-05`(`plan.md` § 待決問題 Q34));T031b 的逐行轉送(以行為單位判讀,半行等到換行才送)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「逐「chunk」而不是逐「行」判讀,把半行當成不是 JSON 物件,補 `OLLAMA_BAD_RESPONSE`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US2-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、NFR-006
-- [ ] T035b [US2] 🟢 /tdd 綠燈:US2-API-05 由 T031b 的逐行轉送(以行為單位判讀,半行等到換行才送) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-05 通過的程式碼(依賴 T035a)
+- [X] T035b [US2] 🟢 /tdd 綠燈:US2-API-05 由 T031b 的逐行轉送(以行為單位判讀,半行等到換行才送) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-05 通過的程式碼(依賴 T035a)
   - 🧪 `testplan.md` § US2-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、NFR-006
-- [ ] T036a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-06 的測試(送出預設本文,讀到第 1 行後關閉這個串流的回應(用戶端斷開,`AbortController` 的等價);0.3 秒後放行 `g`,再等 0.2 秒、`gc.collect()`;分隔註解寫 `# ---- 004 US2-API-06`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/fakes/ollama_server.py` 的 `FakeOllamaServer` 加 `client_closed` 紀錄(`plan.md` § 待決問題 Q57),執行確認它因為「用戶端斷開後沒有關上游(`upstream.aclose` 沒被呼叫,遠端 Ollama 繼續產生)」這類實作而失敗
+- [X] T036a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-06 的測試(送出預設本文,讀到第 1 行後關閉這個串流的回應(用戶端斷開,`AbortController` 的等價);0.3 秒後放行 `g`,再等 0.2 秒、`gc.collect()`;分隔註解寫 `# ---- 004 US2-API-06`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/fakes/ollama_server.py` 的 `FakeOllamaServer` 加 `client_closed` 紀錄(`plan.md` § 待決問題 Q57),執行確認它因為「用戶端斷開後沒有關上游(`upstream.aclose` 沒被呼叫,遠端 Ollama 繼續產生)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-006、使用者故事 2 驗收情境 4;`research.md` § R5
-- [ ] T036b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-06 通過的程式碼;用戶端斷開時關上游、`_relay` 不留下未取回的例外(`src/cgb/ollama_compat/forward.py` 的介面不變,Ollama 相容端點共用),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T036a)
+- [X] T036b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-06 通過的程式碼;用戶端斷開時關上游、`_relay` 不留下未取回的例外(`src/cgb/ollama_compat/forward.py` 的介面不變,Ollama 相容端點共用),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T036a)
   - 🧪 `testplan.md` § US2-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-006、使用者故事 2 驗收情境 4;`research.md` § R5
-- [ ] T037a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-07 的測試(情況 A 依序送 `Content-Type: application/json` 的本文 `{"model":`(不是合法 JSON)與 `[1, 2]`(合法 JSON 但不是物件);情況 B 送 `{"model":`;分隔註解寫 `# ---- 004 US2-API-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「對陣列本文取 `body["model"]` 丟 `TypeError`,回 500」這類實作而失敗
+- [X] T037a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-07 的測試(情況 A 依序送 `Content-Type: application/json` 的本文 `{"model":`(不是合法 JSON)與 `[1, 2]`(合法 JSON 但不是物件);情況 B 送 `{"model":`;分隔註解寫 `# ---- 004 US2-API-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「對陣列本文取 `body["model"]` 丟 `TypeError`,回 500」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T037b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T037a)
+- [X] T037b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T037a)
   - 🧪 `testplan.md` § US2-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T038a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-08 的測試(依序送 `messages` 合法、`model` 分別為:A 缺少;B `123`;C `Qwen2.5`(官方名稱有大寫);D `huggingface.co/bartowski/x`;E `bartowski/x`(社群名稱);對照組 F `hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M`;分隔註解寫 `# ---- 004 US2-API-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒照 `ModelName` 檢查,把格式錯的名稱轉送給遠端,遠端回 404 變成 `OLLAMA_NOT_FOUND`」這類實作而失敗
+- [X] T038a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-08 的測試(依序送 `messages` 合法、`model` 分別為:A 缺少;B `123`;C `Qwen2.5`(官方名稱有大寫);D `huggingface.co/bartowski/x`;E `bartowski/x`(社群名稱);對照組 F `hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M`;分隔註解寫 `# ---- 004 US2-API-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒照 `ModelName` 檢查,把格式錯的名稱轉送給遠端,遠端回 404 變成 `OLLAMA_NOT_FOUND`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、FR-008、NFR-006
-- [ ] T038b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/domain/model_name.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-08 通過的程式碼;`src/cgb/domain/model_name.py` 新增 `is_valid`(`plan.md` § 待決問題 Q49;之後精選清單與下載共用);新代碼 `INVALID_MODEL_NAME` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T038a)
+- [X] T038b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/domain/model_name.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-08 通過的程式碼;`src/cgb/domain/model_name.py` 新增 `is_valid`(`plan.md` § 待決問題 Q49;之後精選清單與下載共用);新代碼 `INVALID_MODEL_NAME` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T038a)
   - 🧪 `testplan.md` § US2-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、FR-008、NFR-006
-- [ ] T039a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-09 的測試(依序送 `model` 合法、`messages` 分別為:A 缺少;B `"你好"`(不是陣列);C `[]`;分隔註解寫 `# ---- 004 US2-API-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「空陣列照轉送,等遠端回 400 才報 `OLLAMA_BAD_REQUEST`(502)」這類實作而失敗
+- [X] T039a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-09 的測試(依序送 `model` 合法、`messages` 分別為:A 缺少;B `"你好"`(不是陣列);C `[]`;分隔註解寫 `# ---- 004 US2-API-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「空陣列照轉送,等遠端回 400 才報 `OLLAMA_BAD_REQUEST`(502)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T039b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-09 通過的程式碼;新代碼 `EMPTY_CHAT_MESSAGES` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T039a)
+- [X] T039b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-09 通過的程式碼;新代碼 `EMPTY_CHAT_MESSAGES` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T039a)
   - 🧪 `testplan.md` § US2-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T040a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-10 的測試(依序送 `model` 合法、`messages` 為一則合法的 user 訊息加上下列一則:A `"hi"`(不是物件);B `{"role":"system","content":"x"}`;C `{"content":"x"}`(缺 `role`);D `{"role":"user","content":1}`;E `{"role":"user"}`(缺 `content`);分隔註解寫 `# ---- 004 US2-API-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「只檢查第一則或最後一則,中間不合法的照轉送」這類實作而失敗
+- [X] T040a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-10 的測試(依序送 `model` 合法、`messages` 為一則合法的 user 訊息加上下列一則:A `"hi"`(不是物件);B `{"role":"system","content":"x"}`;C `{"content":"x"}`(缺 `role`);D `{"role":"user","content":1}`;E `{"role":"user"}`(缺 `content`);分隔註解寫 `# ---- 004 US2-API-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「只檢查第一則或最後一則,中間不合法的照轉送」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T040b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-10 通過的程式碼;新代碼 `INVALID_CHAT_MESSAGE` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T040a)
+- [X] T040b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-10 通過的程式碼;新代碼 `INVALID_CHAT_MESSAGE` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T040a)
   - 🧪 `testplan.md` § US2-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T041a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-11 的測試(每種狀態送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「就緒檢查只看「有沒有工作階段」,開啟中或重連中照樣以舊的 `base_url` 轉送」這類實作而失敗
+- [X] T041a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-11 的測試(每種狀態送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「就緒檢查只看「有沒有工作階段」,開啟中或重連中照樣以舊的 `base_url` 轉送」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 7
-- [ ] T041b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T041a)
+- [X] T041b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T041a)
   - 🧪 `testplan.md` § US2-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 7
-- [ ] T042a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-12 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-12`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現行 `forward()` 只接 `httpx.ConnectError`,B 的 `httpx.RemoteProtocolError` 往上拋回 500(`x-failure-rules` 第 2 條,Q7)」這類實作而失敗
+- [X] T042a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-12 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-12`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現行 `forward()` 只接 `httpx.ConnectError`,B 的 `httpx.RemoteProtocolError` 往上拋回 500(`x-failure-rules` 第 2 條,Q7)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q7
-- [ ] T042b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T042a)
+- [X] T042b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T042a)
   - 🧪 `testplan.md` § US2-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q7
-- [ ] T043a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-13 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-13`(`plan.md` § 待決問題 Q34)),執行確認它因為「照相容端點原樣轉送遠端的狀態碼與本文,瀏覽器收到 400 以為是自己輸入錯(Q13)、或收到 500」這類實作而失敗
+- [X] T043a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-13 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-13`(`plan.md` § 待決問題 Q34)),執行確認它因為「照相容端點原樣轉送遠端的狀態碼與本文,瀏覽器收到 400 以為是自己輸入錯(Q13)、或收到 500」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q13、Q14
-- [ ] T043b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-13 通過的程式碼;新代碼 `OLLAMA_BAD_REQUEST`、`OLLAMA_SERVER_ERROR` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`(`OLLAMA_SERVER_ERROR` 的文字照 `prototype/chat.html` 的 `turn-error` 中間那句:「執行環境上的 Ollama 處理時發生錯誤,請稍後再試。」,analysis A40、分身決策紀錄 D105),同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
+- [X] T043b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-13 通過的程式碼;新代碼 `OLLAMA_BAD_REQUEST`、`OLLAMA_SERVER_ERROR` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`(`OLLAMA_SERVER_ERROR` 的文字照 `prototype/chat.html` 的 `turn-error` 中間那句:「執行環境上的 Ollama 處理時發生錯誤,請稍後再試。」,analysis A40、分身決策紀錄 D105),同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
   - 🧪 `testplan.md` § US2-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q13、Q14
-- [ ] T044a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-14 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-14`(`plan.md` § 待決問題 Q34)),執行確認它因為「跟著 302 導向打到別的路徑」這類實作而失敗
+- [X] T044a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-14 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-14`(`plan.md` § 待決問題 Q34)),執行確認它因為「跟著 302 導向打到別的路徑」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T044b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
+- [X] T044b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
   - 🧪 `testplan.md` § US2-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T045a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-15 的測試(送出預設本文,記下送出的時間;分隔註解寫 `# ---- 004 US2-API-15`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒把 `httpx.ReadTimeout` 接成 `OLLAMA_TIMEOUT`,往上拋回 500(現行 `forward()` 沒接逾時,Q7)」這類實作而失敗
+- [X] T045a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-15 的測試(送出預設本文,記下送出的時間;分隔註解寫 `# ---- 004 US2-API-15`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒把 `httpx.ReadTimeout` 接成 `OLLAMA_TIMEOUT`,往上拋回 500(現行 `forward()` 沒接逾時,Q7)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q7
-- [ ] T045b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T045a)
+- [X] T045b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T045a)
   - 🧪 `testplan.md` § US2-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q7
-- [ ] T046a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-16 的測試(送出預設本文,記下讀到第 1 行的時間;分隔註解寫 `# ---- 004 US2-API-16`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現行 `_relay`,`httpx.ReadTimeout` 是 `TransportError` 的子類,兩段之間逾時被歸成串流中斷(`OLLAMA_STREAM_INTERRUPTED`)」這類實作而失敗
+- [X] T046a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-16 的測試(送出預設本文,記下讀到第 1 行的時間;分隔註解寫 `# ---- 004 US2-API-16`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現行 `_relay`,`httpx.ReadTimeout` 是 `TransportError` 的子類,兩段之間逾時被歸成串流中斷(`OLLAMA_STREAM_INTERRUPTED`)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 8
-- [ ] T046b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T046a)
+- [X] T046b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T046a)
   - 🧪 `testplan.md` § US2-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 8
-- [ ] T047a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-17 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-17`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現行 `_relay` 在遠端正常結束(`StopAsyncIteration`)時直接收尾,沒看有沒有出現 `done: true`,前端把半則回覆顯示成正常完成」這類實作而失敗
+- [X] T047a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-17 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-17`(`plan.md` § 待決問題 Q34)),執行確認它因為「照現行 `_relay` 在遠端正常結束(`StopAsyncIteration`)時直接收尾,沒看有沒有出現 `done: true`,前端把半則回覆顯示成正常完成」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 8
-- [ ] T047b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-17 通過的程式碼;若要把 `OLLAMA_STREAM_INTERRUPTED` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`(文字照 `prototype/chat.html` 的 `turn-interrupted` 中間那句:「執行環境上的 Ollama 回應到一半就斷了,請稍後再試。」,analysis A40、D105),同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T047a)
+- [X] T047b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-17 通過的程式碼;若要把 `OLLAMA_STREAM_INTERRUPTED` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`(文字照 `prototype/chat.html` 的 `turn-interrupted` 中間那句:「執行環境上的 Ollama 回應到一半就斷了,請稍後再試。」,analysis A40、D105),同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T047a)
   - 🧪 `testplan.md` § US2-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 8
-- [ ] T048a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-18 的測試(送出預設本文;分隔註解寫 `# ---- 004 US2-API-18`(`plan.md` § 待決問題 Q34)),執行確認它因為「照 `_relay` 原樣轉送遠端的 `{"error": "<英文>"}`(Q11、D25)」這類實作而失敗
+- [X] T048a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-18 的測試(送出預設本文;分隔註解寫 `# ---- 004 US2-API-18`(`plan.md` § 待決問題 Q34)),執行確認它因為「照 `_relay` 原樣轉送遠端的 `{"error": "<英文>"}`(Q11、D25)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 8;`plan.md` § 待決問題 Q6、Q11
-- [ ] T048b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T048a)
+- [X] T048b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T048a)
   - 🧪 `testplan.md` § US2-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 8;`plan.md` § 待決問題 Q6、Q11
-- [ ] T049a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-19 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-19`(`plan.md` § 待決問題 Q34)),執行確認它因為「不判讀每一行就原樣轉送壞行,前端 `JSON.parse` 失敗」這類實作而失敗
+- [X] T049a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-19 的測試(各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-19`(`plan.md` § 待決問題 Q34)),執行確認它因為「不判讀每一行就原樣轉送壞行,前端 `JSON.parse` 失敗」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T049b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T049a)
+- [X] T049b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T049a)
   - 🧪 `testplan.md` § US2-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006
-- [ ] T050a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-20 的測試(讀到第 1 行後:A 送 `DELETE /api/session`;B 送 `POST /api/session/restart`(`runtimeType` L4);C 不做事,等健康檢查判定失聯;之後 A 再送 `GET /api/models`;分隔註解寫 `# ---- 004 US2-API-20`(`plan.md` § 待決問題 Q34)),執行確認它因為「沿用 `_relay` 的 `SESSION_ENDED_MESSAGE` 字串行,沒有 `code`(Q12、D26)」這類實作而失敗
+- [X] T050a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-20 的測試(讀到第 1 行後:A 送 `DELETE /api/session`;B 送 `POST /api/session/restart`(`runtimeType` L4);C 不做事,等健康檢查判定失聯;之後 A 再送 `GET /api/models`;分隔註解寫 `# ---- 004 US2-API-20`(`plan.md` § 待決問題 Q34)),執行確認它因為「沿用 `_relay` 的 `SESSION_ENDED_MESSAGE` 字串行,沒有 `code`(Q12、D26)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 8、邊界情況;`plan.md` § 待決問題 Q12、Q60
-- [ ] T050b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-20 通過的程式碼;失聯時只結束對話頁的轉送,Ollama 相容端點不變(`plan.md` § 待決問題 Q60);若要把 `SESSION_ENDED` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T050a)
+- [X] T050b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/domain/errors.py` 只寫讓 US2-API-20 通過的程式碼;失聯時只結束對話頁的轉送,Ollama 相容端點不變(`plan.md` § 待決問題 Q60);若要把 `SESSION_ENDED` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T050a)
   - 🧪 `testplan.md` § US2-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、使用者故事 2 驗收情境 8、邊界情況;`plan.md` § 待決問題 Q12、Q60
-- [ ] T051a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-21 的測試(在 T 送出預設本文;`g0.wait_entered_async()` 後查 `GET /api/session`;推進時鐘到 T+90 秒,放行 `g0`、`g1` 讀完;等 `idle.activeRequests` 回到 0 後記下 `ended_at = fake_clock.now()`;分隔註解寫 `# ---- 004 US2-API-21`(`plan.md` § 待決問題 Q34)),執行確認它因為「UI 的 `/api/*` 不經 `IdleHook`,`api/chat.py` 沒呼叫 `request_started`/`request_finished`,對話完全不重設倒數(FR-007)」這類實作而失敗
+- [X] T051a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-21 的測試(在 T 送出預設本文;`g0.wait_entered_async()` 後查 `GET /api/session`;推進時鐘到 T+90 秒,放行 `g0`、`g1` 讀完;等 `idle.activeRequests` 回到 0 後記下 `ended_at = fake_clock.now()`;分隔註解寫 `# ---- 004 US2-API-21`(`plan.md` § 待決問題 Q34)),執行確認它因為「UI 的 `/api/*` 不經 `IdleHook`,`api/chat.py` 沒呼叫 `request_started`/`request_finished`,對話完全不重設倒數(FR-007)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-007、使用者故事 2 驗收情境 9
-- [ ] T051b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US2-API-21 通過的程式碼;通過檢查 (1)(2) 之後才呼叫 `IdleMonitor.request_started`,串流結束或斷開時呼叫 `request_finished`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T051a)
+- [X] T051b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py`、`src/cgb/services/idle_monitor.py` 只寫讓 US2-API-21 通過的程式碼;通過檢查 (1)(2) 之後才呼叫 `IdleMonitor.request_started`,串流結束或斷開時呼叫 `request_finished`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T051a)
   - 🧪 `testplan.md` § US2-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-007、使用者故事 2 驗收情境 9
-- [ ] T052a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-22 的測試(情況 A:時鐘設到 T+20 秒,送 `messages` 為 `[]` 的本文(400);情況 B:時鐘設到 T+40 秒,替身回 `JsonReply({"error":"x"}, status=500)` 送出預設本文(502);情況 C:時鐘設到 T+50 秒,替身回 `NdjsonReply([chunk("你")], then="disconnect")` 送出並讀完;每次之後查 `GET /api/session`;分隔註解寫 `# ---- 004 US2-API-22`(`plan.md` § 待決問題 Q34)),執行確認它因為「在讀本文之前就呼叫 `request_started()`,檢查不過的請求也重設倒數(違反「通過 (1)(2) 之後」)」這類實作而失敗
+- [X] T052a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-22 的測試(情況 A:時鐘設到 T+20 秒,送 `messages` 為 `[]` 的本文(400);情況 B:時鐘設到 T+40 秒,替身回 `JsonReply({"error":"x"}, status=500)` 送出預設本文(502);情況 C:時鐘設到 T+50 秒,替身回 `NdjsonReply([chunk("你")], then="disconnect")` 送出並讀完;每次之後查 `GET /api/session`;分隔註解寫 `# ---- 004 US2-API-22`(`plan.md` § 待決問題 Q34)),執行確認它因為「在讀本文之前就呼叫 `request_started()`,檢查不過的請求也重設倒數(違反「通過 (1)(2) 之後」)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-007、使用者故事 2 驗收情境 9
-- [ ] T052b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py` 只寫讓 US2-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T052a)
+- [X] T052b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py` 只寫讓 US2-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T052a)
   - 🧪 `testplan.md` § US2-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-007、使用者故事 2 驗收情境 9
-- [ ] T053a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-23 的測試(對話頁經 UI 送出預設本文;讀到第 1 行後,區網程式經相容端點送 `POST /api/chat`(同一個 `MODEL`);兩邊都讀到第 1 行後放行 `g`;分隔註解寫 `# ---- 004 US2-API-23`(`plan.md` § 待決問題 Q34));T031b 的轉送(`api/chat.py` 不加鎖,同一個模型的請求交給遠端 Ollama 自己排)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「對話頁自己加一把鎖或同一個模型只允許一個串流,讓區網程式的請求排隊或回 503」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T053a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-23 的測試(對話頁經 UI 送出預設本文;讀到第 1 行後,區網程式經相容端點送 `POST /api/chat`(同一個 `MODEL`);兩邊都讀到第 1 行後放行 `g`;分隔註解寫 `# ---- 004 US2-API-23`(`plan.md` § 待決問題 Q34));T031b 的轉送(`api/chat.py` 不加鎖,同一個模型的請求交給遠端 Ollama 自己排)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「對話頁自己加一把鎖或同一個模型只允許一個串流,讓區網程式的請求排隊或回 503」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US2-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § 邊界情況
-- [ ] T053b [US2] 🟢 /tdd 綠燈:US2-API-23 由 T031b 的轉送(`api/chat.py` 不加鎖,同一個模型的請求交給遠端 Ollama 自己排) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-23 通過的程式碼(依賴 T053a)
+- [X] T053b [US2] 🟢 /tdd 綠燈:US2-API-23 由 T031b 的轉送(`api/chat.py` 不加鎖,同一個模型的請求交給遠端 Ollama 自己排) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-23 通過的程式碼(依賴 T053a)
   - 🧪 `testplan.md` § US2-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § 邊界情況
-- [ ] T054a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-24 的測試(送出預設本文,0.1 秒後放行 `g`;分隔註解寫 `# ---- 004 US2-API-24`(`plan.md` § 待決問題 Q34));T031b 的轉送(不先預先載入,遠端 Ollama 自己載入)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「模型沒載入時先另外預先載入(`preload`)再轉送,多一次往返」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T054a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-24 的測試(送出預設本文,0.1 秒後放行 `g`;分隔註解寫 `# ---- 004 US2-API-24`(`plan.md` § 待決問題 Q34));T031b 的轉送(不先預先載入,遠端 Ollama 自己載入)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「模型沒載入時先另外預先載入(`preload`)再轉送,多一次往返」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US2-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、使用者故事 2 驗收情境 6
-- [ ] T054b [US2] 🟢 /tdd 綠燈:US2-API-24 由 T031b 的轉送(不先預先載入,遠端 Ollama 自己載入) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-24 通過的程式碼(依賴 T054a)
+- [X] T054b [US2] 🟢 /tdd 綠燈:US2-API-24 由 T031b 的轉送(不先預先載入,遠端 Ollama 自己載入) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-24 通過的程式碼(依賴 T054a)
   - 🧪 `testplan.md` § US2-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-004、使用者故事 2 驗收情境 6
-- [ ] T055a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-25 的測試(送出預設本文;等 `g0` 被走到後放行 `g0` 並記下時間 t0;之後每讀到第 i 行就等 0.02 秒再放行 `g(i+1)`;分隔註解寫 `# ---- 004 US2-API-25`(`plan.md` § 待決問題 Q34));T031b 的逐行轉送(`_relay` 每讀到一行就送出)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「以 `aiter_lines` 收齊再一次 `yield`,或用 `aiter_bytes` 搭配自己的緩衝(例如湊滿 64 KB 或等到 `done: true` 才送出)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T055a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-25 的測試(送出預設本文;等 `g0` 被走到後放行 `g0` 並記下時間 t0;之後每讀到第 i 行就等 0.02 秒再放行 `g(i+1)`;分隔註解寫 `# ---- 004 US2-API-25`(`plan.md` § 待決問題 Q34));T031b 的逐行轉送(`_relay` 每讀到一行就送出)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「以 `aiter_lines` 收齊再一次 `yield`,或用 `aiter_bytes` 搭配自己的緩衝(例如湊滿 64 KB 或等到 `done: true` 才送出)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US2-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-003、SC-002、FR-004
-- [ ] T055b [US2] 🟢 /tdd 綠燈:US2-API-25 由 T031b 的逐行轉送(`_relay` 每讀到一行就送出) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-25 通過的程式碼(依賴 T055a)
+- [X] T055b [US2] 🟢 /tdd 綠燈:US2-API-25 由 T031b 的逐行轉送(`_relay` 每讀到一行就送出) 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-25 通過的程式碼(依賴 T055a)
   - 🧪 `testplan.md` § US2-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-003、SC-002、FR-004
-- [ ] T056a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-26 的測試(送出三次 `messages` 為 `[{"role":"user","content":USER_MARK}, {"role":"assistant","content":REPLY_MARK}, {"role":"user","content":USER_MARK}]` 的本文並讀完;再送一次第二則 `role` 為 `system`、`content` 為 `USER_MARK` 的本文(400);等 0.2 秒;分隔註解寫 `# ---- 004 US2-API-26`(`plan.md` § 待決問題 Q34));既有的日誌設定(`src/cgb/logging_setup.py` 只記時間、模型、耗時與狀態碼)與 T031b 的 `api/chat.py`(不記本文)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「路由以 `logger.debug("chat %s", body)` 或例外時 `logger.exception` 帶出本文」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T056a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-26 的測試(送出三次 `messages` 為 `[{"role":"user","content":USER_MARK}, {"role":"assistant","content":REPLY_MARK}, {"role":"user","content":USER_MARK}]` 的本文並讀完;再送一次第二則 `role` 為 `system`、`content` 為 `USER_MARK` 的本文(400);等 0.2 秒;分隔註解寫 `# ---- 004 US2-API-26`(`plan.md` § 待決問題 Q34));既有的日誌設定(`src/cgb/logging_setup.py` 只記時間、模型、耗時與狀態碼)與 T031b 的 `api/chat.py`(不記本文)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「路由以 `logger.debug("chat %s", body)` 或例外時 `logger.exception` 帶出本文」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US2-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-002、SC-002
-- [ ] T056b [US2] 🟢 /tdd 綠燈:US2-API-26 由 既有的日誌設定(`src/cgb/logging_setup.py` 只記時間、模型、耗時與狀態碼)與 T031b 的 `api/chat.py`(不記本文) 滿足,確認 `src/cgb/api/chat.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py` 只寫讓 US2-API-26 通過的程式碼(依賴 T056a)
+- [X] T056b [US2] 🟢 /tdd 綠燈:US2-API-26 由 既有的日誌設定(`src/cgb/logging_setup.py` 只記時間、模型、耗時與狀態碼)與 T031b 的 `api/chat.py`(不記本文) 滿足,確認 `src/cgb/api/chat.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py` 只寫讓 US2-API-26 通過的程式碼(依賴 T056a)
   - 🧪 `testplan.md` § US2-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-002、SC-002
-- [ ] T057a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-27 的測試(每組送出那一個請求一次並讀完;分隔註解寫 `# ---- 004 US2-API-27`(`plan.md` § 待決問題 Q34));T037b~T052b 做出的檢查與歸類已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「任何一種組合讓 httpx 例外、`json.JSONDecodeError`、`KeyError`(`MESSAGES` 缺代碼)往上拋回 500,或串流中途直接斷線、沒有最後一行」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T057a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_chat.py` 寫 US2-API-27 的測試(每組送出那一個請求一次並讀完;分隔註解寫 `# ---- 004 US2-API-27`(`plan.md` § 待決問題 Q34));T037b~T052b 做出的檢查與歸類已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「任何一種組合讓 httpx 例外、`json.JSONDecodeError`、`KeyError`(`MESSAGES` 缺代碼)往上拋回 500,或串流中途直接斷線、沒有最後一行」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US2-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、SC-006、FR-008
-- [ ] T057b [US2] 🟢 /tdd 綠燈:US2-API-27 由 T037b~T052b 做出的檢查與歸類 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-27 通過的程式碼(依賴 T057a)
+- [X] T057b [US2] 🟢 /tdd 綠燈:US2-API-27 由 T037b~T052b 做出的檢查與歸類 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py` 只寫讓 US2-API-27 通過的程式碼(依賴 T057a)
   - 🧪 `testplan.md` § US2-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、SC-006、FR-008
-- [ ] T241a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-28 的測試(A~C 三輪各換鋪陳、各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-28`(`plan.md` § 待決問題 Q34)),執行確認它因為「對話頁沿用的三句 `OLLAMA_*` 說明仍寫「無法確認哪些模型已經下載」」這類實作而失敗
+- [X] T241a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-28 的測試(A~C 三輪各換鋪陳、各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-28`(`plan.md` § 待決問題 Q34)),執行確認它因為「對話頁沿用的三句 `OLLAMA_*` 說明仍寫「無法確認哪些模型已經下載」」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-007;`plan.md` § 待決問題 Q61
-- [ ] T241b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/errors.py` 只寫讓 US2-API-28 通過的程式碼;把 `MESSAGES` 的 `OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_TIMEOUT` 改成模型目錄與對話頁都通的通用說法(去掉「無法確認哪些模型已經下載」,文字照 `prototype/chat.html` 的 `turn-unavailable`、`turn-bad-response`、`turn-start-timeout`;`plan.md` § 待決問題 Q61),不另開對話用的訊息表;`tests/e2e/test_locale.py` 的 `API_ERRORS` 只比代碼,不用改,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T241a)
+- [X] T241b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/errors.py` 只寫讓 US2-API-28 通過的程式碼;把 `MESSAGES` 的 `OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_TIMEOUT` 改成模型目錄與對話頁都通的通用說法(去掉「無法確認哪些模型已經下載」,文字照 `prototype/chat.html` 的 `turn-unavailable`、`turn-bad-response`、`turn-start-timeout`;`plan.md` § 待決問題 Q61),不另開對話用的訊息表;`tests/e2e/test_locale.py` 的 `API_ERRORS` 只比代碼,不用改,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T241a)
   - 🧪 `testplan.md` § US2-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-007;`plan.md` § 待決問題 Q61
-- [ ] T242a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-29 的測試(各送出預設本文一次;同一個任務在 `tests/fakes/ollama_server.py` 讓 `headers` 的值為 `None` 時不送那個標頭;分隔註解寫 `# ---- 004 US2-API-29`(`plan.md` § 待決問題 Q34)),執行確認它因為「以整個 `Content-Type` 字串和 `application/x-ndjson` 比相等,帶 `charset` 或大小寫不同的 NDJSON 被當成壞回應」這類實作而失敗
+- [X] T242a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-29 的測試(各送出預設本文一次;同一個任務在 `tests/fakes/ollama_server.py` 讓 `headers` 的值為 `None` 時不送那個標頭;分隔註解寫 `# ---- 004 US2-API-29`(`plan.md` § 待決問題 Q34)),執行確認它因為「以整個 `Content-Type` 字串和 `application/x-ndjson` 比相等,帶 `charset` 或大小寫不同的 NDJSON 被當成壞回應」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q45
-- [ ] T242b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py` 只寫讓 US2-API-29 通過的程式碼;`Content-Type` 只比 `;` 之前、去掉空白、不分大小寫的 media type,沒有這個標頭歸 `OLLAMA_BAD_RESPONSE`(`contracts/remote-ollama.openapi.yaml` 的 `info.x-failure-rules` (4),`plan.md` § 待決問題 Q45),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T242a)
+- [X] T242b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py` 只寫讓 US2-API-29 通過的程式碼;`Content-Type` 只比 `;` 之前、去掉空白、不分大小寫的 media type,沒有這個標頭歸 `OLLAMA_BAD_RESPONSE`(`contracts/remote-ollama.openapi.yaml` 的 `info.x-failure-rules` (4),`plan.md` § 待決問題 Q45),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T242a)
   - 🧪 `testplan.md` § US2-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q45
-- [ ] T058 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T031b~T057b、T241b~T242b 記下的重構清單(範圍限 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T242b)
+- [X] T058 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T031b~T057b、T241b~T242b 記下的重構清單(範圍限 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T242b)
   - 🧪 `testplan.md` § US2-API-01~US2-API-27、US2-API-28~US2-API-29
   - 📎 `testplan.md` § 3.1
 

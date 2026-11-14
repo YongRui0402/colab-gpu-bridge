@@ -5,10 +5,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from cgb.api import auth, curated, downloads, events, history, library, models, session, settings, usage
+from cgb.api import auth, chat, curated, downloads, events, history, library, models, session, settings, usage
 from cgb.db.connection import connect
 from cgb.db.schema import create_schema
 from cgb.domain.errors import ApiError
@@ -106,9 +107,13 @@ def install(app: FastAPI) -> None:
         monitor.start()
         usage_service.start()
         idle.start()
+        # 對話轉送用的用戶端(plan.md Q35、Q44):連線 10 秒、收到回應標頭之前與兩段之間 300 秒
+        chat_client = httpx.AsyncClient(timeout=httpx.Timeout(state.timeouts.chat_connect, read=state.timeouts.chat_read))
+        app.state.chat_client = chat_client
         try:
             yield
         finally:
+            await chat_client.aclose()
             await idle.stop()
             await usage_service.stop()
             await monitor.stop()
@@ -133,3 +138,4 @@ def install(app: FastAPI) -> None:
     app.include_router(events.router, prefix="/api")
     app.include_router(usage.router, prefix="/api")
     app.include_router(settings.router, prefix="/api")
+    app.include_router(chat.router, prefix="/api")

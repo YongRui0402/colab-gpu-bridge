@@ -24,7 +24,7 @@ from e2e.test_us1_login import google_flows
 from e2e.test_us1_session import CJK, T4, ColabWorld, open_to_ready, restart_backend, wait_until, world  # noqa: F401 - `world` 是 fixture
 from e2e.test_us3_library import search_page
 from e2e.test_us4_usage import advance_clocks, reading, sync_browser_clock
-from fakes import Gate, NdjsonReply
+from fakes import Gate, JsonReply, NdjsonReply
 
 # Q105(a):`constitution/_shared/語言.md` Rule 1 的對照詞。testplan § G-06 列的簡體寫法,加上 Rule 1 點名的大陸用語(繁體寫法)
 SIMPLIFIED_OR_MAINLAND = (
@@ -709,6 +709,58 @@ def err_no_ready_session(w: World) -> httpx.Response:
     return trigger_ok(w, "GET", "/models")
 
 
+def err_invalid_model_name(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/chat", json={"model": "Qwen2.5", "messages": [{"role": "user", "content": "你好"}]})
+
+
+def err_empty_chat_messages(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/chat", json={"model": MODEL, "messages": []})
+
+
+def err_invalid_chat_message(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/chat", json={"model": MODEL, "messages": [{"role": "system", "content": "x"}]})
+
+
+def err_chat_remote_status(status: int) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        ready_api(w)
+        w.fakes.server.add("POST", "/api/chat", JsonReply({"error": "cgb-test"}, status=status))
+        return trigger_ok(w, "POST", "/chat", json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}]})
+
+    return trigger
+
+
+def err_chat_stream_failure(then: str) -> Callable[[World], httpx.Response]:
+    """串流開始之後的失敗只出現在最後一行(`ChatStreamFailure`),沒有 HTTP 錯誤狀態;把那一行的 `error` 包成 502 回應,讓這張表統一檢查代碼與說明。"""
+
+    def trigger(w: World) -> httpx.Response:
+        ready_api(w)
+        w.fakes.server.add("POST", "/api/chat", NdjsonReply([{"model": MODEL, "message": {"role": "assistant", "content": "你"}, "done": False}], then=then))  # type: ignore[arg-type]
+        with w.api() as client:
+            with client.stream("POST", "/api/chat", json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}]}) as response:
+                last = [json.loads(line) for line in response.iter_lines()][-1]
+        return httpx.Response(502, json=last["error"])
+
+    return trigger
+
+
+def err_chat_session_ended(w: World) -> httpx.Response:
+    """回覆途中使用者結束工作階段:最後一行 `SESSION_ENDED`(同 `err_chat_stream_failure`,包成 502 回應)。"""
+    ready_api(w)
+    first = {"model": MODEL, "message": {"role": "assistant", "content": "你"}, "done": False}
+    w.fakes.server.add("POST", "/api/chat", NdjsonReply([first], then="hang"))
+    with w.api() as client, w.api() as other:
+        with client.stream("POST", "/api/chat", json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}]}) as response:
+            lines = response.iter_lines()
+            next(lines)
+            other.delete("/api/session")
+            last = [json.loads(line) for line in lines][-1]
+    return httpx.Response(502, json=last["error"])
+
+
 def err_invalid_curated_description(w: World) -> httpx.Response:
     w.start()
     return trigger_ok(w, "POST", "/curated", json={"name": MODEL, "description": "長" * 201})
@@ -858,6 +910,13 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("OLLAMA_TIMEOUT", err_ollama("OLLAMA_TIMEOUT")),
     ("INVALID_IDLE_TIMEOUT", err_settings({"idleTimeoutMinutes": 0, "lowBalanceThreshold": 10})),
     ("INVALID_BALANCE_THRESHOLD", err_settings({"idleTimeoutMinutes": 30, "lowBalanceThreshold": -1})),
+    ("INVALID_MODEL_NAME", err_invalid_model_name),
+    ("EMPTY_CHAT_MESSAGES", err_empty_chat_messages),
+    ("INVALID_CHAT_MESSAGE", err_invalid_chat_message),
+    ("OLLAMA_BAD_REQUEST", err_chat_remote_status(400)),
+    ("OLLAMA_SERVER_ERROR", err_chat_remote_status(500)),
+    ("OLLAMA_STREAM_INTERRUPTED", err_chat_stream_failure("end")),
+    ("SESSION_ENDED", err_chat_session_ended),
 ]
 
 

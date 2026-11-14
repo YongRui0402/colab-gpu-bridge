@@ -59,6 +59,8 @@ class Timeouts:
     - reconnect_backoff:重連前幾輪的等待:立即、5、10、20 秒(Q67)
     - reconnect_interval:之後每輪的間隔 30 秒(Q67)
     - tunnel_ready:通道建立後等 `/api/version` 就緒的期限 30 秒(Q68)
+    - chat_connect:對話轉送到遠端 Ollama 的連線時限 10 秒(004 Q44)
+    - chat_read:對話轉送收到回應標頭之前與兩段之間的逾時 300 秒(004 Q44)
     """
 
     open_total: float = 300.0
@@ -68,6 +70,8 @@ class Timeouts:
     reconnect_backoff: tuple[float, ...] = (0.0, 5.0, 10.0, 20.0)
     reconnect_interval: float = 30.0
     tunnel_ready: float = 30.0
+    chat_connect: float = 10.0
+    chat_read: float = 300.0
 
 
 @dataclass

@@ -38,11 +38,18 @@ MESSAGES: dict[str, str] = {
     "LIBRARY_BAD_RESPONSE": "Ollama 官方模型庫的回應無法解讀(可能改版了);可以從精選清單挑選或直接輸入名稱。",
     "LIBRARY_TIMEOUT": "Ollama 官方模型庫在時限內沒有回應,請稍後再試;也可以從精選清單挑選或直接輸入名稱。",
     "LIBRARY_CLOUD_ONLY": "這個版本只能在 Ollama 雲端執行,不能下載到執行環境。",
-    "OLLAMA_UNREACHABLE": "連不到執行環境上的 Ollama,無法確認哪些模型已經下載,請確認工作階段仍在運作後再試。",
-    "OLLAMA_BAD_RESPONSE": "執行環境上的 Ollama 回應無法解讀,無法確認哪些模型已經下載,請稍後再試。",
-    "OLLAMA_TIMEOUT": "執行環境上的 Ollama 在時限內沒有回應,無法確認哪些模型已經下載,請稍後再試。",
+    "OLLAMA_UNREACHABLE": "連不到執行環境上的 Ollama,請確認工作階段仍在運作後再試。",
+    "OLLAMA_BAD_RESPONSE": "執行環境上的 Ollama 回應無法解讀,請稍後再試。",
+    "OLLAMA_TIMEOUT": "執行環境上的 Ollama 在時限內沒有回應,請稍後再試。",
     "INVALID_IDLE_TIMEOUT": "閒置時限要是 1 到 1440 分鐘的整數。",
     "INVALID_BALANCE_THRESHOLD": "餘額警告門檻要是 0 到 10000 之間的數字。",
+    "INVALID_MODEL_NAME": "模型名稱的格式不對,請從模型目錄選擇,或輸入官方名稱(小寫,例如 qwen2.5:7b)或 hf.co/<作者>/<模型>。",
+    "EMPTY_CHAT_MESSAGES": "沒有要送出的訊息,請先輸入內容。",
+    "OLLAMA_BAD_REQUEST": "執行環境上的 Ollama 不接受這則請求,請稍後再試。",
+    "OLLAMA_SERVER_ERROR": "執行環境上的 Ollama 處理時發生錯誤,請稍後再試。",
+    "OLLAMA_STREAM_INTERRUPTED": "執行環境上的 Ollama 回應到一半就斷了,請稍後再試。",
+    "SESSION_ENDED": "工作階段已結束,這次回應中斷。",
+    "INVALID_CHAT_MESSAGE": "對話裡有一則訊息的格式不對(角色只能是 user 或 assistant,內容要是文字)。",
 }
 
 
