@@ -855,99 +855,99 @@
   - 🧪 `testplan.md` § US3-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、FR-018、使用者故事 3 驗收情境 5
-- [ ] T085a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-14 的測試(`POST /api/session/restart` 帶 `L4`;`wait_until` 等新的工作階段就緒;`wait_auto` 等新的那一個 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-14`(`plan.md` § 待決問題 Q34)),執行確認它因為「自動下載只比對執行環境上的模型、沒比對佇列,重新載入的 `qwen2.5:7b` 又以 `auto` 排一次」這類實作而失敗
+- [X] T085a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-14 的測試(`POST /api/session/restart` 帶 `L4`;`wait_until` 等新的工作階段就緒;`wait_auto` 等新的那一個 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-14`(`plan.md` § 待決問題 Q34)),執行確認它因為「自動下載只比對執行環境上的模型、沒比對佇列,重新載入的 `qwen2.5:7b` 又以 `auto` 排一次」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 5、邊界情況
-- [ ] T085b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T085a)
+- [X] T085b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T085a)
   - 🧪 `testplan.md` § US3-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 5、邊界情況
-- [ ] T086a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-15 的測試(`open_ready`;`wait_auto` 等 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-15`(`plan.md` § 待決問題 Q34)),執行確認它因為「遇到第一個放不下的就停,後面較小的 `qwen2.5:0.5b` 也沒排」這類實作而失敗
+- [X] T086a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-15 的測試(`open_ready`;`wait_auto` 等 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-15`(`plan.md` § 待決問題 Q34)),執行確認它因為「遇到第一個放不下的就停,後面較小的 `qwen2.5:0.5b` 也沒排」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 6
-- [ ] T086b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T086a)
+- [X] T086b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T086a)
   - 🧪 `testplan.md` § US3-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 6
-- [ ] T087a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-16 的測試(`POST /api/session/restart` 帶 `L4`;`wait_auto` 等新的工作階段 `done`;分隔註解寫 `# ---- 004 US3-API-16`(`plan.md` § 待決問題 Q34)),執行確認它因為「空間判定沒加上佇列裡還沒下載完的大小(重新載入排入、下載中的 `qwen2.5:7b` 4,683,087,332),2,019,393,189 單獨看放得下就排入」這類實作而失敗
+- [X] T087a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-16 的測試(`POST /api/session/restart` 帶 `L4`;`wait_auto` 等新的工作階段 `done`;分隔註解寫 `# ---- 004 US3-API-16`(`plan.md` § 待決問題 Q34)),執行確認它因為「空間判定沒加上佇列裡還沒下載完的大小(重新載入排入、下載中的 `qwen2.5:7b` 4,683,087,332),2,019,393,189 單獨看放得下就排入」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 6
-- [ ] T087b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T087a)
+- [X] T087b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T087a)
   - 🧪 `testplan.md` § US3-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 6
-- [ ] T088a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-17 的測試(`open_ready`;`wait_auto` 等 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-17`(`plan.md` § 待決問題 Q34)),執行確認它因為「照手動加入下載的規則,一個取不到大小就整次不排」這類實作而失敗
+- [X] T088a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-17 的測試(`open_ready`;`wait_auto` 等 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-17`(`plan.md` § 待決問題 Q34)),執行確認它因為「照手動加入下載的規則,一個取不到大小就整次不排」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 7、邊界情況
-- [ ] T088b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-17 通過的程式碼;若要把 `HF_AUTH_REQUIRED`、`HF_QUANT_UNAVAILABLE` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T088a)
+- [X] T088b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-17 通過的程式碼;若要把 `HF_AUTH_REQUIRED`、`HF_QUANT_UNAVAILABLE` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T088a)
   - 🧪 `testplan.md` § US3-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 7、邊界情況
-- [ ] T089a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-18 的測試(`open_ready`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-18`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒做顯示記憶體的判斷,20 GB 的模型被排入」這類實作而失敗
+- [X] T089a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-18 的測試(`open_ready`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-18`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒做顯示記憶體的判斷,20 GB 的模型被排入」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 9
-- [ ] T089b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T089a)
+- [X] T089b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T089a)
   - 🧪 `testplan.md` § US3-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 9
-- [ ] T090a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-19 的測試(`open_ready`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-19`(`plan.md` § 待決問題 Q34)),執行確認它因為「讀不到顯示記憶體時把總量當成 0 或拿 None 比較,全部跳過或丟 `TypeError`」這類實作而失敗
+- [X] T090a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-19 的測試(`open_ready`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-19`(`plan.md` § 待決問題 Q34)),執行確認它因為「讀不到顯示記憶體時把總量當成 0 或拿 None 比較,全部跳過或丟 `TypeError`」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 9
-- [ ] T090b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T090a)
+- [X] T090b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T090a)
   - 🧪 `testplan.md` § US3-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 9
-- [ ] T091a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-20 的測試(`open_ready`;`wait_auto` 等 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-20`(`plan.md` § 待決問題 Q34)),執行確認它因為「讀不到剩餘空間時當成夠用,兩項照常排入(001 不把讀不到當成夠用)」這類實作而失敗
+- [X] T091a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-20 的測試(`open_ready`;`wait_auto` 等 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-20`(`plan.md` § 待決問題 Q34)),執行確認它因為「讀不到剩餘空間時當成夠用,兩項照常排入(001 不把讀不到當成夠用)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 11;`plan.md` § 待決問題 Q17
-- [ ] T091b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T091a)
+- [X] T091b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T091a)
   - 🧪 `testplan.md` § US3-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 11;`plan.md` § 待決問題 Q17
-- [ ] T092a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-21 的測試(`open_ready`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-21`(`plan.md` § 待決問題 Q34)),執行確認它因為「讀不到模型清單時整次不做(結果停在 `running` 或為 null),或全部標成跳過(違反 Q16)」這類實作而失敗
+- [X] T092a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-21 的測試(`open_ready`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-21`(`plan.md` § 待決問題 Q34)),執行確認它因為「讀不到模型清單時整次不做(結果停在 `running` 或為 null),或全部標成跳過(違反 Q16)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011;`plan.md` § 待決問題 Q16
-- [ ] T092b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-21 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T092a)
+- [X] T092b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-21 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T092a)
   - 🧪 `testplan.md` § US3-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011;`plan.md` § 待決問題 Q16
-- [ ] T093a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-22 的測試(`open_ready`;`wait_auto` 等結果不是 null 且 `state` 為 `done`;分隔註解寫 `# ---- 004 US3-API-22`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有要排的就不寫結果、回 null,和「根本沒設自動下載」分不出來(違反 Q18)」這類實作而失敗
+- [X] T093a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-22 的測試(`open_ready`;`wait_auto` 等結果不是 null 且 `state` 為 `done`;分隔註解寫 `# ---- 004 US3-API-22`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有要排的就不寫結果、回 null,和「根本沒設自動下載」分不出來(違反 Q18)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q18
-- [ ] T093b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T093a)
+- [X] T093b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T093a)
   - 🧪 `testplan.md` § US3-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q18
-- [ ] T094a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-23 的測試(各自 `open_ready` 後等 0.3 秒;讀自動下載結果;B 再 `PUT` 把 `qwen2.5:0.5b` 的 `autoDownload` 改成 true,之後觸發重連、等回到 `ready` 再等 0.3 秒;列出佇列並再讀一次結果;分隔註解寫 `# ---- 004 US3-API-23`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有設自動下載的項目時照樣寫 `running` 再寫 `done`、推送提示」這類實作而失敗
+- [X] T094a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-23 的測試(各自 `open_ready` 後等 0.3 秒;讀自動下載結果;B 再 `PUT` 把 `qwen2.5:0.5b` 的 `autoDownload` 改成 true,之後觸發重連、等回到 `ready` 再等 0.3 秒;列出佇列並再讀一次結果;分隔註解寫 `# ---- 004 US3-API-23`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有設自動下載的項目時照樣寫 `running` 再寫 `done`、推送提示」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`、`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-011、FR-012、SC-003、邊界情況;`plan.md` § 待決問題 Q24
-- [ ] T094b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T094a)
+- [X] T094b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-23 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T094a)
   - 🧪 `testplan.md` § US3-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`、`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-011、FR-012、SC-003、邊界情況;`plan.md` § 待決問題 Q24
-- [ ] T095a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-24 的測試(`open_ready`;等 0.2 秒;記下 `get_manifest.call_count`;放行 `gate`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-24`(`plan.md` § 待決問題 Q34)),執行確認它因為「取大小一個一個等(放行前只有 1 次)」這類實作而失敗
+- [X] T095a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-24 的測試(`open_ready`;等 0.2 秒;記下 `get_manifest.call_count`;放行 `gate`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-24`(`plan.md` § 待決問題 Q34)),執行確認它因為「取大小一個一個等(放行前只有 1 次)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011
-- [ ] T095b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-24 通過的程式碼;取大小同時最多 4 個(`asyncio.Semaphore(4)`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T095a)
+- [X] T095b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-24 通過的程式碼;取大小同時最多 4 個(`asyncio.Semaphore(4)`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T095a)
   - 🧪 `testplan.md` § US3-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011
-- [ ] T096a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-25 的測試(`open_ready`;等 `gate.entered` 為 1;讀自動下載結果;放行 `gate`;等到 `state` 為 `done` 的 `autoDownload.updated`;分隔註解寫 `# ---- 004 US3-API-25`(`plan.md` § 待決問題 Q34)),執行確認它因為「判定完才寫結果、只推一次 `done`,判定中 UI 讀到 null(Q33 要顯示判定中)」這類實作而失敗
+- [X] T096a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-25 的測試(`open_ready`;等 `gate.entered` 為 1;讀自動下載結果;放行 `gate`;等到 `state` 為 `done` 的 `autoDownload.updated`;分隔註解寫 `# ---- 004 US3-API-25`(`plan.md` § 待決問題 Q34)),執行確認它因為「判定完才寫結果、只推一次 `done`,判定中 UI 讀到 null(Q33 要顯示判定中)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/ui-events.asyncapi.yaml` § `operations.sendAutoDownloadUpdated`、`operations.sendDownloadsSnapshot`、`operations.sendDownloadUpdated`、`operations.sendDownloadRemoved`
   - 📎 `spec.md` § FR-011、FR-012;`plan.md` § 待決問題 Q33
-- [ ] T096b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-25 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T096a)
+- [X] T096b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-25 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T096a)
   - 🧪 `testplan.md` § US3-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/ui-events.asyncapi.yaml` § `operations.sendAutoDownloadUpdated`、`operations.sendDownloadsSnapshot`、`operations.sendDownloadUpdated`、`operations.sendDownloadRemoved`
   - 📎 `spec.md` § FR-011、FR-012;`plan.md` § 待決問題 Q33

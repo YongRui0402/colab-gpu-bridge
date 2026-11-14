@@ -17,7 +17,12 @@ from cgb.services.event_bus import EventBus
 from cgb.services.session_lifecycle import SessionLifecycle
 
 # AutoDownloadSkipped.message:給使用者看的繁體中文原因
-SKIPPED_MESSAGES = {"SIZE_UNAVAILABLE": "取不到模型大小,沒有排入。"}
+SKIPPED_MESSAGES = {
+    "SIZE_UNAVAILABLE": "取不到模型大小,沒有排入。",
+    "DISK_SPACE_INSUFFICIENT": "執行環境的剩餘空間不足,沒有排入。",
+    "DISK_SPACE_UNKNOWN": "讀不到執行環境的剩餘空間,沒有排入。",
+    "MAY_NOT_FIT": "這台可能無法載入這個模型(大小超過顯示記憶體),沒有排入。",
+}
 
 
 class AutoDownload:
@@ -61,23 +66,70 @@ class AutoDownload:
             # 讀不到就當成執行環境上沒有任何模型(新的執行環境本來就是空的)
             local = set()
         queued = {match_key(job["model"]) for job in self._downloads.pending()}
-        sized: list[tuple[str, int]] = []
-        for position, target in enumerate(targets):
-            model = with_version(target)
-            if match_key(model) in local or match_key(model) in queued:
-                continue
-            try:
-                size = await self._downloads.manifest_size(model)
-            except AdapterError as error:
+        wanted = [
+            (position, with_version(target))
+            for position, target in enumerate(targets)
+            if match_key(with_version(target)) not in local | queued
+        ]
+        # 取大小同時最多 4 個;結果仍依清單順序處理
+        slots = asyncio.Semaphore(4)
+
+        async def size_of(model: str) -> int | AdapterError:
+            async with slots:
+                try:
+                    return await self._downloads.manifest_size(model)
+                except AdapterError as error:
+                    return error
+
+        sizes = await asyncio.gather(*(size_of(model) for _, model in wanted))
+        candidates: list[tuple[int, str, int]] = []
+        for (position, model), size in zip(wanted, sizes, strict=True):
+            if isinstance(size, AdapterError):
                 self._repo.add_item(
                     name,
                     position,
                     model,
                     reason="SIZE_UNAVAILABLE",
-                    reason_code=error.code,
+                    reason_code=size.code,
                     message=SKIPPED_MESSAGES["SIZE_UNAVAILABLE"],
                 )
                 continue
+            candidates.append((position, model, size))
+        # 剩餘磁碟空間讀一次,依清單順序累加:已決定排入的大小 + 佇列裡還沒下載完的大小 + 這一項 > 剩餘 → 跳過,後面較小的照常判斷
+        try:
+            resources = await self._state.colab.probe_resources(name=name)
+        except AdapterError as error:
+            # 讀不到就無法確認放不放得下,其餘還沒判定的項目都跳過(001 不把讀不到當成夠用)
+            for position, model, _ in candidates:
+                self._repo.add_item(
+                    name,
+                    position,
+                    model,
+                    reason="DISK_SPACE_UNKNOWN",
+                    reason_code=error.code,
+                    message=SKIPPED_MESSAGES["DISK_SPACE_UNKNOWN"],
+                )
+            candidates = []
+            resources = {"diskFreeBytes": 0, "vramTotalBytes": None}
+        used = sum(row["size_bytes"] for row in self._downloads.pending())
+        sized: list[tuple[str, int]] = []
+        vram = resources["vramTotalBytes"]
+        for position, model, size in candidates:
+            if vram is not None and size > vram:
+                self._repo.add_item(
+                    name, position, model, reason="MAY_NOT_FIT", message=SKIPPED_MESSAGES["MAY_NOT_FIT"]
+                )
+                continue
+            if used + size > resources["diskFreeBytes"]:
+                self._repo.add_item(
+                    name,
+                    position,
+                    model,
+                    reason="DISK_SPACE_INSUFFICIENT",
+                    message=SKIPPED_MESSAGES["DISK_SPACE_INSUFFICIENT"],
+                )
+                continue
+            used += size
             self._repo.add_item(name, position, model)
             sized.append((model, size))
         # 排入、記下完成與推送之間沒有 `await`:工作階段結束的清除不會夾在中間
