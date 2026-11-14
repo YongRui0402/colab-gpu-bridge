@@ -1,5 +1,5 @@
 // 模型頁:執行環境上已下載的模型、預先載入與下載佇列(FR-014、FR-015、FR-017、FR-021;prototype/models.html)
-import { request } from "./api.js";
+import { readThenFollow, request } from "./api.js";
 import { startHeader } from "./header.js";
 import { bytes, clock, escape, showGroupState, typeText } from "./view.js";
 
@@ -216,7 +216,57 @@ function sessionUpdated(payload) {
   loadQueue();
 }
 
+// ---------------------------------------------------------------- 自動下載提示區(FR-012;prototype/models.html 的 renderNotice)
+
+// 目前工作階段的自動下載結果(AutoDownloadResult);沒有時是 null
+let autoResult = null;
+
+// 跳過項目的數字只用合約有的 sizeBytes、freeDiskBytes、vramBytes(plan.md Q68),沒有值的不顯示;
+// 顯示記憶體和模型目錄一樣以 2 的 30 次方換算
+function skipFigures(s) {
+  const parts = [];
+  if (s.sizeBytes != null) parts.push(`大小 ${bytes(s.sizeBytes)}`);
+  if (s.freeDiskBytes != null) parts.push(`排入前面幾個之後只剩 ${bytes(s.freeDiskBytes)}`);
+  if (s.vramBytes != null) parts.push(`顯示記憶體約 ${Math.round(s.vramBytes / 2 ** 30)} GB`);
+  return parts.length ? `(${parts.join(",")})` : "";
+}
+
+function renderNotice() {
+  const box = document.getElementById("auto-notice");
+  const r = autoResult;
+  const mine = r !== null && !r.dismissed;
+  // 判定中(還在取大小)顯示「正在依精選清單排入…」(plan.md Q33)
+  showGroupState("auto", mine && r.state === "running" ? "auto-running" : "");
+  // 判定完成但排入與跳過都是空的不顯示(plan.md Q30)
+  const show = mine && r.state === "done" && (r.enqueued.length > 0 || r.skipped.length > 0);
+  box.hidden = !show;
+  if (!show) return;
+  box.className = `notice auto-notice${r.skipped.length ? " notice-warn" : ""}`;
+  const enqueued = r.enqueued.map((n) => `<span class="mono">${escape(n)}</span>`).join("、");
+  box.innerHTML = `
+    <div class="notice-head">
+      <strong>開好就自動下載:排入 ${r.enqueued.length} 個${r.skipped.length ? `,跳過 ${r.skipped.length} 個` : ""}</strong>
+      <button type="button" class="btn btn-small" data-dismiss>關閉</button>
+    </div>
+    <span class="small muted">${r.finishedAt ? clock(r.finishedAt) : ""} 工作階段就緒時依精選清單的順序排入${enqueued ? `:${enqueued}` : ""}</span>
+    ${r.skipped.length ? `<ul>${r.skipped.map((s) => `<li><span class="mono">${escape(s.model)}</span> · ${escape(s.message)}${skipFigures(s)}</li>`).join("")}</ul>` : ""}`;
+}
+
+// 打開頁面時讀一次 GET /api/downloads/auto-result,之後跟著 autoDownload.updated(重新整理後仍看得到,FR-012)
+const autoPushed = readThenFollow("/downloads/auto-result", (data) => {
+  autoResult = data.result;
+  renderNotice();
+});
+
+// 關閉:送 POST /api/downloads/auto-result/dismiss,記在後端(重新整理後也不再顯示)
+document.getElementById("queue-panel").addEventListener("click", async (event) => {
+  if (!event.target.closest("[data-dismiss]")) return;
+  const response = await request("POST", "/downloads/auto-result/dismiss");
+  if (response.ok) autoPushed({ result: response.data });
+});
+
 startHeader({
+  "autoDownload.updated": autoPushed,
   "session.updated": sessionUpdated,
   "models.updated": (payload) => catalogPushed(payload.catalog),
   "download.updated": (payload) => jobUpdated(payload.job),

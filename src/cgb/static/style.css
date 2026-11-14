@@ -1060,3 +1060,81 @@ progress::-moz-progress-bar {
     align-items: stretch;
   }
 }
+
+/* ---------- 004:精選清單的自動下載開關 ---------- */
+
+.switch {
+  display: inline-flex;
+  gap: var(--space-xs);
+  align-items: center;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+}
+
+.switch .knob {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  background: var(--color-line);
+  border-radius: 999px;
+  transition: background 0.15s;
+}
+
+.switch .knob::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  content: "";
+  background: var(--color-surface);
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s;
+}
+
+.switch input:checked + .knob {
+  background: var(--color-primary);
+}
+
+.switch input:checked + .knob::after {
+  transform: translateX(14px);
+}
+
+.switch input:checked ~ .switch-text {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.switch input:focus-visible + .knob {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.field-error {
+  margin-top: var(--space-xs);
+  font-size: 13px;
+  color: var(--color-danger);
+}
+
+/* ---------- 004:自動下載提示區 ---------- */
+
+.auto-notice ul {
+  padding-left: var(--space-lg);
+  margin: var(--space-xs) 0 0;
+}
+
+.auto-notice .notice-head {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: baseline;
+  justify-content: space-between;
+}

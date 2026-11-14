@@ -16,13 +16,21 @@ from cgb.services.downloads import QUEUE_CLEARING_STATES, DownloadsService
 from cgb.services.event_bus import EventBus
 from cgb.services.session_lifecycle import SessionLifecycle
 
-# AutoDownloadSkipped.message:給使用者看的繁體中文原因
+# AutoDownloadSkipped.message:給使用者看的繁體中文原因,「原因名稱:說明」(prototype/mock.js 的 SKIP_MESSAGE、SIZE_MESSAGE;
+# 原因名稱是 spec.md FR-012 的四種,plan.md Q81)
 SKIPPED_MESSAGES = {
-    "SIZE_UNAVAILABLE": "取不到模型大小,沒有排入。",
-    "DISK_SPACE_INSUFFICIENT": "執行環境的剩餘空間不足,沒有排入。",
-    "DISK_SPACE_UNKNOWN": "讀不到執行環境的剩餘空間,沒有排入。",
-    "MAY_NOT_FIT": "這台可能無法載入這個模型(大小超過顯示記憶體),沒有排入。",
+    "DISK_SPACE_INSUFFICIENT": "空間不足:剩餘磁碟放不下這一個",
+    "MAY_NOT_FIT": "這台可能無法載入:大小超過顯示記憶體",
+    "DISK_SPACE_UNKNOWN": "讀不到剩餘空間:讀不到執行環境的剩餘磁碟空間,還沒判定的項目都先跳過",
 }
+# 取不到大小依取大小失敗的代碼說明;沒列的代碼用通用的一句
+SIZE_UNAVAILABLE_MESSAGES = {
+    "HF_AUTH_REQUIRED": "取不到大小:Hugging Face 上這個模型需要登入、同意條款、私有或不存在",
+    "HF_QUANT_UNAVAILABLE": "取不到大小:這個量化版本無法下載(不存在、分割檔或不是 GGUF)",
+    "HF_TIMEOUT": "取不到大小:Hugging Face 在 10 秒內沒有回應",
+    "LIBRARY_NOT_FOUND": "取不到大小:官方模型庫沒有這個模型或版本",
+}
+SIZE_UNAVAILABLE_FALLBACK = "取不到大小:模型來源沒有回應或不能下載"
 
 
 class AutoDownload:
@@ -107,7 +115,7 @@ class AutoDownload:
                     model,
                     reason="SIZE_UNAVAILABLE",
                     reason_code=size.code,
-                    message=SKIPPED_MESSAGES["SIZE_UNAVAILABLE"],
+                    message=SIZE_UNAVAILABLE_MESSAGES.get(size.code, SIZE_UNAVAILABLE_FALLBACK),
                 )
                 continue
             candidates.append((position, model, size))

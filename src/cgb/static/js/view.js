@@ -14,6 +14,16 @@ export function showGroupState(group, name) {
   });
 }
 
+// 執行階段類型與顯示記憶體(prototype/mock.js 的 runtimeTypes);`hidden` 的不列在精選清單的建議類型選單(FR-017)
+export const RUNTIME_TYPES = [
+  { id: "T4", vramMiB: 15360, highMem: true, hidden: false },
+  { id: "L4", vramMiB: 23034, highMem: false, hidden: false },
+  { id: "G4", vramMiB: 97887, highMem: true, hidden: false },
+  { id: "A100", vramMiB: 40960, highMem: true, hidden: false },
+  { id: "H100", vramMiB: 81559, highMem: true, hidden: true },
+];
+export const typeInfo = (id) => RUNTIME_TYPES.find((t) => t.id === id);
+
 // 執行階段類型的顯示文字,例如「T4 高 RAM」(contracts/ui.openapi.yaml § RuntimeType)
 export const typeText = (runtimeType) => `${runtimeType.gpu}${runtimeType.highMem ? " 高 RAM" : ""}`;
 

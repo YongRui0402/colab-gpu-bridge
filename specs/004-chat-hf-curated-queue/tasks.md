@@ -1184,95 +1184,95 @@
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(Playwright)接測試行程內真的後端(`tests/e2e/conftest.py` 的 `e2e_servers`,UI 127.0.0.1:8781),轉接層用替身;e2e 用固定 port,同一時間只跑一份
 > 精選清單存在真的 SQLite,工作階段、剩餘磁碟、顯示記憶體與取大小用替身(`testplan.md` § 4.3)
 
-- [ ] T123a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-01 的測試(按「新增」,名稱 `hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M`、說明「小模型試對話」、建議類型 L4、勾「開好就自動下載」,送出;再重新整理頁面;分隔註解寫 `# ---- 004 US3-AJ-01`(`plan.md` § 待決問題 Q34));`e2e_servers` 要能注入 `FakeHuggingFaceHub`(`tests/e2e/conftest.py`,用 `Fakes.as_kwargs()` 已帶進的 `huggingface`),執行確認它因為「精選清單編輯要求有工作階段(送出被擋)」這類實作而失敗
+- [X] T123a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-01 的測試(按「新增」,名稱 `hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M`、說明「小模型試對話」、建議類型 L4、勾「開好就自動下載」,送出;再重新整理頁面;分隔註解寫 `# ---- 004 US3-AJ-01`(`plan.md` § 待決問題 Q34));`e2e_servers` 要能注入 `FakeHuggingFaceHub`(`tests/e2e/conftest.py`,用 `Fakes.as_kwargs()` 已帶進的 `huggingface`),執行確認它因為「精選清單編輯要求有工作階段(送出被擋)」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009、FR-010
-- [ ] T123b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/api.js`、`src/cgb/static/style.css` 只寫讓 US3-AJ-01 通過的程式碼;精選清單的新增、修改、刪除與自動下載開關照 `prototype/library.html`;把 `prototype/style.css` 的「004:精選清單的自動下載開關」區段搬進 `src/cgb/static/style.css`,只用既有的 `var(--…)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T123a)
+- [X] T123b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/api.js`、`src/cgb/static/style.css` 只寫讓 US3-AJ-01 通過的程式碼;精選清單的新增、修改、刪除與自動下載開關照 `prototype/library.html`;把 `prototype/style.css` 的「004:精選清單的自動下載開關」區段搬進 `src/cgb/static/style.css`,只用既有的 `var(--…)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T123a)
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009、FR-010
-- [ ] T124a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-02 的測試(把 `qwen2.5` 的說明改成「改過」;再按 `llama3.2:3b` 的「刪除」,在確認視窗按「取消」;再按一次「刪除」並在確認視窗按「刪除」;分隔註解寫 `# ---- 004 US3-AJ-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改實作成刪掉再新增,項目跑到最後」這類實作而失敗
+- [X] T124a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-02 的測試(把 `qwen2.5` 的說明改成「改過」;再按 `llama3.2:3b` 的「刪除」,在確認視窗按「取消」;再按一次「刪除」並在確認視窗按「刪除」;分隔註解寫 `# ---- 004 US3-AJ-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改實作成刪掉再新增,項目跑到最後」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009
-- [ ] T124b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US3-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T124a)
+- [X] T124b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US3-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T124a)
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009
-- [ ] T125a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-03 的測試(情況 A 新增名稱 `qwen2.5:Latest`(合法的名稱,只有版本的大小寫不同);情況 B 新增名稱 `hf.co/只有作者`;分隔註解寫 `# ---- 004 US3-AJ-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「重複比對沒補 `latest` 或分大小寫,A 被加成第二筆」這類實作而失敗
+- [X] T125a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-03 的測試(情況 A 新增名稱 `qwen2.5:Latest`(合法的名稱,只有版本的大小寫不同);情況 B 新增名稱 `hf.co/只有作者`;分隔註解寫 `# ---- 004 US3-AJ-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「重複比對沒補 `latest` 或分大小寫,A 被加成第二筆」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009、FR-018、邊界情況
-- [ ] T125b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US3-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T125a)
+- [X] T125b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US3-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T125a)
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009、FR-018、邊界情況
-- [ ] T126a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-04 的測試(開啟工作階段到就緒,打開模型頁;再重新整理一次;分隔註解寫 `# ---- 004 US3-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「提示只在收到 `autoDownload.updated` 時畫,重新整理後沒有去讀 `GET /api/downloads/auto-result`」這類實作而失敗
+- [X] T126a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-04 的測試(開啟工作階段到就緒,打開模型頁;再重新整理一次;分隔註解寫 `# ---- 004 US3-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「提示只在收到 `autoDownload.updated` 時畫,重新整理後沒有去讀 `GET /api/downloads/auto-result`」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-04
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-011、FR-012、SC-003
-- [ ] T126b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js`、`src/cgb/static/js/api.js`、`src/cgb/static/style.css` 只寫讓 US3-AJ-04 通過的程式碼;模型頁佇列上方的自動下載提示區照 `prototype/models.html` 的 `#auto-notice`,打開頁面時讀 `GET /api/downloads/auto-result`、之後跟著 `autoDownload.updated` 更新;把 `prototype/style.css` 的「004:自動下載提示區」區段搬進 `src/cgb/static/style.css`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T126a)
+- [X] T126b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js`、`src/cgb/static/js/api.js`、`src/cgb/static/style.css` 只寫讓 US3-AJ-04 通過的程式碼;模型頁佇列上方的自動下載提示區照 `prototype/models.html` 的 `#auto-notice`,打開頁面時讀 `GET /api/downloads/auto-result`、之後跟著 `autoDownload.updated` 更新;把 `prototype/style.css` 的「004:自動下載提示區」區段搬進 `src/cgb/static/style.css`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T126a)
   - 🧪 `testplan.md` § US3-AJ-04
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-011、FR-012、SC-003
-- [ ] T127a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-05 的測試(按 `#auto-notice` 的「關閉」;再重新整理;分隔註解寫 `# ---- 004 US3-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「關閉只藏在前端、沒有送 `POST /api/downloads/auto-result/dismiss`,重新整理又出現」這類實作而失敗
+- [X] T127a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-05 的測試(按 `#auto-notice` 的「關閉」;再重新整理;分隔註解寫 `# ---- 004 US3-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「關閉只藏在前端、沒有送 `POST /api/downloads/auto-result/dismiss`,重新整理又出現」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-05
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012
-- [ ] T127b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js`、`src/cgb/static/js/api.js` 只寫讓 US3-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T127a)
+- [X] T127b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js`、`src/cgb/static/js/api.js` 只寫讓 US3-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T127a)
   - 🧪 `testplan.md` § US3-AJ-05
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012
-- [ ] T128a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-06 的測試(開啟工作階段到就緒時已打開模型頁;分隔註解寫 `# ---- 004 US3-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只認 `state` 為 `done` 的結果,判定中什麼都不顯示(`plan.md` Q33 決定顯示)」這類實作而失敗
+- [X] T128a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-06 的測試(開啟工作階段到就緒時已打開模型頁;分隔註解寫 `# ---- 004 US3-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只認 `state` 為 `done` 的結果,判定中什麼都不顯示(`plan.md` Q33 決定顯示)」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-06
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q33
-- [ ] T128b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US3-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T128a)
+- [X] T128b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US3-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T128a)
   - 🧪 `testplan.md` § US3-AJ-06
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q33
-- [ ] T129a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-07 的測試(開啟工作階段到就緒,打開模型頁;分隔註解寫 `# ---- 004 US3-AJ-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「排入與跳過都是空的時仍顯示「排入 0 個」的提示(`plan.md` Q30 決定不顯示)」這類實作而失敗
+- [X] T129a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-07 的測試(開啟工作階段到就緒,打開模型頁;分隔註解寫 `# ---- 004 US3-AJ-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「排入與跳過都是空的時仍顯示「排入 0 個」的提示(`plan.md` Q30 決定不顯示)」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-07
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-011、FR-012;`plan.md` § 待決問題 Q30
-- [ ] T129b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US3-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T129a)
+- [X] T129b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US3-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T129a)
   - 🧪 `testplan.md` § US3-AJ-07
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-011、FR-012;`plan.md` § 待決問題 Q30
-- [ ] T130a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-08 的測試(自動下載提示分兩個工作階段鋪:第一個讀得到剩餘磁碟,結束後第二個讓 `probe_resources` 丟 `COLAB_UNREACHABLE`(`plan.md` § 待決問題 Q70);每種狀態取那個區塊的 `innerText`,去掉模型名稱;分隔註解寫 `# ---- 004 US3-AJ-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「新的表單與提示用英文」這類實作而失敗
+- [X] T130a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-08 的測試(自動下載提示分兩個工作階段鋪:第一個讀得到剩餘磁碟,結束後第二個讓 `probe_resources` 丟 `COLAB_UNREACHABLE`(`plan.md` § 待決問題 Q70);每種狀態取那個區塊的 `innerText`,去掉模型名稱;分隔註解寫 `# ---- 004 US3-AJ-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「新的表單與提示用英文」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-08
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § NFR-007、FR-012;`plan.md` § 待決問題 Q70
-- [ ] T130b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T130a)
+- [X] T130b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T130a)
   - 🧪 `testplan.md` § US3-AJ-08
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § NFR-007、FR-012;`plan.md` § 待決問題 Q70
-- [ ] T249a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-09 的測試(開啟工作階段到就緒,打開模型頁;分隔註解寫 `# ---- 004 US3-AJ-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端照舊原型從 `detail` 文字讀數字,數字一律不顯示」這類實作而失敗
+- [X] T249a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-09 的測試(開啟工作階段到就緒,打開模型頁;分隔註解寫 `# ---- 004 US3-AJ-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端照舊原型從 `detail` 文字讀數字,數字一律不顯示」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-09
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q68
-- [ ] T249b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US3-AJ-09 通過的程式碼;跳過的項目照 `prototype/models.html` 的 `skipFigures` 顯示 `sizeBytes`、`freeDiskBytes`、`vramBytes`,沒有值的不顯示(`plan.md` § 待決問題 Q68),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T249a)
+- [X] T249b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US3-AJ-09 通過的程式碼;跳過的項目照 `prototype/models.html` 的 `skipFigures` 顯示 `sizeBytes`、`freeDiskBytes`、`vramBytes`,沒有值的不顯示(`plan.md` § 待決問題 Q68),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T249a)
   - 🧪 `testplan.md` § US3-AJ-09
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q68
-- [ ] T250a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-10 的測試(就緒後在 `[data-state="auto-running"]` 顯示時按它的「關閉」;等判定完成後再重新整理;分隔註解寫 `# ---- 004 US3-AJ-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「判定中的提示沒有關閉鈕,只能等完成」這類實作而失敗
+- [X] T250a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-10 的測試(就緒後在 `[data-state="auto-running"]` 顯示時按它的「關閉」;等判定完成後再重新整理;分隔註解寫 `# ---- 004 US3-AJ-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「判定中的提示沒有關閉鈕,只能等完成」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-10
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012
-- [ ] T250b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-10 通過的程式碼;`[data-state="auto-running"]` 加 `[data-dismiss]` 關閉鈕,送 `POST /api/downloads/auto-result/dismiss`;判定完成時看 `dismissed`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T250a)
+- [X] T250b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-10 通過的程式碼;`[data-state="auto-running"]` 加 `[data-dismiss]` 關閉鈕,送 `POST /api/downloads/auto-result/dismiss`;判定完成時看 `dismissed`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T250a)
   - 🧪 `testplan.md` § US3-AJ-10
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012
-- [ ] T251a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-11 的測試(情況 A 打開新增表單、`#c-type` 選「不指定」;情況 B 改成 T4、勾 `#c-highmem` 送出 `llama3.2:3b`;情況 C 打開 `qwen2.5:7b` 的修改表單只改說明送出;分隔註解寫 `# ---- 004 US3-AJ-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「表單只有 GPU 選單,建議類型送成字串或少了 `highMem`,修改時把高 RAM 清掉」這類實作而失敗
+- [X] T251a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-11 的測試(情況 A 打開新增表單、`#c-type` 選「不指定」;情況 B 改成 T4、勾 `#c-highmem` 送出 `llama3.2:3b`;情況 C 打開 `qwen2.5:7b` 的修改表單只改說明送出;分隔註解寫 `# ---- 004 US3-AJ-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「表單只有 GPU 選單,建議類型送成字串或少了 `highMem`,修改時把高 RAM 清掉」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-11
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009
-- [ ] T251b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-11 通過的程式碼;照 `prototype/library.html` 加 `#c-highmem`,跟著 `#c-type` 啟用或停用,送出時建議類型一律帶 `{gpu, highMem}`(分身決策紀錄 D95),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T251a)
+- [X] T251b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-11 通過的程式碼;照 `prototype/library.html` 加 `#c-highmem`,跟著 `#c-type` 啟用或停用,送出時建議類型一律帶 `{gpu, highMem}`(分身決策紀錄 D95),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T251a)
   - 🧪 `testplan.md` § US3-AJ-11
   - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009
-- [ ] T131 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T123b~T130b、T249b~T251b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T251b)
+- [X] T131 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T123b~T130b、T249b~T251b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T251b)
   - 🧪 `testplan.md` § US3-AJ-01~US3-AJ-08、US3-AJ-09~US3-AJ-11
   - 📎 `testplan.md` § 4.3
 

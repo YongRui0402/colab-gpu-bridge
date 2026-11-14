@@ -33,9 +33,12 @@ def test_timeouts() -> Timeouts:
 
 
 def set_manifests(fakes: Any) -> None:
-    """`get_manifest` 依 `<名稱>:<版本>` 回 `SIZES` 的大小。"""
+    """`get_manifest` 依 `<名稱>:<版本>` 回 `SIZES` 的大小;`hf.co/` 開頭的向 Hugging Face 的替身取(故事 3 起依前綴分流)。"""
     fakes.model_library.get_manifest.side_effect(
         lambda *a, **k: {"name": k["name"], "tag": k["tag"], "sizeBytes": SIZES[f"{k['name']}:{k['tag']}"]}
+    )
+    fakes.huggingface.get_manifest.side_effect(
+        lambda *a, **k: {"sizeBytes": SIZES[f"hf.co/{k['author']}/{k['model']}:{k['tag']}"]}
     )
 
 
