@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>工作階段|Colab GPU 橋接</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="favicon.png">
   <script type="module" src="js/session.js"></script>
 </head>
 <body>
@@ -148,6 +149,10 @@
         <dt>結束原因</dt><dd id="e-reason"></dd>
       </dl>
       <div class="notice notice-ok">已確認 Colab 帳號下沒有遺留的執行環境。</div>
+      <div data-picker="ended" data-when="released"></div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
+      </div>
     </section>
 
     <!-- 已結束(閒置自動結束,FR-026) -->
@@ -159,8 +164,9 @@
         <dt>運行時長</dt><dd data-field="duration"></dd>
       </dl>
       <div class="notice notice-ok">已確認 Colab 帳號下沒有遺留的執行環境。閒置時限可以在「用量與設定」調整。</div>
+      <div data-picker="ended-idle" data-when="released"></div>
       <div class="actions">
-        <button type="button" class="btn btn-primary" data-go="normal">開啟新的工作階段</button>
+        <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
       </div>
     </section>
 
@@ -173,8 +179,9 @@
       </div>
       <p id="f-switch-note" hidden></p>
       <p class="muted">已確認 Colab 帳號下沒有留下這次配置的執行環境。</p>
+      <div data-picker="failed" data-when="released"></div>
       <div class="actions">
-        <button type="button" class="btn btn-primary" data-go="normal">改選類型重新開啟</button>
+        <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
       </div>
     </section>
 
@@ -215,8 +222,10 @@
       <dl class="kv">
         <dt>結束原因</dt><dd>被 Colab 收回(Colab 上已經沒有這台執行環境)</dd>
       </dl>
+      <div data-picker="lost" data-when="released"></div>
       <div class="actions">
-        <button type="button" class="btn btn-primary" data-action="reopen">重新開啟</button>
+        <button type="button" class="btn" data-action="reopen">重新開啟</button>
+        <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
       </div>
     </section>
 
@@ -227,6 +236,10 @@
         <dt>結束原因</dt><dd>重連逾時(5 分鐘內接不回)</dd>
       </dl>
       <div class="notice notice-ok" data-when="released">已釋放這台執行環境,Colab 帳號下沒有遺留。</div>
+      <div data-picker="lost-timeout" data-when="released"></div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
+      </div>
     </section>
 
     <!-- 失聯,最後讀到的餘額小於等於 0(spec 邊界情況:餘額可能已經歸零) -->
@@ -239,9 +252,11 @@
         <strong>餘額可能已經歸零</strong>
         <span id="lz-text"></span>
       </div>
+      <div data-picker="lost-zero" data-when="released"></div>
       <div class="actions">
         <a class="btn" href="usage.html">看用量</a>
-        <button type="button" class="btn btn-primary" data-action="reopen">重新開啟</button>
+        <button type="button" class="btn" data-action="reopen">重新開啟</button>
+        <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
       </div>
     </section>
 

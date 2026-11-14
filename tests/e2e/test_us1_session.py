@@ -238,8 +238,7 @@ def test_配置被拒時顯示開啟失敗與中文原因_而且可以再開啟(
     expect(failed).to_be_visible()
     expect(page.locator("#f-reason")).to_have_text(CJK)
     expect(page.locator("#f-reason")).not_to_contain_text("COLAB_")
-    failed.get_by_role("button", name="改選類型重新開啟").click()
-    page.click("#open")
+    failed.get_by_role("button", name="開啟", exact=True).click()
     expect(page.locator('[data-state="ready"]')).to_be_visible()
 
 

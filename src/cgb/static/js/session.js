@@ -96,7 +96,7 @@ function viewOf(s) {
   return { none: "normal", opening: "starting", ready: "ready", ended: "ended", open_failed: "failed", lost: "lost", reconnecting: "reconnecting", ending: "stopping" }[s.state];
 }
 
-// `release-failed` 是附加的警告區塊:有釋放警告時和目前的狀態區塊一起顯示,「已釋放」的說明收起來(FR-007)
+// `release-failed` 是附加的警告區塊:有釋放警告時和目前的狀態區塊一起顯示,「已釋放」的說明與開新工作階段的選單、按鈕收起來(FR-007)
 function showView(name, releaseWarning) {
   showState(name, releaseWarning ? ["release-failed"] : []);
   document.querySelectorAll('[data-when="released"]').forEach((el) => {
