@@ -43,7 +43,7 @@
 
 ### E2 後端 UI API(FastAPI REST 與 SSE)
 
-> E2 與 E4 兩節平行;E2 只改 `src/cgb/services/`、`src/cgb/repos/`、`src/cgb/api/`、`tests/integration/test_api_queue_clearing.py`(及綠燈任務寫明要刪的舊測試),E4 只改 `src/cgb/db/schema.py`、`tests/integration/test_db_schema.py` 與 `tests/fixtures/db/`。`src/cgb/db/schema.py` 由 E4 節負責:E2 不改它;用到新欄位或新表的 T012b(`download_jobs.session_name`)依賴 T019b,T013b(`curated_models.auto_download`、`auto_download_results`、`auto_download_items`)依賴 T024b。清除只掛在 `SessionsRepo.listeners` 一處(T001b,research.md R1),之後涵蓋其他結束方式的案例都是對照組。沿用的 fixture 與 helper 見 `testplan.md` § 2.1;`test_api_switch.py`、`test_api_recovery.py`、`test_api_health.py`、`test_api_idle.py` 的既有測試照原樣回歸
+> E2 與 E4 兩節平行;E2 只改 `src/cgb/services/`、`src/cgb/repos/`、`src/cgb/api/`、`tests/integration/test_api_queue_clearing.py`(及綠燈任務寫明要刪的舊測試),E4 只改 `src/cgb/db/schema.py`、`tests/integration/test_db_schema.py` 與 `tests/fixtures/db/`。`src/cgb/db/schema.py` 由 E4 節負責:E2 不改它;用到新欄位或新表的 T012b(`download_jobs.session_name`)依賴 T019b,T013b(`curated_models.auto_download`、`auto_download_results`、`auto_download_items`)依賴 T017b(照 `contracts/store.dbml` 建全新庫的這三樣,`plan.md` § 待決問題 Q64)與 T024b。清除只掛在 `SessionsRepo.listeners` 一處(T001b,research.md R1),之後涵蓋其他結束方式的案例都是對照組。沿用的 fixture 與 helper 見 `testplan.md` § 2.1;`test_api_switch.py`、`test_api_recovery.py`、`test_api_health.py`、`test_api_idle.py` 的既有測試照原樣回歸
 
 - [ ] T001a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_queue_clearing.py` 寫 US1-API-01 的測試(送 `DELETE /api/session`,回應後立刻 `GET /api/downloads`;以 `queue_events` 收 0.5 秒;之後放行 `stop_session` 閘門,等 `state` 為 `ended` 再 `GET /api/downloads`;分隔註解寫 `# ---- 004 US1-API-01`(`plan.md` § 待決問題 Q34));同一個任務在檔內新增 `testplan.md` § 2.1 的 helper `mixed_queue`、`queue_events`,執行確認它因為「清除只掛在 `_run_end` 寫入 `ended` 之後,結束中時佇列還在」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-01
@@ -101,7 +101,7 @@
   - 🧪 `testplan.md` § US1-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-001、FR-002、使用者故事 1 驗收情境 3、邊界情況、SC-001
-- [ ] T008a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_queue_clearing.py` 寫 US1-API-08 的測試(送 `POST /api/session/restart`(`L4`),回應後立刻 `GET /api/downloads`;以 `queue_events` 收 0.3 秒;放行閘門,等新的工作階段就緒且 `preload` 被呼叫,`GET /api/downloads`;分隔註解寫 `# ---- 004 US1-API-08`(`plan.md` § 待決問題 Q34));T001b 的清除與 `src/cgb/services/runtime_switch.py` 改成先清除再 `enqueue_restore` 的順序已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「照現況先 `enqueue_restore` 再把舊的改 `ending`,清除把剛排入的重新載入項目一起刪掉(新的就緒後沒有下載與載入)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [ ] T008a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_queue_clearing.py` 寫 US1-API-08 的測試(送 `POST /api/session/restart`(`L4`),回應後立刻 `GET /api/downloads`;以 `queue_events` 收 0.3 秒;放行閘門,等新的工作階段就緒且 `preload` 被呼叫,`GET /api/downloads`;分隔註解寫 `# ---- 004 US1-API-08`(`plan.md` § 待決問題 Q34));T001b 的清除與 `src/cgb/services/runtime_switch.py` 改成先清除再 `enqueue_restore` 的順序已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「照現況先 `enqueue_restore` 再把舊的改 `ending`,清除把剛排入的重新載入項目一起刪掉(新的就緒後沒有下載與載入)」這類實作,執行確認斷言失敗後撤回;則7、則8 斷言清除時先送一則空的 `downloads.snapshot`、之後才推重新載入那一筆的 `download.updated`(`plan.md` § 待決問題 Q47),T001b 的「全部移除後推一次快照」若沒做到這個順序,就當成一般的紅燈;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/ui-events.asyncapi.yaml` § `operations.sendDownloadsSnapshot`、`operations.sendDownloadUpdated`、`operations.sendDownloadRemoved`
   - 📎 `spec.md` § FR-002、FR-001、使用者故事 1 驗收情境 4、SC-001
@@ -145,7 +145,7 @@
   - 🧪 `testplan.md` § US1-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/ui-events.asyncapi.yaml` § `operations.sendAutoDownloadUpdated`
   - 📎 `spec.md` § FR-001、SC-001;`plan.md` § 待決問題 Q64
-- [ ] T013b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py`、`src/cgb/repos/curated.py`、`src/cgb/api/curated.py`、`src/cgb/api/downloads.py`、`src/cgb/api/events.py`、`src/cgb/services/event_bus.py`、`src/cgb/api/__init__.py` 只寫讓 US1-API-13 通過的程式碼;只做到讓這個案例通過的最小版本(`plan.md` § 待決問題 Q64):精選清單的 `autoDownload` 存讀、工作階段第一次就緒時把設了自動下載的項目排入(`origin` `auto`)並寫 `auto_download_results`、`GET /api/downloads/auto-result`、結束時照 `info.x-queue-clearing` (5) 刪結果並推 `autoDownload.updated`(`result` 為 null);用到的 `curated_models.auto_download`、`auto_download_results`、`auto_download_items` 由 E4 節照 `contracts/store.dbml` 建在 `src/cgb/db/schema.py`,這個任務不改那個檔,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T013a、T024b)
+- [ ] T013b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py`、`src/cgb/repos/curated.py`、`src/cgb/api/curated.py`、`src/cgb/api/downloads.py`、`src/cgb/api/events.py`、`src/cgb/services/event_bus.py`、`src/cgb/api/__init__.py` 只寫讓 US1-API-13 通過的程式碼;只做到讓這個案例通過的最小版本(`plan.md` § 待決問題 Q64):精選清單的 `autoDownload` 存讀、工作階段第一次就緒時把設了自動下載的項目排入(`origin` `auto`)並寫 `auto_download_results`、`GET /api/downloads/auto-result`、結束時照 `info.x-queue-clearing` (5) 刪結果並推 `autoDownload.updated`(`result` 為 null);用到的 `curated_models.auto_download`、`auto_download_results`、`auto_download_items` 由 E4 節的 T017b 照 `contracts/store.dbml` 建在 `src/cgb/db/schema.py`(全新庫),這個任務不改那個檔,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T013a、T017b、T024b)
   - 🧪 `testplan.md` § US1-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/ui-events.asyncapi.yaml` § `operations.sendAutoDownloadUpdated`
   - 📎 `spec.md` § FR-001、SC-001;`plan.md` § 待決問題 Q64
@@ -177,7 +177,7 @@
   - 🧪 `testplan.md` § US1-DB-01
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q27
-- [ ] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T017a)
+- [ ] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-01 通過的程式碼,並照 `contracts/store.dbml` 寫出全新庫的整份 DDL:除了 US1-DB-01 斷言的 `download_jobs` 新欄位,也一併建 `curated_models.auto_download`(`INTEGER NOT NULL DEFAULT 0` 與 CHECK)、`uq_curated_models_name_ci`、`auto_download_results`(含 `CHECK (target_count >= 0)`)、`auto_download_items`(含 `size_bytes`、`free_disk_bytes`、`vram_bytes`)與它們的索引;這幾樣 US1-DB-01 不斷言,是 E2 節 T013b 要用的(`plan.md` § 待決問題 Q64、Q68),故事 3 的 E4 節對全新庫的案例(T110a、T118a、T119a、T248a)是對照組;既有庫的遷移(`curated_models` 加欄、去重與建新表)留給故事 3 的 E4 節,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T017a)
   - 🧪 `testplan.md` § US1-DB-01
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q27
@@ -248,38 +248,62 @@
 
 - [ ] T026a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-01 的測試(在首頁的另一個分頁按「結束」並確認;模型頁不重新整理;分隔註解寫 `# ---- 004 US1-AJ-01`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/models.js` 的 `download.removed`、`downloads.snapshot` 處理,加上 T001b 的推送已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「後端清了佇列但沒有推 `download.removed`,畫面要重新整理才清空」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-AJ-01
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-stop"]`、`[data-state="stopping"]`、`[data-state="ended"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-stop"]`、`[data-state="stopping"]`、`[data-state="ended"]`
   - 📎 `spec.md` § NFR-001、SC-001、FR-001
 - [ ] T026b [US1] 🟢 /tdd 綠燈:US1-AJ-01 由 既有 `src/cgb/static/js/models.js` 的 `download.removed`、`downloads.snapshot` 處理,加上 T001b 的推送 滿足,確認 `src/cgb/static/js/models.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-01 通過的程式碼(依賴 T026a)
   - 🧪 `testplan.md` § US1-AJ-01
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-stop"]`、`[data-state="stopping"]`、`[data-state="ended"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-stop"]`、`[data-state="stopping"]`、`[data-state="ended"]`
   - 📎 `spec.md` § NFR-001、SC-001、FR-001
 - [ ] T027a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-02 的測試(讓 `fakes.tunnel.check_health` 一直失敗、重連逾時(縮短的時限),工作階段變成 `lost`;不重新整理;分隔註解寫 `# ---- 004 US1-AJ-02`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/models.js` 的 `download.removed` 處理,加上 T001b 在 `lost` 時的清除已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只有使用者結束(`end_listeners`)才清佇列,失聯時下載中的那筆照 001 標成失敗留在畫面」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-AJ-02
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="lost"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="lost"]`
   - 📎 `spec.md` § FR-001
 - [ ] T027b [US1] 🟢 /tdd 綠燈:US1-AJ-02 由 既有 `src/cgb/static/js/models.js` 的 `download.removed` 處理,加上 T001b 在 `lost` 時的清除 滿足,確認 `src/cgb/static/js/models.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-02 通過的程式碼(依賴 T027a)
   - 🧪 `testplan.md` § US1-AJ-02
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="lost"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="lost"]`
   - 📎 `spec.md` § FR-001
 - [ ] T028a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-03 的測試(在首頁按「變更類型」選 L4 並確認,等到新的工作階段就緒;回到模型頁(不重新整理就在同一個分頁切換);分隔註解寫 `# ---- 004 US1-AJ-03`(`plan.md` § 待決問題 Q34));T001b 的清除順序(先清除舊的、再排入重新載入項目)與既有 `src/cgb/static/js/models.js` 的事件處理已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「變更類型時先 `enqueue_restore` 再把舊的改 `ending`,清除把剛排入的重新載入項目一起刪掉」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-AJ-03
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-switch"]`、`[data-state="switching"]`、`[data-state="starting"]`、`[data-state="ready"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-switch"]`、`[data-state="switching"]`、`[data-state="starting"]`、`[data-state="ready"]`
   - 📎 `spec.md` § FR-002
 - [ ] T028b [US1] 🟢 /tdd 綠燈:US1-AJ-03 由 T001b 的清除順序(先清除舊的、再排入重新載入項目)與既有 `src/cgb/static/js/models.js` 的事件處理 滿足,確認 `src/cgb/static/js/models.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-03 通過的程式碼(依賴 T028a)
   - 🧪 `testplan.md` § US1-AJ-03
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-switch"]`、`[data-state="switching"]`、`[data-state="starting"]`、`[data-state="ready"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-switch"]`、`[data-state="switching"]`、`[data-state="starting"]`、`[data-state="ready"]`
   - 📎 `spec.md` § FR-002
 - [ ] T029a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-04 的測試(結束工作階段並等到 `ended`;看沒有工作階段時的模型頁;分隔註解寫 `# ---- 004 US1-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端照 001 留著「保留著、重新開啟後會繼續下載」的說明(`plan.md` Q29),和清空的佇列互相矛盾」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-04
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q29、Q66
-- [ ] T029b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-04 通過的程式碼;沒有工作階段時的「保留著、重新開啟後會繼續下載」說明改成 `prototype/models.html` 的 `[data-state="queue-cleared"]`(`plan.md` § 待決問題 Q29);首頁結束類狀態的 `data-cleared` 說明照 `prototype/index.html`(`[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]` 只改說明文字、不新增斷言,改完在瀏覽器看一眼,`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T029a)
+- [ ] T029b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-04 通過的程式碼;沒有工作階段時的「保留著、重新開啟後會繼續下載」說明改成 `prototype/models.html` 的 `[data-state="queue-cleared"]`(`plan.md` § 待決問題 Q29);首頁結束類狀態的說明照 `prototype/index.html`(沒有清除筆數,`plan.md` § 待決問題 Q29;重連逾時與開啟失敗的畫面由 T238b、T239b 做)(`[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]` 只改說明文字、不新增斷言,改完在瀏覽器看一眼,`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T029a)
   - 🧪 `testplan.md` § US1-AJ-04
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q29、Q66
-- [ ] T030 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T026b~T029b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T029b)
-  - 🧪 `testplan.md` § US1-AJ-01~US1-AJ-04
+- [ ] T238a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-05 的測試(讓 `fakes.tunnel.check_health` 一直失敗、重連逾時(縮短的時限),工作階段變成 `lost`、`endReason` 為 `RECONNECT_TIMEOUT`;不重新整理;分隔註解寫 `# ---- 004 US1-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只有一個失聯畫面,重連逾時也顯示被 Colab 收回的說明」這類實作而失敗
+  - 🧪 `testplan.md` § US1-AJ-05
+  - ⚙ `prototype/index.html` § `[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="failed"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-001、使用者故事 1 驗收情境 3
+- [ ] T238b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-05 通過的程式碼;照 `prototype/index.html` 加 `[data-state="lost-timeout"]`,`endReason` 為 `RECONNECT_TIMEOUT` 時顯示它,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T238a)
+  - 🧪 `testplan.md` § US1-AJ-05
+  - ⚙ `prototype/index.html` § `[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="failed"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-001、使用者故事 1 驗收情境 3
+- [ ] T239a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-06 的測試(在首頁按「變更類型」選 L4 並確認,等新的工作階段變成開啟失敗(就緒之後才設 `fakes.tunnel.open_tunnel.raises("TUNNEL_UNREACHABLE", "連不到")`);不重新整理;分隔註解寫 `# ---- 004 US1-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「首頁的開啟失敗畫面照 001 沒有提佇列,或沒顯示「一起清空了」」這類實作而失敗
+  - 🧪 `testplan.md` § US1-AJ-06
+  - ⚙ `prototype/index.html` § `[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="failed"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-001、FR-002、使用者故事 1 驗收情境 3
+- [ ] T239b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-06 通過的程式碼;照 `prototype/index.html` 的 `[data-state="failed"]` 寫開啟失敗的說明(變更類型排入的重新載入項目也一起清空),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T239a)
+  - 🧪 `testplan.md` § US1-AJ-06
+  - ⚙ `prototype/index.html` § `[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="failed"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-001、FR-002、使用者故事 1 驗收情境 3
+- [ ] T240a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-07 的測試(情況 A 從沒開過工作階段時打開模型頁;情況 B 結束工作階段、等到 `ended` 之後才打開模型頁;分隔註解寫 `# ---- 004 US1-AJ-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端靠只存在頁面記憶體裡的「剛清除幾筆」判斷,之後才打開或重新整理就顯示成 `queue-empty`」這類實作而失敗
+  - 🧪 `testplan.md` § US1-AJ-07
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q29
+- [ ] T240b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-07 通過的程式碼;佇列是空的時依工作階段狀態(`ended`、`lost`、`open_failed`)決定顯示 `queue-cleared` 或 `queue-empty`,`#qc-text` 寫工作階段名稱、不寫筆數(`plan.md` § 待決問題 Q29),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T240a)
+  - 🧪 `testplan.md` § US1-AJ-07
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q29
+- [ ] T030 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T026b~T029b、T238b~T240b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T240b)
+  - 🧪 `testplan.md` § US1-AJ-01~US1-AJ-04、US1-AJ-05~US1-AJ-07
   - 📎 `testplan.md` § 2.3
 
 ### 介面覆蓋(US1)
@@ -291,14 +315,16 @@
 | `ui.openapi.yaml` § `paths./downloads.get` | T001b~T012b、T014b~T015b | T001a~T012a、T014a~T015a |
 | `ui.openapi.yaml` § `paths./downloads.post`、`paths./downloads/{id}/retry.post` | T015b | T015a |
 | `ui.openapi.yaml` § `paths./downloads/auto-result.get` | T013b、T015b | T013a、T015a |
-| `store.dbml` § `Table sessions`、`Table auto_download_results`、`Table auto_download_items` | T017b~T018b | T017a~T018a |
+| `store.dbml` § `Table sessions`、`Table auto_download_results`、`Table auto_download_items`(T017b 照 store.dbml 建全新庫的整份 DDL,`plan.md` § 待決問題 Q64) | T017b~T018b | T017a~T018a |
 | `store.dbml` § `Table download_jobs`、`Table curated_models` | T017b~T024b | T017a~T024a |
 | `index.html` § `[data-state="starting"]`、`[data-state="ready"]`、`[data-state="confirm-switch"]`、`[data-state="switching"]` | T028b | T028a |
 | `index.html` § `[data-state="confirm-stop"]`、`[data-state="stopping"]` | T026b | T026a |
 | `index.html` § `[data-state="ended"]` | T026b、T029b | T026a、T029a |
-| `index.html` § `[data-state="lost"]` | T027b、T029b | T027a、T029a |
+| `index.html` § `[data-state="lost"]` | T027b、T029b、T238b | T027a、T029a、T238a |
+| `index.html` § `[data-state="lost-timeout"]` | T238b | T238a |
+| `index.html` § `[data-state="failed"]` | T239b | T239a |
 | `index.html` § `[data-state="ended-offline"]`(這一輪照原型改說明文字,沒有新的斷言;完成報告列為未直接驗證,`plan.md` § 待決問題 Q66) | T029b | T029a |
-| `models.html` § `[data-state="cat-no-session"]`、`[data-state="auto-running"]`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]` | T026b~T029b | T026a~T029a |
+| `models.html` § `[data-state="cat-no-session"]`、`[data-state="auto-running"]`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]` | T026b~T029b、T238b~T240b | T026a~T029a、T238a~T240a |
 
 ### 測試案例覆蓋(US1)
 
@@ -309,6 +335,7 @@
 | US1-API-01~US1-API-15 | T001a~T015a | T001b~T015b | T016 |
 | US1-DB-01~US1-DB-08 | T017a~T024a | T017b~T024b | T025 |
 | US1-AJ-01~US1-AJ-04 | T026a~T029a | T026b~T029b | T030 |
+| US1-AJ-05~US1-AJ-07 | T238a~T240a | T238b~T240b | T030 |
 
 **Checkpoint**: `uv run pytest -q -p no:cacheprovider` 全綠(含 T001b 刪掉的三支舊測試已不在、`tests/e2e/test_locale.py` 加了 `DOWNLOAD_NOT_FOUND`);重構任務前後的測試結果相同
 
@@ -540,8 +567,24 @@
   - 🧪 `testplan.md` § US2-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、SC-006、FR-008
-- [ ] T058 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T031b~T057b 記下的重構清單(範圍限 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T057b)
-  - 🧪 `testplan.md` § US2-API-01~US2-API-27
+- [ ] T241a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-28 的測試(A~C 三輪各換鋪陳、各送出預設本文一次;分隔註解寫 `# ---- 004 US2-API-28`(`plan.md` § 待決問題 Q34)),執行確認它因為「對話頁沿用的三句 `OLLAMA_*` 說明仍寫「無法確認哪些模型已經下載」」這類實作而失敗
+  - 🧪 `testplan.md` § US2-API-28
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
+  - 📎 `spec.md` § FR-008、NFR-007;`plan.md` § 待決問題 Q61
+- [ ] T241b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/errors.py` 只寫讓 US2-API-28 通過的程式碼;把 `MESSAGES` 的 `OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_TIMEOUT` 改成模型目錄與對話頁都通的通用說法(去掉「無法確認哪些模型已經下載」,文字照 `prototype/chat.html` 的 `turn-unavailable`、`turn-bad-response`、`turn-start-timeout`;`plan.md` § 待決問題 Q61),不另開對話用的訊息表;`tests/e2e/test_locale.py` 的 `API_ERRORS` 只比代碼,不用改,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T241a)
+  - 🧪 `testplan.md` § US2-API-28
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
+  - 📎 `spec.md` § FR-008、NFR-007;`plan.md` § 待決問題 Q61
+- [ ] T242a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_chat.py` 寫 US2-API-29 的測試(各送出預設本文一次;同一個任務在 `tests/fakes/ollama_server.py` 讓 `headers` 的值為 `None` 時不送那個標頭;分隔註解寫 `# ---- 004 US2-API-29`(`plan.md` § 待決問題 Q34)),執行確認它因為「以整個 `Content-Type` 字串和 `application/x-ndjson` 比相等,帶 `charset` 或大小寫不同的 NDJSON 被當成壞回應」這類實作而失敗
+  - 🧪 `testplan.md` § US2-API-29
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
+  - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q45
+- [ ] T242b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/chat.py` 只寫讓 US2-API-29 通過的程式碼;`Content-Type` 只比 `;` 之前、去掉空白、不分大小寫的 media type,沒有這個標頭歸 `OLLAMA_BAD_RESPONSE`(`contracts/remote-ollama.openapi.yaml` 的 `info.x-failure-rules` (4),`plan.md` § 待決問題 Q45),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T242a)
+  - 🧪 `testplan.md` § US2-API-29
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./chat.post`、`components.schemas.ChatInput`、`components.schemas.ChatStreamLine`、`components.schemas.ChatChunk`、`components.schemas.ChatStreamFailure`、`components.schemas.Error`;`contracts/remote-ollama.openapi.yaml` § `paths./api/chat.post`(`info.x-failure-rules`)
+  - 📎 `spec.md` § FR-008、NFR-006;`plan.md` § 待決問題 Q45
+- [ ] T058 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T031b~T057b、T241b~T242b 記下的重構清單(範圍限 `src/cgb/api/chat.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T242b)
+  - 🧪 `testplan.md` § US2-API-01~US2-API-27、US2-API-28~US2-API-29
   - 📎 `testplan.md` § 3.1
 
 ### 跨端點驗收(`tests/e2e/`)
@@ -551,102 +594,126 @@
 
 - [ ] T059a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-01 的測試(選 `qwen2.5`、輸入「你好」、按「送出」;分隔註解寫 `# ---- 004 US2-AJ-01`(`plan.md` § 待決問題 Q34));同一個任務照 `testplan.md` § 3.2 在 `tests/e2e/conftest.py` 的 `e2e_servers` 讓 `FakeOllamaServer` 經 `FakeTunnel` 的本機 port 接到對話轉送(既有的做法沒有就補),執行確認它因為「前端用 `response.json()` 或 `await response.text()` 等整個本文才顯示(違反逐段)」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-01
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-004
 - [ ] T059b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/chat.html`、`src/cgb/static/js/chat.js`、`src/cgb/static/js/api.js`、`src/cgb/static/style.css`、`src/cgb/static/index.html`、`src/cgb/static/library.html`、`src/cgb/static/models.html`、`src/cgb/static/history.html`、`src/cgb/static/usage.html`、`src/cgb/static/login.html` 只寫讓 US2-AJ-01 通過的程式碼;新增 `src/cgb/static/chat.html` 與 `src/cgb/static/js/chat.js`(照 `prototype/chat.html`),`src/cgb/static/js/api.js` 加對話的串流呼叫;把 `prototype/style.css` 的「004:對話頁」區段搬進 `src/cgb/static/style.css`,只用既有的 `var(--…)`;有導覽的 `src/cgb/static/index.html`、`library.html`、`models.html`、`history.html`、`usage.html`、`login.html` 的 `.topbar` 導覽加「對話」連到 `chat.html`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T059a)
   - 🧪 `testplan.md` § US2-AJ-01
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-004
 - [ ] T060a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-02 的測試(再輸入「再說一次」、按「送出」;分隔註解寫 `# ---- 004 US2-AJ-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端每次只送最後一則,或沒把模型的回覆以 `assistant` 帶回去」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-02
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-004
 - [ ] T060b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T060a)
   - 🧪 `testplan.md` § US2-AJ-02
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-004
 - [ ] T061a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-03 的測試(送出一則並等到 `DONE`;分隔註解寫 `# ---- 004 US2-AJ-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「用 `total_duration` 或 `eval_count ÷ eval_duration` 沒換成秒,算出 0.0000000394」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-03
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-005
 - [ ] T061b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T061a)
   - 🧪 `testplan.md` § US2-AJ-03
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-005
 - [ ] T062a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-04 的測試(送出一則並等到結束;分隔註解寫 `# ---- 004 US2-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「缺欄位時算成 `NaN tokens/s` 或 `Infinity`」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-04
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-005;`plan.md` § 待決問題 Q8
 - [ ] T062b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T062a)
   - 🧪 `testplan.md` § US2-AJ-04
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-005;`plan.md` § 待決問題 Q8
 - [ ] T063a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-05 的測試(看到「一二」後按「停止」;再輸入「下一則」並送出(這次替身照 US2-AJ-01 回完整 6 行);分隔註解寫 `# ---- 004 US2-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「「停止」只把按鈕變灰,沒有 `abort()` 連線,遠端繼續產生」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-05
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-006
 - [ ] T063b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T063a)
   - 🧪 `testplan.md` § US2-AJ-05
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-006
 - [ ] T064a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-06 的測試(情況 A 按「清空」;情況 B 重新完成一輪後,把模型選單換成 `llama3.2:3b`,再送出「嗨」;分隔註解寫 `# ---- 004 US2-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「「清空」只清畫面、沒清前端保存的 `messages`,下一則仍帶舊對話」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-06
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-006
 - [ ] T064b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T064a)
   - 🧪 `testplan.md` § US2-AJ-06
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-006
 - [ ] T065a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-07 的測試(選 `qwen2.5` 送出一則;分隔註解寫 `# ---- 004 US2-AJ-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端沒看 `GET /api/models` 的 `loaded`,第一段之前什麼都不顯示」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-07
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-004
 - [ ] T065b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T065a)
   - 🧪 `testplan.md` § US2-AJ-07
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-004
 - [ ] T066a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-08 的測試(各打開一次對話頁;分隔註解寫 `# ---- 004 US2-AJ-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有工作階段時仍可送出,送出後才收到 503」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-08
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-008
 - [ ] T066b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T066a)
   - 🧪 `testplan.md` § US2-AJ-08
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-008
 - [ ] T067a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-09 的測試(看到「一二」後由另一個分頁結束工作階段;分隔註解寫 `# ---- 004 US2-AJ-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「後端被結束時直接關閉連線、沒有補 `SESSION_ENDED` 的最後一行,前端當成正常完成」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-09
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-008、邊界情況
 - [ ] T067b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T067a)
   - 🧪 `testplan.md` § US2-AJ-09
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-008、邊界情況
 - [ ] T068a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-10 的測試(各送出一則;分隔註解寫 `# ---- 004 US2-AJ-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「把遠端的英文 error 行原樣顯示」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-10
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-008
-- [ ] T068b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T068a)
+- [ ] T068b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-10 通過的程式碼;`turn-error`、`turn-timeout` 的說明照 `prototype/chat.html` 寫成固定開頭加後端 `error.message` 的通用說法,不寫死「推論失敗(例如記憶體不足)」與秒數(`plan.md` § 待決問題 Q61),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T068a)
   - 🧪 `testplan.md` § US2-AJ-10
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-008
 - [ ] T069a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-11 的測試(送出一則;分隔註解寫 `# ---- 004 US2-AJ-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只讀 `message.content`,思考過程整段看不到、畫面卡在空白(`plan.md` Q10 決定顯示)」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-11
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q10
 - [ ] T069b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-11 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T069a)
   - 🧪 `testplan.md` § US2-AJ-11
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-004;`plan.md` § 待決問題 Q10
 - [ ] T070a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-12 的測試(每種狀態下取對話頁 `main` 的 `innerText`,去掉模型名稱與 `tokens/s`;分隔註解寫 `# ---- 004 US2-AJ-12`(`plan.md` § 待決問題 Q34)),執行確認它因為「新的對話頁文案用英文(例如 `Send`、`Stop`、`Clear`、`Thinking…`)」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-12
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § NFR-007
 - [ ] T070b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T070a)
   - 🧪 `testplan.md` § US2-AJ-12
-  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § NFR-007
-- [ ] T071 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T059b~T070b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T070b)
-  - 🧪 `testplan.md` § US2-AJ-01~US2-AJ-12
+- [ ] T243a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-13 的測試(依情況 A 送 `一` 後斷線、B 送 `一` 後送一行 `not json`,各送出一則;分隔註解寫 `# ---- 004 US2-AJ-13`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只認得 `OLLAMA_SERVER_ERROR`、`OLLAMA_TIMEOUT`、`SESSION_ENDED`,`OLLAMA_STREAM_INTERRUPTED`、`OLLAMA_BAD_RESPONSE` 落到預設分支」這類實作而失敗
+  - 🧪 `testplan.md` § US2-AJ-13
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - 📎 `spec.md` § FR-008;`plan.md` § 待決問題 Q61
+- [ ] T243b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/chat.html`、`src/cgb/static/js/chat.js` 只寫讓 US2-AJ-13 通過的程式碼;照 `prototype/chat.html` 加 `[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T243a)
+  - 🧪 `testplan.md` § US2-AJ-13
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - 📎 `spec.md` § FR-008;`plan.md` § 待決問題 Q61
+- [ ] T244a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-14 的測試(依情況 A 回 404、B 回 `DisconnectReply()`、C 回 `HangReply()` 並注入 0.3 秒的 `chat_read`,各輸入「你好」並按「送出」;分隔註解寫 `# ---- 004 US2-AJ-14`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只處理 200 串流裡的最後一行,串流開始前的 404、502、504 沒有畫面、回覆一直轉圈」這類實作而失敗
+  - 🧪 `testplan.md` § US2-AJ-14
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - 📎 `spec.md` § FR-008;`plan.md` § 待決問題 Q61
+- [ ] T244b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/chat.html`、`src/cgb/static/js/chat.js` 只寫讓 US2-AJ-14 通過的程式碼;照 `prototype/chat.html` 加 `[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`,說明用錯誤回應的 `message`,使用者的訊息留在 `#log`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T244a)
+  - 🧪 `testplan.md` § US2-AJ-14
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - 📎 `spec.md` § FR-008;`plan.md` § 待決問題 Q61
+- [ ] T245a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us2_chat.py` 寫 US2-AJ-15 的測試(看到「一二」後由另一個分頁按「變更類型」選 L4 並確認;分隔註解寫 `# ---- 004 US2-AJ-15`(`plan.md` § 待決問題 Q34)),執行確認它因為「`turn-lost` 只寫「已結束或失聯」,變更類型時說明不對」這類實作而失敗
+  - 🧪 `testplan.md` § US2-AJ-15
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - 📎 `spec.md` § FR-008、邊界情況
+- [ ] T245b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/chat.html`、`src/cgb/static/js/chat.js` 只寫讓 US2-AJ-15 通過的程式碼;`[data-state="turn-lost"]` 的說明照 `prototype/chat.html` 含「正在變更類型」,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T245a)
+  - 🧪 `testplan.md` § US2-AJ-15
+  - ⚙ `prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - 📎 `spec.md` § FR-008、邊界情況
+- [ ] T071 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T059b~T070b、T243b~T245b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T245b)
+  - 🧪 `testplan.md` § US2-AJ-01~US2-AJ-12、US2-AJ-13~US2-AJ-15
   - 📎 `testplan.md` § 3.2
 
 ### 介面覆蓋(US2)
@@ -655,7 +722,9 @@
 |---|---|---|
 | `remote-ollama.openapi.yaml` § `paths./api/chat.post` | T031b~T057b | T031a~T057a |
 | `ui.openapi.yaml` § `paths./chat.post` | T031b~T057b | T031a~T057a |
-| `chat.html` § `[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-thinking"]`、`[data-state="turn-streaming"]`、`[data-state="turn-stopped"]`、`[data-state="turn-norate"]`、`[data-state="turn-error"]`、`[data-state="turn-timeout"]`、`[data-state="turn-lost"]` | T059b~T070b | T059a~T070a |
+| `chat.html` § `[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-thinking"]`、`[data-state="turn-streaming"]`、`[data-state="turn-stopped"]`、`[data-state="turn-norate"]`、`[data-state="turn-error"]`、`[data-state="turn-timeout"]`、`[data-state="turn-lost"]` | T059b~T070b、T243b~T245b | T059a~T070a、T243a~T245a |
+| `chat.html` § `[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]` | T243b | T243a |
+| `chat.html` § `[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]` | T244b | T244a |
 
 ### 測試案例覆蓋(US2)
 
@@ -664,7 +733,9 @@
 | testplan 案例 | 紅燈 | 綠燈 | 重構 |
 |---|---|---|---|
 | US2-API-01~US2-API-27 | T031a~T057a | T031b~T057b | T058 |
+| US2-API-28~US2-API-29 | T241a~T242a | T241b~T242b | T058 |
 | US2-AJ-01~US2-AJ-12 | T059a~T070a | T059b~T070b | T071 |
+| US2-AJ-13~US2-AJ-15 | T243a~T245a | T243b~T245b | T071 |
 
 **Checkpoint**: `uv run pytest -q -p no:cacheprovider` 全綠(含 `tests/integration/test_ollama_compat.py` 在 `_relay` 改過之後照原樣回歸、`tests/e2e/test_locale.py` 加了對話的新代碼);重構任務前後的測試結果相同
 
@@ -680,7 +751,7 @@
 
 > E2 與 E4 兩節平行;E2 不改 `src/cgb/db/schema.py`(自動下載的欄位與表已由故事 1 的 E4 節照 `contracts/store.dbml` 建立,這一輪的約束與遷移案例在本故事的 E4 節)。US3-API-01~11 寫進 `tests/integration/test_api_curated.py`,US3-API-12~37 寫進新的 `tests/integration/test_api_auto_download.py`(從前者匯入 `set_hf`、`curate`、`wait_auto`)。精選清單的錯誤代碼沿用 001;自動下載的判定照 `contracts/ui.openapi.yaml` 的 `info.x-auto-download` (1)~(6)。精選清單操作的案例(US3-API-01~10)不開工作階段,最後斷言兩個 `get_manifest` 被呼叫 0 次
 
-- [ ] T072a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-01 的測試(新增 `{"name":"qwen2.5","description":"日常用","recommendedRuntimeType":{"gpu":"T4","highMem":false}}`;新增 `{"name":"hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF","autoDownload":true}`;之後 `GET /api/curated`;分隔註解寫 `# ---- 004 US3-API-01`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/fakes/adapters.py` 建 `FakeHuggingFaceHub`(照 `_FakeAdapter`,`search_models(query, cursor=None)`、`list_repo_files(author, model)`、`get_manifest(author, model, tag)`、`list_quants(author, model)` 四個方法照 `plan.md` § 待決問題 Q49 一次寫齊)並從 `tests/fakes/__init__.py` 匯出,`tests/conftest.py` 的 `Fakes` 加 `huggingface` 欄位並放進 `as_kwargs()`;在 `tests/integration/test_api_curated.py` 新增 `set_hf`、`curate`、`wait_auto`(`plan.md` § 待決問題 Q65),執行確認它因為「照現況 `curated_payload` 固定回 `recommendedRuntimeType: null`、沒有 `autoDownload`」這類實作而失敗
+- [ ] T072a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-01 的測試(新增 `{"name":"qwen2.5","description":"日常用","recommendedRuntimeType":{"gpu":"T4","highMem":false}}`;新增 `{"name":"hf.co/Bartowski/SmolLM2-135M-Instruct-GGUF","autoDownload":true}`;之後 `GET /api/curated`;分隔註解寫 `# ---- 004 US3-API-01`(`plan.md` § 待決問題 Q34));同一個任務在 `tests/fakes/adapters.py` 建 `FakeHuggingFaceHub`(照 `_FakeAdapter`,`search_models(query, cursor=None)`、`list_repo_files(author, model)`、`get_manifest(author, model, tag)`、`list_quants(author, model)` 四個方法照 `plan.md` § 待決問題 Q49 一次寫齊)並從 `tests/fakes/__init__.py` 匯出,`tests/conftest.py` 的 `Fakes` 加 `huggingface` 欄位並放進 `as_kwargs()`;在 `tests/integration/test_api_curated.py` 新增 `set_hf`、`curate`、`wait_auto`(`plan.md` § 待決問題 Q65),執行確認它因為「照現況 `curated_payload` 固定回 `recommendedRuntimeType: null`」這類實作而失敗(`autoDownload` 的存讀已由 T013b 做到,不能當失敗的理由;若一執行就通過,照 `plan.md` § 待決問題 Q63 改當對照組)
   - 🧪 `testplan.md` § US3-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-009、FR-010、FR-018、使用者故事 3 驗收情境 1、邊界情況;`plan.md` § 待決問題 Q65
@@ -768,7 +839,7 @@
   - 🧪 `testplan.md` § US3-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.get`、`components.schemas.CuratedList`、`components.schemas.CuratedModel`
   - 📎 `spec.md` § FR-009、FR-018、NFR-006
-- [ ] T083a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-12 的測試(`open_ready`;`wait_auto` 等 `state` 為 `done`;之後 `GET /api/downloads` 與 `GET /api/downloads/auto-result`;分隔註解寫 `# ---- 004 US3-API-12`(`plan.md` § 待決問題 Q34)),執行確認它因為「就緒後沒有呼叫自動下載(`ready_listeners` 只掛了 `resume`)」這類實作而失敗
+- [ ] T083a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-12 的測試(`open_ready`;`wait_auto` 等 `state` 為 `done`;之後 `GET /api/downloads` 與 `GET /api/downloads/auto-result`;分隔註解寫 `# ---- 004 US3-API-12`(`plan.md` § 待決問題 Q34)),執行確認它因為「T013b 的最小版本排入時不取大小,hf.co 名稱沒向 `huggingface.get_manifest` 取大小(則8)、`source` 沒依前綴推出(則4)」這類實作而失敗(第一次就緒時排入已由 T013b 做到,不能當失敗的理由;若一執行就通過,照 `plan.md` § 待決問題 Q63 改當對照組)
   - 🧪 `testplan.md` § US3-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 4、SC-003
@@ -835,11 +906,11 @@
 - [ ] T091a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-20 的測試(`open_ready`;`wait_auto` 等 `done`;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-20`(`plan.md` § 待決問題 Q34)),執行確認它因為「讀不到剩餘空間時當成夠用,兩項照常排入(001 不把讀不到當成夠用)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
-  - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q17
+  - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 11;`plan.md` § 待決問題 Q17
 - [ ] T091b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T091a)
   - 🧪 `testplan.md` § US3-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
-  - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q17
+  - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 11;`plan.md` § 待決問題 Q17
 - [ ] T092a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-21 的測試(`open_ready`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-21`(`plan.md` § 待決問題 Q34)),執行確認它因為「讀不到模型清單時整次不做(結果停在 `running` 或為 null),或全部標成跳過(違反 Q16)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
@@ -880,7 +951,7 @@
   - 🧪 `testplan.md` § US3-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`);`contracts/ui-events.asyncapi.yaml` § `operations.sendAutoDownloadUpdated`、`operations.sendDownloadsSnapshot`、`operations.sendDownloadUpdated`、`operations.sendDownloadRemoved`
   - 📎 `spec.md` § FR-011、FR-012;`plan.md` § 待決問題 Q33
-- [ ] T097a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-26 的測試(各自開一條 `GET /api/events`,讀到 `autoDownload.updated` 為止;分隔註解寫 `# ---- 004 US3-API-26`(`plan.md` § 待決問題 Q34)),執行確認它因為「連上時的快照沒加 `autoDownload.updated`,就緒後才打開下載頁的 UI 收不到提示」這類實作而失敗
+- [ ] T097a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-26 的測試(各自開一條 `GET /api/events`,讀到 `autoDownload.updated` 為止;分隔註解寫 `# ---- 004 US3-API-26`(`plan.md` § 待決問題 Q34)),執行確認它因為「連上時的快照沒加 `autoDownload.updated`,就緒後才打開模型頁的 UI 收不到提示(提示區在模型頁,`plan.md` § 待決問題 Q29)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-26
   - ⚙ `contracts/ui-events.asyncapi.yaml` § `operations.sendAutoDownloadUpdated`
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 10、SC-003
@@ -888,11 +959,11 @@
   - 🧪 `testplan.md` § US3-API-26
   - ⚙ `contracts/ui-events.asyncapi.yaml` § `operations.sendAutoDownloadUpdated`
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 10、SC-003
-- [ ] T098a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-27 的測試(觸發重連,等回到 `ready` 再等 0.3 秒;之後列出佇列並讀結果;分隔註解寫 `# ---- 004 US3-API-27`(`plan.md` § 待決問題 Q34)),執行確認它因為「自動下載掛在 `ready_listeners` 上卻沒查這個工作階段做過沒有,重連接回又跑一次」這類實作而失敗
+- [ ] T098a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_auto_download.py` 寫 US3-API-27 的測試(觸發重連,等回到 `ready` 再等 0.3 秒;之後列出佇列並讀結果;分隔註解寫 `# ---- 004 US3-API-27`(`plan.md` § 待決問題 Q34));T013b 只在工作階段第一次就緒時排入(寫進 `auto_download_results` 的那一列就是「做過了」),這個案例可能已被滿足:先執行確認通過,再暫時放入「自動下載掛在 `ready_listeners` 上卻沒查這個工作階段做過沒有,重連接回又跑一次」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US3-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 8、SC-003
-- [ ] T098b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-27 通過的程式碼;以 `auto_download_results` 這個工作階段有沒有結果列判斷是不是第一次就緒(research.md R6),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T098a)
+- [ ] T098b [US3] 🟢 /tdd 綠燈:US3-API-27 由 T013b 以 `auto_download_results` 這個工作階段有沒有結果列判斷是不是第一次就緒(research.md R6)滿足,確認 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-27 通過的程式碼;看到要整理的地方記進重構清單(依賴 T098a)
   - 🧪 `testplan.md` § US3-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 8、SC-003
@@ -906,27 +977,27 @@
   - 📎 `spec.md` § FR-011、FR-012、邊界情況、SC-003
 - [ ] T100a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-29 的測試(送 `POST /api/downloads/auto-result/dismiss`;再讀結果;再送一次關閉;之後列出佇列;分隔註解寫 `# ---- 004 US3-API-29`(`plan.md` § 待決問題 Q34)),執行確認它因為「關閉做成刪除結果,之後讀到 null、`enqueued` 也不見了」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-29
-  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadNotice`、`components.schemas.Error`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-auto-download`、`info.x-queue-clearing`)
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadResult`、`components.schemas.Error`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-auto-download`、`info.x-queue-clearing`)
   - 📎 `spec.md` § FR-012
 - [ ] T100b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-29 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T100a)
   - 🧪 `testplan.md` § US3-API-29
-  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadNotice`、`components.schemas.Error`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-auto-download`、`info.x-queue-clearing`)
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadResult`、`components.schemas.Error`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-auto-download`、`info.x-queue-clearing`)
   - 📎 `spec.md` § FR-012
 - [ ] T101a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-30 的測試(`open_ready`;等 `gate.entered` 為 1;送關閉;放行 `gate`;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-30`(`plan.md` § 待決問題 Q34)),執行確認它因為「判定完成時整列覆寫,把 `dismissed` 寫回 false」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-30
-  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadNotice`、`components.schemas.Error`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-auto-download`)
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadResult`、`components.schemas.Error`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-auto-download`)
   - 📎 `spec.md` § FR-012
 - [ ] T101b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-30 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T101a)
   - 🧪 `testplan.md` § US3-API-30
-  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadNotice`、`components.schemas.Error`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-auto-download`)
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadResult`、`components.schemas.Error`、`paths./downloads/auto-result.get`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-auto-download`)
   - 📎 `spec.md` § FR-012
 - [ ] T102a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-31 的測試(情況 A:沒有工作階段時送關閉;B:精選清單只有一項沒設自動下載,`open_ready` 後送關閉;C:新增一項設自動下載,`open_ready`、`wait_auto` 等 `done` 後 `DELETE /api/session`、等 `ended`,再送關閉;分隔註解寫 `# ---- 004 US3-API-31`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有結果時對 None 取值丟例外、回 500」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-31
-  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadNotice`、`components.schemas.Error`
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadResult`、`components.schemas.Error`
   - 📎 `spec.md` § FR-012、NFR-006
 - [ ] T102b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/downloads.py`、`src/cgb/repos/auto_download.py`、`src/cgb/domain/errors.py` 只寫讓 US3-API-31 通過的程式碼;新代碼 `AUTO_DOWNLOAD_RESULT_NOT_FOUND` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T102a)
   - 🧪 `testplan.md` § US3-API-31
-  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadNotice`、`components.schemas.Error`
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result/dismiss.post`、`components.schemas.AutoDownloadResult`、`components.schemas.Error`
   - 📎 `spec.md` § FR-012、NFR-006
 - [ ] T103a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_auto_download.py` 寫 US3-API-32 的測試(送 `DELETE /api/session`,等 `state` 為 `ended`;讀結果;分隔註解寫 `# ---- 004 US3-API-32`(`plan.md` § 待決問題 Q34));T013b 在工作階段結束時刪結果並推 `autoDownload.updated`(`result` 為 null)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「工作階段結束時只清了佇列、沒清結果,下一個工作階段開好前提示區還留著上一台的內容」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US3-API-32
@@ -960,14 +1031,14 @@
   - 🧪 `testplan.md` § US3-API-35
   - ⚙ `contracts/ui.openapi.yaml` § `paths./curated.post`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-model-name-rule`、`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § NFR-004、FR-010
-- [ ] T107a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_auto_download.py` 寫 US3-API-36 的測試(`open_ready` 回來時記下時間;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-36`(`plan.md` § 待決問題 Q34));T095b 同時最多 4 個的取大小已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「取大小一個一個等,8 × 0.1 秒 = 0.8 秒超過界線」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [ ] T107a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_auto_download.py` 寫 US3-API-36 的測試(另新增第 9 個 `gemma2:2b` 設自動下載、執行環境上已有,則4 斷言它不在 `enqueued` 也不在 `skipped`(SC-003 的分母,D81);`open_ready` 回來時記下時間;`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-36`(`plan.md` § 待決問題 Q34));T095b 同時最多 4 個的取大小已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「取大小一個一個等,8 × 0.1 秒 = 0.8 秒超過界線」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US3-API-36
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
-  - 📎 `spec.md` § SC-003、FR-011、FR-012;`plan.md` § 待決問題 Q38
+  - 📎 `spec.md` § SC-003、FR-011、FR-012、使用者故事 3 驗收情境 5;`plan.md` § 待決問題 Q38
 - [ ] T107b [US3] 🟢 /tdd 綠燈:US3-API-36 由 T095b 同時最多 4 個的取大小 滿足,確認 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py` 只寫讓 US3-API-36 通過的程式碼(依賴 T107a)
   - 🧪 `testplan.md` § US3-API-36
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-queue-clearing`、`info.x-auto-download`)
-  - 📎 `spec.md` § SC-003、FR-011、FR-012;`plan.md` § 待決問題 Q38
+  - 📎 `spec.md` § SC-003、FR-011、FR-012、使用者故事 3 驗收情境 5;`plan.md` § 待決問題 Q38
 - [ ] T108a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-37 的測試(`open_ready`;`wait_auto` 等 `done`;讀結果、列出精選清單、列出佇列、讀 `GET /api/session`;分隔註解寫 `# ---- 004 US3-API-37`(`plan.md` § 待決問題 Q34)),執行確認它因為「自動下載在 ready listener 裡讓例外往上拋,`_notify_ready` 中斷、後面的 `resume` 沒跑,或工作階段被標成失敗」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-37
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./curated.get`、`components.schemas.CuratedList`、`components.schemas.CuratedModel`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
@@ -976,19 +1047,35 @@
   - 🧪 `testplan.md` § US3-API-37
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`、`paths./curated.get`、`components.schemas.CuratedList`、`components.schemas.CuratedModel`、`paths./downloads.get`、`components.schemas.DownloadQueue`、`components.schemas.DownloadJob`(`info.x-queue-clearing`、`info.x-auto-download`)
   - 📎 `spec.md` § NFR-006、SC-006、FR-012
-- [ ] T109 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T072b~T108b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/repos/`、`src/cgb/domain/model_name.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T108b)
-  - 🧪 `testplan.md` § US3-API-01~US3-API-37
+- [ ] T246a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_curated.py` 寫 US3-API-38 的測試(依序送 A~D 四個 `PUT`,之後列出;分隔註解寫 `# ---- 004 US3-API-38`(`plan.md` § 待決問題 Q34)),執行確認它因為「先查 `id` 再驗本文,A、B 回 404」這類實作而失敗
+  - 🧪 `testplan.md` § US3-API-38
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
+  - 📎 `spec.md` § FR-009、NFR-006;`plan.md` § 待決問題 Q53
+- [ ] T246b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/curated.py` 只寫讓 US3-API-38 通過的程式碼;檢查依序:請求本文(400)→ `id` 不存在(404 `CURATED_NOT_FOUND`)→ 名稱重複(409 `CURATED_DUPLICATE`)(`contracts/ui.openapi.yaml` § `paths./curated/{id}.put`,`plan.md` § 待決問題 Q53),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T246a)
+  - 🧪 `testplan.md` § US3-API-38
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./curated/{id}.put`、`components.schemas.CuratedModelInput`、`components.schemas.CuratedModel`、`components.schemas.Error`、`paths./curated.get`、`components.schemas.CuratedList`(`info.x-model-name-rule`)
+  - 📎 `spec.md` § FR-009、NFR-006;`plan.md` § 待決問題 Q53
+- [ ] T247a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_auto_download.py` 寫 US3-API-39 的測試(情況 A 在重新啟動前、後各讀一次 `GET /api/downloads/auto-result`;情況 B `open_ready`,`wait_auto` 等 `done`;分隔註解寫 `# ---- 004 US3-API-39`(`plan.md` § 待決問題 Q34)),執行確認它因為「跳過的項目沒有 `sizeBytes`、`freeDiskBytes`、`vramBytes`,或 `freeDiskBytes` 填剩餘磁碟的原值」這類實作而失敗
+  - 🧪 `testplan.md` § US3-API-39
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-auto-download`、`info.x-queue-clearing`)
+  - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q68
+- [ ] T247b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/auto_download.py`、`src/cgb/repos/auto_download.py`、`src/cgb/api/downloads.py` 只寫讓 US3-API-39 通過的程式碼;跳過的項目照 `AutoDownloadSkipped` 帶 `sizeBytes`、`freeDiskBytes`、`vramBytes`(依原因有值或為 null),寫進 `auto_download_items` 的 `size_bytes`、`free_disk_bytes`、`vram_bytes`(`plan.md` § 待決問題 Q68),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T247a)
+  - 🧪 `testplan.md` § US3-API-39
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/auto-result.get`、`components.schemas.AutoDownloadNotice`、`components.schemas.AutoDownloadResult`、`components.schemas.AutoDownloadSkipped`(`info.x-auto-download`、`info.x-queue-clearing`)
+  - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q68
+- [ ] T109 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T072b~T108b、T246b~T247b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/repos/`、`src/cgb/domain/model_name.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/` 的斷言(依賴 T247b)
+  - 🧪 `testplan.md` § US3-API-01~US3-API-37、US3-API-38~US3-API-39
   - 📎 `testplan.md` § 4.1
 
 ### E4 資料庫(SQLite)
 
-> 只管 `curated_models.auto_download`、`uq_curated_models_name_ci`、`auto_download_results`、`auto_download_items`;遷移的交易、`user_version`、冪等與新舊庫的分辨由故事 1 的 E4 節做過。`foreign_keys` 不開,repos 在交易內自己刪(`plan.md` § 待決問題 Q41);精選名稱只差大小寫的舊資料在同一個交易裡留 id 最小的那筆(`plan.md` § 待決問題 Q40、Q54)
+> 只管 `curated_models.auto_download`、`uq_curated_models_name_ci`、`auto_download_results`、`auto_download_items`;遷移的交易、`user_version`、冪等與新舊庫的分辨由故事 1 的 E4 節做過。`foreign_keys` 不開,repos 在交易內自己刪(`plan.md` § 待決問題 Q27);`auto_download_results.target_count` 的 `CHECK (target_count >= 0)` 照 `plan.md` § 待決問題 Q41;精選名稱只差大小寫的舊資料在同一個交易裡留 id 最小的那筆、刪掉的名稱寫進日誌(`plan.md` § 待決問題 Q40)。全新庫的這幾樣 DDL 已由故事 1 的 T017b 照 `contracts/store.dbml` 建好(`plan.md` § 待決問題 Q64),本節只測全新庫的案例是對照組(T110a、T118a、T119a、T248a)
 
-- [ ] T110a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US3-DB-01 的測試(`create_schema(conn)` 後讀 `PRAGMA table_info`、`PRAGMA index_list(curated_models)`;分隔註解寫 `# ---- 004 US3-DB-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「只在遷移那一條路徑加 `auto_download`,全新庫的 `_CURATED_MODELS` DDL 沒有改(全新庫剛好是 `user_version` 0、沒有 `sessions`,直接建新版就跳過遷移)」這類實作而失敗
+- [ ] T110a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-01 的測試(`create_schema(conn)` 後讀 `PRAGMA table_info`、`PRAGMA index_list(curated_models)`;分隔註解寫 `# ---- 004 US3-DB-01`(`plan.md` § 待決問題 Q34));T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL 已做到這段程式(`plan.md` § 待決問題 Q64),這個案例會被滿足:先執行確認通過,再暫時放入「只在遷移那一條路徑加 `auto_download`,全新庫的 `_CURATED_MODELS` DDL 沒有改」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US3-DB-01
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`
   - 📎 `spec.md` § FR-010、FR-011、FR-012
-- [ ] T110b [US3] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US3-DB-01 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T110a)
+- [ ] T110b [US3] 🟢 /tdd 綠燈:US3-DB-01 由 T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-01 通過的程式碼(依賴 T110a)
   - 🧪 `testplan.md` § US3-DB-01
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`
   - 📎 `spec.md` § FR-010、FR-011、FR-012
@@ -1016,11 +1103,11 @@
   - 🧪 `testplan.md` § US3-DB-04
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-010、NFR-004
-- [ ] T114a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US3-DB-05 的測試(`create_schema(conn)`,再讀 `SELECT id, name FROM curated_models ORDER BY id`;分隔註解寫 `# ---- 004 US3-DB-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「照 store.dbml 的假設(「001 的名稱只收小寫,既有資料不會撞到」)直接建 `lower(name)` 唯一索引,丟 `IntegrityError` 讓整個遷移 rollback,`user_version` 停在 0,之後每次啟動都失敗,後端起不來」這類實作而失敗
+- [ ] T114a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US3-DB-05 的測試(在 `caplog` 底下呼叫 `create_schema(conn)`,再讀 `SELECT id, name FROM curated_models ORDER BY id`;分隔註解寫 `# ---- 004 US3-DB-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「照 store.dbml 的假設(「001 的名稱只收小寫,既有資料不會撞到」)直接建 `lower(name)` 唯一索引,丟 `IntegrityError` 讓整個遷移 rollback,`user_version` 停在 0,之後每次啟動都失敗,後端起不來」這類實作而失敗
   - 🧪 `testplan.md` § US3-DB-05
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-018、NFR-004、使用者故事 3 驗收情境 3
-- [ ] T114b [US3] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US3-DB-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T114a)
+- [ ] T114b [US3] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US3-DB-05 通過的程式碼;遷移第 1 步建 `uq_curated_models_name_ci` 之前,在同一個交易裡依 `lower(name)` 分組、每組留 `id` 最小的那一筆,刪掉的每一筆名稱以 WARNING 寫進日誌(`contracts/store.dbml` § `Project colab_gpu_bridge`;`plan.md` § 待決問題 Q40),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T114a)
   - 🧪 `testplan.md` § US3-DB-05
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`(`Project colab_gpu_bridge`)
   - 📎 `spec.md` § FR-018、NFR-004、使用者故事 3 驗收情境 3
@@ -1048,19 +1135,19 @@
   - 🧪 `testplan.md` § US3-DB-08
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`(`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § FR-018、使用者故事 3 驗收情境 3
-- [ ] T118a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US3-DB-09 的測試(依序執行:①`INSERT INTO auto_download_results (session_name, target_count) VALUES ('cgb-a', 2)`;②再一次同樣的 ①;③`INSERT ... (session_name, target_count) VALUES ('cgb-zero', 0)`;④`INSERT ... VALUES ('cgb-neg', -1)`;⑤`INSERT ... (session_name) VALUES ('cgb-null')`;⑥`INSERT ... (session_name, target_count, state) VALUES ('cgb-s', 1, 'pending')`;⑦`INSERT ... (session_name, target_count, dismissed) VALUES ('cgb-d', 1, 2)`;⑧`UPDATE auto_download_results SET state = 'done', finished_at = '2026-11-14T08:00:30Z', dismissed = 1 WHERE session_name = 'cgb-a'`;分隔註解寫 `# ---- 004 US3-DB-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「`session_name` 不是主鍵而是另設 `id` 自動遞增,重連接回時再寫一列也成功,「寫得進去就是第一次就緒」的判斷失效、重排自動下載(FR-011、驗收情境 8)」這類實作而失敗
+- [ ] T118a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-09 的測試(依序執行:①`INSERT INTO auto_download_results (session_name, target_count) VALUES ('cgb-a', 2)`;②再一次同樣的 ①;③`INSERT ... (session_name, target_count) VALUES ('cgb-zero', 0)`;④`INSERT ... VALUES ('cgb-neg', -1)`;⑤`INSERT ... (session_name) VALUES ('cgb-null')`;⑥`INSERT ... (session_name, target_count, state) VALUES ('cgb-s', 1, 'pending')`;⑦`INSERT ... (session_name, target_count, dismissed) VALUES ('cgb-d', 1, 2)`;⑧`UPDATE auto_download_results SET state = 'done', finished_at = '2026-11-14T08:00:30Z', dismissed = 1 WHERE session_name = 'cgb-a'`;分隔註解寫 `# ---- 004 US3-DB-09`(`plan.md` § 待決問題 Q34));T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL 已做到這段程式(`plan.md` § 待決問題 Q64),這個案例會被滿足:先執行確認通過,再暫時放入「`session_name` 不是主鍵而是另設 `id` 自動遞增,重連接回時再寫一列也成功」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US3-DB-09
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`(`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § FR-011、FR-012、邊界情況
-- [ ] T118b [US3] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US3-DB-09 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T118a)
+- [ ] T118b [US3] 🟢 /tdd 綠燈:US3-DB-09 由 T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-09 通過的程式碼(依賴 T118a)
   - 🧪 `testplan.md` § US3-DB-09
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`(`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § FR-011、FR-012、邊界情況
-- [ ] T119a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US3-DB-10 的測試(依序執行 `INSERT INTO auto_download_items (session_name, position, model, reason, reason_code, message)`:①`('cgb-a', 0, 'qwen2.5:7b', NULL, NULL, NULL)`;②`('cgb-a', 1, 'qwen2.5:32b', 'DISK_SPACE_INSUFFICIENT', NULL, '剩餘空間不足')`;③`('cgb-a', 2, 'hf.co/x/y:Q4_K_M', 'SIZE_UNAVAILABLE', 'HF_TIMEOUT', '取不到大小')`;④`('cgb-a', 3, 'llama3.1:70b', 'MAY_NOT_FIT', NULL, '這台可能無法載入')`;⑤`('cgb-b', 0, 'qwen2.5:7b', 'DISK_SPACE_UNKNOWN', 'COLAB_EXEC_FAILED', '讀不到剩餘空間')`;⑥`('cgb-a', 4, 'gemma2:2b', 'DISK_FULL', NULL, '空間不足')`;⑦`('cgb-a', 4, 'gemma2:2b', 'disk_space_insufficient', NULL, '空間不足')`;⑧`('cgb-a', 1, 'phi3:mini', NULL, NULL, NULL)`;⑨`('cgb-a', NULL, 'phi3:mini', NULL, NULL, NULL)`;⑩`('cgb-a', 5, NULL, NULL, NULL, NULL)`;分隔註解寫 `# ---- 004 US3-DB-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「`reason` 的 CHECK 照 R6 草稿只列三種原因,漏了 Q17 加的 `DISK_SPACE_UNKNOWN`,讀不到剩餘空間時整批結果寫不進去」這類實作而失敗
+- [ ] T119a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-10 的測試(依序執行 `INSERT INTO auto_download_items (session_name, position, model, reason, reason_code, message)`:①`('cgb-a', 0, 'qwen2.5:7b', NULL, NULL, NULL)`;②`('cgb-a', 1, 'qwen2.5:32b', 'DISK_SPACE_INSUFFICIENT', NULL, '剩餘空間不足')`;③`('cgb-a', 2, 'hf.co/x/y:Q4_K_M', 'SIZE_UNAVAILABLE', 'HF_TIMEOUT', '取不到大小')`;④`('cgb-a', 3, 'llama3.1:70b', 'MAY_NOT_FIT', NULL, '這台可能無法載入')`;⑤`('cgb-b', 0, 'qwen2.5:7b', 'DISK_SPACE_UNKNOWN', 'COLAB_EXEC_FAILED', '讀不到剩餘空間')`;⑥`('cgb-a', 4, 'gemma2:2b', 'DISK_FULL', NULL, '空間不足')`;⑦`('cgb-a', 4, 'gemma2:2b', 'disk_space_insufficient', NULL, '空間不足')`;⑧`('cgb-a', 1, 'phi3:mini', NULL, NULL, NULL)`;⑨`('cgb-a', NULL, 'phi3:mini', NULL, NULL, NULL)`;⑩`('cgb-a', 5, NULL, NULL, NULL, NULL)`;分隔註解寫 `# ---- 004 US3-DB-10`(`plan.md` § 待決問題 Q34));T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL 已做到這段程式(`plan.md` § 待決問題 Q64),這個案例會被滿足:先執行確認通過,再暫時放入「`reason` 的 CHECK 照 R6 草稿只列三種原因,漏了 Q17 加的 `DISK_SPACE_UNKNOWN`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US3-DB-10
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`(`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § FR-012、FR-011;`plan.md` § 待決問題 Q17
-- [ ] T119b [US3] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US3-DB-10 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T119a)
+- [ ] T119b [US3] 🟢 /tdd 綠燈:US3-DB-10 由 T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-10 通過的程式碼(依賴 T119a)
   - 🧪 `testplan.md` § US3-DB-10
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`(`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § FR-012、FR-011;`plan.md` § 待決問題 Q17
@@ -1080,8 +1167,16 @@
   - 🧪 `testplan.md` § US3-DB-12
   - ⚙ `contracts/store.dbml` § `Table download_jobs`、`Table curated_models`、`Table auto_download_results`、`Table auto_download_items`、`Table sessions`(`Enum download_origin`、`Enum auto_download_state`、`Enum auto_download_skip_reason`、`Ref: download_jobs.session_name > sessions.name`、`Ref: auto_download_items.session_name > auto_download_results.session_name`)
   - 📎 `spec.md` § NFR-004、FR-010、FR-011
-- [ ] T122 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T110b~T121b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T121b)
-  - 🧪 `testplan.md` § US3-DB-01~US3-DB-12
+- [ ] T248a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-13 的測試(每種情況讀 `PRAGMA table_info(auto_download_items)`,再依序寫入 ①、②;分隔註解寫 `# ---- 004 US3-DB-13`(`plan.md` § 待決問題 Q34));T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL 與 T112b 讓遷移步驟 3 用同一份 DDL 已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「三欄設成 `NOT NULL` 或給預設 0,排入的項目寫不進去」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+  - 🧪 `testplan.md` § US3-DB-13
+  - ⚙ `contracts/store.dbml` § `Table auto_download_items`、`Table auto_download_results`(`Project colab_gpu_bridge`)
+  - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q68
+- [ ] T248b [US3] 🟢 /tdd 綠燈:US3-DB-13 由 T017b 照 `contracts/store.dbml` 寫出的全新庫 DDL 與 T112b 讓遷移步驟 3 用同一份 DDL 滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-13 通過的程式碼(依賴 T248a)
+  - 🧪 `testplan.md` § US3-DB-13
+  - ⚙ `contracts/store.dbml` § `Table auto_download_items`、`Table auto_download_results`(`Project colab_gpu_bridge`)
+  - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q68
+- [ ] T122 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T110b~T121b、T248b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T248b)
+  - 🧪 `testplan.md` § US3-DB-01~US3-DB-12、US3-DB-13
   - 📎 `testplan.md` § 4.2
 
 ### 跨端點驗收(`tests/e2e/`)
@@ -1091,70 +1186,94 @@
 
 - [ ] T123a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-01 的測試(按「新增」,名稱 `hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M`、說明「小模型試對話」、建議類型 L4、勾「開好就自動下載」,送出;再重新整理頁面;分隔註解寫 `# ---- 004 US3-AJ-01`(`plan.md` § 待決問題 Q34));`e2e_servers` 要能注入 `FakeHuggingFaceHub`(`tests/e2e/conftest.py`,用 `Fakes.as_kwargs()` 已帶進的 `huggingface`),執行確認它因為「精選清單編輯要求有工作階段(送出被擋)」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-01
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009、FR-010
 - [ ] T123b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/api.js`、`src/cgb/static/style.css` 只寫讓 US3-AJ-01 通過的程式碼;精選清單的新增、修改、刪除與自動下載開關照 `prototype/library.html`;把 `prototype/style.css` 的「004:精選清單的自動下載開關」區段搬進 `src/cgb/static/style.css`,只用既有的 `var(--…)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T123a)
   - 🧪 `testplan.md` § US3-AJ-01
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009、FR-010
 - [ ] T124a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-02 的測試(把 `qwen2.5` 的說明改成「改過」;再按 `llama3.2:3b` 的「刪除」,在確認視窗按「取消」;再按一次「刪除」並在確認視窗按「刪除」;分隔註解寫 `# ---- 004 US3-AJ-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改實作成刪掉再新增,項目跑到最後」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-02
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009
 - [ ] T124b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US3-AJ-02 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T124a)
   - 🧪 `testplan.md` § US3-AJ-02
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009
-- [ ] T125a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-03 的測試(情況 A 新增名稱 `Qwen2.5:Latest`;情況 B 新增名稱 `hf.co/只有作者`;分隔註解寫 `# ---- 004 US3-AJ-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「重複比對沒補 `latest` 或分大小寫,A 被加成第二筆」這類實作而失敗
+- [ ] T125a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-03 的測試(情況 A 新增名稱 `qwen2.5:Latest`(合法的名稱,只有版本的大小寫不同);情況 B 新增名稱 `hf.co/只有作者`;分隔註解寫 `# ---- 004 US3-AJ-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「重複比對沒補 `latest` 或分大小寫,A 被加成第二筆」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-03
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009、FR-018、邊界情況
 - [ ] T125b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US3-AJ-03 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T125a)
   - 🧪 `testplan.md` § US3-AJ-03
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-009、FR-018、邊界情況
 - [ ] T126a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-04 的測試(開啟工作階段到就緒,打開模型頁;再重新整理一次;分隔註解寫 `# ---- 004 US3-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「提示只在收到 `autoDownload.updated` 時畫,重新整理後沒有去讀 `GET /api/downloads/auto-result`」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-04
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-011、FR-012、SC-003
 - [ ] T126b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js`、`src/cgb/static/js/api.js`、`src/cgb/static/style.css` 只寫讓 US3-AJ-04 通過的程式碼;模型頁佇列上方的自動下載提示區照 `prototype/models.html` 的 `#auto-notice`,打開頁面時讀 `GET /api/downloads/auto-result`、之後跟著 `autoDownload.updated` 更新;把 `prototype/style.css` 的「004:自動下載提示區」區段搬進 `src/cgb/static/style.css`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T126a)
   - 🧪 `testplan.md` § US3-AJ-04
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-011、FR-012、SC-003
 - [ ] T127a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-05 的測試(按 `#auto-notice` 的「關閉」;再重新整理;分隔註解寫 `# ---- 004 US3-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「關閉只藏在前端、沒有送 `POST /api/downloads/auto-result/dismiss`,重新整理又出現」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-05
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012
 - [ ] T127b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js`、`src/cgb/static/js/api.js` 只寫讓 US3-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T127a)
   - 🧪 `testplan.md` § US3-AJ-05
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012
 - [ ] T128a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-06 的測試(開啟工作階段到就緒時已打開模型頁;分隔註解寫 `# ---- 004 US3-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只認 `state` 為 `done` 的結果,判定中什麼都不顯示(`plan.md` Q33 決定顯示)」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-06
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q33
 - [ ] T128b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US3-AJ-06 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T128a)
   - 🧪 `testplan.md` § US3-AJ-06
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q33
 - [ ] T129a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-07 的測試(開啟工作階段到就緒,打開模型頁;分隔註解寫 `# ---- 004 US3-AJ-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「排入與跳過都是空的時仍顯示「排入 0 個」的提示(`plan.md` Q30 決定不顯示)」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-07
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-011、FR-012;`plan.md` § 待決問題 Q30
 - [ ] T129b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US3-AJ-07 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T129a)
   - 🧪 `testplan.md` § US3-AJ-07
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-011、FR-012;`plan.md` § 待決問題 Q30
-- [ ] T130a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-08 的測試(每種狀態取那個區塊的 `innerText`,去掉模型名稱;分隔註解寫 `# ---- 004 US3-AJ-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「新的表單與提示用英文」這類實作而失敗
+- [ ] T130a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-08 的測試(自動下載提示分兩個工作階段鋪:第一個讀得到剩餘磁碟,結束後第二個讓 `probe_resources` 丟 `COLAB_UNREACHABLE`(`plan.md` § 待決問題 Q70);每種狀態取那個區塊的 `innerText`,去掉模型名稱;分隔註解寫 `# ---- 004 US3-AJ-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「新的表單與提示用英文」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-08
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
-  - 📎 `spec.md` § NFR-007、FR-012
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § NFR-007、FR-012;`plan.md` § 待決問題 Q70
 - [ ] T130b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T130a)
   - 🧪 `testplan.md` § US3-AJ-08
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
-  - 📎 `spec.md` § NFR-007、FR-012
-- [ ] T131 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T123b~T130b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T130b)
-  - 🧪 `testplan.md` § US3-AJ-01~US3-AJ-08
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § NFR-007、FR-012;`plan.md` § 待決問題 Q70
+- [ ] T249a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-09 的測試(開啟工作階段到就緒,打開模型頁;分隔註解寫 `# ---- 004 US3-AJ-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端照舊原型從 `detail` 文字讀數字,數字一律不顯示」這類實作而失敗
+  - 🧪 `testplan.md` § US3-AJ-09
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q68
+- [ ] T249b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US3-AJ-09 通過的程式碼;跳過的項目照 `prototype/models.html` 的 `skipFigures` 顯示 `sizeBytes`、`freeDiskBytes`、`vramBytes`,沒有值的不顯示(`plan.md` § 待決問題 Q68),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T249a)
+  - 🧪 `testplan.md` § US3-AJ-09
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q68
+- [ ] T250a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-10 的測試(就緒後在 `[data-state="auto-running"]` 顯示時按它的「關閉」;等判定完成後再重新整理;分隔註解寫 `# ---- 004 US3-AJ-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「判定中的提示沒有關閉鈕,只能等完成」這類實作而失敗
+  - 🧪 `testplan.md` § US3-AJ-10
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-012
+- [ ] T250b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js` 只寫讓 US3-AJ-10 通過的程式碼;`[data-state="auto-running"]` 加 `[data-dismiss]` 關閉鈕,送 `POST /api/downloads/auto-result/dismiss`;判定完成時看 `dismissed`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T250a)
+  - 🧪 `testplan.md` § US3-AJ-10
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
+  - 📎 `spec.md` § FR-012
+- [ ] T251a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us3_curated.py` 寫 US3-AJ-11 的測試(情況 A 打開新增表單、`#c-type` 選「不指定」;情況 B 改成 T4、勾 `#c-highmem` 送出 `llama3.2:3b`;情況 C 打開 `qwen2.5:7b` 的修改表單只改說明送出;分隔註解寫 `# ---- 004 US3-AJ-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「表單只有 GPU 選單,建議類型送成字串或少了 `highMem`,修改時把高 RAM 清掉」這類實作而失敗
+  - 🧪 `testplan.md` § US3-AJ-11
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - 📎 `spec.md` § FR-009
+- [ ] T251b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US3-AJ-11 通過的程式碼;照 `prototype/library.html` 加 `#c-highmem`,跟著 `#c-type` 啟用或停用,送出時建議類型一律帶 `{gpu, highMem}`(分身決策紀錄 D95),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T251a)
+  - 🧪 `testplan.md` § US3-AJ-11
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - 📎 `spec.md` § FR-009
+- [ ] T131 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T123b~T130b、T249b~T251b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T251b)
+  - 🧪 `testplan.md` § US3-AJ-01~US3-AJ-08、US3-AJ-09~US3-AJ-11
   - 📎 `testplan.md` § 4.3
 
 ### 介面覆蓋(US3)
@@ -1182,8 +1301,11 @@
 | testplan 案例 | 紅燈 | 綠燈 | 重構 |
 |---|---|---|---|
 | US3-API-01~US3-API-37 | T072a~T108a | T072b~T108b | T109 |
+| US3-API-38~US3-API-39 | T246a~T247a | T246b~T247b | T109 |
 | US3-DB-01~US3-DB-12 | T110a~T121a | T110b~T121b | T122 |
+| US3-DB-13 | T248a | T248b | T122 |
 | US3-AJ-01~US3-AJ-08 | T123a~T130a | T123b~T130b | T131 |
+| US3-AJ-09~US3-AJ-11 | T249a~T251a | T249b~T251b | T131 |
 
 **Checkpoint**: `uv run pytest -q -p no:cacheprovider` 全綠(含 `tests/e2e/test_locale.py` 加了精選清單與自動下載的新代碼);重構任務前後的測試結果相同
 
@@ -1601,8 +1723,16 @@
   - 🧪 `testplan.md` § US4-RO-14
   - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
   - 📎 `spec.md` § NFR-006、FR-018;`plan.md` § 待決問題 Q7、Q38
-- [ ] T185 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T171b~T184b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_remote_ollama.py` 的斷言(依賴 T184b)
-  - 🧪 `testplan.md` § US4-RO-01~US4-RO-14
+- [ ] T252a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_remote_ollama.py` 寫 US4-RO-15 的測試(每種情況各用一個新的 `RemoteOllama` 呼叫一次 `pull_model`,`model` 為 `HF_Q4`;分隔註解寫 `# ---- 004 US4-RO-15`(`plan.md` § 待決問題 Q34)),執行確認它因為「以整個標頭字串和 `application/x-ndjson` 比相等,帶 `charset` 的回應被歸成 `OLLAMA_BAD_RESPONSE`」這類實作而失敗
+  - 🧪 `testplan.md` § US4-RO-15
+  - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
+  - 📎 `spec.md` § FR-018、NFR-006;`plan.md` § 待決問題 Q45
+- [ ] T252b [US4] 🟢 /tdd 綠燈:在 `src/cgb/adapters/remote_ollama.py` 只寫讓 US4-RO-15 通過的程式碼;`Content-Type` 只比 `;` 之前、去掉空白、不分大小寫的 media type(`info.x-failure-rules` (4),`plan.md` § 待決問題 Q45),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T252a)
+  - 🧪 `testplan.md` § US4-RO-15
+  - ⚙ `contracts/remote-ollama.openapi.yaml` § `paths./api/pull.post`、`components.schemas.PullProgress`、`components.schemas.Error`(`info.x-failure-rules`)
+  - 📎 `spec.md` § FR-018、NFR-006;`plan.md` § 待決問題 Q45
+- [ ] T185 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T171b~T184b、T252b 記下的重構清單(範圍限 `src/cgb/adapters/remote_ollama.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_remote_ollama.py` 的斷言(依賴 T252b)
+  - 🧪 `testplan.md` § US4-RO-01~US4-RO-14、US4-RO-15
   - 📎 `testplan.md` § 5.2
 
 ### E2 後端 UI API(FastAPI REST 與 SSE)
@@ -1665,14 +1795,14 @@
   - 🧪 `testplan.md` § US4-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
   - 📎 `spec.md` § FR-014、FR-018、使用者故事 4 驗收情境 2
-- [ ] T193a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-08 的測試(情況 A:沒有開工作階段;B:工作階段就緒,`list_local_models.raises("OLLAMA_UNREACHABLE")`;C:工作階段就緒,`list_local_models.gate()` 一直不放行;三種各展開 `bartowski/SmolLM2-135M-Instruct-GGUF` 一次;分隔註解寫 `# ---- 004 US4-API-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「展開沿用試算的 `require_ready_base_url()`,沒有工作階段時回 503」這類實作而失敗
+- [ ] T193a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-08 的測試(情況 A:沒有開工作階段;B:工作階段就緒,`list_local_models.raises("OLLAMA_UNREACHABLE")`;C:工作階段就緒,`list_local_models.gate()` 一直不放行;`list_quants` 以 async `side_effect` 先等 0.2 秒再回(C 的期限從收到請求起算,`plan.md` § 待決問題 Q67);三種各展開 `bartowski/SmolLM2-135M-Instruct-GGUF` 一次;分隔註解寫 `# ---- 004 US4-API-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「展開沿用試算的 `require_ready_base_url()`,沒有工作階段時回 503」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
-  - 📎 `spec.md` § FR-014、NFR-006;`plan.md` § 待決問題 Q21
-- [ ] T193b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/app.py` 只寫讓 US4-API-08 通過的程式碼;`src/cgb/app.py` 的 `Timeouts` 加 `hf_expand_deadline`(10),展開時讀模型清單套它(`plan.md` § 待決問題 Q44、Q21),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T193a)
+  - 📎 `spec.md` § FR-014、NFR-006、SC-004;`plan.md` § 待決問題 Q21、Q67
+- [ ] T193b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/app.py` 只寫讓 US4-API-08 通過的程式碼;`src/cgb/app.py` 的 `Timeouts` 加 `hf_expand_deadline`(10),展開時讀模型清單套它,並和 Hugging Face 這一段同時開始、從收到展開請求起算(`plan.md` § 待決問題 Q44、Q21、Q67),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T193a)
   - 🧪 `testplan.md` § US4-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
-  - 📎 `spec.md` § FR-014、NFR-006;`plan.md` § 待決問題 Q21
+  - 📎 `spec.md` § FR-014、NFR-006、SC-004;`plan.md` § 待決問題 Q21、Q67
 - [ ] T194a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-09 的測試(依序以 `HF_AUTH_REQUIRED`、`HF_NO_GGUF` 各展開一次 `google/gemma-3-1b-it-qat-q4_0-gguf`;分隔註解寫 `# ---- 004 US4-API-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「不能下載的原因照連不到處理回 502,前端顯示成「暫時無法使用」而不是說明原因」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`
@@ -1817,7 +1947,7 @@
   - 🧪 `testplan.md` § US4-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadJobList`、`components.schemas.Error`(`info.x-model-name-rule`、`info.x-download-check-order`)
   - 📎 `spec.md` § FR-014、使用者故事 4 驗收情境 4
-- [ ] T212a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_model_name.py` 寫 US4-API-27 的測試(呼叫 `with_version` 與 `source_of`(待決問題 2);分隔註解寫 `# ---- 004 US4-API-27`(`plan.md` § 待決問題 Q34)),執行確認它因為「補版本時以 `/` 或 `.` 判斷,把 `hf.co` 的 `.co` 當成版本分隔」這類實作而失敗
+- [ ] T212a [US4] 🔴 /tdd 紅燈:在 `tests/unit/test_model_name.py` 寫 US4-API-27 的測試(呼叫 `with_version` 與 `source_of`(`plan.md` § 待決問題 Q49);分隔註解寫 `# ---- 004 US4-API-27`(`plan.md` § 待決問題 Q34)),執行確認它因為「補版本時以 `/` 或 `.` 判斷,把 `hf.co` 的 `.co` 當成版本分隔」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018
@@ -1825,7 +1955,7 @@
   - 🧪 `testplan.md` § US4-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018
-- [ ] T213a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/unit/test_model_name.py` 寫 US4-API-28 的測試(呼叫 `match_key`(待決問題 2);分隔註解寫 `# ---- 004 US4-API-28`(`plan.md` § 待決問題 Q34));T076b 在 `src/cgb/domain/model_name.py` 建立的 `match_key`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「比對鍵只用 `lower()` 沒先補版本,沒寫版本與 `LATEST` 不相等」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [ ] T213a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/unit/test_model_name.py` 寫 US4-API-28 的測試(呼叫 `match_key`(`plan.md` § 待決問題 Q49);分隔註解寫 `# ---- 004 US4-API-28`(`plan.md` § 待決問題 Q34));T076b 在 `src/cgb/domain/model_name.py` 建立的 `match_key`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「比對鍵只用 `lower()` 沒先補版本,沒寫版本與 `LATEST` 不相等」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018
@@ -1833,7 +1963,7 @@
   - 🧪 `testplan.md` § US4-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018
-- [ ] T214a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/unit/test_model_name.py` 寫 US4-API-29 的測試(呼叫 `is_valid`(待決問題 2);分隔註解寫 `# ---- 004 US4-API-29`(`plan.md` § 待決問題 Q34));T038b 在 `src/cgb/domain/model_name.py` 建立的 `is_valid`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「pattern 對整條名稱不分大小寫」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [ ] T214a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/unit/test_model_name.py` 寫 US4-API-29 的測試(呼叫 `is_valid`(`plan.md` § 待決問題 Q49);分隔註解寫 `# ---- 004 US4-API-29`(`plan.md` § 待決問題 Q34));T038b 在 `src/cgb/domain/model_name.py` 建立的 `is_valid`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「pattern 對整條名稱不分大小寫」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ModelName`(`info.x-model-name-rule`)
   - 📎 `spec.md` § FR-018;`plan.md` § 待決問題 Q9
@@ -1852,13 +1982,29 @@
 - [ ] T216a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-31 的測試(每一輪各送一次搜尋 `q=x`、展開 `a/b`、試算與加入 `["hf.co/a/b:Q4_K_M"]`;分隔註解寫 `# ---- 004 US4-API-31`(`plan.md` § 待決問題 Q34)),執行確認它因為「把 `AdapterError.message` 或 `str(error)` 放進 `message`」這類實作而失敗
   - 🧪 `testplan.md` § US4-API-31
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`、`paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`paths./downloads.post`、`components.schemas.DownloadJobList`(`info.x-model-name-rule`、`info.x-download-check-order`)
-  - 📎 `spec.md` § NFR-006、SC-006、FR-016
-- [ ] T216b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/api/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-31 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T216a)
+  - 📎 `spec.md` § NFR-006、SC-006、FR-016;`plan.md` § 待決問題 Q69
+- [ ] T216b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py`、`src/cgb/api/downloads.py`、`src/cgb/domain/errors.py` 只寫讓 US4-API-31 通過的程式碼;四個操作的 `HF_*` 狀態碼共用 `info.x-hf-error-status` 一張對應(502、504、422,`plan.md` § 待決問題 Q69),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T216a)
   - 🧪 `testplan.md` § US4-API-31
   - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/search.get`、`components.schemas.HfSearchPage`、`components.schemas.HfModel`、`components.schemas.Error`、`paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`paths./downloads/estimate.post`、`components.schemas.DownloadSelection`、`components.schemas.DownloadEstimate`、`paths./downloads.post`、`components.schemas.DownloadJobList`(`info.x-model-name-rule`、`info.x-download-check-order`)
-  - 📎 `spec.md` § NFR-006、SC-006、FR-016
-- [ ] T217 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T186b~T216b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/unit/test_model_name.py` 的斷言(依賴 T216b)
-  - 🧪 `testplan.md` § US4-API-01~US4-API-31
+  - 📎 `spec.md` § NFR-006、SC-006、FR-016;`plan.md` § 待決問題 Q69
+- [ ] T253a [US4] 🔴 /tdd 紅燈:在 `tests/integration/test_api_huggingface.py` 寫 US4-API-32 的測試(B、C、D 三種情況各展開 `bartowski/SmolLM2-135M-Instruct-GGUF` 一次,記下送出與回應的時間;分隔註解寫 `# ---- 004 US4-API-32`(`plan.md` § 待決問題 Q34)),執行確認它因為「兩段串接(先讀模型清單再問 Hugging Face,或反過來),或 Hugging Face 失敗後沒取消模型清單的讀取」這類實作而失敗
+  - 🧪 `testplan.md` § US4-API-32
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`(`info.x-hf-error-status`)
+  - 📎 `spec.md` § FR-014、FR-016、SC-004、NFR-006;`plan.md` § 待決問題 Q67
+- [ ] T253b [US4] 🟢 /tdd 綠燈:在 `src/cgb/api/huggingface.py` 只寫讓 US4-API-32 通過的程式碼;Hugging Face 這一段與讀模型清單同時開始、都從收到請求起算 `hf_expand_deadline`;Hugging Face 先完成時只等模型清單到同一個期限;Hugging Face 逾時或 400 以外的失敗時取消模型清單的讀取(`contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get` 的時間上限 (a)~(d),`plan.md` § 待決問題 Q67),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T253a)
+  - 🧪 `testplan.md` § US4-API-32
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./huggingface/models/{author}/{model}/quants.get`、`components.schemas.HfQuantList`、`components.schemas.HfQuant`、`components.schemas.Error`(`info.x-hf-error-status`)
+  - 📎 `spec.md` § FR-014、FR-016、SC-004、NFR-006;`plan.md` § 待決問題 Q67
+- [ ] T254a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_downloads.py` 寫 US4-API-33 的測試(送 `POST /api/downloads/{id}/retry`;分隔註解寫 `# ---- 004 US4-API-33`(`plan.md` § 待決問題 Q34));既有 `src/cgb/services/downloads.py` 的 `DownloadsService.retry`(只 `requeue` 與推送,不讀剩餘磁碟)與 T209b、T210b 加的「先確認模型不在執行環境上」已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「照 001 合約先讀剩餘磁碟,讀不到時回 503 `DISK_SPACE_UNKNOWN`」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+  - 🧪 `testplan.md` § US4-API-33
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/{id}/retry.post`、`components.schemas.DownloadJob`、`components.schemas.Error`(`info.x-model-name-rule`)
+  - 📎 `spec.md` § FR-018、NFR-006;`plan.md` § 待決問題 Q56
+- [ ] T254b [US4] 🟢 /tdd 綠燈:US4-API-33 由 既有 `src/cgb/services/downloads.py` 的 `DownloadsService.retry`(只 `requeue` 與推送,不讀剩餘磁碟)與 T209b、T210b 加的「先確認模型不在執行環境上」滿足,確認 `src/cgb/services/downloads.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/downloads.py` 只寫讓 US4-API-33 通過的程式碼(依賴 T254a)
+  - 🧪 `testplan.md` § US4-API-33
+  - ⚙ `contracts/ui.openapi.yaml` § `paths./downloads/{id}/retry.post`、`components.schemas.DownloadJob`、`components.schemas.Error`(`info.x-model-name-rule`)
+  - 📎 `spec.md` § FR-018、NFR-006;`plan.md` § 待決問題 Q56
+- [ ] T217 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T186b~T216b、T253b~T254b 記下的重構清單(範圍限 `src/cgb/api/`、`src/cgb/services/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/`、`tests/unit/test_model_name.py` 的斷言(依賴 T254b)
+  - 🧪 `testplan.md` § US4-API-01~US4-API-31、US4-API-32~US4-API-33
   - 📎 `testplan.md` § 5.3
 
 ### 跨端點驗收(`tests/e2e/`)
@@ -1868,70 +2014,94 @@
 
 - [ ] T218a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-01 的測試(在 `#hf-q` 輸入 `qwen` 搜尋;按「載入更多」;分隔註解寫 `# ---- 004 US4-AJ-01`(`plan.md` § 待決問題 Q34)),執行確認它因為「載入更多送頁碼而不是原樣的 `cursor`」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-01
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="hf-idle"]`、`[data-state="hf-searching"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="hf-idle"]`、`[data-state="hf-searching"]`
   - 📎 `spec.md` § FR-013
 - [ ] T218b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js`、`src/cgb/static/js/api.js` 只寫讓 US4-AJ-01 通過的程式碼;下載頁的 Hugging Face 搜尋區與「載入更多」照 `prototype/library.html`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T218a)
   - 🧪 `testplan.md` § US4-AJ-01
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="hf-idle"]`、`[data-state="hf-searching"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="hf-idle"]`、`[data-state="hf-searching"]`
   - 📎 `spec.md` § FR-013
 - [ ] T219a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-02 的測試(搜尋後展開 `bartowski/SmolLM2-135M-Instruct-GGUF`;分隔註解寫 `# ---- 004 US4-AJ-02`(`plan.md` § 待決問題 Q34)),執行確認它因為「已下載的比對分大小寫,`q4_k_m` 對不到 `Q4_K_M`」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-02
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § FR-014、FR-018
 - [ ] T219b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js`、`src/cgb/static/style.css` 只寫讓 US4-AJ-02 通過的程式碼;展開量化版本照 `prototype/library.html`;把 `prototype/style.css` 的「004:Hugging Face 搜尋結果的展開」區段搬進 `src/cgb/static/style.css`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T219a)
   - 🧪 `testplan.md` § US4-AJ-02
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § FR-014、FR-018
 - [ ] T220a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-03 的測試(展開後勾 `Q8_0`,在官方模型庫搜尋並勾 `qwen2.5`,按「加入下載」;在確認視窗按「確定」;分隔註解寫 `# ---- 004 US4-AJ-03`(`plan.md` § 待決問題 Q34)),執行確認它因為「Hugging Face 的勾選走另一個加入流程、沒有和官方一起試算」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-03
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="checking"]`、`[data-state="no-space"]`、`[data-state="no-session"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="checking"]`、`[data-state="no-space"]`、`[data-state="no-session"]`
   - 📎 `spec.md` § FR-014;`plan.md` § 待決問題 Q66
 - [ ] T220b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-03 通過的程式碼;⚙ 裡的 `[data-state="no-space"]`、`[data-state="no-session"]` 是沿用 001 的畫面,這個任務不改、不新增斷言(`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T220a)
   - 🧪 `testplan.md` § US4-AJ-03
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="checking"]`、`[data-state="no-space"]`、`[data-state="no-session"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="checking"]`、`[data-state="no-space"]`、`[data-state="no-session"]`
   - 📎 `spec.md` § FR-014;`plan.md` § 待決問題 Q66
 - [ ] T221a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-04 的測試(在 `#hf-q` 搜尋 `qwen`;再在 `#lib-q` 搜尋 `qwen2.5`;分隔註解寫 `# ---- 004 US4-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「HF 失敗時整個下載頁進入錯誤狀態,官方搜尋也被擋」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-04
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="lib-idle"]`、`[data-state="lib-searching"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="lib-idle"]`、`[data-state="lib-searching"]`
   - 📎 `spec.md` § FR-016
 - [ ] T221b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-04 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T221a)
   - 🧪 `testplan.md` § US4-AJ-04
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="lib-idle"]`、`[data-state="lib-searching"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="lib-idle"]`、`[data-state="lib-searching"]`
   - 📎 `spec.md` § FR-016
 - [ ] T222a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-05 的測試(搜尋 `qwne`;分隔註解寫 `# ---- 004 US4-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「空結果被當成失敗顯示「暫時無法搜尋」」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-05
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § FR-013
 - [ ] T222b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-05 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T222a)
   - 🧪 `testplan.md` § US4-AJ-05
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § FR-013
 - [ ] T223a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-06 的測試(各在直接輸入名稱的欄位輸入名稱、按「加入下載」;分隔註解寫 `# ---- 004 US4-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「試算沒先查 HF manifest,直接加入佇列讓 Ollama 拉取失敗」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-06
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="not-found"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="not-found"]`
   - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q66
 - [ ] T223b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-06 通過的程式碼;⚙ 裡的 `[data-state="not-found"]` 是沿用 001 的畫面,這個任務不改、不新增斷言(`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T223a)
   - 🧪 `testplan.md` § US4-AJ-06
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="not-found"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`[data-state="not-found"]`
   - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q66
 - [ ] T224a [US4] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-07 的測試(打開模型頁;再打開對話頁的模型選單;分隔註解寫 `# ---- 004 US4-AJ-07`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/models.js` 的模型目錄與 T059b 的對話頁模型選單(都列 `GET /api/models` 的每一筆)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「模型目錄或對話頁的模型清單過濾掉含 `/` 或 `hf.co/` 的名稱」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US4-AJ-07
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`、`[data-state="cat-normal"]`、`[data-state="cat-empty"]`;`prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`、`[data-state="cat-normal"]`、`[data-state="cat-empty"]`;`prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-014;`plan.md` § 待決問題 Q66
 - [ ] T224b [US4] 🟢 /tdd 綠燈:US4-AJ-07 由 既有 `src/cgb/static/js/models.js` 的模型目錄與 T059b 的對話頁模型選單(都列 `GET /api/models` 的每一筆) 滿足,確認 `src/cgb/static/js/models.js`、`src/cgb/static/js/chat.js` 不需要為它改程式碼;⚙ 裡的 `[data-state="cat-empty"]` 是沿用 001 的畫面,這個任務不改、不新增斷言(`plan.md` § 待決問題 Q66),執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js`、`src/cgb/static/js/chat.js` 只寫讓 US4-AJ-07 通過的程式碼(依賴 T224a)
   - 🧪 `testplan.md` § US4-AJ-07
-  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#dismiss`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`、`[data-state="cat-normal"]`、`[data-state="cat-empty"]`;`prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
+  - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`、`[data-state="cat-normal"]`、`[data-state="cat-empty"]`;`prototype/chat.html` § `#model`、`#input`、`#send`、`#stop`、`#clear`、`#log`、`[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-streaming"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-stopped"]`、`[data-state="turn-error"]`、`[data-state="turn-interrupted"]`、`[data-state="turn-bad-response"]`、`[data-state="turn-lost"]`、`[data-state="turn-timeout"]`、`[data-state="turn-not-found"]`、`[data-state="turn-unavailable"]`、`[data-state="turn-start-timeout"]`、`[data-state="turn-norate"]`、`[data-state="turn-thinking"]`
   - 📎 `spec.md` § FR-014;`plan.md` § 待決問題 Q66
 - [ ] T225a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-08 的測試(每種狀態取那個區塊的 `innerText`,去掉模型名稱與量化版本;分隔註解寫 `# ---- 004 US4-AJ-08`(`plan.md` § 待決問題 Q34)),執行確認它因為「Hugging Face 或 Ollama 的英文錯誤原文直接顯示在畫面上」這類實作而失敗
   - 🧪 `testplan.md` § US4-AJ-08
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § NFR-007、FR-016
 - [ ] T225b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US4-AJ-08 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T225a)
   - 🧪 `testplan.md` § US4-AJ-08
-  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`
   - 📎 `spec.md` § NFR-007、FR-016
-- [ ] T226 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T218b~T225b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T225b)
-  - 🧪 `testplan.md` § US4-AJ-01~US4-AJ-08
+- [ ] T255a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-09 的測試(在直接輸入名稱的欄位輸入 `hf.co/ggml-org/Qwen2.5-VL-7B-Instruct-mmproj-GGUF:Q4_K_M`、按「加入下載」;分隔註解寫 `# ---- 004 US4-AJ-09`(`plan.md` § 待決問題 Q34)),執行確認它因為「收到 `HF_QUANT_UNAVAILABLE` 時說明只寫「沒有這個量化版本」,看不出是 repo 不是 GGUF」這類實作而失敗
+  - 🧪 `testplan.md` § US4-AJ-09
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
+  - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q20
+- [ ] T255b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US4-AJ-09 通過的程式碼;`[data-state="hf-quant-unavailable"]` 的說明照 `prototype/library.html` 補「不是 GGUF」,不做 `hf-no-gguf` 確認框(分身決策紀錄 D99),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T255a)
+  - 🧪 `testplan.md` § US4-AJ-09
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
+  - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q20
+- [ ] T256a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-10 的測試(依情況讓 `list_quants` 丟 `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`,各展開一次;分隔註解寫 `# ---- 004 US4-AJ-10`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只把 `HF_TIMEOUT` 對到 `hf-expand-down`,502 的三個代碼落到預設分支」這類實作而失敗
+  - 🧪 `testplan.md` § US4-AJ-10
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
+  - 📎 `spec.md` § FR-016
+- [ ] T256b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US4-AJ-10 通過的程式碼;展開的 502、504 四個代碼都顯示 `[data-state="hf-expand-down"]`,說明照 `prototype/library.html`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T256a)
+  - 🧪 `testplan.md` § US4-AJ-10
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
+  - 📎 `spec.md` § FR-016
+- [ ] T257a [US4] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us4_hf.py` 寫 US4-AJ-11 的測試(沒有工作階段時在直接輸入名稱的欄位輸入 `hf.co/unsloth/Qwen3-0.6B-GGUF:Q8_0`、按「加入勾選」;分隔註解寫 `# ---- 004 US4-AJ-11`(`plan.md` § 待決問題 Q34)),執行確認它因為「沒有工作階段時照常送 `POST /api/downloads/estimate`,收到 503 就擋下不加入勾選」這類實作而失敗
+  - 🧪 `testplan.md` § US4-AJ-11
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
+  - 📎 `spec.md` § FR-014、FR-015
+- [ ] T257b [US4] 🟢 /tdd 綠燈:在 `src/cgb/static/library.html`、`src/cgb/static/js/library.js` 只寫讓 US4-AJ-11 通過的程式碼;沒有就緒的工作階段時只檢查名稱格式就加入勾選,顯示 `[data-state="direct-unchecked"]`,不送試算(分身決策紀錄 D97),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T257a)
+  - 🧪 `testplan.md` § US4-AJ-11
+  - ⚙ `prototype/library.html` § `#hf-form`、`#hf-q`、`#hf-results`、`#hf-more`、`#tray`、`#add`、`#confirm-table`、`#confirm-go`、`#lib-form`、`#lib-q`、`#lib-results`、`[data-state="hf-results"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]`、`[data-state="confirm"]`、`[data-state="lib-results"]`、`#name-form`、`[data-state="direct-unchecked"]`
+  - 📎 `spec.md` § FR-014、FR-015
+- [ ] T226 [US4] 🔵 /tdd 重構:在全部測試綠燈下整理 T218b~T225b、T255b~T257b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T257b)
+  - 🧪 `testplan.md` § US4-AJ-01~US4-AJ-08、US4-AJ-09~US4-AJ-11
   - 📎 `testplan.md` § 5.4
 
 ### 介面覆蓋(US4)
@@ -1952,7 +2122,8 @@
 | `ui.openapi.yaml` § `paths./downloads/{id}/retry.post`(故事 4 擴充:hf.co 名稱、來源分流與不分大小寫的比對) | T209b~T210b | T209a~T210a |
 | `chat.html` § `[data-state="chat-ready"]`、`[data-state="chat-no-session"]`、`[data-state="chat-no-models"]`、`[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="turn-thinking"]`、`[data-state="turn-streaming"]`、`[data-state="turn-stopped"]`、`[data-state="turn-norate"]`、`[data-state="turn-error"]`、`[data-state="turn-timeout"]`、`[data-state="turn-lost"]`(故事 4 擴充:hf.co 名稱、來源分流與不分大小寫的比對) | T224b | T224a |
 | `library.html` § `[data-state="lib-idle"]`、`[data-state="lib-searching"]` | T221b | T221a |
-| `library.html` § `[data-state="lib-results"]`、`[data-state="hf-results"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="confirm"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-no-gguf"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]` | T218b~T223b、T225b | T218a~T223a、T225a |
+| `library.html` § `[data-state="lib-results"]`、`[data-state="hf-results"]`、`[data-state="hf-expand-down"]`、`[data-state="hf-empty"]`、`[data-state="hf-down"]`、`[data-state="confirm"]`、`[data-state="hf-auth-required"]`、`[data-state="hf-quant-unavailable"]`、`[data-state="hf-size-down"]` | T218b~T223b、T225b、T255b~T256b | T218a~T223a、T225a、T255a~T256a |
+| `library.html` § `[data-state="direct-unchecked"]` | T257b | T257a |
 | `library.html` § `[data-state="hf-idle"]`、`[data-state="hf-searching"]` | T218b | T218a |
 | `library.html` § `[data-state="checking"]` | T220b | T220a |
 | `library.html` § `[data-state="no-space"]`、`[data-state="no-session"]`(沿用 001 的畫面,沒有新的斷言;完成報告列為未直接驗證,`plan.md` § 待決問題 Q66) | T220b | T220a |
@@ -1969,8 +2140,11 @@
 |---|---|---|---|
 | US4-HF-01~US4-HF-38 | T132a~T169a | T132b~T169b | T170 |
 | US4-RO-01~US4-RO-14 | T171a~T184a | T171b~T184b | T185 |
+| US4-RO-15 | T252a | T252b | T185 |
 | US4-API-01~US4-API-31 | T186a~T216a | T186b~T216b | T217 |
+| US4-API-32~US4-API-33 | T253a~T254a | T253b~T254b | T217 |
 | US4-AJ-01~US4-AJ-08 | T218a~T225a | T218b~T225b | T226 |
+| US4-AJ-09~US4-AJ-11 | T255a~T257a | T255b~T257b | T226 |
 
 **Checkpoint**: `uv run pytest -q -p no:cacheprovider` 全綠(含 T204b 刪掉、T209b 改寫的兩支舊測試,`tests/integration/test_fake_signatures.py` 比對到 `HuggingFaceHub`);重構任務前後的測試結果相同
 
@@ -2012,14 +2186,22 @@
   - 📎 `spec.md` § FR-017、SC-005
 - [ ] T230a [US5] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-04 的測試(情況 A 看清單;情況 B 打開 `llama3.2:3b` 的修改表單;情況 C 打開 `qwen2.5` 的修改表單,不改類型就送出;分隔註解寫 `# ---- 004 US5-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「修改既有 H100 項目時選單沒有對應的選項,預設跳成「不指定」,一送出就把 H100 清掉(`plan.md` Q31)」這類實作而失敗
   - 🧪 `testplan.md` § US5-AJ-04
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-017、SC-005;`plan.md` § 待決問題 Q31
 - [ ] T230b [US5] 🟢 /tdd 綠燈:在 `src/cgb/static/js/library.js` 只寫讓 US5-AJ-04 通過的程式碼;精選清單建議類型選單不列 H100,修改既有 H100 項目時加「維持目前設定」(`#c-type-keep`,`plan.md` § 待決問題 Q31),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T230a)
   - 🧪 `testplan.md` § US5-AJ-04
-  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
   - 📎 `spec.md` § FR-017、SC-005;`plan.md` § 待決問題 Q31
-- [ ] T231 [US5] 🔵 /tdd 重構:在全部測試綠燈下整理 T227b~T230b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T230b)
-  - 🧪 `testplan.md` § US5-AJ-01~US5-AJ-04
+- [ ] T258a [US5] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us5_h100.py` 寫 US5-AJ-05 的測試(按「新增」打開新增表單;分隔註解寫 `# ---- 004 US5-AJ-05`(`plan.md` § 待決問題 Q34));T230b 讓精選表單的 `#c-type` 不列 H100(新增與修改共用同一份選項,「維持目前設定」只在修改既有 H100 項目時加)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只在修改表單過濾 H100,新增表單用的是另一份清單」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+  - 🧪 `testplan.md` § US5-AJ-05
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - 📎 `spec.md` § FR-017、SC-005
+- [ ] T258b [US5] 🟢 /tdd 綠燈:US5-AJ-05 由 T230b 讓精選表單的 `#c-type` 不列 H100(新增與修改共用同一份選項,「維持目前設定」只在修改既有 H100 項目時加)滿足,確認 `src/cgb/static/js/library.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/library.js` 只寫讓 US5-AJ-05 通過的程式碼(依賴 T258a)
+  - 🧪 `testplan.md` § US5-AJ-05
+  - ⚙ `prototype/library.html` § `#curated`、`#cur-add`、`#cur-form`、`#c-name`、`#c-note`、`#c-type`、`#c-type-keep`、`#c-highmem`、`#c-auto`、`#c-submit`、`#c-dup`、`#del-go`、`[data-state="cur-list"]`、`[data-state="cur-empty"]`、`[data-state="cur-form"]`、`[data-state="cur-form-edit"]`、`[data-state="cur-duplicate"]`、`[data-state="cur-invalid"]`、`[data-state="cur-delete"]`
+  - 📎 `spec.md` § FR-017、SC-005
+- [ ] T231 [US5] 🔵 /tdd 重構:在全部測試綠燈下整理 T227b~T230b、T258b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T258b)
+  - 🧪 `testplan.md` § US5-AJ-01~US5-AJ-04、US5-AJ-05
   - 📎 `testplan.md` § 6.1
 
 ### 介面覆蓋(US5)
@@ -2037,6 +2219,7 @@
 | testplan 案例 | 紅燈 | 綠燈 | 重構 |
 |---|---|---|---|
 | US5-AJ-01~US5-AJ-04 | T227a~T230a | T227b~T230b | T231 |
+| US5-AJ-05 | T258a | T258b | T231 |
 
 **Checkpoint**: `uv run pytest -q -p no:cacheprovider` 全綠;重構任務前後的測試結果相同
 
