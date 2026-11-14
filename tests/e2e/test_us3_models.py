@@ -147,37 +147,6 @@ def test_取消排隊中的第2筆_它從佇列消失而下載中的第1筆繼�
     assert [job["model"] for job in jobs] == ["qwen2.5:7b"]
 
 
-# ---------------------------------------------------------------- US3-AJ-09
-
-
-def test_結束工作階段後下載中的那筆顯示失敗與原因可重新排隊_排隊中的保留_目錄沒有它(
-    page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any
-) -> None:
-    # Arrange
-    open_to_ready(page)
-    fakes.model_library.get_manifest.when(name="qwen2.5", tag="7b").returns({"sizeBytes": SIZE_7B})
-    fakes.model_library.get_manifest.when(name="qwen2.5", tag="1.5b").returns({"sizeBytes": SIZE_1_5B})
-    held = Gate()
-    fakes.remote_ollama.pull_model.side_effect(lambda *a, **k: [{"status": "pulling manifest"}, held, {"status": "success"}])
-    enqueued = httpx.post(f"{e2e_servers.ui_url}/api/downloads", json={"models": ["qwen2.5:7b", "qwen2.5:1.5b"]}, timeout=5.0)
-    assert enqueued.status_code == 201
-    held.wait_entered()
-
-    # Act
-    page.locator('[data-state="ready"]').get_by_role("button", name="結束", exact=True).click()
-    page.click("#stop")
-    expect(page.locator('[data-state="ended"]')).to_be_visible()
-    page.goto("/models.html")
-    downloading, queued = queue_row(page, "qwen2.5:7b"), queue_row(page, "qwen2.5:1.5b")
-
-    # Assert
-    expect(downloading.locator(".pill")).to_have_text("失敗")
-    expect(downloading).to_contain_text("工作階段結束")
-    expect(downloading.get_by_role("button", name="重新排隊")).to_be_visible()
-    expect(queued.locator(".pill")).to_have_text("排隊中")
-    expect(catalog_row(page, "qwen2.5:7b")).to_have_count(0)
-
-
 # ---------------------------------------------------------------- US3-AJ-11
 
 SIZE_BIG_70B = 42_520_413_916  # 超過 T4 的顯示記憶體總量(ColabWorld 的 vramTotalBytes 約 16.1 GB)

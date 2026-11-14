@@ -7,6 +7,13 @@ export function showState(name, also = []) {
   });
 }
 
+// 只切換同一組(`data-group`)裡的區塊,別組的不動:一頁有好幾區各自顯示一個狀態時用(例如模型頁的目錄與下載佇列)
+export function showGroupState(group, name) {
+  document.querySelectorAll(`[data-group="${group}"][data-state]`).forEach((el) => {
+    el.hidden = el.dataset.state !== name;
+  });
+}
+
 // 執行階段類型的顯示文字,例如「T4 高 RAM」(contracts/ui.openapi.yaml § RuntimeType)
 export const typeText = (runtimeType) => `${runtimeType.gpu}${runtimeType.highMem ? " 高 RAM" : ""}`;
 

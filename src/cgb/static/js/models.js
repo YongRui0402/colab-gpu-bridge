@@ -1,7 +1,7 @@
 // 模型頁:執行環境上已下載的模型、預先載入與下載佇列(FR-014、FR-015、FR-017、FR-021;prototype/models.html)
 import { request } from "./api.js";
 import { startHeader } from "./header.js";
-import { bytes, clock, escape, showState, typeText } from "./view.js";
+import { bytes, clock, escape, showGroupState, typeText } from "./view.js";
 
 // 目錄(ModelCatalog)與目前的工作階段(session.updated;提示裡要說是哪一種執行階段類型)
 let current = { items: [] };
@@ -34,7 +34,7 @@ function catalogItem(model) {
 function show(catalog) {
   current = catalog;
   document.getElementById("catalog").innerHTML = catalog.items.map(catalogItem).join("");
-  showState(local ?? (catalog.items.length ? "normal" : "empty"));
+  showGroupState("catalog", local ?? (catalog.items.length ? "normal" : "empty"));
 }
 
 // 推送來的目錄裡,剛從載入中變成失敗的模型:蓋上「載入失敗」的說明(說明是後端給的繁體中文 PreloadState.message)
@@ -51,13 +51,13 @@ function catalogPushed(catalog) {
 }
 
 async function loadCatalog() {
-  if (!local) showState("loading");
+  if (!local) showGroupState("catalog", "loading");
   const response = await request("GET", "/models");
   if (response.ok) show(response.data);
   // 沒有就緒的工作階段:執行環境上的模型跟著消失,目錄清空(FR-018)
   else if (response.data?.code === "NO_READY_SESSION") {
     document.getElementById("catalog").innerHTML = "";
-    showState("no-session");
+    showGroupState("catalog", "no-session");
   }
 }
 
@@ -75,7 +75,7 @@ function warnBeforePreload(model) {
   const vram = current.vramBytes ? `(約 ${Math.round(current.vramBytes / 2 ** 30)} GB)` : "";
   document.getElementById("pw-name").textContent = model.name;
   document.getElementById("pw-text").textContent = `有 ${bytes(model.sizeBytes)},超過 ${type} 的顯示記憶體${vram}。可能載入失敗,或有一部分放在 CPU 上執行而慢很多。要順跑的話,請改用顯示記憶體更大的類型。`;
-  showState(local);
+  showGroupState("catalog", local);
 }
 
 function closeWarn() {
@@ -150,12 +150,18 @@ function queueItem(job, position) {
   return queueRow(job, `<div class="item-meta">${bytes(job.sizeBytes)} · ${clock(job.finishedAt)} 完成</div>`, '<span class="pill pill-ok">完成</span>');
 }
 
+// 工作階段已結束、失聯或開啟失敗時佇列是空的,就是跟著它一起清空的(FR-001);
+// 合約沒有清除的筆數,看工作階段狀態判斷,之後才打開或重新整理也一樣(plan.md Q29、D98)
+const CLEARED_STATES = ["ended", "lost", "open_failed"];
+
 function renderQueue() {
   const sorted = [...jobs.values()].sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state]);
   let position = 0;
-  document.getElementById("queue").innerHTML = sorted.length
-    ? sorted.map((job) => queueItem(job, job.state === "queued" ? ++position : 0)).join("")
-    : '<li><span class="muted">佇列是空的。到「下載模型」挑選要下載的模型。</span></li>';
+  document.getElementById("queue").innerHTML = sorted.map((job) => queueItem(job, job.state === "queued" ? ++position : 0)).join("");
+  if (sorted.length) return showGroupState("queue", "queue-list");
+  if (!CLEARED_STATES.includes(session?.state)) return showGroupState("queue", "queue-empty");
+  document.getElementById("qc-text").innerHTML = `工作階段 <span class="mono">${escape(session.name)}</span> 結束時,佇列已一起清空(含完成、失敗與排隊中的)。`;
+  showGroupState("queue", "queue-cleared");
 }
 
 function jobUpdated(job) {

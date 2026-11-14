@@ -246,63 +246,63 @@
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(Playwright)接測試行程內真的後端(`tests/e2e/conftest.py` 的 `e2e_servers`,UI 127.0.0.1:8781),轉接層用替身;e2e 用固定 port,同一時間只跑一份
 > 佇列裡的項目以加入下載與 `fakes.remote_ollama.pull_model` 的閘門鋪出(`testplan.md` § 2.3)
 
-- [ ] T026a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-01 的測試(在首頁的另一個分頁按「結束」並確認;模型頁不重新整理;分隔註解寫 `# ---- 004 US1-AJ-01`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/models.js` 的 `download.removed`、`downloads.snapshot` 處理,加上 T001b 的推送已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「後端清了佇列但沒有推 `download.removed`,畫面要重新整理才清空」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T026a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-01 的測試(在首頁的另一個分頁按「結束」並確認;模型頁不重新整理;分隔註解寫 `# ---- 004 US1-AJ-01`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/models.js` 的 `download.removed`、`downloads.snapshot` 處理,加上 T001b 的推送已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「後端清了佇列但沒有推 `download.removed`,畫面要重新整理才清空」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-stop"]`、`[data-state="stopping"]`、`[data-state="ended"]`
   - 📎 `spec.md` § NFR-001、SC-001、FR-001
-- [ ] T026b [US1] 🟢 /tdd 綠燈:US1-AJ-01 由 既有 `src/cgb/static/js/models.js` 的 `download.removed`、`downloads.snapshot` 處理,加上 T001b 的推送 滿足,確認 `src/cgb/static/js/models.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-01 通過的程式碼(依賴 T026a)
+- [X] T026b [US1] 🟢 /tdd 綠燈:US1-AJ-01 由 既有 `src/cgb/static/js/models.js` 的 `download.removed`、`downloads.snapshot` 處理,加上 T001b 的推送 滿足,確認 `src/cgb/static/js/models.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-01 通過的程式碼(依賴 T026a)
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-stop"]`、`[data-state="stopping"]`、`[data-state="ended"]`
   - 📎 `spec.md` § NFR-001、SC-001、FR-001
-- [ ] T027a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-02 的測試(讓 `fakes.tunnel.check_health` 一直失敗、重連逾時(縮短的時限),工作階段變成 `lost`;不重新整理;分隔註解寫 `# ---- 004 US1-AJ-02`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/models.js` 的 `download.removed` 處理,加上 T001b 在 `lost` 時的清除已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只有使用者結束(`end_listeners`)才清佇列,失聯時下載中的那筆照 001 標成失敗留在畫面」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T027a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-02 的測試(讓 `fakes.tunnel.check_health` 一直失敗、重連逾時(縮短的時限),工作階段變成 `lost`;不重新整理;分隔註解寫 `# ---- 004 US1-AJ-02`(`plan.md` § 待決問題 Q34));既有 `src/cgb/static/js/models.js` 的 `download.removed` 處理,加上 T001b 在 `lost` 時的清除已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「只有使用者結束(`end_listeners`)才清佇列,失聯時下載中的那筆照 001 標成失敗留在畫面」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="lost"]`
   - 📎 `spec.md` § FR-001
-- [ ] T027b [US1] 🟢 /tdd 綠燈:US1-AJ-02 由 既有 `src/cgb/static/js/models.js` 的 `download.removed` 處理,加上 T001b 在 `lost` 時的清除 滿足,確認 `src/cgb/static/js/models.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-02 通過的程式碼(依賴 T027a)
+- [X] T027b [US1] 🟢 /tdd 綠燈:US1-AJ-02 由 既有 `src/cgb/static/js/models.js` 的 `download.removed` 處理,加上 T001b 在 `lost` 時的清除 滿足,確認 `src/cgb/static/js/models.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-02 通過的程式碼(依賴 T027a)
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="lost"]`
   - 📎 `spec.md` § FR-001
-- [ ] T028a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-03 的測試(在首頁按「變更類型」選 L4 並確認,等到新的工作階段就緒;回到模型頁(不重新整理就在同一個分頁切換);分隔註解寫 `# ---- 004 US1-AJ-03`(`plan.md` § 待決問題 Q34));T001b 的清除順序(先清除舊的、再排入重新載入項目)與既有 `src/cgb/static/js/models.js` 的事件處理已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「變更類型時先 `enqueue_restore` 再把舊的改 `ending`,清除把剛排入的重新載入項目一起刪掉」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
+- [X] T028a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-03 的測試(在首頁按「變更類型」選 L4 並確認,等到新的工作階段就緒;回到模型頁(不重新整理就在同一個分頁切換);分隔註解寫 `# ---- 004 US1-AJ-03`(`plan.md` § 待決問題 Q34));T001b 的清除順序(先清除舊的、再排入重新載入項目)與既有 `src/cgb/static/js/models.js` 的事件處理已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「變更類型時先 `enqueue_restore` 再把舊的改 `ending`,清除把剛排入的重新載入項目一起刪掉」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q63)
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-switch"]`、`[data-state="switching"]`、`[data-state="starting"]`、`[data-state="ready"]`
   - 📎 `spec.md` § FR-002
-- [ ] T028b [US1] 🟢 /tdd 綠燈:US1-AJ-03 由 T001b 的清除順序(先清除舊的、再排入重新載入項目)與既有 `src/cgb/static/js/models.js` 的事件處理 滿足,確認 `src/cgb/static/js/models.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-03 通過的程式碼(依賴 T028a)
+- [X] T028b [US1] 🟢 /tdd 綠燈:US1-AJ-03 由 T001b 的清除順序(先清除舊的、再排入重新載入項目)與既有 `src/cgb/static/js/models.js` 的事件處理 滿足,確認 `src/cgb/static/js/models.js` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-03 通過的程式碼(依賴 T028a)
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="confirm-switch"]`、`[data-state="switching"]`、`[data-state="starting"]`、`[data-state="ready"]`
   - 📎 `spec.md` § FR-002
-- [ ] T029a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-04 的測試(結束工作階段並等到 `ended`;看沒有工作階段時的模型頁;分隔註解寫 `# ---- 004 US1-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端照 001 留著「保留著、重新開啟後會繼續下載」的說明(`plan.md` Q29),和清空的佇列互相矛盾」這類實作而失敗
+- [X] T029a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-04 的測試(結束工作階段並等到 `ended`;看沒有工作階段時的模型頁;分隔註解寫 `# ---- 004 US1-AJ-04`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端照 001 留著「保留著、重新開啟後會繼續下載」的說明(`plan.md` Q29),和清空的佇列互相矛盾」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-04
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q29、Q66
-- [ ] T029b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-04 通過的程式碼;沒有工作階段時的「保留著、重新開啟後會繼續下載」說明改成 `prototype/models.html` 的 `[data-state="queue-cleared"]`(`plan.md` § 待決問題 Q29);首頁結束類狀態的說明照 `prototype/index.html`(沒有清除筆數,`plan.md` § 待決問題 Q29;重連逾時與開啟失敗的畫面由 T238b、T239b 做)(`[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]` 只改說明文字、不新增斷言,改完在瀏覽器看一眼,`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T029a)
+- [X] T029b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/models.html`、`src/cgb/static/js/models.js`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-04 通過的程式碼;沒有工作階段時的「保留著、重新開啟後會繼續下載」說明改成 `prototype/models.html` 的 `[data-state="queue-cleared"]`(`plan.md` § 待決問題 Q29);首頁結束類狀態的說明照 `prototype/index.html`(沒有清除筆數,`plan.md` § 待決問題 Q29;重連逾時與開啟失敗的畫面由 T238b、T239b 做)(`[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]` 只改說明文字、不新增斷言,改完在瀏覽器看一眼,`plan.md` § 待決問題 Q66),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T029a)
   - 🧪 `testplan.md` § US1-AJ-04
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`;`prototype/index.html` § `[data-state="ended"]`、`[data-state="lost"]`、`[data-state="ended-offline"]`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q29、Q66
-- [ ] T238a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-05 的測試(讓 `fakes.tunnel.check_health` 一直失敗、重連逾時(縮短的時限),工作階段變成 `lost`、`endReason` 為 `RECONNECT_TIMEOUT`;不重新整理;分隔註解寫 `# ---- 004 US1-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只有一個失聯畫面,重連逾時也顯示被 Colab 收回的說明」這類實作而失敗
+- [X] T238a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-05 的測試(讓 `fakes.tunnel.check_health` 一直失敗、重連逾時(縮短的時限),工作階段變成 `lost`、`endReason` 為 `RECONNECT_TIMEOUT`;不重新整理;分隔註解寫 `# ---- 004 US1-AJ-05`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端只有一個失聯畫面,重連逾時也顯示被 Colab 收回的說明」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-05
   - ⚙ `prototype/index.html` § `[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="failed"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-001、使用者故事 1 驗收情境 3
-- [ ] T238b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-05 通過的程式碼;照 `prototype/index.html` 加 `[data-state="lost-timeout"]`,`endReason` 為 `RECONNECT_TIMEOUT` 時顯示它,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T238a)
+- [X] T238b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-05 通過的程式碼;照 `prototype/index.html` 加 `[data-state="lost-timeout"]`,`endReason` 為 `RECONNECT_TIMEOUT` 時顯示它,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T238a)
   - 🧪 `testplan.md` § US1-AJ-05
   - ⚙ `prototype/index.html` § `[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="failed"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-001、使用者故事 1 驗收情境 3
-- [ ] T239a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-06 的測試(在首頁按「變更類型」選 L4 並確認,等新的工作階段變成開啟失敗(就緒之後才設 `fakes.tunnel.open_tunnel.raises("TUNNEL_UNREACHABLE", "連不到")`);不重新整理;分隔註解寫 `# ---- 004 US1-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「首頁的開啟失敗畫面照 001 沒有提佇列,或沒顯示「一起清空了」」這類實作而失敗
+- [X] T239a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-06 的測試(在首頁按「變更類型」選 L4 並確認,等新的工作階段變成開啟失敗(就緒之後才設 `fakes.tunnel.open_tunnel.raises("TUNNEL_UNREACHABLE", "連不到")`);不重新整理;分隔註解寫 `# ---- 004 US1-AJ-06`(`plan.md` § 待決問題 Q34)),執行確認它因為「首頁的開啟失敗畫面照 001 沒有提佇列,或沒顯示「一起清空了」」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-06
   - ⚙ `prototype/index.html` § `[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="failed"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-001、FR-002、使用者故事 1 驗收情境 3
-- [ ] T239b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-06 通過的程式碼;照 `prototype/index.html` 的 `[data-state="failed"]` 寫開啟失敗的說明(變更類型排入的重新載入項目也一起清空),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T239a)
+- [X] T239b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US1-AJ-06 通過的程式碼;照 `prototype/index.html` 的 `[data-state="failed"]` 寫開啟失敗的說明(變更類型排入的重新載入項目也一起清空),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T239a)
   - 🧪 `testplan.md` § US1-AJ-06
   - ⚙ `prototype/index.html` § `[data-state="lost"]`、`[data-state="lost-timeout"]`、`[data-state="failed"]`;`prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-001、FR-002、使用者故事 1 驗收情境 3
-- [ ] T240a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-07 的測試(情況 A 從沒開過工作階段時打開模型頁;情況 B 結束工作階段、等到 `ended` 之後才打開模型頁;分隔註解寫 `# ---- 004 US1-AJ-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端靠只存在頁面記憶體裡的「剛清除幾筆」判斷,之後才打開或重新整理就顯示成 `queue-empty`」這類實作而失敗
+- [X] T240a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_004_us1_queue.py` 寫 US1-AJ-07 的測試(情況 A 從沒開過工作階段時打開模型頁;情況 B 結束工作階段、等到 `ended` 之後才打開模型頁;分隔註解寫 `# ---- 004 US1-AJ-07`(`plan.md` § 待決問題 Q34)),執行確認它因為「前端靠只存在頁面記憶體裡的「剛清除幾筆」判斷,之後才打開或重新整理就顯示成 `queue-empty`」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-07
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q29
-- [ ] T240b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-07 通過的程式碼;佇列是空的時依工作階段狀態(`ended`、`lost`、`open_failed`)決定顯示 `queue-cleared` 或 `queue-empty`,`#qc-text` 寫工作階段名稱、不寫筆數(`plan.md` § 待決問題 Q29),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T240a)
+- [X] T240b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/js/models.js` 只寫讓 US1-AJ-07 通過的程式碼;佇列是空的時依工作階段狀態(`ended`、`lost`、`open_failed`)決定顯示 `queue-cleared` 或 `queue-empty`,`#qc-text` 寫工作階段名稱、不寫筆數(`plan.md` § 待決問題 Q29),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T240a)
   - 🧪 `testplan.md` § US1-AJ-07
   - ⚙ `prototype/models.html` § `#queue-panel`、`#queue`、`#qc-text`、`#auto-notice`、`#catalog`、`[data-state="queue-list"]`、`[data-state="queue-empty"]`、`[data-state="queue-cleared"]`、`[data-state="auto-running"]`、`[data-state="cat-no-session"]`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q29
-- [ ] T030 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T026b~T029b、T238b~T240b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T240b)
+- [X] T030 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T026b~T029b、T238b~T240b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T240b)
   - 🧪 `testplan.md` § US1-AJ-01~US1-AJ-04、US1-AJ-05~US1-AJ-07
   - 📎 `testplan.md` § 2.3
 
