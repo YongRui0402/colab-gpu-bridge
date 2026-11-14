@@ -8,7 +8,7 @@
 - 範圍:只動 E8 轉接層(`src/cgb/adapters/model_library.py`)與 UI API 呼叫它的兩個服務(`services/library.py`、`services/downloads.py`)和訊息表(`domain/errors.py`);不改合約、不改 UI。
 - 限制:技術研究只做不連網、不花錢的探針;要連 ollama.com 或 Colab 的列為「待實跑驗證」。
 
-每個「理由」都標出證據類型:**實測**(附量測環境)、**估算**(附依據)、**查證**(附來源)、**判斷**(推論)。探針腳本放在 session 暫存區(`<session 暫存區>`),不進 repo;實測環境都是桌機(Ubuntu,Python 3.12.14,httpx 0.28.1,專案 `.venv`),只連 127.0.0.1 或用 `httpx.MockTransport`。正常路徑要在 SC-003 的唯讀實跑(沿用 001 的 `tests/realrun/test_us3_lib_05.py` 的護欄)重測。
+每個「理由」都標出證據類型:**實測**(附量測環境)、**估算**(附依據)、**查證**(附來源)、**判斷**(推論)。探針腳本放在 session 暫存區,不進 repo;實測環境都是桌機(Ubuntu,Python 3.12.14,httpx 0.28.1,專案 `.venv`),只連 127.0.0.1 或用 `httpx.MockTransport`。正常路徑要在 SC-003 的唯讀實跑(沿用 001 的 `tests/realrun/test_us3_lib_05.py` 的護欄)重測。
 
 樣本用途(分配表在暫存區 `樣本分配表.md`,只憑檔名寫):調整用 `search-qwen2.5-page1.html`、`search-qwen2.5-page2.html`、`tags-qwen2.5.html`、兩個 manifest;驗收用 `search-qwen2.5-single-page.html`、`tags-qwen2.5-live-2026-11.html`(R3 規則定案後才第一次打開)。
 

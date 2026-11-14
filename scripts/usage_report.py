@@ -1,11 +1,12 @@
 """彙整 colab-gpu-bridge 各階段的耗時與 token 用量(讀 Claude Code transcript)。"""
-# 用法:uv run python scripts/usage_report.py > docs/耗時與用量紀錄.md
+# 用法:CGB_MAIN_SESSION=<001 主對話的 session id> uv run python scripts/usage_report.py > docs/耗時與用量紀錄.md
 # 階段切點 STEPS 依 git log 的 commit 時間手動維護;新階段開始時在 STEPS 後面加一列。
 import json,glob,os
 from datetime import datetime,timezone,timedelta
 TZ=timezone(timedelta(hours=8))
-P='~/.claude/projects/<repo 路徑>'
-MAIN='<session id>'
+# transcript 所在:預設是 Claude Code 依 repo 路徑產生的專案資料夾;可用環境變數覆寫。
+P=os.environ.get('CGB_TRANSCRIPTS') or os.path.join(os.path.expanduser('~/.claude/projects'),os.path.abspath('.').replace('/','-'))
+MAIN=os.environ.get('CGB_MAIN_SESSION','')  # 001 主對話的 session id(transcript 檔名,不含 .jsonl)
 def ts(s): return datetime.fromisoformat(s.replace('Z','+00:00')).astimezone(TZ)
 def L(s): return datetime.strptime('2026-'+s,'%Y-%m-%d %H:%M').replace(tzinfo=TZ)
 # (階段, 開始) — 以 commit 與 Skill 呼叫時間為界,本地時間 UTC+8

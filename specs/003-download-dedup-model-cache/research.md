@@ -8,7 +8,7 @@
 - 範圍:只有 Q21(沒寫版本的名稱重複加入下載)與 Q179(`GET /api/models` 每次跑 `colab exec`);Q22 不在範圍內。不改合約、不改 UI。
 - 限制:不開 Colab、不跑 `colab` 指令、0 compute units;只用替身、本機服務與讀程式。
 
-每個「理由」都標出證據類型:**實測**(附量測環境)、**估算**(附依據)、**查證**(附來源)、**判斷**(推論)。探針放在 session 暫存區(`<session 暫存區>`),不進 repo:`probes/test_probe_baseline.py` 量改之前的現況,`probes/proto.py` 是以 monkeypatch 換掉要改的方法的原型,`probes/test_probe_proto.py`、`probes/test_probe_race.py` 照 spec 的驗收情境跑原型。實測環境都是桌機(Ubuntu,Python 3.12,專案 `.venv`),經 `tests/conftest.py` 的 fixture 與 `tests/fakes/` 的替身跑 UI API,不連 Colab;對真環境的驗收沿用 spec 的決定,以替身進行(分身決策紀錄 D4)。
+每個「理由」都標出證據類型:**實測**(附量測環境)、**估算**(附依據)、**查證**(附來源)、**判斷**(推論)。探針放在 session 暫存區,不進 repo:`probes/test_probe_baseline.py` 量改之前的現況,`probes/proto.py` 是以 monkeypatch 換掉要改的方法的原型,`probes/test_probe_proto.py`、`probes/test_probe_race.py` 照 spec 的驗收情境跑原型。實測環境都是桌機(Ubuntu,Python 3.12,專案 `.venv`),經 `tests/conftest.py` 的 fixture 與 `tests/fakes/` 的替身跑 UI API,不連 Colab;對真環境的驗收沿用 spec 的決定,以替身進行(分身決策紀錄 D4)。
 
 樣本用途(分配表在暫存區 `樣本分配表.md`,只憑名稱寫):調整用為本機 Ollama 0.32.15 的 `/api/tags` 一次回應;驗收用為本機 Ollama 以沒寫版本的名稱查 `/api/show` 的一組對照(R1 規則定案後才打開);`tests/fixtures/library/*` 與研究項無關,不用。
 
