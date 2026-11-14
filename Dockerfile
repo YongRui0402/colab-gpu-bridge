@@ -29,5 +29,10 @@ ENV CGB_LISTEN_HOST=0.0.0.0 \
 	CGB_TUNNEL_LOCAL_PORT=11435
 EXPOSE 8780 11434
 
+# 建置的 commit;CI 以 --build-arg GIT_SHA="$CI_COMMIT_SHA" 帶入,service-template 的 deploy 比對容器的 APP_VERSION 判斷換版成功。
+# 放在最後,換 commit 不會讓前面的層失效。
+ARG GIT_SHA=development
+ENV APP_VERSION=$GIT_SHA
+
 ENTRYPOINT ["cgb-prepare-data"]
 CMD ["python", "-m", "cgb"]
