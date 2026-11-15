@@ -219,15 +219,15 @@
 
 ### E11 部署與網路(Docker Compose)
 
-- [ ] T023a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_compose_env.py`(新增)寫 US1-DEP-01 的測試(以標準函式庫照縮排讀專案根目錄的 `compose.yaml`(專案沒有 YAML 函式庫,`plan.md` § 待決問題 Q29),不執行 `docker compose`;斷言 `services.cgb.environment.CGB_PUBLIC_OLLAMA_PORT` 是 `${CGB_HOST_OLLAMA_PORT:-11434}`、`services.cgb.ports` 對外的相容端點仍是 `${CGB_HOST_OLLAMA_PORT:-11434}:11434`),執行確認它因為「變數名稱打錯,或寫死 11436」這類實作而失敗(現況沒有這個變數)
+- [x] T023a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_compose_env.py`(新增)寫 US1-DEP-01 的測試(以標準函式庫照縮排讀專案根目錄的 `compose.yaml`(專案沒有 YAML 函式庫,`plan.md` § 待決問題 Q29),不執行 `docker compose`;斷言 `services.cgb.environment.CGB_PUBLIC_OLLAMA_PORT` 是 `${CGB_HOST_OLLAMA_PORT:-11434}`、`services.cgb.ports` 對外的相容端點仍是 `${CGB_HOST_OLLAMA_PORT:-11434}:11434`),執行確認它因為「變數名稱打錯,或寫死 11436」這類實作而失敗(現況沒有這個變數)
   - 🧪 `testplan.md` § US1-DEP-01
   - ⚙ `deploy/compose.yaml` § `services.cgb`、`services.cgb.environment`、`services.cgb.ports`
   - 📎 `spec.md` § FR-001;`research.md` § R7
-- [ ] T023b [US1] 🟢 /tdd 綠燈:在根目錄的 `compose.yaml` 與 `.env.example` 只寫讓 US1-DEP-01 通過的內容:只把 `specs/006-agent-client-connect/deploy/` 兩個檔的差異搬過來,不整份覆蓋(`plan.md` § 待決問題 Q3)。`compose.yaml` 在 `services.cgb.environment` 的 `CGB_OLLAMA_PORT: 11434` 之後加那一行註解與 `CGB_PUBLIC_OLLAMA_PORT: ${CGB_HOST_OLLAMA_PORT:-11434}`;`.env.example` 的 `CGB_HOST_OLLAMA_PORT` 說明加「連線設定頁的片段也用這個 port。」。複本裡 `build.context` 的 `../../..`、`x-source`、`x-requirements` 都不搬(根目錄原本的 `context: .` 與 `x-requirements` 維持不變,`plan.md` § 待決問題 Q2),所以沒有路徑要改;執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T023a)
+- [x] T023b [US1] 🟢 /tdd 綠燈:在根目錄的 `compose.yaml` 與 `.env.example` 只寫讓 US1-DEP-01 通過的內容:只把 `specs/006-agent-client-connect/deploy/` 兩個檔的差異搬過來,不整份覆蓋(`plan.md` § 待決問題 Q3)。`compose.yaml` 在 `services.cgb.environment` 的 `CGB_OLLAMA_PORT: 11434` 之後加那一行註解與 `CGB_PUBLIC_OLLAMA_PORT: ${CGB_HOST_OLLAMA_PORT:-11434}`;`.env.example` 的 `CGB_HOST_OLLAMA_PORT` 說明加「連線設定頁的片段也用這個 port。」。複本裡 `build.context` 的 `../../..`、`x-source`、`x-requirements` 都不搬(根目錄原本的 `context: .` 與 `x-requirements` 維持不變,`plan.md` § 待決問題 Q2),所以沒有路徑要改;執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T023a)
   - 🧪 `testplan.md` § US1-DEP-01
   - ⚙ `deploy/compose.yaml` § `services.cgb`、`services.cgb.environment`、`services.cgb.ports`
   - 📎 `spec.md` § FR-001;`research.md` § R7;`plan.md` § 待決問題 Q2、Q3
-- [ ] T024 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T023b 記下的重構清單(範圍限根目錄的 `compose.yaml`、`.env.example`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/unit/test_compose_env.py` 的斷言(依賴 T023b)
+- [x] T024 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T023b 記下的重構清單(範圍限根目錄的 `compose.yaml`、`.env.example`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/unit/test_compose_env.py` 的斷言(依賴 T023b)
   - 🧪 `testplan.md` § US1-DEP-01
   - 📎 `testplan.md` § 2.3
 

@@ -87,6 +87,8 @@ services:
       CGB_LISTEN_HOST: 0.0.0.0
       CGB_UI_PORT: 8780
       CGB_OLLAMA_PORT: 11434
+      # 006:連線設定頁的片段要寫主機那一側的相容端點 port(research R7);沒設時後端用上一行的容器內 port
+      CGB_PUBLIC_OLLAMA_PORT: ${CGB_HOST_OLLAMA_PORT:-11434}
       CGB_TUNNEL_LOCAL_PORT: 11435
     volumes:
       - ${CGB_HOST_DATA:-cgb-data}:/data
