@@ -126,3 +126,5 @@ tests/
 | Q34 | implement T043b | 提醒寫「套用並重啟」,005 的按鈕叫「套用並重啟 Ollama」:a 照按鈕名稱;b 維持 | — | a(D22):已改 |
 | Q35 | implement T043b | 提醒要顯示顯示記憶體,`ConnectInfo` 沒有這一項:a 前端在要提醒時另外讀 `GET /api/session` 的 `ollama.machine.vramTotalBytes`(先採用);b 合約加欄位 | — | a(D22) |
 | Q36 | implement T043b | 原型的建議值用 `<strong>`,會讓 US1-AJ-05「`.notice strong` 都含中文」不過:a 改成 `<span class="mono">`(先採用);b 改測試 | — | a(D22) |
+| Q37 | implement T050 | G-03 每次跑都寫 `measurements.md` 會讓快速層不斷改到追蹤中的檔:a 斷言每次都做,只有設 `CGB_WRITE_MEASUREMENTS=1` 時才寫(先採用);b 每次都寫 | — | a(D23) |
+| Q38 | implement T048 | `tests/realrun/conftest.py` 的 autouse `_p2_budget_gate` 會讓 `realrun_local` 的 G-01、G-02 跳過或去跑 `colab usage`:a 在 G-01 模組以同名 fixture 覆寫成不做事(本機實跑不開 Colab,不需要 P2 預算)(先採用);b 改 `conftest.py` 只在 `realrun` 時生效 | — | a(D23) |
