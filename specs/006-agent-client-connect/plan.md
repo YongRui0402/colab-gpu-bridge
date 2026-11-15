@@ -45,7 +45,7 @@ tests/
 
 - `ollama-compat.openapi.yaml` 以 001 的同名檔為底,只收 `/v1/chat/completions`、`/v1/models` 與 `/v1` 的錯誤格式;其他路徑以 001 的檔為準。
 - `ui.openapi.yaml` 以 005 的同名檔為底,只收新的連線資訊操作。
-- `deploy/` 只放 `compose.yaml` 要改的那一段與 `.env.example` 的說明。
+- `deploy/` 是根目錄 `compose.yaml`、`.env.example` 的整份複本,差異只有 `CGB_PUBLIC_OLLAMA_PORT` 一行與一句說明;實作時只把這兩處搬到根目錄,不整份覆蓋(Q1、Q3)。
 
 後端分層是 api → services → domain / repos / adapters:`api/connect.py` 組合目前工作階段的 Ollama 設定(005)與模型目錄(001),片段與建議值由 `domain/connect.py` 產生;相容端點仍在 `ollama_compat/`。
 
@@ -90,3 +90,9 @@ tests/
 
 | Q | 提出的步驟 | 問題與可選的做法 | 擋住 | 決定 |
 |---|---|---|---|---|
+| Q1 | S2 | `deploy/` 放整份還是只放改動的那一段:a 整份複本,plan.md 改寫成「差異只有一行」(先採用,檢查腳本要整份);b 只放片段 | — | a(分身決策紀錄 D9):plan.md Structure Decision 已改 |
+| Q2 | S2 | 複本的 `x-requirements` 只列 006 的 FR-001、FR-004,001 的編號拿掉:a 照這樣(先採用);b 保留 001 的編號 | — | a(D9):根目錄 `compose.yaml` 維持原本的 `x-requirements` |
+| Q3 | S2 | 複本 `build.context` 為 `../../..`,只在 `specs/006-agent-client-connect/deploy/` 成立:a 實作時只把 `CGB_PUBLIC_OLLAMA_PORT` 與說明搬到根目錄(先採用);b 整份覆蓋根目錄 | — | a(D9) |
+| Q4 | S1 | `/v1` 串流中途補的錯誤段 `error.code`:a 與執行環境斷線補 `stream_interrupted`、工作階段被結束補 `no_ready_session`,`type` 都是 `api_error`(先採用);b 兩種同一個新代碼;c 另開 `session_ended` | — | a(D10) |
+| Q5 | S1 | `/v1` 的逾時(001 的 504):a 本檔不收,照 001(先採用);b 補 504 `gateway_timeout` | — | a(D10) |
+| Q6 | S1 | `/v1/{path}` 以單一操作代表所有方法:a 照這樣,描述寫明不論方法(先採用);b 每個方法各一個操作 | — | a(D10) |

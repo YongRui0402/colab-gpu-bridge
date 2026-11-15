@@ -1,0 +1,230 @@
+openapi: 3.1.0
+info:
+  title: Ollama 相容端點(006 新增的 /v1)
+  version: 0.2.0
+  description: >-
+    S1(E3 Ollama 相容端點)依 spec.md 與 plan.md 產出。
+
+    本檔只收 006 這一輪新增或改變的部分:開放 OpenAI 相容的 `POST /v1/chat/completions` 與 `GET /v1/models`,
+    以及 `/v1` 底下由本系統自己產生的錯誤改用 OpenAI 格式。**其他路徑(`/api/*`、`/`、管理操作的 403 等)、
+    處理順序、閒置計時、標頭轉送規則與原生錯誤格式 `{"error": "<說明>"}`,一律以 001 的同名檔為準**
+    (`specs/001-session-model-catalog/contracts/ollama-compat.openapi.yaml`)。
+    001 說「`/v1/*` 回 404 `PATH_NOT_SUPPORTED`」的那一句,被本檔取代:`/v1/chat/completions` 與 `/v1/models` 現在轉送,
+    其餘 `/v1/*` 回本檔的 404 `unsupported_path`。
+
+    `/v1` 的處理順序與 001 相同,只是錯誤本文換格式:
+    (1)路徑不是上述兩條 → 不論方法與工作階段狀態,立即回 404 `unsupported_path`,不轉送、不讀本文;
+    (2)沒有「就緒」的工作階段 → 1 秒內回 503 `no_ready_session`,不排隊;
+    (3)其餘原樣轉送到目前就緒的工作階段上的遠端 Ollama(它內建的 OpenAI 相容 API,research R1 實測):
+    請求與回應的方法、標頭、本文原樣傳送,不改寫,串流逐段傳回、不緩衝(NFR-001;SC-003:每一段比遠端送出晚不超過 0.5 秒)。
+    請求與回應本文的格式以遠端 Ollama 的 OpenAI 相容 API 為準,本檔不重抄,只列本系統會依賴的欄位。
+    白名單只看路徑:兩條路徑用錯方法照轉送,回遠端自己的 405。遠端 Ollama 自己回的 4xx、5xx(例如模型不存在)原樣傳回,
+    本文是遠端的 OpenAI 格式,本系統不改寫。
+
+    錯誤本文(只限本系統自己產生的 `/v1` 錯誤,schema `OpenAIError`):`{"error": {"message", "type", "code"}}`,
+    `message` 是給使用者看的繁體中文,`code` 是英文小寫代碼(和 001 的大寫 `NO_READY_SESSION` 等是同一個原因、不同路徑的寫法)。
+    兩個用戶端(opencode、pi)顯示的是 `error.message`(research R6)。各回應的 `x-error-codes` 就是本文的 `error.code`,
+    全部代碼列在 schema `Error`。
+
+    串流中途出事時(已經送出 200 與部分 `data:` 行,HTTP 狀態碼改不了):補一段 `data: {"error": {...}}` 空一行,
+    再補 `data: [DONE]` 空一行後結束,取代 001 的「非 NDJSON 直接斷線」。與執行環境的連線非預期中斷補 `stream_interrupted`;
+    工作階段在請求進行中被結束補 `no_ready_session`(照 001 的做法,結束與沒有就緒共用同一個代碼)。
+
+    逾時(001 的 504 `OLLAMA_TIMEOUT`)與閒置計時的規則,`/v1` 兩條路徑照 001 的 `/api/chat` 與 `/api/tags`,本檔不重寫。
+    和 UI API 是不同的 port;只開放給家中區網,不需要登入。
+servers:
+  - url: http://{host}:{port}
+    description: 本系統所在主機的區網位址;Ollama 相容端點專用的 port(桌機 11436,見 CLAUDE.md)。用戶端的 base URL 是 `http://{host}:{port}/v1`
+    variables:
+      host:
+        default: 本系統所在主機
+        description: 本系統所在主機的區網 IP 或主機名稱
+      port:
+        default: 由 E11 部署決定
+        description: Ollama 相容端點在主機上的 port(CGB_HOST_OLLAMA_PORT)
+paths:
+  /v1/chat/completions:
+    post:
+      operationId: createChatCompletion
+      summary: 對話補全(OpenAI 相容,含串流與工具呼叫)
+      description: >-
+        原樣轉送到遠端 Ollama 的 `POST /v1/chat/completions`。`stream` 為 `true` 時回 `text/event-stream`:
+        每段 `data: {json}` 後空一行,最後 `data: [DONE]`;工具呼叫不是逐字增量,一個 delta 就給齊
+        `tool_calls[0].function.arguments`,下一段 `finish_reason` 為 `tool_calls`;帶 `stream_options.include_usage`
+        時 `[DONE]` 前多一段 usage(research R1 實測;opencode 與 pi 都會帶)。串流中途斷線的補段見 `info.description`。
+      x-requirements: [FR-009, FR-010, NFR-001, SC-003]
+      x-callers: 家中區網(含 VPN 連回)的任何程式(例如 opencode、pi),不需要登入;只在有「就緒」的工作階段時轉送
+      x-forwards-to: 遠端 Ollama 的 POST /v1/chat/completions(OpenAI 相容 API)
+      x-stream-error-codes: [stream_interrupted, no_ready_session]
+      requestBody:
+        required: true
+        description: 原樣轉送,格式以遠端 Ollama 的 OpenAI 相容 API 為準;下列是實測確認過、本系統會依賴的欄位
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+      responses:
+        '200':
+          description: 遠端 Ollama 的回應原樣傳回;`stream` 為 `true` 時是 SSE,否則是一個 JSON 物件
+          x-recipients: 呼叫者(送出這個請求的區網程式)
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionStream'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionPassthrough'
+        '502':
+          description: >-
+            工作階段是「就緒」,但連不到遠端 Ollama,還沒收到任何 HTTP 回應。
+            `error.message` 例如「連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試」。
+          x-error-codes: [ollama_unreachable]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIError'
+        '503':
+          description: >-
+            收到請求時沒有「就緒」的工作階段(沒有、開啟中、重連中、開啟失敗、失聯、已結束);不排隊、不轉送,1 秒內回應(FR-010)。
+            `error.message` 例如「目前沒有可用的工作階段:工作階段重連中,請稍後再試,或到 UI 查看狀態」,括號裡的狀態依當下而定,代碼一律相同。
+          x-error-codes: [no_ready_session]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIError'
+  /v1/models:
+    get:
+      operationId: listModels
+      summary: 模型清單(OpenAI 相容)
+      description: >-
+        原樣轉送到遠端 Ollama 的 `GET /v1/models`,回 OpenAI 格式的模型清單(`object: "list"`、`data[]`)。
+        opencode 與 pi 都不打它(research R1 實測),保留給其他 OpenAI 用戶端。
+      x-requirements: [FR-009, FR-010]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入;只在有「就緒」的工作階段時轉送
+      x-forwards-to: 遠端 Ollama 的 GET /v1/models(OpenAI 相容 API)
+      responses:
+        '200':
+          description: 遠端 Ollama 的模型清單原樣傳回
+          x-recipients: 呼叫者(送出這個請求的區網程式)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelListPassthrough'
+        '502':
+          description: 工作階段是「就緒」,但連不到遠端 Ollama,還沒收到任何 HTTP 回應
+          x-error-codes: [ollama_unreachable]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIError'
+        '503':
+          description: 收到請求時沒有「就緒」的工作階段;不排隊、不轉送,1 秒內回應(FR-010)
+          x-error-codes: [no_ready_session]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIError'
+  /v1/{path}:
+    get:
+      operationId: unsupportedV1Path
+      summary: /v1 底下沒開放的路徑
+      description: >-
+        代表 `/v1` 底下除了 `/v1/chat/completions` 與 `/v1/models` 以外的每一個路徑
+        (例如 `/v1/completions`、`/v1/embeddings`、`/v1/responses`),**不論 HTTP 方法與工作階段狀態**(這裡以 GET 寫出代表),
+        一律不轉送、不讀請求本文,立即回 404(FR-011)。
+      x-requirements: [FR-011]
+      x-callers: 家中區網(含 VPN 連回)的任何程式,不需要登入
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: '`/v1/` 之後的路徑,不含 `chat/completions` 與 `models` 這兩條'
+      responses:
+        '404':
+          description: >-
+            這個路徑不在開放的範圍。`error.message` 說明開放的兩條路徑,例如
+            「Ollama 相容端點不提供 /v1/embeddings;/v1 只開放 /v1/chat/completions 與 /v1/models」。
+          x-error-codes: [unsupported_path]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIError'
+components:
+  schemas:
+    ChatCompletionRequest:
+      type: object
+      description: 原樣轉送;其他欄位(`temperature` 等)以遠端 Ollama 的 OpenAI 相容 API 為準,本系統不檢查
+      additionalProperties: true
+      properties:
+        model:
+          type: string
+          description: 遠端 Ollama 上的模型名稱;不存在時遠端回 404,原樣傳回
+        messages:
+          type: array
+          description: 對話訊息,格式以遠端為準
+          items:
+            type: object
+            additionalProperties: true
+        stream:
+          type: boolean
+          description: "`true` 時回 SSE(`text/event-stream`),逐段轉送、不緩衝"
+        stream_options:
+          type: object
+          description: opencode 與 pi 都會帶 `include_usage`,讓 `[DONE]` 前多一段 usage
+          additionalProperties: true
+          properties:
+            include_usage:
+              type: boolean
+        tools:
+          type: array
+          description: 工具定義;兩個用戶端都靠它完成工具呼叫(research R1 實測),原樣轉送
+          items:
+            type: object
+            additionalProperties: true
+    ChatCompletionStream:
+      type: string
+      description: >-
+        SSE 本文:每段 `data: {json}` 後空一行,最後 `data: [DONE]`。中途斷線時最後兩段是
+        `data: {"error": {"message", "type", "code"}}`(`error` 的格式同 `OpenAIError`)與 `data: [DONE]`
+    ChatCompletionPassthrough:
+      type: object
+      description: 非串流時遠端的回應原樣傳回,格式以遠端 Ollama 的 OpenAI 相容 API 為準
+      additionalProperties: true
+    ModelListPassthrough:
+      type: object
+      description: 遠端的 OpenAI 格式模型清單原樣傳回
+      additionalProperties: true
+    OpenAIError:
+      type: object
+      required: [error]
+      description: >-
+        本系統自己產生的 `/v1` 錯誤本文(OpenAI 格式);原生路徑仍是 001 的 `{"error": "<說明>"}`
+      properties:
+        error:
+          type: object
+          required: [message, type, code]
+          properties:
+            message:
+              type: string
+              description: 給使用者看的繁體中文說明
+            type:
+              type: string
+              enum: [service_unavailable, invalid_request_error, api_error]
+            code:
+              type: string
+              description: 見 `Error` 的代碼目錄
+    Error:
+      type: object
+      required: [code]
+      description: 本檔全部錯誤的原因代碼目錄,即 `OpenAIError.error.code` 的值,寫在各回應的 `x-error-codes` 與 `x-stream-error-codes`
+      properties:
+        code:
+          type: string
+          enum: [no_ready_session, unsupported_path, ollama_unreachable, stream_interrupted]
+          x-enum-descriptions:
+            no_ready_session: 沒有「就緒」的工作階段;HTTP 503,`type` 為 `service_unavailable`。請求進行中工作階段被結束時,也是串流最後補的那一段的代碼
+            unsupported_path: "`/v1` 底下沒開放的路徑;HTTP 404,`type` 為 `invalid_request_error`"
+            ollama_unreachable: 工作階段就緒但連不到遠端 Ollama,還沒收到任何 HTTP 回應;HTTP 502,`type` 為 `api_error`
+            stream_interrupted: 串流已經開始,與執行環境的連線非預期中斷,工作階段正在重連;只出現在串流最後補的那一段,`type` 為 `api_error`
