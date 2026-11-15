@@ -29,6 +29,7 @@ pytestmark = pytest.mark.realrun_local
 OLLAMA_BIN = Path("/usr/local/bin/ollama")
 PGREP_BIN = Path("/usr/bin/pgrep")
 START_OLLAMA = str(files("cgb.adapters.scripts") / "start_ollama.py")
+RESTART_OLLAMA = str(files("cgb.adapters.scripts") / "restart_ollama.py")
 RESERVED_PORTS = frozenset({11434, 11435, 11436, 8780})
 MIB = 1048576
 KILL_GRACE_SECONDS = 10.0
@@ -79,7 +80,18 @@ for step in config["steps"]:
         error = traceback.format_exc()
     elapsed = time.monotonic() - started
     lines = [line for line in out.getvalue().splitlines() if line.startswith("CGB-RESULT ")]
-    print(json.dumps({"stdout": out.getvalue(), "result": lines[-1] if lines else None, "elapsed": elapsed, "error": error}))
+    # 這一步結束時 pid 檔指的 serve 讀到的環境(下一步可能停掉它),以及 kernel 自己的環境
+    serve_env = None
+    try:
+        pid = int(open(config["pid_file"], encoding="utf-8").read().strip())
+        raw = open(f"/proc/{pid}/environ", "rb").read()
+        serve_env = [item.decode(errors="replace").split("=", 1) for item in raw.split(b"\0") if b"=" in item]
+    except (OSError, ValueError):
+        pass
+    print(json.dumps({
+        "stdout": out.getvalue(), "result": lines[-1] if lines else None, "elapsed": elapsed, "error": error,
+        "serve_env": serve_env, "environ": dict(os.environ),
+    }))
 print(json.dumps({"environ": dict(os.environ)}))
 """
 
@@ -113,6 +125,8 @@ class Step:
     result: dict[str, Any] | None
     elapsed: float
     error: str | None
+    serve_env: list[tuple[str, str]] | None
+    environ: dict[str, str]
 
 
 @dataclass
@@ -172,14 +186,21 @@ class Box:
         env.update(overrides)
         return env
 
-    def run(self, steps: list[str], **env: str) -> Run:
-        """起一個 kernel 子行程依序執行 `steps` 裡的腳本;`env` 蓋過每一步的預設環境。"""
+    def run(self, steps: list[str | tuple[str, dict[str, str]]], **env: str) -> Run:
+        """起一個 kernel 子行程依序執行 `steps` 裡的腳本;`env` 蓋過每一步的預設環境。
+
+        一步也可以是 `(腳本, 這一步另外要蓋過的環境)`,模擬同一個 kernel 連續兩次帶不同 `--env` 的 `colab exec`。
+        """
         step_env = self.step_env(**env)
         config_path = self.root / f"kernel-{uuid.uuid4().hex}.json"
         config = {
             "port": self.port,
             "blocked": str(self.blocked_path),
-            "steps": [{"script": script, "env": step_env} for script in steps],
+            "pid_file": step_env["CGB_SERVE_PID_FILE"],
+            "steps": [
+                {"script": step, "env": step_env} if isinstance(step, str) else {"script": step[0], "env": {**step_env, **step[1]}}
+                for step in steps
+            ],
         }
         config_path.write_text(json.dumps(config), encoding="utf-8")
         kernel = subprocess.run(
@@ -199,6 +220,8 @@ class Box:
                 result=json.loads(r["result"].removeprefix("CGB-RESULT ")) if r["result"] else None,
                 elapsed=r["elapsed"],
                 error=r["error"],
+                serve_env=[tuple(pair) for pair in r["serve_env"]] if r["serve_env"] is not None else None,
+                environ=r["environ"],
             )
             for r in records[:-1]
         ]
@@ -673,3 +696,187 @@ def test_量測_讀真的_nvidia_smi_多花的時間在_5_秒內_且格式和假
     )
     assert median["A"] - median["B"] <= 5
     assert seen == [(int(real_mib) * MIB, real_name)] * ROUNDS
+
+
+# ---- 005 US2-CLI-05
+
+
+def test_只覆蓋平行數時它取代級距_沒填的兩項照級距(box):
+    # Arrange
+    box.fake_gpu(lines=[("NVIDIA A100-SXM4-40GB", 40960)])
+
+    # Act
+    started = box.run([START_OLLAMA], CGB_TUNE_NUM_PARALLEL="4").result or {}
+
+    # Assert
+    tuning = started.get("tuning") or {}
+    pid = (box.pid_file() or "").strip()
+    env = box.serve_env(int(pid)) if pid.isdigit() else []
+    log = box.log_path.read_text(encoding="utf-8", errors="replace") if box.log_path.exists() else ""
+    assert tuning.get("numParallel") == {"value": 4, "source": "manual"}
+    assert tuning.get("contextLength") == {"value": 8192, "source": "auto"}
+    assert tuning.get("maxLoadedModels") == {"value": 2, "source": "auto"}
+    assert env_value(env, "OLLAMA_NUM_PARALLEL") == ["4"]
+    assert env_value(env, "OLLAMA_CONTEXT_LENGTH") == ["8192"]
+    assert env_value(env, "OLLAMA_MAX_LOADED_MODELS") == ["2"]
+    assert [line for line in log.splitlines() if "server config" in line and "OLLAMA_NUM_PARALLEL:4" in line] != []
+
+
+# ---- 005 US2-CLI-06
+
+
+def test_覆蓋值剛好等於自動值時來源仍是_manual(box):
+    # Arrange
+    box.fake_gpu(lines=[("NVIDIA A100-SXM4-40GB", 40960)])
+
+    # Act
+    started = box.run([START_OLLAMA], CGB_TUNE_NUM_PARALLEL="8").result or {}
+
+    # Assert
+    assert (started.get("tuning") or {}).get("numParallel") == {"value": 8, "source": "manual"}
+
+
+# ---- 005 US2-CLI-07
+
+
+def test_三項都覆蓋成上限時原樣套用_不依顯示記憶體壓回級距(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+
+    # Act
+    started = box.run(
+        [START_OLLAMA], CGB_TUNE_NUM_PARALLEL="32", CGB_TUNE_CONTEXT_LENGTH="131072", CGB_TUNE_MAX_LOADED_MODELS="4"
+    ).result or {}
+
+    # Assert
+    tuning = started.get("tuning") or {}
+    pid = (box.pid_file() or "").strip()
+    env = box.serve_env(int(pid)) if pid.isdigit() else []
+    assert [tuning.get(k) for k in ("numParallel", "contextLength", "maxLoadedModels")] == [
+        {"value": 32, "source": "manual"},
+        {"value": 131072, "source": "manual"},
+        {"value": 4, "source": "manual"},
+    ]
+    assert env_value(env, "OLLAMA_NUM_PARALLEL") == ["32"]
+    assert env_value(env, "OLLAMA_CONTEXT_LENGTH") == ["131072"]
+    assert env_value(env, "OLLAMA_MAX_LOADED_MODELS") == ["4"]
+
+
+# ---- 005 US2-CLI-08
+
+
+def test_讀不到顯示記憶體時仍帶填了的覆蓋值與_flash_attention_KV_沒填的用_Ollama_預設值(box):
+    # Arrange:沒有 nvidia-smi
+
+    # Act
+    started = box.run([START_OLLAMA], CGB_TUNE_NUM_PARALLEL="4").result or {}
+
+    # Assert
+    tuning = started.get("tuning") or {}
+    pid = (box.pid_file() or "").strip()
+    env = box.serve_env(int(pid)) if pid.isdigit() else []
+    assert tuning.get("numParallel") == {"value": 4, "source": "manual"}
+    assert tuning.get("contextLength") == {"value": None, "source": "ollama_default"}
+    assert tuning.get("maxLoadedModels") == {"value": None, "source": "ollama_default"}
+    assert tuning.get("flashAttention") == {"value": True, "source": "auto"}
+    assert tuning.get("kvCacheType") == {"value": "q8_0", "source": "auto"}
+    assert env_value(env, "OLLAMA_NUM_PARALLEL") == ["4"]
+    assert env_value(env, "OLLAMA_CONTEXT_LENGTH") == []
+    assert env_value(env, "OLLAMA_MAX_LOADED_MODELS") == []
+    assert env_value(env, "OLLAMA_FLASH_ATTENTION") == ["1"]
+    assert env_value(env, "OLLAMA_KV_CACHE_TYPE") == ["q8_0"]
+
+
+# ---- 005 US2-CLI-09
+
+# 之前以 `--env OLLAMA_*` 設進 kernel、留下來的舊值
+OLD_KERNEL_TUNING = {
+    "OLLAMA_NUM_PARALLEL": "16",
+    "OLLAMA_CONTEXT_LENGTH": "32768",
+    "OLLAMA_MAX_LOADED_MODELS": "3",
+    "OLLAMA_FLASH_ATTENTION": "0",
+    "OLLAMA_KV_CACHE_TYPE": "f16",
+}
+
+
+def test_kernel_留著舊的_OLLAMA_設定時_沒有覆蓋值的_serve_一個都不繼承(box):
+    # Arrange:沒有 nvidia-smi,kernel 先有五個舊值
+
+    # Act
+    box.run([START_OLLAMA], **OLD_KERNEL_TUNING)
+
+    # Assert
+    pid = (box.pid_file() or "").strip()
+    env = box.serve_env(int(pid)) if pid.isdigit() else []
+    assert [name for name, _ in env if name in TUNING_NAMES] == []
+
+
+def test_kernel_留著舊的_OLLAMA_設定時_覆蓋的那一項只有一個值_沒填的不繼承(box):
+    # Arrange:沒有 nvidia-smi,kernel 先有五個舊值
+
+    # Act
+    box.run([START_OLLAMA], **OLD_KERNEL_TUNING, CGB_TUNE_NUM_PARALLEL="4")
+
+    # Assert
+    pid = (box.pid_file() or "").strip()
+    env = box.serve_env(int(pid)) if pid.isdigit() else []
+    assert env_value(env, "OLLAMA_NUM_PARALLEL") == ["4"]
+    assert env_value(env, "OLLAMA_CONTEXT_LENGTH") == []
+
+
+# ---- 005 US2-CLI-10
+
+
+def test_改回自動之後重啟的_serve_不帶上一次的覆蓋值_kernel_也沒有留下(box):
+    # Arrange:沒有 nvidia-smi,kernel 裡沒有任何 OLLAMA_NUM_PARALLEL
+
+    # Act
+    start, restart = box.run([(START_OLLAMA, {"CGB_TUNE_NUM_PARALLEL": "4"}), (RESTART_OLLAMA, {"CGB_TUNE_NUM_PARALLEL": ""})]).steps
+
+    # Assert
+    assert env_value(start.serve_env or [], "OLLAMA_NUM_PARALLEL") == ["4"]
+    assert "OLLAMA_NUM_PARALLEL" not in start.environ
+    assert restart.serve_env is not None and env_value(restart.serve_env, "OLLAMA_NUM_PARALLEL") == []
+    assert ((restart.result or {}).get("tuning") or {}).get("numParallel") == {"value": None, "source": "ollama_default"}
+    assert env_value(restart.serve_env, "OLLAMA_FLASH_ATTENTION") == []
+
+
+# ---- 005 US2-CLI-11
+
+BAD_OVERRIDES = {
+    "num-parallel-64": ("CGB_TUNE_NUM_PARALLEL", "64"),
+    "num-parallel-0": ("CGB_TUNE_NUM_PARALLEL", "0"),
+    "num-parallel-abc": ("CGB_TUNE_NUM_PARALLEL", "abc"),
+    "num-parallel-4.0": ("CGB_TUNE_NUM_PARALLEL", "4.0"),
+    "num-parallel-space-4": ("CGB_TUNE_NUM_PARALLEL", " 4"),
+    "num-parallel-minus-1": ("CGB_TUNE_NUM_PARALLEL", "-1"),
+    "context-length-2047": ("CGB_TUNE_CONTEXT_LENGTH", "2047"),
+    "max-loaded-models-5": ("CGB_TUNE_MAX_LOADED_MODELS", "5"),
+    "max-loaded-models-1e3": ("CGB_TUNE_MAX_LOADED_MODELS", "1e3"),
+}
+
+
+def version_unreachable(box) -> bool:
+    try:
+        box.version()
+    except httpx.HTTPError:
+        return True
+    return False
+
+
+@pytest.mark.parametrize(("name", "value"), BAD_OVERRIDES.values(), ids=BAD_OVERRIDES.keys())
+def test_覆蓋值不符時回報_input_不量硬體_不刪狀態檔也不啟動(box, name, value):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    box.tuning_path.write_text(json.dumps(OLD_STATE), encoding="utf-8")
+
+    # Act
+    failed = box.run([START_OLLAMA], **{name: value}).result or {}
+
+    # Assert
+    assert (failed.get("ok"), failed.get("stage")) == (False, "input")
+    assert name in (failed.get("detail") or "")
+    assert version_unreachable(box)
+    assert box.pid_file() is None
+    assert box.gpu_calls() == []
+    assert box.state() == OLD_STATE

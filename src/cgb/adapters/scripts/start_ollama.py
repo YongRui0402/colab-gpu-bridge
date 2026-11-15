@@ -11,6 +11,7 @@
 
 import json
 import os
+import re
 import subprocess
 import time
 import urllib.request
@@ -38,6 +39,12 @@ TIERS = (
     (0, (1, 4096, 1)),
 )
 TUNING_SOURCES = ("auto", "manual", "ollama_default")
+# 覆蓋值:kernel 的環境變數(命令列的 `--env`)→ `AppliedTuning` 的鍵
+TUNE_ENV = (
+    ("numParallel", "CGB_TUNE_NUM_PARALLEL"),
+    ("contextLength", "CGB_TUNE_CONTEXT_LENGTH"),
+    ("maxLoadedModels", "CGB_TUNE_MAX_LOADED_MODELS"),
+)
 # 交給 `ollama serve` 的五個設定;組環境前先從 kernel 的環境拿掉,同一個變數不會有兩個值
 TUNING_ENV = (
     ("numParallel", "OLLAMA_NUM_PARALLEL"),
@@ -112,16 +119,55 @@ def read_running_tuning():
     return tuning
 
 
-def decide(vram_total):
-    """依顯示記憶體得到五項設定(`AppliedTuning`)與要帶給 `ollama serve` 的環境變數。"""
+# 覆蓋值的範圍(spec FR-017,含上下限;共用約定 11)
+TUNE_RANGES = {"numParallel": (1, 32), "contextLength": (2048, 131072), "maxLoadedModels": (1, 4)}
+DIGITS = re.compile(r"^[0-9]+$")
+
+
+def invalid_override():
+    """第一個不符的 `CGB_TUNE_*` 的說明(英文,放進 `detail`);都符合(或是空字串)時是 None。"""
+    for key, name in TUNE_ENV:
+        text = os.environ.get(name) or ""
+        if not text:
+            continue
+        low, high = TUNE_RANGES[key]
+        if not (DIGITS.match(text) and low <= int(text) <= high):
+            return f"{name} must be an integer between {low} and {high}"
+    return None
+
+
+def read_overrides():
+    """三個 `CGB_TUNE_*` 裡有值的項目(十進位整數);空字串代表自動,不在結果裡(共用約定 11)。"""
+    overrides = {}
+    for key, name in TUNE_ENV:
+        text = os.environ.get(name) or ""
+        if text:
+            overrides[key] = int(text)
+    return overrides
+
+
+def decide(vram_total, overrides):
+    """依顯示記憶體與覆蓋值得到五項設定(`AppliedTuning`)與要帶給 `ollama serve` 的環境變數(共用約定 12 (c))。
+
+    值是 None 的項目不帶(來源 ollama_default):讀不到顯示記憶體時,沒有覆蓋值的那幾項數值;
+    讀不到而且三個覆蓋值都是空的時候,flash attention 與 KV 也不帶,`ollama serve` 只繼承 OLLAMA_HOST、OLLAMA_ORIGINS(和 004 相同)。
+    """
     if vram_total is None:
-        # 讀不到:五項都不帶,`ollama serve` 只繼承 OLLAMA_HOST、OLLAMA_ORIGINS(和 004 相同)
-        return {key: {"value": None, "source": "ollama_default"} for key, _ in TUNING_ENV}, {}
-    numbers = next(values for floor, values in TIERS if vram_total >= floor)
-    values = dict(zip(("numParallel", "contextLength", "maxLoadedModels"), numbers))
-    values.update(flashAttention=True, kvCacheType="q8_0")
-    tuning = {key: {"value": values[key], "source": "auto"} for key, _ in TUNING_ENV}
-    env = {name: ("1" if values[key] is True else str(values[key])) for key, name in TUNING_ENV}
+        values = {"numParallel": None, "contextLength": None, "maxLoadedModels": None}
+    else:
+        numbers = next(values for floor, values in TIERS if vram_total >= floor)
+        values = dict(zip(("numParallel", "contextLength", "maxLoadedModels"), numbers))
+    fixed = vram_total is not None or bool(overrides)
+    values.update(flashAttention=True if fixed else None, kvCacheType="q8_0" if fixed else None)
+    tuning = {
+        key: {"value": values[key], "source": "auto" if values[key] is not None else "ollama_default"}
+        for key, _ in TUNING_ENV
+    }
+    # 有覆蓋值就用覆蓋值,來源 manual(即使和級距相同)
+    for key, value in overrides.items():
+        values[key] = value
+        tuning[key] = {"value": value, "source": "manual"}
+    env = {name: ("1" if values[key] is True else str(values[key])) for key, name in TUNING_ENV if values[key] is not None}
     return tuning, env
 
 
@@ -134,10 +180,15 @@ def serve_env(tuning_env):
 
 
 def main():
+    # 先檢查覆蓋值;不符就不量硬體、不安裝、不刪狀態檔、不啟動(合約步驟 (a))
+    invalid = invalid_override()
+    if invalid:
+        report(ok=False, stage="input", detail=invalid)
+        return
     # 啟動之前量硬體(共用約定 12 (a))
     gpu_name, vram_total = read_gpu()
     machine = {"gpuName": gpu_name, "vramTotalBytes": vram_total, "systemMemoryTotalBytes": read_system_memory()}
-    tuning, tuning_env = decide(vram_total)
+    tuning, tuning_env = decide(vram_total, read_overrides())
 
     # (a)已有回應:重跑的情況,不再啟動;設定照設定檔回報(不照這次的 CGB_TUNE_* 重算),硬體用這次量到的
     version = ollama_version()
@@ -198,4 +249,7 @@ def main():
     report(ok=False, stage="verify", detail=detail or f"no response from /api/version within {VERIFY_SECONDS} seconds")
 
 
-main()
+# `colab exec` 在 kernel 的 `__main__` 執行(本機測試以 runpy 的 run_name="__main__" 模擬);
+# 被 import 時(例如 tests/integration/test_fake_signatures.py 走訪 cgb.adapters)什麼都不做,不在桌機上量硬體、連 Ollama 或啟動 serve
+if __name__ == "__main__":
+    main()

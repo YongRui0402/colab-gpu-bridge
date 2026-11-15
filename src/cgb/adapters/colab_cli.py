@@ -46,6 +46,8 @@ TUNE_ENV_NAMES = (
     ("contextLength", "CGB_TUNE_CONTEXT_LENGTH"),
     ("maxLoadedModels", "CGB_TUNE_MAX_LOADED_MODELS"),
 )
+# 覆蓋值的範圍(spec FR-017,含上下限);啟動子行程之前檢查(共用約定 11)
+TUNE_RANGES = {"numParallel": (1, 32), "contextLength": (2048, 131072), "maxLoadedModels": (1, 4)}
 TRACEBACK = "Traceback (most recent call last)"
 # 網址一律換成 `<網址>`(網址裡有執行環境的 endpoint,NFR-010);結尾的標點不算網址的一部分
 URL = re.compile(r"https?://\S*[^\s:,.;)\]'\"]")
@@ -180,6 +182,7 @@ class ColabControl:
         }
 
     async def start_ollama(self, name: str, overrides: dict[str, int | None]) -> dict[str, Any]:
+        check_overrides(overrides)
         stdout, stderr = await self._exec_script(
             self.timeouts.start_ollama,
             "-s", name, "-f", str(SCRIPTS / "start_ollama.py"), "--timeout", "240", *START_OLLAMA_ENV,
@@ -190,12 +193,7 @@ class ColabControl:
             last = masked_last_line(stderr)
             raise AdapterError("COLAB_REMOTE_ERROR", f"執行環境上的初始化腳本發生錯誤:{last}", last)
         result = result_line(stdout)
-        if result.get("ok") is not True:
-            raise AdapterError(
-                "COLAB_REMOTE_ERROR",
-                f"在執行環境上啟動 Ollama 失敗(階段 {result.get('stage')}):{result.get('detail')}",
-                remote_stage=result.get("stage"),
-            )
+        raise_script_failure(result, "在執行環境上啟動 Ollama 失敗")
         if not is_started_result(result):
             raise AdapterError("COLAB_BAD_RESPONSE", "執行環境上的初始化腳本回報的結果格式不符")
         # 硬體與設定原樣交出,不依顯示記憶體重算(共用約定 12 (e));probedAt 是轉接層收到結果的時間
@@ -292,6 +290,14 @@ def tune_env(overrides: dict[str, int | None]) -> list[str]:
     return env
 
 
+def check_overrides(overrides: dict[str, int | None]) -> None:
+    """三個覆蓋值都是 None 或範圍內的整數(bool 不算);否則丟 COLAB_INVALID_TUNING(共用約定 11,啟動子行程之前)。"""
+    for key, (low, high) in TUNE_RANGES.items():
+        value = overrides[key]
+        if value is not None and not (is_int_at_least(value, low) and value <= high):
+            raise AdapterError("COLAB_INVALID_TUNING", f"覆蓋值 {key} 必須是 {low}~{high} 的整數")
+
+
 def is_int_at_least(value: Any, minimum: int) -> bool:
     """整數(bool 不算)而且不小於 `minimum`;None 也算(讀不到、不帶)。"""
     return value is None or (isinstance(value, int) and not isinstance(value, bool) and value >= minimum)
@@ -325,6 +331,19 @@ def is_started_result(result: dict[str, Any]) -> bool:
     if result["tuning"] is None:
         return result["alreadyRunning"]
     return is_applied_tuning(result["tuning"])
+
+
+def raise_script_failure(result: dict[str, Any], message: str) -> None:
+    """結果行的 `ok` 不是 true 時丟出:`stage` 為 `input` 是 COLAB_INVALID_TUNING,其他是帶 `remoteStage` 的 COLAB_REMOTE_ERROR。"""
+    if result.get("ok") is False and result.get("stage") == "input":
+        # 遠端擋下不符的覆蓋值(沒有經過轉接層的呼叫);`remoteStage` 只有 COLAB_REMOTE_ERROR 帶
+        raise AdapterError("COLAB_INVALID_TUNING", f"執行環境上的腳本拒絕覆蓋值:{result.get('detail')}")
+    if result.get("ok") is not True:
+        raise AdapterError(
+            "COLAB_REMOTE_ERROR",
+            f"{message}(階段 {result.get('stage')}):{result.get('detail')}",
+            remote_stage=result.get("stage"),
+        )
 
 
 def masked_last_line(text: str) -> str | None:

@@ -1416,3 +1416,90 @@ async def test_帶覆蓋值的啟動照樣有_001_的失敗分類_逾時整組�
     assert failures["g-crash"][0].stderr_last_line == "boom at <網址>"
     assert isinstance(retried, dict), f"回了錯誤:{retried!r}"
     assert retried_argvs == [start_argv(), start_argv()]
+
+
+# ---- 005 US2-CLI-01
+
+NUM_PARALLEL_4 = {"numParallel": 4, "contextLength": None, "maxLoadedModels": None}
+
+
+async def test_只覆蓋平行數時命令列帶它的十進位數字_沒填的兩項仍是空字串_設定照腳本回報(fake_cli):
+    # Arrange
+    manual_4 = {**TUNING_AUTO_40G, "numParallel": {"value": 4, "source": "manual"}}
+    fake_cli.script(start_script_for(start_argv(np="4"), {"stdout": result(**{**STARTED_FIELDS, "tuning": manual_4})}))
+
+    # Act
+    started = await failure_of_or_result(ColabControl().start_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+
+    # Assert
+    assert [call["argv"] for call in fake_cli.calls("colab")] == [start_argv(np="4")]
+    assert isinstance(started, dict), f"回了錯誤:{started!r}"
+    assert started["tuning"]["numParallel"] == {"value": 4, "source": "manual"}
+
+
+# ---- 005 US2-CLI-02
+
+
+async def test_覆蓋值剛好是上限或下限時照樣帶進命令列(fake_cli):
+    # Arrange
+    upper = start_argv(np="32", cl="131072", ml="4")
+    lower = start_argv(np="1", cl="2048", ml="1")
+    fake_cli.script({"colab": {shlex.join(argv): {"stdout": STARTED_A100} for argv in (upper, lower)}})
+    colab = ColabControl()
+
+    # Act
+    at_upper = await failure_of(
+        colab.start_ollama(name="cgb-test-0001", overrides={"numParallel": 32, "contextLength": 131072, "maxLoadedModels": 4})
+    )
+    at_lower = await failure_of(
+        colab.start_ollama(name="cgb-test-0001", overrides={"numParallel": 1, "contextLength": 2048, "maxLoadedModels": 1})
+    )
+
+    # Assert
+    argvs = [call["argv"] for call in fake_cli.calls("colab")]
+    assert (at_upper, argvs[:1]) == (None, [upper])
+    assert (at_lower, argvs[1:]) == (None, [lower])
+
+
+# ---- 005 US2-CLI-03
+
+OUT_OF_RANGE = {
+    "numParallel-0": {"numParallel": 0},
+    "numParallel-33": {"numParallel": 33},
+    "contextLength-2047": {"contextLength": 2047},
+    "contextLength-131073": {"contextLength": 131073},
+    "maxLoadedModels-0": {"maxLoadedModels": 0},
+    "maxLoadedModels-5": {"maxLoadedModels": 5},
+    "numParallel-4.5": {"numParallel": 4.5},
+    "numParallel-str-4": {"numParallel": "4"},
+    "numParallel-True": {"numParallel": True},
+}
+
+
+@pytest.mark.parametrize("override", OUT_OF_RANGE.values(), ids=OUT_OF_RANGE.keys())
+async def test_覆蓋值超出範圍或不是整數時是_COLAB_INVALID_TUNING_不執行_colab(fake_cli, override):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(argv): {"stdout": STARTED_A100} for argv in (start_argv(), start_argv(np="1"))}})
+
+    # Act
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides={**AUTO, **override}))
+
+    # Assert
+    assert code_of(error) == "COLAB_INVALID_TUNING"
+    assert fake_cli.calls("colab") == []
+
+
+# ---- 005 US2-CLI-04
+
+
+async def test_遠端腳本回報覆蓋值不符時是_COLAB_INVALID_TUNING_沒有遠端階段(fake_cli):
+    # Arrange
+    rejected = result(ok=False, stage="input", detail="CGB_TUNE_NUM_PARALLEL must be an integer between 1 and 32")
+    fake_cli.script(start_script_for(start_argv(np="4"), {"stdout": rejected, "exit": 0}))
+
+    # Act
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+
+    # Assert
+    assert code_of(error) == "COLAB_INVALID_TUNING"
+    assert remote_stage_of(error) is None
