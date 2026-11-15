@@ -431,39 +431,39 @@
 
 ### E2 後端 UI API(FastAPI REST 與 SSE)
 
-- [ ] T038a [US3] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US3-API-01 的測試(依序以顯示記憶體 `12 * GIB`、`12 * GIB - 1`、`40 * GIB`、`None` 呼叫 `connect.recommended_context_length(...)`;斷言分別是 32768、16384、32768、16384,每個都不超過 131072),執行確認它因為「邊界寫成 `>`,剛好 12 GiB 掉到 16384;讀不到時回 None」這類實作而失敗
+- [x] T038a [US3] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US3-API-01 的測試(依序以顯示記憶體 `12 * GIB`、`12 * GIB - 1`、`40 * GIB`、`None` 呼叫 `connect.recommended_context_length(...)`;斷言分別是 32768、16384、32768、16384,每個都不超過 131072),執行確認它因為「邊界寫成 `>`,剛好 12 GiB 掉到 16384;讀不到時回 None」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-007;`research.md` § R5;`plan.md` § 待決問題 Q11
-- [ ] T038b [US3] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US3-API-01 通過的程式碼(`recommended_context_length(vram_bytes)`:≥ 12 GiB 回 32768,否則與讀不到時回 16384,上限 131072);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T038a)
+- [x] T038b [US3] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US3-API-01 通過的程式碼(`recommended_context_length(vram_bytes)`:≥ 12 GiB 回 32768,否則與讀不到時回 16384,上限 131072);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T038a)
   - 🧪 `testplan.md` § US3-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-007;`research.md` § R5;`plan.md` § 待決問題 Q11
-- [ ] T039a [US3] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US3-API-02 的測試(依序以 context 4096、16383、16384、`None` 呼叫 `connect.should_warn(...)`;斷言分別是 true、true、false、false),執行確認它因為「用 `<=`,剛好 16384 也提醒;讀不到時提醒」這類實作而失敗
+- [x] T039a [US3] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US3-API-02 的測試(依序以 context 4096、16383、16384、`None` 呼叫 `connect.should_warn(...)`;斷言分別是 true、true、false、false),執行確認它因為「用 `<=`,剛好 16384 也提醒;讀不到時提醒」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-006;`research.md` § R4
-- [ ] T039b [US3] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US3-API-02 通過的程式碼(`should_warn(context_length)`:不是 None 且小於 16384 才是 true);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T039a)
+- [x] T039b [US3] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US3-API-02 通過的程式碼(`should_warn(context_length)`:不是 None 且小於 16384 才是 true);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T039a)
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-006;`research.md` § R4
-- [ ] T040a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US3-API-03 的測試(工作階段就緒,context 4096、顯示記憶體 15360 MiB;送 `GET /api/connect`;斷言 `shouldWarn` 是 true、`recommendedMinContextLength` 是 16384、`recommendedContextLength` 是 32768),執行確認它因為「提醒由前端自己算,後端沒給」這類實作而失敗(T029b 的最小版 `recommendedContextLength` 固定 16384)
+- [x] T040a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US3-API-03 的測試(工作階段就緒,context 4096、顯示記憶體 15360 MiB;送 `GET /api/connect`;斷言 `shouldWarn` 是 true、`recommendedMinContextLength` 是 16384、`recommendedContextLength` 是 32768),執行確認它因為「提醒由前端自己算,後端沒給」這類實作而失敗(T029b 的最小版 `recommendedContextLength` 固定 16384)
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-006、FR-007
-- [ ] T040b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py` 只寫讓 US3-API-03 通過的程式碼(`shouldWarn` 與 `recommendedContextLength` 改用 `domain/connect.py` 的 `should_warn`、`recommended_context_length`,顯示記憶體取 `catalog.list()` 的 `vramBytes`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T040a)
+- [x] T040b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py` 只寫讓 US3-API-03 通過的程式碼(`shouldWarn` 與 `recommendedContextLength` 改用 `domain/connect.py` 的 `should_warn`、`recommended_context_length`,顯示記憶體取 `catalog.list()` 的 `vramBytes`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T040a)
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-006、FR-007
-- [ ] T041a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US3-API-04 的測試(工作階段就緒,005 的 `ollama.status` 是 `unknown`;送 `GET /api/connect`;斷言 `contextLength` 是 null、`shouldWarn` 是 false、`reason` 是 null,opencode 片段沒有 `limit`、pi 片段沒有 `contextWindow` 且 `maxTokens` 是 4096,`snippets.piSettings` 是 null),執行確認它因為「讀不到時寫進 `limit.context: null` 或 4096」這類實作而失敗
+- [x] T041a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US3-API-04 的測試(工作階段就緒,005 的 `ollama.status` 是 `unknown`;送 `GET /api/connect`;斷言 `contextLength` 是 null、`shouldWarn` 是 false、`reason` 是 null,opencode 片段沒有 `limit`、pi 片段沒有 `contextWindow` 且 `maxTokens` 是 4096,`snippets.piSettings` 是 null),執行確認它因為「讀不到時寫進 `limit.context: null` 或 4096」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-008;`plan.md` § 待決問題 Q9、Q15
-- [ ] T041b [US3] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 與 `src/cgb/api/connect.py` 只寫讓 US3-API-04 通過的程式碼(`contextLength` 為 null 時 `opencode_snippet` 不寫 `limit`、`pi_models_snippet` 不寫 `contextWindow` 且 `maxTokens` 為 4096、`piSettings` 為 null、`reserveTokens` 為 null);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T041a)
+- [x] T041b [US3] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 與 `src/cgb/api/connect.py` 只寫讓 US3-API-04 通過的程式碼(`contextLength` 為 null 時 `opencode_snippet` 不寫 `limit`、`pi_models_snippet` 不寫 `contextWindow` 且 `maxTokens` 為 4096、`piSettings` 為 null、`reserveTokens` 為 null);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T041a)
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-008;`plan.md` § 待決問題 Q9、Q15
-- [ ] T042 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T038b~T041b 記下的重構清單(範圍限 `src/cgb/domain/connect.py`、`src/cgb/api/connect.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/unit/test_connect.py`、`tests/integration/test_api_connect.py` 的斷言(依賴 T041b)
+- [x] T042 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T038b~T041b 記下的重構清單(範圍限 `src/cgb/domain/connect.py`、`src/cgb/api/connect.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/unit/test_connect.py`、`tests/integration/test_api_connect.py` 的斷言(依賴 T041b)
   - 🧪 `testplan.md` § US3-API-01~US3-API-04
   - 📎 `testplan.md` § 4.1
 

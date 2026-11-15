@@ -82,3 +82,34 @@ def test_pi_的單次回覆上限與壓縮預留隨_context_縮小且預留無�
     # Assert
     assert max_tokens == [2048, 4096, 4096]
     assert reserve_tokens == [1024, 4096, 8191]
+
+
+# ---------------------------------------------------------------- US3-API-01
+
+GIB = 2**30
+
+
+def test_建議的_context_長度依顯示記憶體算且讀不到時用下限且不超過上限() -> None:
+    # Arrange
+    vram_cases = [12 * GIB, 12 * GIB - 1, 40 * GIB, None]
+
+    # Act
+    recommended = [connect.recommended_context_length(vram) for vram in vram_cases]
+
+    # Assert
+    assert recommended == [32768, 16384, 32768, 16384]
+    assert all(value <= 131072 for value in recommended)
+
+
+# ---------------------------------------------------------------- US3-API-02
+
+
+def test_context_小於建議下限才提醒且讀不到時不提醒() -> None:
+    # Arrange
+    context_cases = [4096, 16383, 16384, None]
+
+    # Act
+    warnings = [connect.should_warn(context) for context in context_cases]
+
+    # Assert
+    assert warnings == [True, True, False, False]

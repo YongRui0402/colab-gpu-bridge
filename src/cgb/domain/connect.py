@@ -20,11 +20,17 @@ def reserve_tokens(context_length: int | None) -> int | None:
 
 def opencode_snippet(port: int, models: list[str], context_length: int | None) -> str:
     """可合併進 `opencode.json` 的 JSON 文字;位址寫成 `http://{{host}}:<port>/v1`,`{{host}}` 由前端換掉。"""
+    models_entry: dict[str, dict[str, object]] = {}
+    for model in models:
+        entry: dict[str, object] = {"name": model}
+        if context_length is not None:
+            entry["limit"] = {"context": context_length, "output": _max_output(context_length)}
+        models_entry[model] = entry
     cgb = {
         "npm": "@ai-sdk/openai-compatible",
         "name": "colab-gpu-bridge",
         "options": {"baseURL": _base_url(port)},
-        "models": {model: {"name": model, "limit": {"context": context_length, "output": _max_output(context_length)}} for model in models},
+        "models": models_entry,
     }
     return json.dumps({"provider": {"cgb": cgb}}, indent=2)
 
@@ -54,3 +60,22 @@ def pi_settings_snippet(context_length: int | None) -> str | None:
     if reserve is None:
         return None
     return json.dumps({"compaction": {"reserveTokens": reserve}}, indent=2)
+
+
+_GIB = 2**30
+# coding agent 的建議下限(R4)與依顯示記憶體估算的建議值(R5、Q11)
+RECOMMENDED_MIN_CONTEXT = 16384
+_LARGE_VRAM_BYTES = 12 * _GIB
+_CONTEXT_FOR_LARGE_VRAM = 32768
+_CONTEXT_CEILING = 131072
+
+
+def recommended_context_length(vram_bytes: int | None) -> int:
+    """建議的 context 長度:顯示記憶體 ≥ 12 GiB 為 32768,否則與讀不到時為 16384(FR-007、Q11);上限 131072。"""
+    large = vram_bytes is not None and vram_bytes >= _LARGE_VRAM_BYTES
+    return min(_CONTEXT_CEILING, _CONTEXT_FOR_LARGE_VRAM if large else RECOMMENDED_MIN_CONTEXT)
+
+
+def should_warn(context_length: int | None) -> bool:
+    """讀得到 context 且小於建議下限才提醒(FR-006、R4);讀不到時不提醒。"""
+    return context_length is not None and context_length < RECOMMENDED_MIN_CONTEXT

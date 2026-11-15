@@ -14,6 +14,7 @@ import httpx
 from cgb.app import AppPair
 from conftest import FakeClock
 from integration.test_api_models import QWEN_7B_BYTES, QWEN_SMALL_BYTES, set_tags, tag
+from integration.test_api_tuning import GIB, started
 from integration.test_api_session import ColabWorld, error_code, get_session, open_ready, ui_client  # noqa: F401(ui_client 是 fixture)
 
 CODER_7B = "qwen2.5-coder:7b"
@@ -185,3 +186,45 @@ async def test_就緒時附_pi_的_models_與_settings_片段並依套用的_con
     assert pi_models["providers"]["cgb"]["models"][0]["contextWindow"] == 4096
     assert json.loads(body["snippets"]["piSettings"]) == {"compaction": {"reserveTokens": 1024}}
     assert body["reserveTokens"] == 1024
+
+
+# ---------------------------------------------------------------- US3-API-03
+
+
+async def test_context_太小時後端給出提醒與建議值(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:預設資料,套用的 context 4096、顯示記憶體 15360 MiB
+    ColabWorld(fakes)
+    set_default_catalog(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.get("/api/connect")
+
+    # Assert
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["shouldWarn"], body["recommendedMinContextLength"], body["recommendedContextLength"]) == (True, 16384, 32768)
+
+
+# ---------------------------------------------------------------- US3-API-04
+
+
+async def test_讀不到目前設定時不帶_context_也不提醒(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:005 的 ollama.status 是 unknown(遠端 Ollama 已在執行、讀不到設定)
+    world = ColabWorld(fakes)
+    world.start_result = started(15 * GIB, None, gpu_name="Tesla T4", system_bytes=13_605_855_232, already_running=True)
+    set_default_catalog(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.get("/api/connect")
+
+    # Assert
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["contextLength"], body["shouldWarn"], body["reason"]) == (None, False, None)
+    opencode_model = json.loads(body["snippets"]["opencode"])["provider"]["cgb"]["models"][CODER_7B]
+    pi_model = json.loads(body["snippets"]["piModels"])["providers"]["cgb"]["models"][0]
+    assert "limit" not in opencode_model
+    assert ("contextWindow" in pi_model, pi_model["maxTokens"]) == (False, 4096)
+    assert (body["snippets"]["piSettings"], body["reserveTokens"]) == (None, None)
