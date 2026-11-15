@@ -230,6 +230,7 @@ def make_app(db_path: Path, fake_clock: FakeClock, test_timeouts: Timeouts, fake
             "clock": fake_clock,
             "name_prefix": TEST_NAME_PREFIX,
             "timeouts": test_timeouts,
+            "public_ollama_port": 11436,
             **fakes.as_kwargs(),
         }
         kwargs.update(overrides)

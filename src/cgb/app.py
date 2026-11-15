@@ -26,6 +26,9 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 # 本機轉發的 port 預設值(contracts/tunnel.openapi.yaml § OpenTunnelInput.localPort;CGB_TUNNEL_LOCAL_PORT)
 DEFAULT_TUNNEL_LOCAL_PORT = 11435
 
+# 相容端點在容器內的 port 預設值(CGB_OLLAMA_PORT;plan.md Q21)
+DEFAULT_OLLAMA_PORT = 11434
+
 
 class Clock(Protocol):
     """後端取得時間與等待的唯一來源;測試注入可推進的假時鐘。"""
@@ -94,6 +97,9 @@ class AppState:
     # Hugging Face Hub 轉接層(plan.md Q65):`create_app` 沒給時用正式的 `HuggingFaceHub()`
     huggingface: Any = None
     tunnel_local_port: int = DEFAULT_TUNNEL_LOCAL_PORT
+    # 相容端點在容器內的 port,與它在主機上對外的 port(連線設定頁用,plan.md Q21)
+    ollama_port: int = DEFAULT_OLLAMA_PORT
+    public_ollama_port: int | None = None
 
 
 @dataclass(frozen=True)
@@ -125,6 +131,8 @@ def create_app(
     google_oauth: Any,
     huggingface: Any = None,
     tunnel_local_port: int = DEFAULT_TUNNEL_LOCAL_PORT,
+    ollama_port: int = DEFAULT_OLLAMA_PORT,
+    public_ollama_port: int | None = None,
 ) -> AppPair:
     """建立兩個空的 app 與共用狀態;五個轉接層(Q96)由呼叫端注入。"""
     if not name_prefix.startswith(REQUIRED_NAME_PREFIX):
@@ -142,6 +150,8 @@ def create_app(
         google_oauth=google_oauth,
         huggingface=huggingface if huggingface is not None else HuggingFaceHub(),
         tunnel_local_port=tunnel_local_port,
+        ollama_port=ollama_port,
+        public_ollama_port=public_ollama_port if public_ollama_port is not None else ollama_port,
     )
     ui = _empty_app("colab-gpu-bridge UI", state)
     # 延後匯入:cgb.api 往下依賴 services 與 db,app.py 只負責組裝

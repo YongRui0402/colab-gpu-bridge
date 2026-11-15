@@ -1,7 +1,7 @@
 """`python -m cgb`:組出真的轉接層,在同一個行程起 UI 與 Ollama 相容端點(plan.md Q87、Q93、Q113)。
 
 環境變數(deploy/compose.yaml 的 environment,預設值與 Dockerfile 相同):
-`CGB_LISTEN_HOST`、`CGB_UI_PORT`、`CGB_OLLAMA_PORT`、`CGB_TUNNEL_LOCAL_PORT`、`CGB_DB_PATH`、
+`CGB_LISTEN_HOST`、`CGB_UI_PORT`、`CGB_OLLAMA_PORT`、`CGB_PUBLIC_OLLAMA_PORT`(沒設時用 `CGB_OLLAMA_PORT`)、`CGB_TUNNEL_LOCAL_PORT`、`CGB_DB_PATH`、
 `CGB_COLAB_CONFIG_DIR`、`CGB_SSH_IDENTITY_PATH`、`CGB_NAME_PREFIX`(工作階段名稱前綴,預設 `cgb-`;實跑用 `cgb-test-`)。
 """
 
@@ -24,6 +24,7 @@ class Settings:
     listen_host: str
     ui_port: int
     ollama_port: int
+    public_ollama_port: int
     tunnel_local_port: int
     db_path: str
     colab_config_dir: str
@@ -32,10 +33,13 @@ class Settings:
 
 
 def read_settings(env: Mapping[str, str] = os.environ) -> Settings:
+    ollama_port = int(env.get("CGB_OLLAMA_PORT", "11434"))
     return Settings(
         listen_host=env.get("CGB_LISTEN_HOST", "0.0.0.0"),
         ui_port=int(env.get("CGB_UI_PORT", "8780")),
-        ollama_port=int(env.get("CGB_OLLAMA_PORT", "11434")),
+        ollama_port=ollama_port,
+        # 相容端點在主機上對外的 port,連線設定頁的片段用;沒設時是容器內的 port(plan.md Q21)
+        public_ollama_port=int(env.get("CGB_PUBLIC_OLLAMA_PORT", str(ollama_port))),
         tunnel_local_port=int(env.get("CGB_TUNNEL_LOCAL_PORT", "11435")),
         db_path=env.get("CGB_DB_PATH", "/data/cgb.sqlite3"),
         colab_config_dir=env.get("CGB_COLAB_CONFIG_DIR", "/data/colab-cli"),
@@ -52,6 +56,8 @@ def build_pair(settings: Settings):
     return create_app(
         db_path=settings.db_path,
         tunnel_local_port=settings.tunnel_local_port,
+        ollama_port=settings.ollama_port,
+        public_ollama_port=settings.public_ollama_port,
         name_prefix=settings.name_prefix,
         colab=ColabControl(),
         tunnel=Tunnel(),

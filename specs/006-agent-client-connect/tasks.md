@@ -141,79 +141,79 @@
 
 > `src/cgb/domain/connect.py` 由 T013b 建立;故事 2、3 的 E2 節與跨端點驗收的 T029b 也改它或 `src/cgb/api/connect.py`,都排在這一節之後
 
-- [ ] T013a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US1-API-01 的測試(以 port 11436、模型 `["qwen2.5-coder:7b","qwen2.5:3b"]`、context 32768 呼叫 `connect.opencode_snippet(...)`;斷言片段解析成 JSON 後 `provider.cgb.npm` 是 `@ai-sdk/openai-compatible`、`options.baseURL` 是 `http://{{host}}:11436/v1`、`models` 的鍵恰好是兩個模型名稱、每個模型 `limit.context` 是 32768 且 `limit.output` 是 4096),執行確認它因為「baseURL 少了 `/v1`;或模型清單寫死」這類實作而失敗
+- [x] T013a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US1-API-01 的測試(以 port 11436、模型 `["qwen2.5-coder:7b","qwen2.5:3b"]`、context 32768 呼叫 `connect.opencode_snippet(...)`;斷言片段解析成 JSON 後 `provider.cgb.npm` 是 `@ai-sdk/openai-compatible`、`options.baseURL` 是 `http://{{host}}:11436/v1`、`models` 的鍵恰好是兩個模型名稱、每個模型 `limit.context` 是 32768 且 `limit.output` 是 4096),執行確認它因為「baseURL 少了 `/v1`;或模型清單寫死」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-001、FR-002;`research.md` § R2
-- [ ] T013b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py`(新增,純函式)只寫讓 US1-API-01 通過的程式碼(`opencode_snippet(port, models, context_length) -> str`,縮排 2 格的 JSON 文字,位址寫成 `http://{{host}}:<port>/v1`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T013a)
+- [x] T013b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py`(新增,純函式)只寫讓 US1-API-01 通過的程式碼(`opencode_snippet(port, models, context_length) -> str`,縮排 2 格的 JSON 文字,位址寫成 `http://{{host}}:<port>/v1`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T013a)
   - 🧪 `testplan.md` § US1-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-001、FR-002;`research.md` § R2
-- [ ] T014a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US1-API-02 的測試(以 context 4096、8191 各呼叫 `connect.opencode_snippet(...)`;斷言 `limit.output` 分別是 2048、4095),執行確認它因為「`limit.output` 固定 4096,context 4096 時一次回覆就用完」這類實作而失敗
+- [x] T014a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US1-API-02 的測試(以 context 4096、8191 各呼叫 `connect.opencode_snippet(...)`;斷言 `limit.output` 分別是 2048、4095),執行確認它因為「`limit.output` 固定 4096,context 4096 時一次回覆就用完」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-002;`research.md` § R2
-- [ ] T014b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US1-API-02 通過的程式碼(`limit.output` 為 `min(4096, ⌊context ÷ 2⌋)`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T014a)
+- [x] T014b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US1-API-02 通過的程式碼(`limit.output` 為 `min(4096, ⌊context ÷ 2⌋)`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T014a)
   - 🧪 `testplan.md` § US1-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-002;`research.md` § R2
-- [ ] T015a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-03 的測試(工作階段就緒的預設資料,沿用 `tests/integration/test_api_session.py` 的 `ColabWorld`、`open_ready` 與 `ui_client`;送 `GET /api/connect`;斷言回 200、`ollamaPort` 是 11436、`basePath` 是 `/v1`、`reason` 是 null、`models` 是 `["qwen2.5-coder:7b","qwen2.5:3b"]`、`contextLength` 是 4096、`snippets.opencode` 解析後的 `limit.context` 是 4096),執行確認它因為「片段的 context 取級距表而不是目前套用的值;port 寫死 11434」這類實作而失敗
+- [x] T015a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-03 的測試(工作階段就緒的預設資料,沿用 `tests/integration/test_api_session.py` 的 `ColabWorld`、`open_ready` 與 `ui_client`;送 `GET /api/connect`;斷言回 200、`ollamaPort` 是 11436、`basePath` 是 `/v1`、`reason` 是 null、`models` 是 `["qwen2.5-coder:7b","qwen2.5:3b"]`、`contextLength` 是 4096、`snippets.opencode` 解析後的 `limit.context` 是 4096),執行確認它因為「片段的 context 取級距表而不是目前套用的值;port 寫死 11434」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-001、FR-002;`research.md` § R7
-- [ ] T015b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py`(新增 `GET /connect`,組合 `lifecycle.current()` 的 `ollama.tuning.contextLength.value` 與 `catalog.list()` 的模型名稱,片段交給 `domain/connect.py`;其餘必填欄位先給合約的固定值,建議值與提醒的算法由故事 3 逼出)、`src/cgb/api/__init__.py`(`app.include_router(connect.router, prefix="/api")`)、`src/cgb/app.py`(`AppState` 與 `create_app` 加 `ollama_port`、`public_ollama_port`,`plan.md` § 待決問題 Q21)、`tests/conftest.py`(`make_app` 預設帶 `public_ollama_port=11436`)只寫讓 US1-API-03 通過的程式碼;執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T015a)
+- [x] T015b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py`(新增 `GET /connect`,組合 `lifecycle.current()` 的 `ollama.tuning.contextLength.value` 與 `catalog.list()` 的模型名稱,片段交給 `domain/connect.py`;其餘必填欄位先給合約的固定值,建議值與提醒的算法由故事 3 逼出)、`src/cgb/api/__init__.py`(`app.include_router(connect.router, prefix="/api")`)、`src/cgb/app.py`(`AppState` 與 `create_app` 加 `ollama_port`、`public_ollama_port`,`plan.md` § 待決問題 Q21)、`tests/conftest.py`(`make_app` 預設帶 `public_ollama_port=11436`)只寫讓 US1-API-03 通過的程式碼;執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T015a)
   - 🧪 `testplan.md` § US1-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-001、FR-002;`research.md` § R7;`plan.md` § 待決問題 Q21
-- [ ] T016a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-04 的測試(`make_app(public_ollama_port=None, ollama_port=11434)`,等於沒設 `CGB_PUBLIC_OLLAMA_PORT`、容器內 `CGB_OLLAMA_PORT` 是 11434;送 `GET /api/connect`;斷言 `ollamaPort` 是 11434),執行確認它因為「沒設時回 null 或 0,片段的位址壞掉」這類實作而失敗
+- [x] T016a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-04 的測試(`make_app(public_ollama_port=None, ollama_port=11434)`,等於沒設 `CGB_PUBLIC_OLLAMA_PORT`、容器內 `CGB_OLLAMA_PORT` 是 11434;送 `GET /api/connect`;斷言 `ollamaPort` 是 11434),執行確認它因為「沒設時回 null 或 0,片段的位址壞掉」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-001;`research.md` § R7;`plan.md` § 待決問題 Q21
-- [ ] T016b [US1] 🟢 /tdd 綠燈:在 `src/cgb/app.py`(`public_ollama_port` 沒給時用 `ollama_port`)與 `src/cgb/__main__.py`(`Settings` 加 `public_ollama_port`,讀 `CGB_PUBLIC_OLLAMA_PORT`,沒設時用 `ollama_port`;`build_pair` 把兩個 port 傳給 `create_app`)只寫讓 US1-API-04 通過的程式碼;執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T016a)
+- [x] T016b [US1] 🟢 /tdd 綠燈:在 `src/cgb/app.py`(`public_ollama_port` 沒給時用 `ollama_port`)與 `src/cgb/__main__.py`(`Settings` 加 `public_ollama_port`,讀 `CGB_PUBLIC_OLLAMA_PORT`,沒設時用 `ollama_port`;`build_pair` 把兩個 port 傳給 `create_app`)只寫讓 US1-API-04 通過的程式碼;執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T016a)
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-001;`research.md` § R7;`plan.md` § 待決問題 Q21
-- [ ] T017a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-05 的測試(沒有開工作階段;送 `GET /api/connect`;斷言回 200、`reason` 是 `no_ready_session`、`snippets` 是 null),執行確認它因為「沒有工作階段時回 503,畫面沒辦法說明原因」這類實作而失敗
+- [x] T017a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-05 的測試(沒有開工作階段;送 `GET /api/connect`;斷言回 200、`reason` 是 `no_ready_session`、`snippets` 是 null),執行確認它因為「沒有工作階段時回 503,畫面沒辦法說明原因」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q8
-- [ ] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py` 只寫讓 US1-API-05 通過的程式碼(依 `info.x-reason-rule` 第 (1) 點:不是 `ready` 的任何狀態回 200、`reason` 為 `no_ready_session`、`models` 為空、`contextLength` 與 `snippets` 為 null);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T017a)
+- [x] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py` 只寫讓 US1-API-05 通過的程式碼(依 `info.x-reason-rule` 第 (1) 點:不是 `ready` 的任何狀態回 200、`reason` 為 `no_ready_session`、`models` 為空、`contextLength` 與 `snippets` 為 null);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T017a)
   - 🧪 `testplan.md` § US1-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q8
-- [ ] T018a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-06 的測試(工作階段就緒,模型目錄是空的;送 `GET /api/connect`;斷言回 200、`reason` 是 `no_models`、`models` 是 `[]`、`snippets` 是 null),執行確認它因為「目錄空時仍產生沒有模型的片段」這類實作而失敗
+- [x] T018a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-06 的測試(工作階段就緒,模型目錄是空的;送 `GET /api/connect`;斷言回 200、`reason` 是 `no_models`、`models` 是 `[]`、`snippets` 是 null),執行確認它因為「目錄空時仍產生沒有模型的片段」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-012
-- [ ] T018b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py` 只寫讓 US1-API-06 通過的程式碼(`info.x-reason-rule` 第 (2) 點:模型目錄是空的回 `no_models`,`contextLength` 照實回);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T018a)
+- [x] T018b [US1] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py` 只寫讓 US1-API-06 通過的程式碼(`info.x-reason-rule` 第 (2) 點:模型目錄是空的回 `no_models`,`contextLength` 照實回);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T018a)
   - 🧪 `testplan.md` § US1-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-012
-- [ ] T019a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-07 的測試(工作階段就緒,替身讓讀模型目錄連不上遠端;送 `GET /api/connect`;斷言回 502、代碼是 `OLLAMA_UNREACHABLE`);`api/connect.py` 走既有的 `Catalog.list()`,它已丟 `ApiError` 502,T015b 與 T018b 都沒有接住它,這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/api/connect.py` 接住 `ApiError` 後回 `no_models`,確認斷言失敗後撤回
+- [x] T019a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-07 的測試(工作階段就緒,替身讓讀模型目錄連不上遠端;送 `GET /api/connect`;斷言回 502、代碼是 `OLLAMA_UNREACHABLE`);`api/connect.py` 走既有的 `Catalog.list()`,它已丟 `ApiError` 502,T015b 與 T018b 都沒有接住它,這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/api/connect.py` 接住 `ApiError` 後回 `no_models`,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US1-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.Error`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q7、Q25
-- [ ] T019b [US1] 🟢 /tdd 綠燈:US1-API-07 由既有的 `Catalog.list()` 滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/api/connect.py` 只寫讓 US1-API-07 通過的程式碼(依賴 T019a)
+- [x] T019b [US1] 🟢 /tdd 綠燈:US1-API-07 由既有的 `Catalog.list()` 滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/api/connect.py` 只寫讓 US1-API-07 通過的程式碼(依賴 T019a)
   - 🧪 `testplan.md` § US1-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.Error`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q7
-- [ ] T020a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-08 的測試(工作階段就緒,閒置計時的最後請求時間是 T;以注入的時鐘在 T+30 秒送 `GET /api/connect`;斷言 `GET /api/session` 的 `idle.lastRequestAt` 仍是 T);UI app 的 `/api/*` 不經過 `IdleHook`(它只掛在 `src/cgb/ollama_compat/__init__.py`),只有 Ollama 相容端點的請求才重設閒置計時,這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/api/connect.py` 呼叫 `services.idle.request_started()` 與 `request_finished()`,確認斷言失敗後撤回
+- [x] T020a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-08 的測試(工作階段就緒,閒置計時的最後請求時間是 T;以注入的時鐘在 T+30 秒送 `GET /api/connect`;斷言 `GET /api/session` 的 `idle.lastRequestAt` 仍是 T);UI app 的 `/api/*` 不經過 `IdleHook`(它只掛在 `src/cgb/ollama_compat/__init__.py`),只有 Ollama 相容端點的請求才重設閒置計時,這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/api/connect.py` 呼叫 `services.idle.request_started()` 與 `request_finished()`,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US1-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q12、Q25
-- [ ] T020b [US1] 🟢 /tdd 綠燈:US1-API-08 由 UI app 不經 `src/cgb/ollama_compat/idle_hook.py` 滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/api/connect.py` 只寫讓 US1-API-08 通過的程式碼(依賴 T020a)
+- [x] T020b [US1] 🟢 /tdd 綠燈:US1-API-08 由 UI app 不經 `src/cgb/ollama_compat/idle_hook.py` 滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/api/connect.py` 只寫讓 US1-API-08 通過的程式碼(依賴 T020a)
   - 🧪 `testplan.md` § US1-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q12
-- [ ] T021a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-09 的測試(工作階段就緒,通道的 `baseUrl` 是 `http://127.0.0.1:49123`;送 `GET /api/connect`;斷言整份回應本文不含 `49123`、不含 token 與授權碼,每一段非 null 的片段裡主機名稱都是 `{{host}}`;pi 的片段由故事 2 補齊,這裡先驗 `piModels` 有 `{{host}}`),執行確認它因為「片段裡寫進轉發位址」這類實作而失敗(現況沒有 `piModels`)
+- [x] T021a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US1-API-09 的測試(工作階段就緒,通道的 `baseUrl` 是 `http://127.0.0.1:49123`;送 `GET /api/connect`;斷言整份回應本文不含 `49123`、不含 token 與授權碼,每一段非 null 的片段裡主機名稱都是 `{{host}}`;pi 的片段由故事 2 補齊,這裡先驗 `piModels` 有 `{{host}}`),執行確認它因為「片段裡寫進轉發位址」這類實作而失敗(現況沒有 `piModels`)
   - 🧪 `testplan.md` § US1-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q23
-- [ ] T021b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 與 `src/cgb/api/connect.py` 只寫讓 US1-API-09 通過的程式碼(最小版本:`pi_models_snippet(port, models, context_length)` 只含 `providers.cgb.baseUrl`,`snippets.piModels` 有值、`piSettings` 先為 null,完整格式由 US2-API-01~US2-API-03 逼出,`plan.md` § 待決問題 Q23);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T021a)
+- [x] T021b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 與 `src/cgb/api/connect.py` 只寫讓 US1-API-09 通過的程式碼(最小版本:`pi_models_snippet(port, models, context_length)` 只含 `providers.cgb.baseUrl`,`snippets.piModels` 有值、`piSettings` 先為 null,完整格式由 US2-API-01~US2-API-03 逼出,`plan.md` § 待決問題 Q23);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T021a)
   - 🧪 `testplan.md` § US1-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q23
-- [ ] T022 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T013b~T021b 記下的重構清單(範圍限 `src/cgb/domain/connect.py`、`src/cgb/api/connect.py`、`src/cgb/app.py`、`src/cgb/__main__.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/unit/test_connect.py`、`tests/integration/test_api_connect.py` 的斷言(依賴 T021b)
+- [x] T022 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T013b~T021b 記下的重構清單(範圍限 `src/cgb/domain/connect.py`、`src/cgb/api/connect.py`、`src/cgb/app.py`、`src/cgb/__main__.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/unit/test_connect.py`、`tests/integration/test_api_connect.py` 的斷言(依賴 T021b)
   - 🧪 `testplan.md` § US1-API-01~US1-API-09
   - 📎 `testplan.md` § 2.2
 
