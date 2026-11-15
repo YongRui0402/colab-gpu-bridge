@@ -25,7 +25,7 @@
 
 | 端點 | 受測操作 | 規格錨點 | 寫法 |
 |---|---|---|---|
-| E2 後端 UI API | 開啟工作階段(帶覆蓋值) | `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionRequest` | `POST /api/session` |
+| E2 後端 UI API | 開啟工作階段(帶覆蓋值) | `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput` | `POST /api/session` |
 | E2 後端 UI API | 讀工作階段狀態 | `contracts/ui.openapi.yaml` § `paths./session.get` | `GET /api/session` |
 | E2 後端 UI API | 工作階段狀態事件 | `contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated` | SSE `session.updated` |
 | E2 後端 UI API | 變更類型重開 | `contracts/ui.openapi.yaml` § `paths./session/restart.post` | `POST /api/session/restart` |
