@@ -32,11 +32,17 @@ class EventBus:
     def models_updated(self, catalog: dict[str, Any]) -> None:
         self.publish("models.updated", {"type": "models.updated", "catalog": catalog})
 
+    def downloads_snapshot(self, queue: dict[str, Any]) -> None:
+        self.publish("downloads.snapshot", {"type": "downloads.snapshot", "queue": queue})
+
     def download_updated(self, job: dict[str, Any]) -> None:
         self.publish("download.updated", {"type": "download.updated", "job": job})
 
     def download_removed(self, job_id: int) -> None:
         self.publish("download.removed", {"type": "download.removed", "id": job_id})
+
+    def auto_download_updated(self, result: dict[str, Any] | None) -> None:
+        self.publish("autoDownload.updated", {"type": "autoDownload.updated", "result": result})
 
     def usage_updated(self, usage: dict[str, Any]) -> None:
         self.publish("usage.updated", {"type": "usage.updated", "usage": usage})

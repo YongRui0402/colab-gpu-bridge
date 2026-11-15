@@ -1,0 +1,1320 @@
+openapi: 3.1.0
+info:
+  title: 後端 UI API(對話轉送、Hugging Face 搜尋與展開、可編輯的精選清單與自動下載、佇列隨工作階段清空)
+  version: 0.4.0
+  description: >-
+    S4(E2 後端 UI API)依 004 的 spec.md、research.md R1–R6、techstack.md、plan.md(含待決問題 Q1–Q10 的決定),
+    以及 S1 的 `remote-ollama.openapi.yaml`、S2 的 `huggingface.openapi.yaml` 產出;狀態推送事件另見同目錄的 `ui-events.asyncapi.yaml`。
+    以 001~003 的同名檔為底,只收這一輪新增或改變的操作與它們用到的 components:
+
+    新增:對話轉送 `chat`(`POST /api/chat`)、Hugging Face 搜尋 `searchHfModels` 與展開量化版本 `listHfQuants`、
+    自動下載結果的讀取 `getAutoDownloadResult` 與關閉 `dismissAutoDownloadResult`。
+
+    改變:精選清單 `listCurated`、`addCurated`、`updateCurated`、`removeCurated`(多了「開好就自動下載」、名稱接受 hf.co、重複比對不分大小寫);
+    試算與加入下載 `estimateDownloads`、`enqueueDownloads`(接受 hf.co 名稱,取大小依前綴分流,比對不分大小寫);
+    `listDownloads`(佇列只屬於一個工作階段、`origin` 多了 `auto`、`DownloadJob` 多了 `source`);
+    `retryDownload`(「已下載」比對不分大小寫)。`ModelName` 放寬接受 `hf.co/<作者>/<模型>[:<量化版本>]`。
+
+    請求與回應不變、只有副作用改變的操作不另外收:`endSession`、`restartSession` 與工作階段的各種結束方式改成清空佇列
+    (見 `info.x-queue-clearing`,取代 001 `endSession`「排隊中的保留」、`restartSession`「新類型開不起來時要重新下載的項目留在佇列裡排隊」
+    與 001 `listDownloads`「排隊中的項目保留,等下一個工作階段就緒後自動依序開始」這三句);
+    `listCatalog`(對話頁的模型清單照用它)、`preloadModel`、`clearCompletedDownloads`、`removeDownload` 以 001、003 的檔為準。
+    H100 只在 UI 選單隱藏(004 FR-017),後端的 `GpuType` 與 `INVALID_RUNTIME_TYPE` 的判斷不變,精選項目的建議類型送 H100 照常接受。
+
+    編號的出處:`x-requirements` 與沒有標前綴的 `FR-0xx`、`NFR-0xx`、`SC-0xx`、使用者故事、驗收情境都是 004 spec.md 的編號;
+    標了「001 的」「003 的」的指那一輪的 spec.md;`Q<n>` 指 004 plan.md 的待決問題(標了「001」的指 001 的 plan.md);
+    `D<n>` 指 004 的 `分身決策紀錄.md`;`S1` 是 004 的 `remote-ollama.openapi.yaml`,`S2` 是 004 的 `huggingface.openapi.yaml`;
+    `002 S1` 是 002 的 `model-library.openapi.yaml`,`001 S8` 是 001 的 `colab-cli.openapi.yaml`。
+
+    呼叫者:本系統前端 UI(瀏覽器),家中區網(含 VPN 連回)的任何裝置都能呼叫,不需要登入(001 的 NFR-009);
+    UI 的靜態檔與本 API 同一個來源,所以 `servers` 只寫相對路徑 `/api`。
+
+    錯誤本文一律是 `Error`(`{code, message}`,`message` 是給使用者看的繁體中文)。外部依賴的失敗原因沿用轉接層代碼
+    (S1 的 `OLLAMA_`、002 S1 的 `LIBRARY_`、S2 的 `HF_`;`COLAB_` 由 001 S8 定),直接放在 `code`,不另造同義的代碼。
+    `OLLAMA_*`、`LIBRARY_*`、`HF_*` 的 `message` 是每個代碼固定的一句繁體中文,取自後端固定的訊息表,
+    不帶底層例外的文字、traceback、對方的網址或英文原文(Ollama、Hugging Face 的英文說明都不交給 UI,001 的 NFR-010)。
+
+    不回 500(NFR-006、SC-006):本檔每一個操作上任何一種錯誤都回下面各操作列出的狀態碼與代碼;遠端 Ollama 回的 400、500
+    與連線逾時照 S1 `info.x-failure-rules` 歸成 `OLLAMA_BAD_REQUEST`、`OLLAMA_SERVER_ERROR`、`OLLAMA_TIMEOUT`(Q7,D21),
+    UI API 以 502、504 回,不把對方的 500 轉成本系統的 500。
+  x-model-name-rule: >-
+    補版本與比對的規則(FR-018,research.md R4,D11;修訂 003 的「照原樣比對」):
+    (1)補版本:名稱含 `:` 就照原樣;不含 `:` 就在後面接 `:latest`(官方名稱與 `hf.co/` 名稱同一條;`hf.co/` 本身不含 `:`)。
+    (2)比對:「已下載」「已在佇列」「同一批合併」「精選清單重複」一律把兩邊補過版本的名稱轉成小寫(Unicode casefold)後相等就算同一個,
+    官方名稱與 `hf.co/` 名稱都一樣,和 Ollama 的名稱比對一致(S1 `pullModel` 實測)。
+    例:`qwen2.5:Latest` 等於 `qwen2.5:latest`;`hf.co/Bartowski/smollm2-135M-Instruct-GGUF:Q4_K_M` 等於 `hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:q4_k_m`。
+    (3)不同的版本不是同一個:`qwen2.5:7b` 不等於 `qwen2.5:latest`;`hf.co/x/y`(= `hf.co/x/y:latest`)不等於 `hf.co/x/y:Q4_K_M`,
+    即使 Hugging Face 把 `latest` 對到同一個檔案(S1 `pullModel`:Ollama 也當成兩個名稱)。
+    (4)顯示、回應與送給遠端 Ollama 的名稱照使用者輸入的原樣(只補 `:latest`,不改大小寫);同一批合併時留第一次出現的寫法。
+    執行環境上已下載的模型以遠端 Ollama `listLocalModels` 每筆的 `name` 比對,那一側不再補版本;佇列裡的項目以 `DownloadJob.model` 比對。
+  x-download-check-order: >-
+    `estimateDownloads` 與 `enqueueDownloads` 用同一套檢查,依下面的順序,第一個不符的就回,後面的步驟都不做(沿用 003,這一輪改了 (3)(5)(6)):
+    (1)請求本文的格式(400 `INVALID_REQUEST_BODY`、`EMPTY_MODEL_LIST`、`INVALID_MODEL_NAME`),不需要工作階段;
+    (2)沒有就緒的工作階段(含開啟中、重連中) → 503 `NO_READY_SESSION`;
+    (3)把整批名稱照 `info.x-model-name-rule` 補過版本,不分大小寫相同的合併成一個,保留第一次出現的順序與寫法(FR-018);
+    (4)讀執行環境上已下載的模型清單(一次)與佇列中排隊中、下載中的項目;讀模型清單失敗時回 502 `OLLAMA_UNREACHABLE`、502 `OLLAMA_BAD_RESPONSE` 或 504 `OLLAMA_TIMEOUT`(照 003);
+    (5)依合併後的順序逐一不分大小寫比對:在模型清單裡 → 409 `MODEL_ALREADY_DOWNLOADED`;否則在佇列裡(排隊中或下載中) → 409 `DOWNLOAD_ALREADY_QUEUED`;
+    `Error.model` 是這次請求裡那一個補過版本的名稱(使用者的寫法);
+    (6)都沒有重複,才依合併後的順序一個一個取大小,依名稱前綴分流(research.md R4):
+    `hf.co/` 開頭的向 Hugging Face 取 manifest(S2 `getHfManifest`,`tag` 是補過版本的那一段,`latest` 也照送),其他的向官方 registry 取(002 S1 `getManifest`);
+    任何一個失敗就回那一個的代碼(對應見各回應),`Error.model` 指出是哪一個,後面的不再取;
+    (7)讀執行環境的剩餘磁碟空間(001 S8),讀不到 → 503 `DISK_SPACE_UNKNOWN`;
+    (8)`enqueueDownloads` 才有:總大小加上佇列裡還沒下載完的大小超過剩餘磁碟 → 409 `DISK_SPACE_INSUFFICIENT`;`estimateDownloads` 改以 `fits` 表示。
+    Hugging Face 的 manifest 每個請求 10 秒(NFR-005),不套用展開版本的整體期限(S2 `info.x-timeout`)。
+    需要登入、同意條款、私有、不存在的 hf.co 模型,與拉不下來的量化版本(不存在、分割檔、不是 GGUF)都在 (6) 擋下,
+    整批不加入、佇列不變(FR-015、使用者故事 4 驗收情境 7),不等到遠端 Ollama 拉取失敗(S1 `pullModel`:那時的錯誤原文看不出原因)。
+  x-hf-error-status: >-
+    Hugging Face 失敗原因代碼對 HTTP 狀態碼的固定對應(plan.md Q69,D87),`searchHfModels`、`listHfQuants`、`estimateDownloads`、`enqueueDownloads` 四個操作共用:
+    `HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE` → 502;`HF_TIMEOUT` → 504;`HF_AUTH_REQUIRED`、`HF_NO_GGUF`、`HF_QUANT_UNAVAILABLE` → 422。
+    代碼與 `message` 照原樣回(同一個代碼在四個操作的 `message` 相同,取自固定的訊息表),不改歸成別的代碼。
+    各操作的 `x-error-codes` 只列那個操作正常會出現的代碼;萬一收到沒列的 `HF_*` 代碼(例如搜尋收到 `HF_NO_GGUF`、展開收到 `HF_QUANT_UNAVAILABLE`、
+    試算收到 `HF_NO_GGUF`),也照這張表回,不回 500(NFR-006、SC-006)。`Error.model` 有沒有照各操作的規定(試算與加入有,搜尋與展開沒有)。
+  x-queue-clearing: >-
+    下載佇列只屬於一個工作階段(FR-001–FR-003,research.md R1;取代 001 的「排隊中的保留到下一個工作階段」,D7):
+    (1)工作階段變成結束中、已結束、開啟失敗或失聯(`ending`、`ended`、`open_failed`、`lost`;涵蓋使用者結束、閒置自動結束、被 Colab 收回、
+    重連逾時、開啟失敗,以及變更類型時舊的那一個變成結束中)時,屬於它的每一個項目都從佇列移除:排隊中、完成、失敗,
+    以及下載中的那一筆(下載中斷,不先標成失敗,也不以「可用」出現在任何目錄)。每移除一筆推送一則 `download.removed`,
+    全部移除後推送一則 `downloads.snapshot`;從狀態改變到 `listDownloads` 列出 0 筆在 5 秒內(SC-001、NFR-001)。
+    (2)變更執行階段類型(`restartSession`):先把舊的工作階段的項目照 (1) 移除,再把呼叫當下已載入的模型以 `origin` `restore` 排進新的工作階段,
+    所以佇列只剩為了重新載入而排入的那幾筆(FR-002、使用者故事 1 驗收情境 4);新的工作階段開啟失敗時,這幾筆也照 (1) 移除。
+    (3)後端重新啟動時:判定先前的工作階段已在停機期間結束(例如被 Colab 收回)就照 (1) 移除它的項目(FR-003);
+    接回仍在運作的同一個工作階段時不移除,中斷的下載照 001 重新排隊(spec.md 邊界情況);
+    升級前留下、沒有所屬工作階段的項目在後端啟動時一併移除。
+    (4)新的工作階段就緒時,只開始屬於它的排隊中項目(重新載入的那幾筆與自動下載排入的),不再接續上一台的項目。
+    (5)自動下載的結果(`getAutoDownloadResult`)也屬於一個工作階段,照 (1) 一併清除,推送 `autoDownload.updated`、`result` 為 null。
+  x-auto-download: >-
+    自動下載(FR-011、FR-012,research.md R6;使用者故事 3 驗收情境 4–10):
+    (1)觸發:每個工作階段(以工作階段名稱區分)第一次變成「就緒」時做一次;重連中又接回、後端重新啟動後接回同一個工作階段都不再做(驗收情境 8)。
+    精選清單沒有任何一項設了 `autoDownload` 時不判定、不排入,但仍記下這個工作階段已經做過這一次(Q24、D38:同一個工作階段之後才打開 `autoDownload` 的項目,
+    重連接回時也不會被排入);對外沒有結果(`getAutoDownloadResult` 的 `result` 為 null),不推送 `autoDownload.updated`,不提示。
+    (2)開始時先記下這個工作階段的結果、`state` 為 `running`,推送 `autoDownload.updated`;判定完成後 `state` 改為 `done`,寫入排入與跳過的模型再推送一次。
+    (3)判定:依精選清單的順序,只看 `autoDownload` 為 true 的項目,名稱照 `info.x-model-name-rule` 比對:
+    (a)已在執行環境上,或已在佇列中(含變更類型時排入的重新載入項目) → 不排,也不列為跳過(驗收情境 5);
+    讀執行環境上的模型清單失敗時視為執行環境上沒有任何模型(新的執行環境本來就是空的),照常往下判定;
+    (b)取大小,分流同 `info.x-download-check-order` 的 (6),同時最多 4 個,每個請求 10 秒;失敗 → 跳過,`reason` 為 `SIZE_UNAVAILABLE`,
+    `reasonCode` 帶那一次的 `LIBRARY_*` 或 `HF_*` 代碼(驗收情境 7);
+    (c)顯示記憶體總量讀得到(和 `listCatalog` 的 `vramBytes` 同一個值,003 的 FR-003)而大小超過它 → 跳過,`reason` 為 `MAY_NOT_FIT`
+    (和模型目錄的 `mayNotFit` 同一個比較);讀不到時不以此跳過(驗收情境 9);
+    (d)讀執行環境的剩餘磁碟空間一次(001 S8);讀不到 → 其餘還沒判定的項目都跳過,`reason` 為 `DISK_SPACE_UNKNOWN`、`reasonCode` 帶 `COLAB_` 代碼;
+    (e)已決定排入的大小 + 佇列裡還沒下載完的大小 + 這一項 > 剩餘磁碟空間 → 跳過,`reason` 為 `DISK_SPACE_INSUFFICIENT`;後面較小的仍照順序判斷(驗收情境 6);
+    跳過的項目在取得到的範圍內帶 `sizeBytes`、`freeDiskBytes`、`vramBytes`(見 `AutoDownloadSkipped`,Q68、D86);
+    (f)其餘依清單順序一次排入佇列(`origin` 為 `auto`、`preloadOnComplete` 為 false),每一筆推送 `download.updated`,接著開始下載。
+    (4)從就緒到 `state` 為 `done` 在 30 秒內(SC-003;精選清單 8 項以內、每個取大小的請求最多 10 秒時成立,research.md R6 估算)。
+    (5)已經排入之後,使用者把那一項從精選清單刪除或取消 `autoDownload`,已排入的下載不受影響(spec.md 邊界情況)。
+    (6)結果保留到工作階段結束或使用者按關閉(`dismissAutoDownloadResult`),重新整理頁面、後端重新啟動接回同一個工作階段後仍讀得到(FR-012、SC-003)。
+servers:
+  - url: /api
+    description: 與 UI 靜態檔同一個來源;port 沿用 001(8780)
+paths:
+  /chat:
+    post:
+      operationId: chat
+      summary: 對話頁送出一則訊息,串流取得模型的回覆
+      description: >-
+        FR-004:對話頁每送出一則就呼叫一次,`messages` 帶齊這段對話前面的每一則(多輪對話靠瀏覽器自己帶,後端不保留對話)。
+        後端轉送到目前工作階段的遠端 Ollama(S1 `chat`,`{"model","messages","stream":true,"keep_alive":-1}`,Q9、D23),
+        不加其他參數;請求本文的其他欄位不轉送(spec.md 假設:不做 system prompt 與 temperature)。瀏覽器不直連 Colab。
+
+        回應:收到遠端 Ollama 200 的回應標頭之後才回 200,本文是 `application/x-ndjson`,每行一個 `ChatStreamLine`,邊收邊送、不緩衝
+        (NFR-003、SC-002:第一段比遠端多等不超過 0.5 秒)。遠端的每一行照原樣轉送(`ChatChunk`,含 `message.thinking`,Q10、D24);
+        `done: true` 那一行送出後結束,這則回覆完成。`done: true` 那一行缺少 `eval_count` 或 `eval_duration`、或 `eval_duration` 為 0 時仍算完成,
+        前端不顯示每秒 token 數(Q8、D22)。耗時由前端自己計時(送出到收到 `done: true`),每秒 token 數 = `eval_count ÷ (eval_duration ÷ 10⁹)`(FR-005)。
+
+        串流已經開始之後的失敗不能再改 HTTP 狀態碼,改以最後一行 `ChatStreamFailure`(`{"error": {"code","message"}}`)交給前端,接著結束串流;
+        前面已送出的段落不撤回,前端保留並標示中斷與原因(FR-008、驗收情境 8)。代碼見 200 回應的 `x-stream-error-codes`。
+        遠端 Ollama 自己送的 `{"error": "<英文>"}` 行不原樣轉送,一律換成這一行(Q6、D20:`OLLAMA_SERVER_ERROR`)。
+
+        停止(FR-006):前端斷開這個請求的連線即可;後端隨之斷開遠端的請求,遠端 Ollama 停止產生(S1 `chat`),後端不另外送任何一行,也不記成錯誤。
+
+        閒置倒數(FR-007、驗收情境 9):通過 (1)(2) 的檢查之後到串流結束(含完成、失敗、前端斷開)之間,這個請求和 Ollama 相容端點的請求一樣算進行中,
+        不計閒置;結束時重設倒數,`session.updated` 照 001 的時機推送新的 `deadline`。
+
+        不記內容(NFR-002):請求與回應的本文(訊息與回覆)不寫進資料庫與任何日誌,日誌只記時間、模型、耗時與狀態碼(001 的規則)。
+
+        檢查依序:(1)請求本文(400);(2)沒有就緒的工作階段 → 503 `NO_READY_SESSION`;(3)送到遠端 Ollama,串流開始之前的失敗照 S1 `info.x-failure-rules` 第 1–4 條
+        回 404、502、504。不先讀模型清單確認模型存在(會多一次往返,NFR-003),不在執行環境上的模型由遠端回 404 判定。
+        選的模型還沒載入時遠端先載入再回覆,載入的時間落在第一段之前(驗收情境 6;前端依 `listCatalog` 的 `loaded` 顯示「正在載入」)。
+      x-requirements: [FR-004, FR-005, FR-006, FR-007, FR-008, NFR-002, NFR-003, NFR-006, SC-002, SC-006]
+      x-callers: UI 的對話頁;工作階段「就緒」
+      x-timeout: >-
+        照 S1 `chat`:連線 10 秒;收到回應標頭(含第一段之前的載入)300 秒;兩段之間 300 秒;不設總時長。
+        回應標頭之前逾時回 504 `OLLAMA_TIMEOUT`,之後逾時以最後一行 `OLLAMA_TIMEOUT` 結束
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatInput'
+      responses:
+        '200':
+          description: >-
+            NDJSON 串流,每行一個 `ChatStreamLine`。正常結束時最後一行是 `done: true` 的 `ChatChunk`;
+            失敗時最後一行是 `ChatStreamFailure`,`error.code` 是 `x-stream-error-codes` 其中一個:
+            `OLLAMA_TIMEOUT` 兩段之間超過 300 秒;`OLLAMA_STREAM_INTERRUPTED` 遠端在 `done: true` 之前斷線或結束;
+            `OLLAMA_SERVER_ERROR` 遠端送了帶 `error` 的一行(推論失敗,Q6);`OLLAMA_BAD_RESPONSE` 遠端某一行不是 JSON 物件或必要欄位型別不符(S1 `chat` 200 的說明);
+            `SESSION_ENDED` 回覆途中工作階段被結束、變更類型或判定失聯(本系統結束轉送)。
+          x-recipients: 呼叫者(送出這則訊息的那個對話頁);不推送給其他分頁,也不經 SSE
+          x-stream-error-codes: [OLLAMA_TIMEOUT, OLLAMA_STREAM_INTERRUPTED, OLLAMA_SERVER_ERROR, OLLAMA_BAD_RESPONSE, SESSION_ENDED]
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/ChatStreamLine'
+        '400':
+          description: >-
+            本文不是合法 JSON 或不是物件;`model` 缺少、不是字串或不符 `ModelName`;`messages` 缺少、不是陣列或是空的;
+            `messages` 裡某一則不是物件、`role` 不是 `user` 或 `assistant`,或 `content` 不是字串
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_MODEL_NAME, EMPTY_CHAT_MESSAGES, INVALID_CHAT_MESSAGE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 選的模型不在執行環境上(遠端回 404,S1 `chat`;例如模型清單過時)
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            串流開始之前遠端 Ollama 失敗(S1 `info.x-failure-rules` 第 2–4 條):連不到(`OLLAMA_UNREACHABLE`);
+            回 400(`OLLAMA_BAD_REQUEST`,本系統送出的請求不被接受);回 500,例如記憶體不足載入失敗(`OLLAMA_SERVER_ERROR`);
+            其他狀態碼或 200 但不是 NDJSON(`OLLAMA_BAD_RESPONSE`)。都不回 500(NFR-006,Q7)
+          x-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_BAD_REQUEST, OLLAMA_SERVER_ERROR, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段(含未開啟、開啟中、重連中、結束中;FR-008、驗收情境 7)
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 連線逾時,或 300 秒內沒有收到遠端的回應標頭(S1 `info.x-failure-rules` 第 1 條)
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /huggingface/search:
+    get:
+      operationId: searchHfModels
+      summary: 以關鍵字搜尋 Hugging Face 上含 GGUF 檔、不需登入的模型(可載入更多)
+      description: >-
+        FR-013:轉呼叫 S2 的 `searchHfModels`(固定 `filter=gguf`、`gated=false`、`sort=downloads`、`limit=20`),依下載次數由多到少,一頁最多 20 筆。
+        載入更多:回應的 `nextCursor` 不為 null 時還有下一頁,前端下一次原樣帶回 `cursor`(和第一頁同一個 `q`);`cursor` 是對方給的不透明字串,不是頁碼。
+        沒有符合的模型時回 200、`items` 為空陣列(驗收情境 5)。組不出 `hf.co/` 名稱的那一筆略過(S2)。
+        不需要工作階段;搜尋結果不標「已下載」,展開版本(`listHfQuants`)才標。
+        失敗只影響 Hugging Face 的搜尋區(FR-016):官方模型庫、精選清單與直接輸入名稱不呼叫 Hugging Face,這段時間照常回應(SC-004)。
+        `HF_*` 的狀態碼照 `info.x-hf-error-status`。
+      x-requirements: [FR-013, FR-016, NFR-005, NFR-006, SC-004, SC-006]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      x-timeout: 對 huggingface.co 每個請求 10 秒(NFR-005,S2 `info.x-timeout`),逾時歸 `HF_TIMEOUT`;從送出到回應在 11 秒內(SC-004)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: 關鍵字,去掉前後空白後 1 到 100 字元(和 001 `searchLibrary` 相同)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: cursor
+          in: query
+          required: false
+          description: 載入更多時帶上一頁回應的 `nextCursor`,原樣帶回;第一頁不帶
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: 這一頁符合的模型;0 筆是正常結果
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfSearchPage'
+        '400':
+          description: 關鍵字去掉空白後是空的或超過 100 字元;帶了 `cursor` 但是空字串
+          x-error-codes: [INVALID_QUERY, INVALID_CURSOR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            連不到 huggingface.co(`HF_UNREACHABLE`)、對方回 5xx(`HF_SERVER_ERROR`),
+            或非預期的狀態碼、回應格式不符(`HF_BAD_RESPONSE`,含對方不接受帶回的 `cursor`);條件照 S2 `info.x-failure-rules`。
+            前端顯示暫時無法搜尋 Hugging Face(驗收情境 6)
+          x-error-codes: [HF_UNREACHABLE, HF_SERVER_ERROR, HF_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: huggingface.co 在 10 秒內沒有完成(S2 `info.x-failure-rules` 第 1 條)
+          x-error-codes: [HF_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /huggingface/models/{author}/{model}/quants:
+    get:
+      operationId: listHfQuants
+      summary: 展開一個 Hugging Face 模型,列出可下載的量化版本與大小
+      description: >-
+        FR-014:照 S2 取檔案清單(`listRepoFiles`,只讀第一頁,Q3)找出量化版本的候選,再以 manifest(`getHfManifest`,同時最多 4 個)逐一驗證並取精確大小
+        (`layers[].size` 的總和);manifest 回 400 的候選不列出(不存在、分割檔或不是 llama.cpp 相容的 GGUF),一個都沒有列出時回 422 `HF_NO_GGUF`(FR-015)。
+        `quants` 依檔案清單的順序。每一個的 `name` 是 `hf.co/<作者>/<模型>:<量化版本>`,勾選後照它走 `estimateDownloads`、`enqueueDownloads`
+        (驗收情境 3;和官方模型庫的模型同一批)。不列 `latest`。
+
+        已下載(驗收情境 2):工作階段「就緒」時讀執行環境上的模型清單一次,`name` 照 `info.x-model-name-rule` 不分大小寫比對,`downloaded` 標出已有的;
+        沒有就緒的工作階段,或讀模型清單失敗、在整體期限內沒有讀完時,`runtimeChecked` 為 false、`downloaded` 都是 false,展開照常回 200。
+
+        時間上限(Q4、D18;Q67、D85):收到展開請求時,Hugging Face 這一段(檔案清單加所有 manifest)與讀執行環境的模型清單(工作階段就緒時才讀)同時開始、平行進行,
+        兩段的期限都是從收到展開請求起算 10 秒,每個對 huggingface.co 的請求自己的 10 秒仍在:
+        (a)Hugging Face 這一段先完成時,只等模型清單到同一個期限;期限到了還沒讀完,就取消模型清單的讀取,`runtimeChecked` 為 false、照常回 200;
+        (b)模型清單先讀完(或讀失敗)時,只等 Hugging Face 這一段到同一個期限;
+        (c)Hugging Face 這一段期限到時還沒完成,取消還沒完成的 Hugging Face 請求與模型清單的讀取,整個展開回 504 `HF_TIMEOUT`;
+        (d)任何一個 Hugging Face 請求出現 400 以外的失敗,就取消其他還沒完成的請求與模型清單的讀取,整個展開回那一個的代碼(S2 `getHfManifest`)。
+        所以不論哪一段先完成,從收到請求到回應都在 10 秒加處理時間之內,符合 SC-004 的 11 秒;兩段不串接。
+        狀態碼照 `info.x-hf-error-status`。
+      x-requirements: [FR-014, FR-015, FR-016, FR-018, NFR-005, NFR-006, SC-004, SC-006]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段(就緒時才標已下載)
+      x-timeout: >-
+        Hugging Face 這一段與讀執行環境的模型清單平行進行,都從收到展開請求起算 10 秒(Q67、D85);每個對 huggingface.co 的請求也各自不超過 10 秒(S2 `info.x-timeout`)。
+        Hugging Face 這一段逾時歸 `HF_TIMEOUT`;模型清單逾時只讓 `runtimeChecked` 為 false
+      parameters:
+        - name: author
+          in: path
+          required: true
+          description: 作者,取自 `searchHfModels` 的 `author`(大小寫照原樣)
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+        - name: model
+          in: path
+          required: true
+          description: 模型名稱,取自 `searchHfModels` 的 `model`(不含 `:量化版本`)
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+      responses:
+        '200':
+          description: 這個模型可下載的量化版本,至少一個
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HfQuantList'
+        '400':
+          description: 作者或模型名稱不符 `[A-Za-z0-9][A-Za-z0-9._-]*`(組不出 `hf.co/` 名稱)
+          x-error-codes: [INVALID_HF_MODEL_ID]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: >-
+            這個模型不能在這一輪下載,佇列不變(FR-015、驗收情境 7):需要登入、同意條款、私有或不存在
+            (檔案清單或 manifest 回 401,Q2、D16:`HF_AUTH_REQUIRED`);沒有可下載的 GGUF 檔
+            (檔案清單沒有候選,或候選的 manifest 都回 400:`HF_NO_GGUF`)。`message` 說明原因(這一輪不支援需要登入的模型)
+          x-error-codes: [HF_AUTH_REQUIRED, HF_NO_GGUF]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            連不到 huggingface.co、對方回 5xx,或非預期的狀態碼與回應格式不符(含 manifest 200 但沒有模型層,Q5、D19);
+            條件照 S2 `info.x-failure-rules`。前端顯示暫時無法使用 Hugging Face(FR-016、驗收情境 6)
+          x-error-codes: [HF_UNREACHABLE, HF_SERVER_ERROR, HF_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 某個 Hugging Face 請求超過 10 秒,或 Hugging Face 這一段在收到展開請求起 10 秒的期限內沒有完成(Q4、Q67);模型清單逾時不回 504
+          x-error-codes: [HF_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /curated:
+    get:
+      operationId: listCurated
+      summary: 列出精選清單
+      description: >-
+        沿用 001:依加入順序列出(修改不改變順序,FR-009),不需要工作階段,不依賴模型來源。這一輪每一項多了 `autoDownload`(FR-010);
+        名稱可以是官方名稱或 `hf.co/` 名稱(FR-018);建議類型是 H100 的既有項目照常回 H100(FR-017、使用者故事 5 驗收情境 4)。
+        工作階段「就緒」時 `downloaded` 標出執行環境上已有的,比對照 `info.x-model-name-rule` 不分大小寫;
+        沒有就緒的工作階段,或讀執行環境上的模型清單失敗時,`runtimeChecked` 為 false、`downloaded` 都是 false,照常回 200。
+      x-requirements: [FR-009, FR-010, FR-018, NFR-006]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      responses:
+        '200':
+          description: 精選清單,依加入順序
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuratedList'
+    post:
+      operationId: addCurated
+      summary: 加一個模型到精選清單
+      description: >-
+        FR-009、使用者故事 3 驗收情境 1:不需要工作階段;加在清單最後。`autoDownload` 沒給時為 false(spec.md 假設)。
+        名稱存成補過版本的寫法(`info.x-model-name-rule` (1),大小寫照原樣);不向任何模型來源確認是否存在,
+        存不存在在自動下載或手動加入下載時才知道(spec.md 邊界情況)。重新整理與後端重新啟動、容器重建後仍在(NFR-004)。
+        重複(驗收情境 3):和清單裡任何一項補過版本後不分大小寫相同 → 409 `CURATED_DUPLICATE`。
+      x-requirements: [FR-009, FR-010, FR-018, NFR-006, SC-006]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuratedModelInput'
+      responses:
+        '201':
+          description: 加入的那一筆
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuratedModel'
+        '400':
+          description: >-
+            本文不是合法 JSON 或不是物件;模型名稱缺少或格式不對(`ModelName`);說明超過 200 字元;
+            建議類型的 GPU 不在可選清單或 `highMem` 不是布林值(H100 照常接受,FR-017 只隱藏 UI 選單);`autoDownload` 不是布林值
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_MODEL_NAME, INVALID_CURATED_DESCRIPTION, INVALID_RUNTIME_TYPE, INVALID_AUTO_DOWNLOAD]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 精選清單已有同一個模型(補過版本後不分大小寫相同);`Error.model` 是清單裡已有的那一個名稱
+          x-error-codes: [CURATED_DUPLICATE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /curated/{id}:
+    put:
+      operationId: updateCurated
+      summary: 修改精選清單的一筆(名稱、說明、建議類型與開好就自動下載)
+      description: >-
+        FR-009、FR-010、使用者故事 3 驗收情境 2:整筆取代,本文沒給的選填欄位視為清空(`description`、`recommendedRuntimeType` 為 null,`autoDownload` 為 false),
+        所以前端送出時帶齊四個欄位;只切換「開好就自動下載」也用這個操作。修改後在清單裡的順序不變。不需要工作階段。
+        重複:改成的名稱和另一筆補過版本後不分大小寫相同 → 409 `CURATED_DUPLICATE`;只改自己名稱的大小寫不算重複。
+        這一項已經被自動下載排進佇列之後再修改,已排入的下載不受影響(spec.md 邊界情況)。
+        檢查依序(Q53、D67,和下載的檢查一樣先看本文):(1)請求本文(400);(2)`id` 不存在 → 404 `CURATED_NOT_FOUND`;(3)名稱重複 → 409 `CURATED_DUPLICATE`。
+        `id` 不存在而本文又不合法時回 400,不回 404。
+      x-requirements: [FR-009, FR-010, FR-018, NFR-006, SC-006]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuratedModelInput'
+      responses:
+        '200':
+          description: 修改後的那一筆
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuratedModel'
+        '400':
+          description: >-
+            本文不是合法 JSON 或不是物件;模型名稱缺少或格式不對;說明超過 200 字元;建議類型的 GPU 不在可選清單或 `highMem` 不是布林值;
+            `autoDownload` 不是布林值
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_MODEL_NAME, INVALID_CURATED_DESCRIPTION, INVALID_RUNTIME_TYPE, INVALID_AUTO_DOWNLOAD]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 精選清單沒有這一筆
+          x-error-codes: [CURATED_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 改成的名稱和另一筆重複(補過版本後不分大小寫相同);`Error.model` 是另一筆的名稱
+          x-error-codes: [CURATED_DUPLICATE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: removeCurated
+      summary: 從精選清單移除一筆
+      description: >-
+        FR-009:刪除前的確認在 UI。不需要工作階段。已經被自動下載排進佇列的那一筆不受影響,照常下載(spec.md 邊界情況)。
+        請求與回應照 001 原樣,這一輪只把需求編號改指 004。
+      x-requirements: [FR-009, NFR-006]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '204':
+          description: 已移除
+          x-recipients: 呼叫者(UI)
+        '404':
+          description: 精選清單沒有這一筆
+          x-error-codes: [CURATED_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads:
+    get:
+      operationId: listDownloads
+      summary: 列出下載佇列
+      description: >-
+        沿用 001,依加入順序列出佇列裡的每一項,不依工作階段過濾(Q46、D60)。這一輪(FR-001–FR-003):佇列只屬於一個工作階段,工作階段結束類的狀態一出現就同步清空
+        (`info.x-queue-clearing`),所以列出來的只會是目前(或變更類型後新的)工作階段的項目,不會有上一台執行環境的完成、失敗或排隊中項目。
+        `paused` 為 true 表示目前沒有就緒的工作階段,這時佇列的內容依原因而定(取代 001「排隊中的項目保留,等下一個工作階段就緒後自動依序開始」):
+        重連中(還沒判定失聯)時,屬於這個工作階段的項目照樣留著,接回後繼續(`info.x-queue-clearing` (3));
+        變更類型、新的工作階段開啟中時,只有為了重新載入而排入的項目(`info.x-queue-clearing` (2));
+        沒有工作階段、工作階段開啟中(不是變更類型),或已經是結束類的狀態時,佇列是空的。
+        每一項多了 `source`(官方模型庫或 Hugging Face,依名稱前綴)與 `origin` 的 `auto`(自動下載排入)。
+        每一筆的變化另以 `download.updated`、`download.removed`,整份以 `downloads.snapshot` 推送(`ui-events.asyncapi.yaml`)。
+      x-requirements: [FR-001, FR-002, FR-003, FR-011, NFR-006, SC-001]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      responses:
+        '200':
+          description: 下載佇列
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadQueue'
+    post:
+      operationId: enqueueDownloads
+      summary: 把一個或多個模型(官方或 hf.co)加入下載佇列
+      description: >-
+        沿用 001~003:一次勾選多個(或輸入一個名稱)加入佇列,依序在背景下載到目前的執行環境(S1 `pullModel`,一次一個);
+        任何一個模型不符,整批都不加入,佇列不變,也不推送 `download.updated`。加入的項目屬於目前的工作階段(`info.x-queue-clearing`),`origin` 為 `user`。
+
+        這一輪:名稱可以是 `hf.co/<作者>/<模型>[:<量化版本>]`(FR-018),和官方模型庫的模型同一批、同一個佇列依序下載(使用者故事 4 驗收情境 3);
+        檢查依 `info.x-download-check-order`,比對不分大小寫(`info.x-model-name-rule`)。
+        hf.co 名稱需要登入、同意條款、私有或不存在 → 422 `HF_AUTH_REQUIRED`;量化版本無法下載(不存在、分割檔或不是 GGUF) → 422 `HF_QUANT_UNAVAILABLE`
+        (FR-015、使用者故事 4 驗收情境 7);`HF_*` 的狀態碼照 `info.x-hf-error-status`。下載完成後照 001 出現在模型目錄,區網程式與對話頁都能用(驗收情境 4)。
+
+        下載失敗時那一筆為 `failed`,`reasonCode` 是 S1 `pullModel` 的代碼(含這一輪照 S1 補上的 `OLLAMA_BAD_REQUEST`、`OLLAMA_SERVER_ERROR`
+        與連線逾時的 `OLLAMA_TIMEOUT`,Q7)。同時加入的處理照 003(只有一個請求加入,另一個回 409 `DOWNLOAD_ALREADY_QUEUED`,整批不加入)。
+      x-requirements: [FR-014, FR-015, FR-016, FR-018, NFR-005, NFR-006, SC-006]
+      x-callers: UI;工作階段「就緒」
+      x-timeout: >-
+        讀執行環境上的模型清單 10 秒;每個 manifest 請求 10 秒(官方 registry 照 002 S1、Hugging Face 照 S2,NFR-005),依序送出,
+        不另設整次呼叫的總時限;pull 照 S1(連線 10 秒、兩行進度之間 60 秒、不設總時長)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadSelection'
+      responses:
+        '201':
+          description: 加入的項目(都是排隊中,或第一個馬上變成下載中);每個合併後的名稱一筆
+          x-recipients: 呼叫者(UI);每一筆也以 `download.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadJobList'
+        '400':
+          description: 本文不是合法 JSON;`models` 是空的;某個模型名稱格式不對(`Error.model` 指出是哪一個)
+          x-error-codes: [INVALID_REQUEST_BODY, EMPTY_MODEL_LIST, INVALID_MODEL_NAME]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 官方模型庫沒有某個模型或版本(照 002 S1;`Error.model` 指出是哪一個),整批不加入
+          x-error-codes: [LIBRARY_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >-
+            某個模型已經在執行環境上;某個模型已經在佇列裡(排隊中或下載中,含同時送出的另一個請求剛加入的);總大小超過剩餘磁碟空間。
+            比對不分大小寫,前兩個的 `Error.model` 是這次請求裡那一個補過版本的名稱,整批不加入;`DISK_SPACE_INSUFFICIENT` 沒有 `Error.model`
+          x-error-codes: [MODEL_ALREADY_DOWNLOADED, DOWNLOAD_ALREADY_QUEUED, DISK_SPACE_INSUFFICIENT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: >-
+            某個模型不能下載,`Error.model` 指出是哪一個,整批不加入:官方的版本只能在 Ollama 雲端執行(`LIBRARY_CLOUD_ONLY`);
+            hf.co 模型需要登入、同意條款、私有或不存在(Hugging Face manifest 回 401,`HF_AUTH_REQUIRED`);
+            hf.co 的量化版本無法下載(manifest 回 400:不存在、分割檔或這個 repo 不是 GGUF,`HF_QUANT_UNAVAILABLE`)
+          x-error-codes: [LIBRARY_CLOUD_ONLY, HF_AUTH_REQUIRED, HF_QUANT_UNAVAILABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            取大小時連不到、對方回 5xx 或格式不符:官方 registry(`LIBRARY_UNREACHABLE`、`LIBRARY_SERVER_ERROR`、`LIBRARY_BAD_RESPONSE`,照 002 S1)
+            或 Hugging Face(`HF_UNREACHABLE`、`HF_SERVER_ERROR`、`HF_BAD_RESPONSE`,照 S2;含 manifest 沒有模型層),這時 `Error.model` 指出是哪一個;
+            讀執行環境上的模型清單時連不到遠端 Ollama 或回應格式不對(`OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`,沒有 `Error.model`)。整批不加入
+          x-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_SERVER_ERROR, LIBRARY_BAD_RESPONSE, HF_UNREACHABLE, HF_SERVER_ERROR, HF_BAD_RESPONSE, OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段(含開啟中、重連中;在重複檢查之前);讀不到執行環境的剩餘磁碟空間(`Error.reasonCode` 帶 001 S8 的代碼)
+          x-error-codes: [NO_READY_SESSION, DISK_SPACE_UNKNOWN]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: >-
+            某個 manifest 請求超過 10 秒(`LIBRARY_TIMEOUT` 或 `HF_TIMEOUT`,`Error.model` 指出是哪一個);
+            讀執行環境上的模型清單在 10 秒內沒有完成(`OLLAMA_TIMEOUT`,沒有 `Error.model`)。整批不加入
+          x-error-codes: [LIBRARY_TIMEOUT, HF_TIMEOUT, OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads/estimate:
+    post:
+      operationId: estimateDownloads
+      summary: 試算要加入下載的模型(官方或 hf.co)總大小、剩餘磁碟與預估時間
+      description: >-
+        沿用 001~003:按「加入下載」後、確認前呼叫,不改變佇列;檢查條件與 `enqueueDownloads` 相同(`info.x-download-check-order`),
+        只差空間不足時不回錯誤、改以 `fits` 表示。預估時間是總大小 ÷ 50 MB/s,UI 標示為估計值。
+
+        這一輪:hf.co 名稱的大小取自 Hugging Face 的 manifest(`layers[].size` 的總和,和展開版本的 `sizeBytes` 同一個算法,
+        所以試算顯示的大小等於展開時列出的大小,使用者故事 4 獨立測試);和官方模型的總大小、剩餘磁碟、預估時間一起算(FR-014、驗收情境 3)。
+        需要登入或量化版本無法下載的 hf.co 名稱在這裡就擋下並說明原因(FR-015)。比對不分大小寫(FR-018)。`HF_*` 的狀態碼照 `info.x-hf-error-status`。
+      x-requirements: [FR-014, FR-015, FR-016, FR-018, NFR-005, NFR-006, SC-006]
+      x-callers: UI;工作階段「就緒」
+      x-timeout: 讀執行環境上的模型清單 10 秒;每個 manifest 請求 10 秒(官方 registry 照 002 S1、Hugging Face 照 S2),依序送出,不另設總時限
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadSelection'
+      responses:
+        '200':
+          description: 試算結果;`items` 每個合併後的名稱一筆
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadEstimate'
+        '400':
+          description: 本文不是合法 JSON;`models` 是空的;某個模型名稱格式不對(`Error.model` 指出是哪一個)
+          x-error-codes: [INVALID_REQUEST_BODY, EMPTY_MODEL_LIST, INVALID_MODEL_NAME]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 官方模型庫沒有某個模型或版本(照 002 S1;`Error.model` 指出是哪一個)
+          x-error-codes: [LIBRARY_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 某個模型已經在執行環境上;某個模型已經在佇列裡(排隊中或下載中)。比對不分大小寫,`Error.model` 是這次請求裡那一個補過版本的名稱
+          x-error-codes: [MODEL_ALREADY_DOWNLOADED, DOWNLOAD_ALREADY_QUEUED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: >-
+            某個模型不能下載,`Error.model` 指出是哪一個:官方的版本只能在 Ollama 雲端執行(`LIBRARY_CLOUD_ONLY`);
+            hf.co 模型需要登入、同意條款、私有或不存在(`HF_AUTH_REQUIRED`);hf.co 的量化版本無法下載(不存在、分割檔或不是 GGUF,`HF_QUANT_UNAVAILABLE`)
+          x-error-codes: [LIBRARY_CLOUD_ONLY, HF_AUTH_REQUIRED, HF_QUANT_UNAVAILABLE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: 同 `enqueueDownloads` 的 502
+          x-error-codes: [LIBRARY_UNREACHABLE, LIBRARY_SERVER_ERROR, LIBRARY_BAD_RESPONSE, HF_UNREACHABLE, HF_SERVER_ERROR, HF_BAD_RESPONSE, OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段(含開啟中、重連中);讀不到執行環境的剩餘磁碟空間(`Error.reasonCode` 帶 001 S8 的代碼)
+          x-error-codes: [NO_READY_SESSION, DISK_SPACE_UNKNOWN]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 同 `enqueueDownloads` 的 504
+          x-error-codes: [LIBRARY_TIMEOUT, HF_TIMEOUT, OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads/{id}/retry:
+    post:
+      operationId: retryDownload
+      summary: 重新下載一筆失敗的項目
+      description: >-
+        沿用 001:失敗的項目重新排到佇列最後,狀態回到排隊中;先確認模型不在執行環境上。
+        剩餘磁碟的檢查(001 合約的 `DISK_SPACE_INSUFFICIENT`、`DISK_SPACE_UNKNOWN`)001 起就沒有實作(001 plan.md Q178),
+        這一輪照舊不讀剩餘磁碟、不回這兩個代碼(Q56、D70:`DISK_SPACE_*` 照舊範圍外),留給處理 001 Q178 的迭代。
+        這一輪:「模型已經在執行環境上」的比對照 `info.x-model-name-rule` 不分大小寫(FR-018);
+        失敗的項目只會是目前工作階段的(`info.x-queue-clearing`),所以不再有「工作階段結束而中斷」的失敗項目可以重試。
+      x-requirements: [FR-018, NFR-006]
+      x-callers: UI;工作階段「就緒」,項目是失敗
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: 重新排隊的那一筆
+          x-recipients: 呼叫者(UI);也以 `download.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadJob'
+        '404':
+          description: 佇列沒有這一筆
+          x-error-codes: [DOWNLOAD_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 這一筆不是失敗(排隊中、下載中或已完成);模型已經在執行環境上(不分大小寫)
+          x-error-codes: [DOWNLOAD_NOT_RETRYABLE, MODEL_ALREADY_DOWNLOADED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: 確認執行環境上已有的模型時連不到遠端 Ollama 或回應格式不對
+          x-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 遠端 Ollama 在逾時內沒有回應
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /downloads/auto-result:
+    get:
+      operationId: getAutoDownloadResult
+      summary: 讀目前工作階段的自動下載結果(模型頁下載佇列上方的提示區)
+      description: >-
+        FR-012、使用者故事 3 驗收情境 6、7、9、10:回目前工作階段的自動下載結果(判定方式見 `info.x-auto-download`)。
+        就緒之後才打開或重新整理模型頁也讀得到(提示區在模型頁的下載佇列上方,Q29、D43),直到工作階段結束或使用者按關閉(`dismissed` 為 true 時前端不顯示提示區)。
+        `result` 為 null 的情況:沒有工作階段或還沒第一次就緒、精選清單沒有任何一項設 `autoDownload`、工作階段已結束(結果已清除)。
+        變化另以 `autoDownload.updated` 推送(`ui-events.asyncapi.yaml`)。
+      x-requirements: [FR-011, FR-012, SC-003]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段(沒有時 `result` 為 null)
+      responses:
+        '200':
+          description: 目前工作階段的自動下載結果,或 null
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoDownloadNotice'
+  /downloads/auto-result/dismiss:
+    post:
+      operationId: dismissAutoDownloadResult
+      summary: 關閉自動下載的提示
+      description: >-
+        FR-012:使用者按提示區的「關閉」。把目前工作階段的結果標成 `dismissed`,之後重新整理也不再顯示;不影響已排入的下載。
+        已經關閉過時照樣回 200(不另做事)。`state` 為 `running` 時也可以關閉,判定完成後 `dismissed` 仍為 true。
+        成功後推送 `autoDownload.updated`。
+      x-requirements: [FR-012, NFR-006]
+      x-callers: UI;目前的工作階段有自動下載結果
+      responses:
+        '200':
+          description: 關閉後的結果(`dismissed` 為 true)
+          x-recipients: 呼叫者(UI);同一份也以 `autoDownload.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoDownloadResult'
+        '404':
+          description: 目前的工作階段沒有自動下載結果(沒有工作階段、還沒第一次就緒、沒有任何一項設 `autoDownload`,或工作階段已結束)
+          x-error-codes: [AUTO_DOWNLOAD_RESULT_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    ReasonCode:
+      type: string
+      pattern: '^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH|HF)_[A-Z0-9_]+|AUTH_REQUIRED)$'
+      description: >-
+        外部依賴失敗的轉接層代碼,照原文沿用:`OLLAMA_`(S1)、`LIBRARY_`(002 S1)、`HF_`(S2,這一輪新增)、`OAUTH_`、`COLAB_`、`TUNNEL_`(001);
+        各前綴底下的代碼以各步驟的規格檔為準。另外允許 `AUTH_REQUIRED`(001 S8 偵測到 Colab CLI 的授權失效)
+    ModelName:
+      type: string
+      pattern: '^([a-z0-9][a-z0-9._-]*|hf\.co/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*)(:[A-Za-z0-9_][A-Za-z0-9._-]*)?$'
+      description: >-
+        官方模型名稱(可帶 `:版本`,例 qwen2.5:7b),或 Hugging Face 的 `hf.co/<作者>/<模型>[:<量化版本>]`
+        (例 hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M;FR-018,research.md R4)。沒寫版本視為 `latest`,比對不分大小寫(`info.x-model-name-rule`)。
+        前綴只接受小寫的 `hf.co/`,`huggingface.co/` 不接受(Ollama 當成另一個名稱);作者與模型的大小寫照原樣。
+        官方名稱照 001 只接受小寫,也仍然不接受社群模型的 `<使用者>/<名稱>`(001 Q9)
+    GpuType:
+      type: string
+      enum: [T4, L4, G4, A100, H100]
+      description: 照 001 原樣;H100 只在 UI 選單隱藏(FR-017),後端照常接受與顯示
+    RuntimeType:
+      type: object
+      required: [gpu, highMem]
+      properties:
+        gpu:
+          $ref: '#/components/schemas/GpuType'
+        highMem:
+          type: boolean
+          description: 是否高 RAM(照 001)
+    ChatInput:
+      type: object
+      required: [model, messages]
+      description: 對話頁送出的本文;其他欄位不轉送(spec.md 假設:不做 system prompt 與 temperature 等參數)
+      properties:
+        model:
+          $ref: '#/components/schemas/ModelName'
+          description: 對話頁選的模型,照 `listCatalog` 列出的 `name` 原樣
+        messages:
+          type: array
+          minItems: 1
+          description: 這段對話依序的每一則,最後一則是這次送出的訊息;清空或換模型後從頭開始(FR-006,只在瀏覽器上)
+          items:
+            $ref: '#/components/schemas/ChatInputMessage'
+    ChatInputMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+          description: 使用者送出的,或模型先前的回覆
+        content:
+          type: string
+          description: >-
+            這一則的文字;先前的回覆照收到的 `message.content` 接起來,不含 `thinking`(Ollama 不需要思考過程也能接續對話)
+    ChatStreamLine:
+      description: 對話串流的一行:遠端 Ollama 的一段(照原樣),或本系統在失敗時補上的最後一行
+      oneOf:
+        - $ref: '#/components/schemas/ChatChunk'
+        - $ref: '#/components/schemas/ChatStreamFailure'
+    ChatChunk:
+      type: object
+      required: [done]
+      additionalProperties: true
+      description: >-
+        遠端 Ollama `/api/chat` 串流的一行,照原樣轉送(S1 `ChatResponse`);欄位與型別以 S1 為準,這裡只列前端會用到的。
+        沒有 `error` 欄位(帶 `error` 的行不轉送,改成 `ChatStreamFailure`)
+      properties:
+        model:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        message:
+          type: object
+          properties:
+            role:
+              type: string
+              const: assistant
+            content:
+              type: string
+              description: 這一段回覆的文字,逐段接起來顯示;思考型模型在思考期間可能是空字串
+            thinking:
+              type: string
+              description: 思考型模型的思考過程(出現時才有),前端逐段顯示、可以收合(Q10、D24)
+        done:
+          type: boolean
+          description: true 表示這則回覆完成,是正常結束時的最後一行
+        done_reason:
+          type: string
+          description: >-
+            結束的原因,例如 stop、length(只在 `done: true` 那一行)
+        eval_count:
+          type: integer
+          minimum: 0
+          description: >-
+            這則回覆產生的 token 數(只在 `done: true` 那一行;可能缺少,Q8)
+        eval_duration:
+          type: integer
+          minimum: 0
+          description: 產生回覆花的時間,奈秒;缺少或為 0 時前端不顯示每秒 token 數(Q8)
+    ChatStreamFailure:
+      type: object
+      required: [error]
+      description: >-
+        串流開始之後失敗時,本系統補上的最後一行;送出後串流結束。和遠端 Ollama 的 `{"error": "<英文>"}` 不同,
+        `error` 是物件,前端以此分辨
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [OLLAMA_TIMEOUT, OLLAMA_STREAM_INTERRUPTED, OLLAMA_SERVER_ERROR, OLLAMA_BAD_RESPONSE, SESSION_ENDED]
+            message:
+              type: string
+              description: 給使用者看的繁體中文說明(固定訊息表),不帶遠端的英文原文
+    HfSearchPage:
+      type: object
+      required: [query, items, hasMore, nextCursor]
+      properties:
+        query:
+          type: string
+          description: 去掉前後空白後的關鍵字
+        items:
+          type: array
+          maxItems: 20
+          description: 依下載次數由多到少;沒有符合的模型時是空陣列
+          items:
+            $ref: '#/components/schemas/HfModel'
+        hasMore:
+          type: boolean
+          description: 還有下一頁,前端顯示「載入更多」;等於 `nextCursor` 不為 null
+        nextCursor:
+          type: [string, 'null']
+          description: 下一頁的 `cursor`,原樣帶回;最後一頁為 null
+    HfModel:
+      type: object
+      required: [id, author, model, name]
+      properties:
+        id:
+          type: string
+          description: '`<作者>/<模型>`,照 Hugging Face 原樣'
+          example: unsloth/Qwen3-0.6B-GGUF
+        author:
+          type: string
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+          description: 作者;展開時帶進 `listHfQuants` 的路徑
+        model:
+          type: string
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+          description: 模型名稱;展開時帶進 `listHfQuants` 的路徑
+        name:
+          type: string
+          description: 'Ollama 用的名稱 `hf.co/<作者>/<模型>`(不含量化版本)'
+          example: hf.co/unsloth/Qwen3-0.6B-GGUF
+        downloads:
+          type: [integer, 'null']
+          minimum: 0
+          description: Hugging Face 的下載次數,只用來顯示;對方沒給或型別不符時為 null
+    HfQuant:
+      type: object
+      required: [quant, name, sizeBytes, downloaded]
+      properties:
+        quant:
+          type: string
+          description: 量化名稱,照檔名第一次出現的寫法(例 Q4_K_M、q4_k_m、F16)
+        name:
+          type: string
+          description: '`hf.co/<作者>/<模型>:<量化名稱>`;勾選後照它試算與加入下載'
+          example: hf.co/unsloth/Qwen3-0.6B-GGUF:Q4_K_M
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: manifest `layers[].size` 的總和,位元組;和試算的大小相同
+        downloaded:
+          type: boolean
+          description: 執行環境上已有這個版本(不分大小寫比對);`runtimeChecked` 為 false 時都是 false
+    HfQuantList:
+      type: object
+      required: [author, model, runtimeChecked, quants]
+      properties:
+        author:
+          type: string
+        model:
+          type: string
+        runtimeChecked:
+          type: boolean
+          description: 有沒有對照執行環境上的模型;沒有就緒的工作階段或讀不到時為 false
+        quants:
+          type: array
+          minItems: 1
+          description: 可下載的量化版本,依檔案清單的順序,不分大小寫去重
+          items:
+            $ref: '#/components/schemas/HfQuant'
+    CuratedModelInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          $ref: '#/components/schemas/ModelName'
+        description:
+          type: [string, 'null']
+          maxLength: 200
+          description: 使用者寫的說明,可以不填
+        recommendedRuntimeType:
+          oneOf:
+            - $ref: '#/components/schemas/RuntimeType'
+            - type: 'null'
+          description: 建議的執行階段類型,可以不填;UI 選單不列 H100,後端照常接受(FR-017)
+        autoDownload:
+          type: boolean
+          default: false
+          description: 開好就自動下載(FR-010);沒給時為 false
+    CuratedModel:
+      type: object
+      required: [id, name, autoDownload, downloaded]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 也代表加入的順序;修改不改變
+        name:
+          type: string
+          description: 模型名稱含版本(沒寫版本時存成 `<名稱>:latest`),大小寫照使用者輸入
+        description:
+          type: [string, 'null']
+        recommendedRuntimeType:
+          oneOf:
+            - $ref: '#/components/schemas/RuntimeType'
+            - type: 'null'
+        autoDownload:
+          type: boolean
+          description: 開好就自動下載;既有的項目升級後為 false(spec.md 假設)
+        downloaded:
+          type: boolean
+          description: 執行環境上已有這個模型(不分大小寫比對)
+    CuratedList:
+      type: object
+      required: [runtimeChecked, items]
+      properties:
+        runtimeChecked:
+          type: boolean
+          description: 有沒有對照執行環境上的模型;沒有就緒的工作階段或讀不到時為 false
+        items:
+          type: array
+          description: 依加入的順序
+          items:
+            $ref: '#/components/schemas/CuratedModel'
+    DownloadSelection:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          description: 勾選或輸入的模型名稱(官方或 hf.co,可以混在同一批);補過版本後不分大小寫相同的視為同一個,保留第一次出現的順序與寫法
+          items:
+            $ref: '#/components/schemas/ModelName'
+    EstimateItem:
+      type: object
+      required: [name, sizeBytes]
+      properties:
+        name:
+          type: string
+          description: 名稱含版本(沒寫版本時補上 latest),大小寫照使用者第一次的寫法
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: manifest `layers[].size` 的總和,位元組(官方取自 registry,hf.co 取自 Hugging Face)
+    DownloadEstimate:
+      type: object
+      required: [items, totalBytes, pendingQueueBytes, freeDiskBytes, diskCheckedAt, fits, estimatedSeconds]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EstimateItem'
+        totalBytes:
+          type: integer
+          minimum: 0
+        pendingQueueBytes:
+          type: integer
+          minimum: 0
+          description: 佇列裡排隊中與下載中的項目還沒下載的大小,位元組
+        freeDiskBytes:
+          type: integer
+          minimum: 0
+        diskCheckedAt:
+          type: string
+          format: date-time
+        fits:
+          type: boolean
+          description: totalBytes 加 pendingQueueBytes 不超過 freeDiskBytes
+        estimatedSeconds:
+          type: integer
+          minimum: 0
+          description: 預估下載時間,秒;以 50 MB/s 估算,UI 標示為估計值
+    DownloadProgress:
+      type: object
+      required: [completedBytes, totalBytes]
+      properties:
+        phase:
+          type: string
+          enum: [manifest, downloading, verifying, writing]
+        completedBytes:
+          type: integer
+          minimum: 0
+        totalBytes:
+          type: integer
+          minimum: 0
+    DownloadJob:
+      type: object
+      required: [id, model, source, sizeBytes, state, origin, preloadOnComplete, addedAt]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        model:
+          type: string
+          description: 模型名稱含版本,大小寫照加入時的寫法;「已在佇列」的比對用這個欄位(不分大小寫)
+        source:
+          type: string
+          enum: [library, huggingface]
+          description: 官方模型庫或 Hugging Face;名稱以 `hf.co/` 開頭的是 `huggingface`(這一輪新增,spec.md 關鍵實體)
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: 加入時 manifest 算出的大小,位元組
+        state:
+          type: string
+          enum: [queued, downloading, completed, failed]
+          description: 排隊中、下載中、完成、失敗;只有排隊中與下載中算「已在佇列」
+        progress:
+          oneOf:
+            - $ref: '#/components/schemas/DownloadProgress'
+            - type: 'null'
+          description: 只在 `downloading` 時有值;事件最多每秒推一次
+        reasonCode:
+          type: [string, 'null']
+          description: >-
+            失敗原因:S1 `pullModel` 的 `OLLAMA_` 代碼(`OLLAMA_UNREACHABLE`、`OLLAMA_TIMEOUT`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_BAD_REQUEST`、
+            `OLLAMA_SERVER_ERROR`、`OLLAMA_NOT_FOUND`、`OLLAMA_PULL_FAILED`、`OLLAMA_STREAM_INTERRUPTED`),或本系統的 `DISK_SPACE_INSUFFICIENT`。
+            這一輪起工作階段結束時下載中的項目直接移除,不再出現 `SESSION_ENDED`(`info.x-queue-clearing`)
+        message:
+          type: [string, 'null']
+          description: 給使用者看的繁體中文失敗說明
+        origin:
+          type: string
+          enum: [user, restore, auto]
+          description: >-
+            使用者加入的;變更類型時為了重新載入原本的模型而加入的(FR-002);工作階段第一次就緒時依精選清單自動排入的(`auto`,這一輪新增,FR-011)
+        preloadOnComplete:
+          type: boolean
+          description: 下載完成後自動預先載入(只有 `origin` 為 `restore` 時為 true)
+        addedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: [string, 'null']
+          format: date-time
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+    DownloadJobList:
+      type: object
+      required: [jobs]
+      properties:
+        jobs:
+          type: array
+          description: 這次加入的項目,依合併後的順序
+          items:
+            $ref: '#/components/schemas/DownloadJob'
+    DownloadQueue:
+      type: object
+      required: [paused, jobs]
+      properties:
+        paused:
+          type: boolean
+          description: >-
+            沒有就緒的工作階段。重連中時佇列照樣留著這個工作階段的項目;變更類型時只有等新工作階段就緒的重新載入項目;
+            其他時候是空的(見 `listDownloads`、`info.x-queue-clearing`)
+        jobs:
+          type: array
+          description: 佇列裡的每一項,依加入順序;不依工作階段過濾,清除是同步的,所以只會有目前(或變更類型後新的)工作階段的項目(Q46)
+          items:
+            $ref: '#/components/schemas/DownloadJob'
+    AutoDownloadSkipped:
+      type: object
+      required: [model, reason, message]
+      properties:
+        model:
+          type: string
+          description: 精選清單裡那一項的名稱(含版本)
+        reason:
+          type: string
+          enum: [DISK_SPACE_INSUFFICIENT, SIZE_UNAVAILABLE, MAY_NOT_FIT, DISK_SPACE_UNKNOWN]
+          description: >-
+            空間不足;取不到大小(模型來源連不到、逾時、找不到、不能下載);這台可能無法載入(大小超過顯示記憶體總量);
+            讀不到執行環境的剩餘磁碟空間(`info.x-auto-download` (3))
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+          description: >-
+            `SIZE_UNAVAILABLE` 時是取大小失敗的代碼(`LIBRARY_*` 或 `HF_*`,例如 `HF_AUTH_REQUIRED`、`LIBRARY_NOT_FOUND`);
+            `DISK_SPACE_UNKNOWN` 時是 001 S8 的 `COLAB_` 代碼;其他為 null
+        message:
+          type: string
+          description: 給使用者看的繁體中文原因,例如「空間不足」「這台可能無法載入」
+        sizeBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: >-
+            這一項的大小(manifest `layers[].size` 的總和),位元組;`SIZE_UNAVAILABLE` 時為 null,其他原因都有值
+            (大小在 `info.x-auto-download` (3)(b) 就取得,早於讀剩餘磁碟;Q68、D86)
+        freeDiskBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: >-
+            只在 `DISK_SPACE_INSUFFICIENT` 時有值:判定這一項時的剩餘磁碟空間扣掉已決定排入的大小與佇列裡還沒下載完的大小之後剩下的,位元組
+            (原型的「排入前面幾個之後只剩 …」);其他原因為 null
+        vramBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: 只在 `MAY_NOT_FIT` 時有值:這台執行環境的顯示記憶體總量(和 `listCatalog` 的 `vramBytes` 同一個值),位元組;其他原因為 null
+    AutoDownloadResult:
+      type: object
+      required: [sessionName, state, enqueued, skipped, dismissed]
+      properties:
+        sessionName:
+          type: string
+          pattern: '^cgb-[a-z0-9-]{1,60}$'
+          description: 這個結果屬於哪一個工作階段(001 `Session.name`)
+        state:
+          type: string
+          enum: [running, done]
+          description: 判定中(還在取大小)、已完成
+        enqueued:
+          type: array
+          description: 自動排入的模型名稱,依清單順序;`state` 為 `running` 時是空的。數量就是「這次自動排入幾個」
+          items:
+            type: string
+        skipped:
+          type: array
+          description: 被跳過的模型與原因,依清單順序;已經在執行環境上或佇列中的不列在這裡
+          items:
+            $ref: '#/components/schemas/AutoDownloadSkipped'
+        dismissed:
+          type: boolean
+          description: 使用者已按關閉;為 true 時前端不顯示提示區
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+          description: 判定完成的時間;`running` 時為 null
+    AutoDownloadNotice:
+      type: object
+      required: [result]
+      properties:
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/AutoDownloadResult'
+            - type: 'null'
+          description: 目前工作階段的自動下載結果;沒有時為 null(見 `getAutoDownloadResult`)
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST_BODY
+            - INVALID_MODEL_NAME
+            - INVALID_QUERY
+            - INVALID_CURSOR
+            - INVALID_HF_MODEL_ID
+            - INVALID_CURATED_DESCRIPTION
+            - INVALID_RUNTIME_TYPE
+            - INVALID_AUTO_DOWNLOAD
+            - EMPTY_CHAT_MESSAGES
+            - INVALID_CHAT_MESSAGE
+            - EMPTY_MODEL_LIST
+            - CURATED_DUPLICATE
+            - CURATED_NOT_FOUND
+            - NO_READY_SESSION
+            - SESSION_ENDED
+            - MODEL_ALREADY_DOWNLOADED
+            - DOWNLOAD_ALREADY_QUEUED
+            - DISK_SPACE_INSUFFICIENT
+            - DISK_SPACE_UNKNOWN
+            - DOWNLOAD_NOT_FOUND
+            - DOWNLOAD_NOT_RETRYABLE
+            - AUTO_DOWNLOAD_RESULT_NOT_FOUND
+            - OLLAMA_UNREACHABLE
+            - OLLAMA_TIMEOUT
+            - OLLAMA_BAD_RESPONSE
+            - OLLAMA_BAD_REQUEST
+            - OLLAMA_NOT_FOUND
+            - OLLAMA_SERVER_ERROR
+            - OLLAMA_STREAM_INTERRUPTED
+            - LIBRARY_UNREACHABLE
+            - LIBRARY_TIMEOUT
+            - LIBRARY_BAD_RESPONSE
+            - LIBRARY_NOT_FOUND
+            - LIBRARY_CLOUD_ONLY
+            - LIBRARY_SERVER_ERROR
+            - HF_UNREACHABLE
+            - HF_TIMEOUT
+            - HF_SERVER_ERROR
+            - HF_BAD_RESPONSE
+            - HF_AUTH_REQUIRED
+            - HF_QUANT_UNAVAILABLE
+            - HF_NO_GGUF
+          description: >-
+            `OLLAMA_` 開頭的照 S1、`LIBRARY_` 照 002 S1、`HF_` 照 S2 原文沿用(HF_ 的三個不能下載的原因依 Q1、D15);其他是本介面自己把關的條件。
+            這一輪新增的本介面代碼:`INVALID_CURSOR`、`INVALID_HF_MODEL_ID`、`INVALID_AUTO_DOWNLOAD`、`EMPTY_CHAT_MESSAGES`、`INVALID_CHAT_MESSAGE`、
+            `AUTO_DOWNLOAD_RESULT_NOT_FOUND`;`SESSION_ENDED` 沿用 001 `DownloadJob.reasonCode` 的同名代碼,這一輪只出現在對話串流的最後一行。
+            這裡只列本檔操作會回的代碼,其他操作的代碼以 001~003 的 `ui.openapi.yaml` 為準
+        message:
+          type: string
+          description: >-
+            給使用者看的繁體中文說明。`OLLAMA_*`、`LIBRARY_*`、`HF_*` 時是那個代碼固定的一句,取自後端固定的訊息表;
+            `HF_AUTH_REQUIRED` 說明「需要登入、同意條款、私有或不存在,這一輪不支援」,`HF_QUANT_UNAVAILABLE` 說明「這個量化版本無法下載(不存在、分割檔或不是 GGUF)」,
+            `HF_NO_GGUF` 說明「這個模型沒有可下載的 GGUF 檔」(FR-015)
+        model:
+          type: string
+          description: >-
+            下載相關的錯誤指出是哪一個模型:`MODEL_ALREADY_DOWNLOADED`、`DOWNLOAD_ALREADY_QUEUED`、`LIBRARY_*`、試算與加入下載的 `HF_*` 時一定有,
+            是這次請求裡那一個補過版本的名稱;`CURATED_DUPLICATE` 時是清單裡已有的那一個名稱;`INVALID_MODEL_NAME` 時指出格式不對的那一個(本文有給名稱時)。
+            `listHfQuants`、`searchHfModels` 的 `HF_*`、`OLLAMA_*`、`DISK_SPACE_*`、`NO_READY_SESSION` 沒有這個欄位
+        reasonCode:
+          $ref: '#/components/schemas/ReasonCode'
+          description: '`DISK_SPACE_UNKNOWN` 的外部原因(001 S8 的 `COLAB_` 代碼)'

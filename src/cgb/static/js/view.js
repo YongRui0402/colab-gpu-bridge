@@ -7,6 +7,25 @@ export function showState(name, also = []) {
   });
 }
 
+// 只切換同一組(`data-group`)裡的區塊,別組的不動:一頁有好幾區各自顯示一個狀態時用(例如模型頁的目錄與下載佇列)
+export function showGroupState(group, name) {
+  document.querySelectorAll(`[data-group="${group}"][data-state]`).forEach((el) => {
+    el.hidden = el.dataset.state !== name;
+  });
+}
+
+// 執行階段類型與顯示記憶體(prototype/mock.js 的 runtimeTypes);`hidden` 的不列在精選清單的建議類型選單(FR-017)
+export const RUNTIME_TYPES = [
+  { id: "T4", vramMiB: 15360, highMem: true, hidden: false },
+  { id: "L4", vramMiB: 23034, highMem: false, hidden: false },
+  { id: "G4", vramMiB: 97887, highMem: true, hidden: false },
+  { id: "A100", vramMiB: 40960, highMem: true, hidden: false },
+  { id: "H100", vramMiB: 81559, highMem: true, hidden: true },
+];
+export const typeInfo = (id) => RUNTIME_TYPES.find((t) => t.id === id);
+// 選單列得出來的類型:不列開不到的 H100(FR-017);`RUNTIME_TYPES` 仍保留它,頁首、紀錄與精選清單照常顯示
+export const PICKABLE_TYPES = RUNTIME_TYPES.filter((t) => !t.hidden);
+
 // 執行階段類型的顯示文字,例如「T4 高 RAM」(contracts/ui.openapi.yaml § RuntimeType)
 export const typeText = (runtimeType) => `${runtimeType.gpu}${runtimeType.highMem ? " 高 RAM" : ""}`;
 

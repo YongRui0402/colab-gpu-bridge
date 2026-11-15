@@ -8,6 +8,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator, Callable
 
+import anyio
 import httpx
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -61,11 +62,22 @@ def error_line(message: str, *, after: bytes) -> bytes:
     return line if after.endswith(b"\n") or not after else b"\n" + line
 
 
+async def cancel_and_reap(pending: "asyncio.Future[bytes]") -> None:
+    """取消等不到的那一段並取回結果(對話頁的轉送也用):被取消(用戶端斷開)時,遠端斷線後不留下「Task exception was never retrieved」。
+
+    用戶端斷開時外層正在被取消:遮蔽取消,等那一段收尾(httpx 在裡面關連線)完成。
+    """
+    pending.cancel()
+    with anyio.CancelScope(shield=True):
+        await asyncio.gather(pending, return_exceptions=True)
+
+
 async def _relay(upstream: httpx.Response, ended: asyncio.Event, on_interrupted: Callable[[], None]) -> AsyncIterator[bytes]:
     """逐段傳回。工作階段被結束時不再等遠端,補一行「已結束」;非預期的斷線才通知呼叫端並補「串流中斷」。"""
     chunks = upstream.aiter_raw()
     ended_wait = asyncio.ensure_future(ended.wait())
     last = b""
+    next_chunk: asyncio.Future[bytes] | None = None
     try:
         while True:
             next_chunk = asyncio.ensure_future(anext(chunks))
@@ -90,6 +102,8 @@ async def _relay(upstream: httpx.Response, ended: asyncio.Event, on_interrupted:
             yield chunk
     finally:
         ended_wait.cancel()
+        if next_chunk is not None:
+            await cancel_and_reap(next_chunk)
     if not upstream.headers.get("content-type", "").startswith(NDJSON):
         raise StreamAborted(message)
     yield error_line(message, after=last)

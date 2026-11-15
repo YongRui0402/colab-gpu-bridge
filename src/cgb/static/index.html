@@ -15,6 +15,7 @@
       <a href="index.html" aria-current="page">工作階段</a>
       <a href="models.html">模型</a>
       <a href="library.html">下載模型</a>
+      <a href="chat.html">對話</a>
       <a href="usage.html">用量與設定</a>
       <a href="history.html">紀錄</a>
     </nav>
@@ -148,7 +149,7 @@
       <dl class="kv">
         <dt>結束原因</dt><dd id="e-reason"></dd>
       </dl>
-      <div class="notice notice-ok">已確認 Colab 帳號下沒有遺留的執行環境。</div>
+      <div class="notice notice-ok">已確認 Colab 帳號下沒有遺留的執行環境;下載佇列已一起清空。</div>
       <div data-picker="ended" data-when="released"></div>
       <div class="actions">
         <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
@@ -179,6 +180,7 @@
       </div>
       <p id="f-switch-note" hidden></p>
       <p class="muted">已確認 Colab 帳號下沒有留下這次配置的執行環境。</p>
+      <p class="muted">沒有開成的工作階段不會留下佇列;變更類型時為了重新載入而排入的項目也一起清空了。可以換一個類型再開。</p>
       <div data-picker="failed" data-when="released"></div>
       <div class="actions">
         <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
@@ -222,6 +224,7 @@
       <dl class="kv">
         <dt>結束原因</dt><dd>被 Colab 收回(Colab 上已經沒有這台執行環境)</dd>
       </dl>
+      <p class="muted">執行環境上的模型已經消失,下載佇列也一起清空了;上一台的「完成」紀錄不會帶到下一台。</p>
       <div data-picker="lost" data-when="released"></div>
       <div class="actions">
         <button type="button" class="btn" data-action="reopen">重新開啟</button>
@@ -235,6 +238,7 @@
       <dl class="kv">
         <dt>結束原因</dt><dd>重連逾時(5 分鐘內接不回)</dd>
       </dl>
+      <p class="muted">這台執行環境不再使用,下載佇列也一起清空了,下載中的那一筆跟著中斷;上一台的「完成」紀錄不會帶到下一台。</p>
       <div class="notice notice-ok" data-when="released">已釋放這台執行環境,Colab 帳號下沒有遺留。</div>
       <div data-picker="lost-timeout" data-when="released"></div>
       <div class="actions">

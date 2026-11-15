@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>對話|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <script type="module" src="js/chat.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型</a>
+      <a href="library.html">下載模型</a>
+      <a href="chat.html" aria-current="page">對話</a>
+      <a href="usage.html">用量與設定</a>
+      <a href="history.html">紀錄</a>
+    </nav>
+  </header>
+  <main>
+    <h1>對話</h1>
+    <section class="panel">
+      <div class="chat-head">
+        <div class="grow">
+          <label for="model">模型 <span class="small muted">(執行環境上已下載完成的;換模型會清空對話)</span></label>
+          <select id="model"></select>
+        </div>
+        <button type="button" class="btn" id="clear">清空</button>
+      </div>
+
+      <div data-state="chat-ready" data-group="chat" hidden>
+        <p class="small muted">試試模型的基本能力:回覆會逐段出現,每則下方顯示耗時與每秒 token 數。對話只留在這個頁面,不寫進資料庫與日誌,重新整理或離開就消失。</p>
+      </div>
+      <div data-state="chat-no-session" data-group="chat" hidden>
+        <div class="notice notice-warn">
+          <strong>現在不能送出:沒有就緒的工作階段</strong>
+          對話要送到 Colab 執行環境上的模型;<a href="index.html">開啟工作階段</a>並就緒後再回來。
+        </div>
+      </div>
+      <div data-state="chat-no-models" data-group="chat" hidden>
+        <div class="notice notice-warn">
+          <strong>現在不能送出:執行環境上還沒有下載完成的模型</strong>
+          新開的執行環境是空的;到<a href="library.html">下載模型</a>挑一個,或等精選清單自動排入的下載完成(進度在<a href="models.html">模型</a>頁)。
+        </div>
+      </div>
+
+      <div class="chat-log" id="log" aria-live="polite"></div>
+
+      <form class="composer" id="composer">
+        <textarea id="input" placeholder="輸入訊息,Enter 送出,Shift+Enter 換行" required></textarea>
+        <button type="submit" class="btn btn-primary" id="send">送出</button>
+        <button type="button" class="btn btn-danger" id="stop" hidden>停止</button>
+      </form>
+
+      <div class="turn-line" data-state="turn-idle" data-group="turn" hidden>在這裡送出訊息,也會讓工作階段的閒置倒數重新計時。</div>
+      <div class="turn-line" data-state="turn-loading" data-group="turn" hidden><span class="spinner"></span><span>正在載入 <span class="mono" data-model-name></span>;第一次使用要先載入到顯示記憶體,載入好就開始回覆。</span></div>
+      <div class="turn-line" data-state="turn-thinking" data-group="turn" hidden><span class="spinner"></span><span>模型正在思考(灰字是思考過程,可以收合)…</span></div>
+      <div class="turn-line" data-state="turn-streaming" data-group="turn" hidden><span class="spinner"></span><span>正在回覆…</span></div>
+      <div class="turn-line" data-state="turn-stopped" data-group="turn" hidden>已停止這則回覆,留下目前收到的內容;可以接著送下一則。</div>
+      <div class="turn-line" data-state="turn-norate" data-group="turn" hidden>這則回覆完成了,但模型沒有回報 token 數,所以只顯示耗時。</div>
+      <!-- 串流開始之後的失敗(200 的最後一行 ChatStreamFailure):固定開頭 + 後端的 error.message(plan.md Q61) -->
+      <div class="turn-line is-bad" data-state="turn-error" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面;可以再送一次,或換一個模型。</div>
+      <div class="turn-line is-bad" data-state="turn-interrupted" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面;可以再送一次。</div>
+      <div class="turn-line is-bad" data-state="turn-bad-response" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面;可以再送一次。</div>
+      <div class="turn-line is-bad" data-state="turn-timeout" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面。</div>
+      <div class="turn-line is-bad" data-state="turn-lost" data-group="turn" hidden>這則回覆中斷:工作階段已結束、正在變更類型或已失聯。已收到的內容保留在上面;等工作階段就緒、模型下載好後才能再對話。</div>
+      <!-- 串流開始之前的失敗(404、502、504 的 Error.message):「沒有送出:」加後端的 message;502 的四個代碼共用 turn-unavailable(D96、D105) -->
+      <div class="turn-line is-bad" data-state="turn-not-found" data-group="turn" hidden>沒有送出:<span data-message></span>模型清單已重新讀取,可以換一個模型再送。</div>
+      <div class="turn-line is-bad" data-state="turn-unavailable" data-group="turn" hidden>沒有送出:<span data-message></span>你的訊息保留在上面,可以再送一次。</div>
+      <div class="turn-line is-bad" data-state="turn-start-timeout" data-group="turn" hidden>沒有送出:<span data-message></span>你的訊息保留在上面,可以再送一次。</div>
+    </section>
+  </main>
+</body>
+</html>

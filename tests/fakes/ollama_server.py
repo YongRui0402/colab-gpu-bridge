@@ -19,9 +19,12 @@
 對不到任何一條劇本時回 HTTP 599 與 `{"error": "fake ollama: 沒有對應這個請求的劇本: …"}`,
 並記在 `unmatched`;`assert_all_matched()` 讓測試在劇本寫錯時明確失敗,不會被當成正常的錯誤回應。
 每個收到的請求(方法、路徑、query、標頭、本文)都記在 `requests`。
+替身還在回應(等閘門、等放行)時對方先關掉連線,那個請求記在 `client_closed`(`closed_requests()` 依方法與路徑取),
+並且立刻放棄等待、不再送出任何位元組(004 plan.md Q57)。
 """
 
 import json
+import select
 import socket
 import threading
 from dataclasses import dataclass, field
@@ -58,7 +61,7 @@ class NdjsonReply:
     lines: list[Any]
     status: int = 200
     then: Literal["end", "disconnect", "hang"] = "end"
-    headers: dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str | None] = field(default_factory=dict)  # 值為 None 的標頭不送(例如沒有 Content-Type)
     release: Gate | None = None  # then="hang" 時,放行後正常結束
 
 
@@ -112,6 +115,7 @@ class FakeOllamaServer:
     def __init__(self) -> None:
         self.requests: list[RecordedRequest] = []
         self.unmatched: list[RecordedRequest] = []
+        self.client_closed: list[RecordedRequest] = []
         self._scripts: list[_Script] = []
         self._lock = threading.Lock()
         self._stopping = threading.Event()
@@ -182,6 +186,11 @@ class FakeOllamaServer:
         with self._lock:
             return [r for r in self.requests if r.method == method.upper() and r.path == path]
 
+    def closed_requests(self, method: str, path: str) -> list[RecordedRequest]:
+        """替身還沒回完、對方就先關掉連線的請求。"""
+        with self._lock:
+            return [r for r in self.client_closed if r.method == method.upper() and r.path == path]
+
     def _find(self, req: RecordedRequest) -> Reply | None:
         with self._lock:
             self.requests.append(req)
@@ -211,7 +220,35 @@ def _make_handler(server: FakeOllamaServer) -> type[BaseHTTPRequestHandler]:
                 headers={k.lower(): v for k, v in self.headers.items()},
                 body=body,
             )
-            self._reply(server._find(req), req)
+            # 回應期間監看對方有沒有先關連線;`_abort` 被設定時,等待中的閘門與放行就放棄(`_done` 設定後不再監看)
+            self._abort = threading.Event()
+            self._done = threading.Event()
+            threading.Thread(target=self._watch_peer, args=(req,), name="fake-ollama-peer", daemon=True).start()
+            try:
+                self._reply(server._find(req), req)
+            finally:
+                self._done.set()
+
+        def _watch_peer(self, req: RecordedRequest) -> None:
+            abort, done = self._abort, self._done
+            while not done.is_set():
+                if server._stopping.is_set():
+                    abort.set()
+                    return
+                ready, _, _ = select.select([self.connection], [], [], 0.02)
+                if not ready:
+                    continue
+                try:
+                    peeked = self.connection.recv(1, socket.MSG_PEEK)
+                except OSError:
+                    peeked = b""
+                if not peeked:
+                    if not done.is_set():
+                        with server._lock:
+                            server.client_closed.append(req)
+                        abort.set()
+                    return
+                done.wait(0.02)  # 對方又送了資料(管線化):不是關閉,別空轉
 
         def _reply(self, reply: "Reply | None", req: RecordedRequest) -> None:
             if reply is None:
@@ -225,7 +262,7 @@ def _make_handler(server: FakeOllamaServer) -> type[BaseHTTPRequestHandler]:
                 self._cut()
             elif isinstance(reply, HangReply):
                 gate = reply.release or Gate()
-                if gate.pass_sync(server._stopping) and reply.after is not None:
+                if gate.pass_sync(self._abort) and reply.after is not None:
                     self._reply(reply.after, req)
                 else:
                     self._cut()
@@ -246,16 +283,18 @@ def _make_handler(server: FakeOllamaServer) -> type[BaseHTTPRequestHandler]:
 
         def _send_ndjson(self, reply: NdjsonReply) -> None:
             self.send_response(reply.status)
-            self.send_header("Content-Type", reply.headers.get("Content-Type", "application/x-ndjson"))
+            content_type = reply.headers.get("Content-Type", "application/x-ndjson")
+            if content_type is not None:
+                self.send_header("Content-Type", content_type)
             self.send_header("Transfer-Encoding", "chunked")
             for key, value in reply.headers.items():
-                if key.lower() != "content-type":
+                if key.lower() != "content-type" and value is not None:
                     self.send_header(key, value)
             self.end_headers()
             self.wfile.flush()
             for item in reply.lines:
                 if isinstance(item, Gate):
-                    if not item.pass_sync(server._stopping):
+                    if not item.pass_sync(self._abort):
                         self._cut()
                         return
                     continue
@@ -266,7 +305,7 @@ def _make_handler(server: FakeOllamaServer) -> type[BaseHTTPRequestHandler]:
                 return
             if reply.then == "hang":
                 gate = reply.release or Gate()
-                if not gate.pass_sync(server._stopping):
+                if not gate.pass_sync(self._abort):
                     self._cut()
                     return
             self.wfile.write(b"0\r\n\r\n")
@@ -279,6 +318,7 @@ def _make_handler(server: FakeOllamaServer) -> type[BaseHTTPRequestHandler]:
         def _cut(self) -> None:
             # 中途斷線:不送結尾,直接關閉連線
             self.close_connection = True
+            self._done.set()  # 自己關的連線不算對方先關
             try:
                 self.wfile.flush()
                 self.connection.shutdown(socket.SHUT_RDWR)

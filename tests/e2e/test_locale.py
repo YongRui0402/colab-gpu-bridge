@@ -24,7 +24,7 @@ from e2e.test_us1_login import google_flows
 from e2e.test_us1_session import CJK, T4, ColabWorld, open_to_ready, restart_backend, wait_until, world  # noqa: F401 - `world` 是 fixture
 from e2e.test_us3_library import search_page
 from e2e.test_us4_usage import advance_clocks, reading, sync_browser_clock
-from fakes import Gate, NdjsonReply
+from fakes import Gate, JsonReply, NdjsonReply
 
 # Q105(a):`constitution/_shared/語言.md` Rule 1 的對照詞。testplan § G-06 列的簡體寫法,加上 Rule 1 點名的大陸用語(繁體寫法)
 SIMPLIFIED_OR_MAINLAND = (
@@ -421,9 +421,9 @@ def models_preload_failed(w: World) -> None:
 
 def search_for(w: World, keyword: str) -> None:
     w.page.goto("/library.html")
-    expect(w.page.locator("#search-form")).to_be_visible()
-    w.page.fill("#q", keyword)
-    w.page.locator("#search-form").get_by_role("button", name="搜尋").click()
+    expect(w.page.locator("#lib-form")).to_be_visible()
+    w.page.fill("#lib-q", keyword)
+    w.page.locator("#lib-form").get_by_role("button", name="搜尋").click()
 
 
 def type_name(w: World, name: str) -> None:
@@ -607,7 +607,13 @@ SCREENS: list[tuple[str, str, Callable[[World], None]]] = [
 ]
 
 # 「預先載入中」照 T235b 畫在目錄那一列(載入中的標示),不是另一個區塊
-STATE_LOCATORS = {("models", "preloading"): '[data-state="normal"] #catalog .pill-busy'}
+STATE_LOCATORS = {
+    ("models", "preloading"): '[data-state="normal"] #catalog .pill-busy',
+    # 001 原型的 `normal`、`searching`、`results` 在 004 照原型改名成 `lib-*`(分身決策紀錄 D116)
+    ("library", "normal"): '[data-state="lib-idle"]',
+    ("library", "searching"): '[data-state="lib-searching"]',
+    ("library", "results"): '[data-state="lib-results"]',
+}
 
 
 def test_畫面狀態清單涵蓋原型的每一個狀態() -> None:
@@ -709,15 +715,124 @@ def err_no_ready_session(w: World) -> httpx.Response:
     return trigger_ok(w, "GET", "/models")
 
 
+def err_invalid_model_name(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/chat", json={"model": "Qwen2.5", "messages": [{"role": "user", "content": "你好"}]})
+
+
+def err_empty_model_list(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/downloads/estimate", json={"models": []})
+
+
+def err_empty_chat_messages(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/chat", json={"model": MODEL, "messages": []})
+
+
+def err_invalid_chat_message(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/chat", json={"model": MODEL, "messages": [{"role": "system", "content": "x"}]})
+
+
+def err_chat_remote_status(status: int) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        ready_api(w)
+        w.fakes.server.add("POST", "/api/chat", JsonReply({"error": "cgb-test"}, status=status))
+        return trigger_ok(w, "POST", "/chat", json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}]})
+
+    return trigger
+
+
+def err_chat_stream_failure(then: str) -> Callable[[World], httpx.Response]:
+    """串流開始之後的失敗只出現在最後一行(`ChatStreamFailure`),沒有 HTTP 錯誤狀態;把那一行的 `error` 包成 502 回應,讓這張表統一檢查代碼與說明。"""
+
+    def trigger(w: World) -> httpx.Response:
+        ready_api(w)
+        w.fakes.server.add("POST", "/api/chat", NdjsonReply([{"model": MODEL, "message": {"role": "assistant", "content": "你"}, "done": False}], then=then))  # type: ignore[arg-type]
+        with w.api() as client:
+            with client.stream("POST", "/api/chat", json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}]}) as response:
+                last = [json.loads(line) for line in response.iter_lines()][-1]
+        return httpx.Response(502, json=last["error"])
+
+    return trigger
+
+
+def err_chat_session_ended(w: World) -> httpx.Response:
+    """回覆途中使用者結束工作階段:最後一行 `SESSION_ENDED`(同 `err_chat_stream_failure`,包成 502 回應)。"""
+    ready_api(w)
+    first = {"model": MODEL, "message": {"role": "assistant", "content": "你"}, "done": False}
+    w.fakes.server.add("POST", "/api/chat", NdjsonReply([first], then="hang"))
+    with w.api() as client, w.api() as other:
+        with client.stream("POST", "/api/chat", json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}]}) as response:
+            lines = response.iter_lines()
+            next(lines)
+            other.delete("/api/session")
+            last = [json.loads(line) for line in lines][-1]
+    return httpx.Response(502, json=last["error"])
+
+
 def err_invalid_curated_description(w: World) -> httpx.Response:
     w.start()
     return trigger_ok(w, "POST", "/curated", json={"name": MODEL, "description": "長" * 201})
+
+
+def err_invalid_auto_download(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/curated", json={"name": MODEL, "autoDownload": "true"})
 
 
 def err_curated_duplicate(w: World) -> httpx.Response:
     w.start()
     trigger_ok(w, "POST", "/curated", json={"name": MODEL})
     return trigger_ok(w, "POST", "/curated", json={"name": MODEL})
+
+
+def err_curated_not_found(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "DELETE", "/curated/999")
+
+
+def err_auto_download_result_not_found(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/downloads/auto-result/dismiss")
+
+
+def err_hf_search(params: dict[str, str]) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        w.start()
+        return trigger_ok(w, "GET", "/huggingface/search", params=params)
+
+    return trigger
+
+
+def err_hf_search_fails(code: str) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        w.fakes.huggingface.search_models.raises(code, code.lower())
+        w.start()
+        return trigger_ok(w, "GET", "/huggingface/search", params={"q": "qwen"})
+
+    return trigger
+
+
+def err_hf_expand_fails(code: str) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        w.fakes.huggingface.list_quants.raises(code, code.lower())
+        w.start()
+        return trigger_ok(w, "GET", "/huggingface/models/google/gemma-3-1b-it-qat-q4_0-gguf/quants")
+
+    return trigger
+
+
+def err_hf_quant_unavailable(w: World) -> httpx.Response:
+    ready_api(w)
+    w.fakes.huggingface.get_manifest.raises("HF_QUANT_UNAVAILABLE", "hf_quant_unavailable")
+    return trigger_ok(w, "POST", "/downloads/estimate", json={"models": ["hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_L"]})
+
+
+def err_invalid_hf_model_id(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "GET", "/huggingface/models/-bartowski/SmolLM2-135M-Instruct-GGUF/quants")
 
 
 def ready_api(w: World, models: dict[str, tuple[int, bool]] | None = None) -> None:
@@ -757,6 +872,20 @@ def err_download_in_progress(w: World) -> httpx.Response:
     with w.api() as client:
         wait_until(lambda: client.get("/api/downloads").json()["jobs"][0]["state"] == "downloading", "沒有開始下載")
     return trigger_ok(w, "DELETE", f"/downloads/{job['id']}")
+
+
+def err_download_not_found(w: World) -> httpx.Response:
+    w.start()
+    return trigger_ok(w, "POST", "/downloads/999999/retry")
+
+
+def err_download_not_retryable(w: World) -> httpx.Response:
+    ready_api(w)
+    gated_pull(w)
+    job = trigger_ok(w, "POST", "/downloads", json={"models": [MODEL]}).json()["jobs"][0]
+    with w.api() as client:
+        wait_until(lambda: client.get("/api/downloads").json()["jobs"][0]["state"] == "downloading", "沒有開始下載")
+    return trigger_ok(w, "POST", f"/downloads/{job['id']}/retry")
 
 
 def err_disk_space_insufficient(w: World) -> httpx.Response:
@@ -834,13 +963,18 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("INVALID_RUNTIME_TYPE", err_invalid_runtime_type),
     ("NO_READY_SESSION", err_no_ready_session),
     ("INVALID_CURATED_DESCRIPTION", err_invalid_curated_description),
+    ("INVALID_AUTO_DOWNLOAD", err_invalid_auto_download),
     ("CURATED_DUPLICATE", err_curated_duplicate),
+    ("CURATED_NOT_FOUND", err_curated_not_found),
+    ("AUTO_DOWNLOAD_RESULT_NOT_FOUND", err_auto_download_result_not_found),
     ("OLLAMA_NOT_FOUND", err_ollama_not_found),
     ("MODEL_ALREADY_DOWNLOADED", err_model_already_downloaded),
     ("DOWNLOAD_ALREADY_QUEUED", err_download_already_queued),
     ("DISK_SPACE_INSUFFICIENT", err_disk_space_insufficient),
     ("DISK_SPACE_UNKNOWN", err_disk_space_unknown),
     ("DOWNLOAD_IN_PROGRESS", err_download_in_progress),
+    ("DOWNLOAD_NOT_FOUND", err_download_not_found),
+    ("DOWNLOAD_NOT_RETRYABLE", err_download_not_retryable),
     ("LIBRARY_NOT_FOUND", err_manifest("LIBRARY_NOT_FOUND")),
     ("LIBRARY_UNREACHABLE", err_search("LIBRARY_UNREACHABLE")),
     ("LIBRARY_SERVER_ERROR", err_search("LIBRARY_SERVER_ERROR")),
@@ -852,6 +986,24 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("OLLAMA_TIMEOUT", err_ollama("OLLAMA_TIMEOUT")),
     ("INVALID_IDLE_TIMEOUT", err_settings({"idleTimeoutMinutes": 0, "lowBalanceThreshold": 10})),
     ("INVALID_BALANCE_THRESHOLD", err_settings({"idleTimeoutMinutes": 30, "lowBalanceThreshold": -1})),
+    ("INVALID_MODEL_NAME", err_invalid_model_name),
+    ("EMPTY_MODEL_LIST", err_empty_model_list),
+    ("EMPTY_CHAT_MESSAGES", err_empty_chat_messages),
+    ("INVALID_CHAT_MESSAGE", err_invalid_chat_message),
+    ("OLLAMA_BAD_REQUEST", err_chat_remote_status(400)),
+    ("OLLAMA_SERVER_ERROR", err_chat_remote_status(500)),
+    ("OLLAMA_STREAM_INTERRUPTED", err_chat_stream_failure("end")),
+    ("SESSION_ENDED", err_chat_session_ended),
+    ("INVALID_QUERY", err_hf_search({"q": "   "})),
+    ("INVALID_CURSOR", err_hf_search({"q": "qwen", "cursor": ""})),
+    ("INVALID_HF_MODEL_ID", err_invalid_hf_model_id),
+    ("HF_UNREACHABLE", err_hf_search_fails("HF_UNREACHABLE")),
+    ("HF_SERVER_ERROR", err_hf_search_fails("HF_SERVER_ERROR")),
+    ("HF_BAD_RESPONSE", err_hf_search_fails("HF_BAD_RESPONSE")),
+    ("HF_AUTH_REQUIRED", err_hf_expand_fails("HF_AUTH_REQUIRED")),
+    ("HF_NO_GGUF", err_hf_expand_fails("HF_NO_GGUF")),
+    ("HF_QUANT_UNAVAILABLE", err_hf_quant_unavailable),
+    ("HF_TIMEOUT", err_hf_search_fails("HF_TIMEOUT")),
 ]
 
 

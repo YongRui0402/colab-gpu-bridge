@@ -30,11 +30,12 @@ class RuntimeSwitch:
         base_url = self._lifecycle.base_url
         loaded = (await remote.list_loaded_models(base_url=base_url))["models"]
         sizes = {m["name"]: m["size"] for m in (await remote.list_local_models(base_url=base_url))["models"]}
-        for model in loaded:
-            self._downloads.enqueue_restore(model["name"], sizes.get(model["name"], 0))
-        # ending 不占位:舊的先改成 ending,才寫得進新的(store.dbml active_slot)
+        # ending 不占位:舊的先改成 ending,才寫得進新的(store.dbml active_slot);
+        # 變成 ending 時佇列照 `info.x-queue-clearing` (1) 清空,清除之後才排入重新載入的項目(FR-002)
         self._repo.update(old, state="ending", active_slot=None, step=None, end_reason="RUNTIME_TYPE_CHANGED")
         new = self._lifecycle.reserve(runtime_type, step="ending_previous")
+        for model in loaded:
+            self._downloads.enqueue_restore(model["name"], sizes.get(model["name"], 0), new)
         self._lifecycle.spawn(self._run(old, new, runtime_type))
         return self._lifecycle.current()
 

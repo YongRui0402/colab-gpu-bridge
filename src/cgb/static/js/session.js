@@ -1,17 +1,9 @@
 // 首頁(工作階段面板):依後端推送的 `Session` 顯示對應的狀態區塊(prototype/index.html)
 import { readThenFollow, request } from "./api.js";
 import { startHeader } from "./header.js";
-import { cu, duration, mmss, showState, typeText } from "./view.js";
+import { PICKABLE_TYPES, cu, duration, mmss, showState, typeInfo, typeText } from "./view.js";
 
-// 可選的類型與顯示記憶體(prototype/mock.js 的 runtimeTypes;FR-009 預設 T4、不開高 RAM)
-const RUNTIME_TYPES = [
-  { id: "T4", vramMiB: 15360, highMem: true },
-  { id: "L4", vramMiB: 23034, highMem: false },
-  { id: "G4", vramMiB: 97887, highMem: true },
-  { id: "A100", vramMiB: 40960, highMem: true },
-  { id: "H100", vramMiB: 81559, highMem: true },
-];
-const typeInfo = (id) => RUNTIME_TYPES.find((t) => t.id === id);
+// 可選的類型與顯示記憶體在 view.js(FR-009 預設 T4、不開高 RAM)
 
 // 開啟的步驟(contracts/ui.openapi.yaml § OpeningStep)與畫面上的文字
 const OPEN_STEPS = [
@@ -57,7 +49,7 @@ function renderPicker() {
     box.innerHTML = `
       <label>執行階段類型</label>
       <div class="type-picker">
-        ${RUNTIME_TYPES.map((t) => `
+        ${PICKABLE_TYPES.map((t) => `
           <label class="type-option">
             <input type="radio" name="type-${key}" value="${t.id}" ${picked.gpu === t.id ? "checked" : ""}>
             <strong>${t.id}${t.id === "T4" ? "(預設)" : ""}</strong>

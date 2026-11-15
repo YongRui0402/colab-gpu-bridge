@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import json
 import socket
 import time
 from collections.abc import Callable
@@ -772,3 +773,389 @@ async def test_list_loaded_models_形狀不符時整份歸成_OLLAMA_BAD_RESPONS
     outcomes = [await loaded_outcome(Recorder(ps_only(body)).remote()) for body in bodies]
 
     assert outcomes == ["AdapterError(OLLAMA_BAD_RESPONSE)"] * 6
+
+
+# ---- 004 E7 的共用:hf.co 的進度行(testplan.md § 5.2,research.md R4 實測的順序)
+
+HF_Q4 = "hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M"
+HF_MANIFEST = {"status": "pulling manifest"}
+HF_L1_START = {"status": "pulling " + "a" * 12, "digest": "sha256:" + "a" * 64, "total": 105454976}
+HF_L1_HALF = {**HF_L1_START, "completed": 52727488}
+HF_L1_DONE = {**HF_L1_START, "completed": 105454976}
+HF_L2_DONE = {"status": "pulling " + "b" * 12, "digest": "sha256:" + "b" * 64, "total": 169, "completed": 169}
+HF_VERIFY = {"status": "verifying sha256 digest"}
+HF_WRITE = {"status": "writing manifest"}
+HF_SUCCESS = {"status": "success"}
+
+NDJSON = {"Content-Type": "application/x-ndjson"}
+
+
+def ndjson_body(*lines: dict) -> bytes:
+    return b"".join(json.dumps(line).encode() + b"\n" for line in lines)
+
+
+def ndjson_reply(*lines: dict) -> Callable[[httpx.Request], httpx.Response]:
+    """200 `application/x-ndjson`,本文是每行一個 JSON。"""
+    return lambda request: httpx.Response(200, headers=NDJSON, content=ndjson_body(*lines))
+
+
+async def pull_all(remote: RemoteOllama, model: str) -> list[dict]:
+    """呼叫一次 `pull_model` 並把迭代器讀完(testplan.md § 5.2 的「呼叫一次 `pull_model`」)。"""
+    return await _pull_all(remote, LOCAL_FORWARD_URL, model=model)
+
+
+# ---- 004 US4-RO-01
+
+
+async def test_pull_model_把名稱原樣放進本文_不轉小寫不改前綴不去_latest() -> None:
+    """US4-RO-01:A 正常的 hf.co 名稱;B 作者與模型有大寫、量化版本小寫;C 結尾是 `:latest`。"""
+    handlers = {}
+    for case, model in {
+        "A": HF_Q4,
+        "B": "hf.co/Bartowski/smollm2-135M-Instruct-GGUF:q4_k_m",
+        "C": "hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:latest",
+    }.items():
+        handlers[case] = Recorder(ndjson_reply(HF_SUCCESS))
+        await pull_all(handlers[case].remote(), model)
+
+    assert len(handlers["A"].requests) == 1
+    assert handlers["A"].requests[0].method == "POST"
+    assert str(handlers["A"].requests[0].url) == "http://127.0.0.1:11435/api/pull"
+    assert json.loads(handlers["A"].requests[0].content) == {
+        "model": "hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M",
+        "stream": True,
+    }
+    assert json.loads(handlers["B"].requests[0].content)["model"] == "hf.co/Bartowski/smollm2-135M-Instruct-GGUF:q4_k_m"
+    assert json.loads(handlers["C"].requests[0].content)["model"] == "hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:latest"
+
+
+# ---- 004 US4-RO-02
+
+
+async def test_pull_model_hf_co_的進度只產出帶_total_的行_到_success_為止() -> None:
+    """US4-RO-02:`pulling manifest`、`verifying sha256 digest`、`writing manifest` 不是進度;沒有 `completed` 的第一行照常產出。"""
+    handler = Recorder(
+        ndjson_reply(HF_MANIFEST, HF_L1_START, HF_L1_HALF, HF_L1_DONE, HF_L2_DONE, HF_VERIFY, HF_WRITE, HF_SUCCESS)
+    )
+
+    received = await pull_all(handler.remote(), HF_Q4)
+
+    assert received == [HF_L1_START, HF_L1_HALF, HF_L1_DONE, HF_L2_DONE, HF_SUCCESS]
+
+
+async def pull_outcome(remote: RemoteOllama, model: str = HF_Q4) -> object:
+    """呼叫一次 `pull_model` 並讀完;成功交回讀到的行,丟出 `AdapterError` 交回 `AdapterError(<code>)`,
+    其他例外交回 `repr`。讓「丟了不該丟的例外」成為斷言失敗,不是測試本身出錯。"""
+    try:
+        return await pull_all(remote, model)
+    except AdapterError as error:
+        return f"AdapterError({error.code})"
+    except Exception as error:  # noqa: BLE001 - 丟了別的例外也要成為斷言失敗
+        return repr(error)
+
+
+# ---- 004 US4-RO-03
+
+
+async def test_pull_model_串流開始前逾時一律歸成_OLLAMA_TIMEOUT_且不重試() -> None:
+    """US4-RO-03:A 連線逾時;B 逾時內沒有收到回應標頭。"""
+    handler = Recorder(raising([httpx.ConnectTimeout("timed out"), httpx.ReadTimeout("timed out")]))
+
+    outcomes = [await pull_outcome(handler.remote()) for _ in range(2)]
+
+    assert outcomes == ["AdapterError(OLLAMA_TIMEOUT)"] * 2
+    assert len(handler.requests) == 2
+
+
+# ---- 004 US4-RO-04
+
+
+async def test_pull_model_串流開始前連不到一律歸成_OLLAMA_UNREACHABLE_且不重試() -> None:
+    """US4-RO-04:A 連線被拒;B 連線被重設(SSH 通道斷了);C 伺服器沒回標頭就斷線。"""
+    handler = Recorder(
+        raising(
+            [
+                httpx.ConnectError("[Errno 111] Connection refused"),
+                httpx.ReadError("[Errno 104] Connection reset by peer"),
+                httpx.RemoteProtocolError("Server disconnected without sending a response."),
+            ]
+        )
+    )
+
+    outcomes = [await pull_outcome(handler.remote()) for _ in range(3)]
+
+    assert outcomes == ["AdapterError(OLLAMA_UNREACHABLE)"] * 3
+    assert len(handler.requests) == 3
+
+
+# ---- 004 US4-RO-05
+
+
+async def test_pull_model_回_400_一律歸成_OLLAMA_BAD_REQUEST_不讀本文() -> None:
+    """US4-RO-05:A 一般的 error;B error 含 `file does not exist`;C 非 JSON 的純文字本文。"""
+    replies = iter(
+        [
+            httpx.Response(400, json={"error": "invalid model name"}),
+            httpx.Response(400, json={"error": "pull model manifest: file does not exist"}),
+            httpx.Response(400, headers={"Content-Type": "text/plain"}, content=b"Bad Request"),
+        ]
+    )
+    handler = Recorder(lambda request: next(replies))
+
+    outcomes = [await pull_outcome(handler.remote()) for _ in range(3)]
+
+    assert outcomes == ["AdapterError(OLLAMA_BAD_REQUEST)"] * 3
+    assert len(handler.requests) == 3
+
+
+# ---- 004 US4-RO-06
+
+
+async def test_pull_model_回_500_一律歸成_OLLAMA_SERVER_ERROR_不讀本文() -> None:
+    """US4-RO-06:A error 含 `file does not exist`;B `text/html` 的錯誤頁。"""
+    replies = iter(
+        [
+            httpx.Response(500, json={"error": "pull model manifest: file does not exist"}),
+            httpx.Response(
+                500,
+                headers={"Content-Type": "text/html"},
+                content=b"<html><body>Internal Server Error</body></html>",
+            ),
+        ]
+    )
+    handler = Recorder(lambda request: next(replies))
+
+    outcomes = [await pull_outcome(handler.remote()) for _ in range(2)]
+
+    assert outcomes == ["AdapterError(OLLAMA_SERVER_ERROR)"] * 2
+    assert len(handler.requests) == 2
+
+
+# ---- 004 US4-RO-07
+
+
+async def test_pull_model_其他狀態碼與_3xx_一律歸成_OLLAMA_BAD_RESPONSE_不跟著導向() -> None:
+    """US4-RO-07:A、B 404;C 503 沒有本文;D 201 的 NDJSON;E 307 導向另一個路徑。"""
+
+    def elsewhere(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/elsewhere":
+            return httpx.Response(200, headers=NDJSON, content=ndjson_body(HF_SUCCESS))
+        return httpx.Response(307, headers={"Location": "http://127.0.0.1:11435/elsewhere"})
+
+    replies = [
+        httpx.Response(404, json={"error": "pull model manifest: file does not exist"}),
+        httpx.Response(404, headers={"Content-Type": "text/plain"}, content=b"404 page not found"),
+        httpx.Response(503),
+        httpx.Response(201, headers=NDJSON, content=ndjson_body(HF_SUCCESS)),
+    ]
+    replying_handler = Recorder(lambda request: replies.pop(0))
+    redirecting_handler = Recorder(elsewhere)
+
+    outcomes = [await pull_outcome(replying_handler.remote()) for _ in range(4)]
+    outcomes.append(await pull_outcome(redirecting_handler.remote()))
+
+    assert outcomes == ["AdapterError(OLLAMA_BAD_RESPONSE)"] * 5
+    assert len(redirecting_handler.requests) == 1
+
+
+# ---- 004 US4-RO-08
+
+
+async def test_pull_model_200_但不是_NDJSON_時歸成_OLLAMA_BAD_RESPONSE() -> None:
+    """US4-RO-08:A `application/json`;B `text/html` 的錯誤頁;C 沒有 `Content-Type`。"""
+    replies = iter(
+        [
+            httpx.Response(200, headers={"Content-Type": "application/json"}, content=b'{"status":"success"}'),
+            httpx.Response(
+                200,
+                headers={"Content-Type": "text/html"},
+                content=b"<!DOCTYPE html><html><body>502 Bad Gateway</body></html>",
+            ),
+            httpx.Response(200, content=ndjson_body(HF_SUCCESS)),
+        ]
+    )
+    handler = Recorder(lambda request: next(replies))
+
+    outcomes = [await pull_outcome(handler.remote()) for _ in range(3)]
+
+    assert outcomes == ["AdapterError(OLLAMA_BAD_RESPONSE)"] * 3
+    assert len(handler.requests) == 3
+
+
+# ---- 004 US4-RO-09
+
+
+class HalfNdjson(httpx.AsyncByteStream):
+    """先逐行送出指定的行,再丟出指定的例外(模擬 NDJSON 串流讀到一半才出事)。"""
+
+    def __init__(self, lines: list[dict], error: Exception) -> None:
+        self._lines = lines
+        self._error = error
+
+    async def __aiter__(self):
+        for line in self._lines:
+            yield json.dumps(line).encode() + b"\n"
+        raise self._error
+
+
+def half_ndjson_reply(lines: list[dict], error: Exception) -> Callable[[httpx.Request], httpx.Response]:
+    return lambda request: httpx.Response(200, headers=NDJSON, stream=HalfNdjson(lines, error))
+
+
+async def pull_until_error(remote: RemoteOllama, model: str = HF_Q4) -> tuple[list[dict], object]:
+    """邊迭代邊記下產出的行;交回 (記下的行, 結果),結果同 `pull_outcome`(正常結束是 `"回成功"`)。"""
+    received: list[dict] = []
+    try:
+        async for line in await remote.pull_model(base_url=LOCAL_FORWARD_URL, model=model):
+            received.append(line)
+    except AdapterError as error:
+        return received, f"AdapterError({error.code})"
+    except Exception as error:  # noqa: BLE001 - 丟了別的例外也要成為斷言失敗
+        return received, repr(error)
+    return received, "回成功"
+
+
+async def test_pull_model_兩行之間逾時歸成_OLLAMA_TIMEOUT_已產出的行不撤回_且不重送() -> None:
+    """US4-RO-09:`pull_progress_timeout=0.3`,串流送出 `HF_MANIFEST`、`HF_L1_HALF` 之後丟 `ReadTimeout`。"""
+    handler = Recorder(half_ndjson_reply([HF_MANIFEST, HF_L1_HALF], httpx.ReadTimeout("timed out")))
+    remote = RemoteOllama(transport=httpx.MockTransport(handler), pull_progress_timeout=0.3)
+
+    received, outcome = await pull_until_error(remote)
+
+    assert outcome == "AdapterError(OLLAMA_TIMEOUT)"
+    assert received == [HF_L1_HALF]
+    assert len(handler.requests) == 1
+
+
+# ---- 004 US4-RO-10
+
+
+async def test_pull_model_串流中斷或沒有_success_就結束一律歸成_OLLAMA_STREAM_INTERRUPTED() -> None:
+    """US4-RO-10:A 送出一行後協定錯誤;B 送出一行後連線被重設;C 正常結束但沒有 `success`;D 本文是空的。"""
+    handlers = [
+        Recorder(
+            half_ndjson_reply(
+                [HF_L1_HALF],
+                httpx.RemoteProtocolError("peer closed connection without sending complete message body"),
+            )
+        ),
+        Recorder(half_ndjson_reply([HF_L1_HALF], httpx.ReadError("[Errno 104] Connection reset by peer"))),
+        Recorder(ndjson_reply(HF_MANIFEST, HF_L1_DONE, HF_L2_DONE, HF_VERIFY, HF_WRITE)),
+        Recorder(lambda request: httpx.Response(200, headers=NDJSON, content=b"")),
+    ]
+
+    outcomes = [await pull_outcome(handler.remote()) for handler in handlers]
+
+    assert outcomes == ["AdapterError(OLLAMA_STREAM_INTERRUPTED)"] * 4
+    assert sum(len(handler.requests) for handler in handlers) == 4
+
+
+# ---- 004 US4-RO-11
+
+
+async def test_pull_model_error_行含_file_does_not_exist_時歸成_OLLAMA_NOT_FOUND_之前沒有產出任何行() -> None:
+    """US4-RO-11:`HF_MANIFEST` 之後一行 error;`pulling manifest` 不是進度,所以丟出之前沒有產出任何一行。"""
+    handler = Recorder(
+        ndjson_reply(HF_MANIFEST, {"error": "pull model manifest: file does not exist"}),
+    )
+
+    received, outcome = await pull_until_error(handler.remote(), "qwen2.5:7b")
+
+    assert outcome == "AdapterError(OLLAMA_NOT_FOUND)"
+    assert received == []
+
+
+# ---- 004 US4-RO-12
+
+
+async def test_pull_model_hf_co_拉取失敗的_error_行歸成_OLLAMA_PULL_FAILED_不看原文裡的_400() -> None:
+    """US4-RO-12:A 量化版本不合法(原文含 `400:`);B realm host 不符;C 不是 GGUF 倉庫(原文含 `400:`)。"""
+    models_and_errors = [
+        (
+            "hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_L",
+            "pull model manifest: 400: ... not a valid quantization scheme",
+        ),
+        (
+            "hf.co/google/gemma-3-1b-it-qat-q4_0-gguf:latest",
+            'realm host "huggingface.co" does not match original host "hf.co"',
+        ),
+        ("hf.co/Qwen/Qwen2.5-0.5B-Instruct:latest", "400: Repository is not GGUF"),
+    ]
+    handlers = [Recorder(ndjson_reply(HF_MANIFEST, {"error": error})) for _, error in models_and_errors]
+
+    outcomes = [
+        await pull_outcome(handler.remote(), model)
+        for handler, (model, _) in zip(handlers, models_and_errors, strict=True)
+    ]
+
+    assert outcomes == ["AdapterError(OLLAMA_PULL_FAILED)"] * 3
+    assert sum(len(handler.requests) for handler in handlers) == 3
+
+
+# ---- 004 US4-RO-13
+
+_SHA_A = "sha256:" + "a" * 64
+_LAYER_A = {"status": "pulling " + "a" * 12, "digest": _SHA_A}
+
+
+@pytest.mark.parametrize(
+    "second_line",
+    [
+        pytest.param(b"not json", id="A-不是-JSON"),
+        pytest.param(b"[1,2]", id="B-陣列"),
+        pytest.param(b'"success"', id="C-字串"),
+        pytest.param(b'{"status":123}', id="D-status-不是字串"),
+        pytest.param(json.dumps({**_LAYER_A, "total": "105454976"}).encode(), id="E-total-是字串"),
+        pytest.param(json.dumps({**_LAYER_A, "total": 105454976, "completed": -1}).encode(), id="F-completed-是負數"),
+        pytest.param(json.dumps({**_LAYER_A, "total": 105454976, "completed": True}).encode(), id="G-completed-是布林"),
+        pytest.param(b'{"error":123}', id="H-error-不是字串"),
+    ],
+)
+async def test_pull_model_某一行不是_JSON_物件或型別不符時歸成_OLLAMA_BAD_RESPONSE(second_line: bytes) -> None:
+    """US4-RO-13:第一行 `HF_L1_HALF` 正常,第二行壞掉。"""
+    body = ndjson_body(HF_L1_HALF) + second_line + b"\n"
+    handler = Recorder(lambda request: httpx.Response(200, headers=NDJSON, content=body))
+
+    outcome = await pull_outcome(handler.remote())
+
+    assert outcome == "AdapterError(OLLAMA_BAD_RESPONSE)"
+
+
+# ---- 004 US4-RO-14
+
+
+async def test_pull_model_逾時是連線_10_秒_兩行之間_60_秒_可注入() -> None:
+    """US4-RO-14:A 不帶任何逾時參數;B 注入 `connect_timeout=0.2`、`pull_progress_timeout=0.3`。"""
+    handler = Recorder(ndjson_reply(HF_SUCCESS))
+
+    await pull_all(RemoteOllama(transport=httpx.MockTransport(handler)), HF_Q4)
+    await pull_all(
+        RemoteOllama(transport=httpx.MockTransport(handler), connect_timeout=0.2, pull_progress_timeout=0.3), HF_Q4
+    )
+
+    assert [request.extensions["timeout"] for request in handler.requests] == [
+        {"connect": 10.0, "read": 60.0, "write": 60.0, "pool": 60.0},
+        {"connect": 0.2, "read": 0.3, "write": 0.3, "pool": 0.3},
+    ]
+
+
+# ---- 004 US4-RO-15
+
+
+async def test_pull_model_Content_Type_只比_media_type_不分大小寫_忽略參數與空白() -> None:
+    """US4-RO-15:A 帶 `charset`;B 大小寫不同;C `;` 前有空白。"""
+    content_types = [
+        "application/x-ndjson; charset=utf-8",
+        "Application/X-NDJSON",
+        "application/x-ndjson ; charset=UTF-8",
+    ]
+    handlers = [
+        Recorder(lambda request, ct=content_type: httpx.Response(
+            200, headers={"Content-Type": ct}, content=ndjson_body(HF_L1_HALF, HF_SUCCESS)
+        ))
+        for content_type in content_types
+    ]
+
+    outcomes = [await pull_outcome(handler.remote()) for handler in handlers]
+
+    assert outcomes == [[HF_L1_HALF, HF_SUCCESS]] * 3

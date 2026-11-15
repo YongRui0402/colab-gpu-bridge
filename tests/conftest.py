@@ -31,6 +31,7 @@ from cgb.server import Servers
 from fakes import (
     FakeColabControl,
     FakeGoogleOAuth,
+    FakeHuggingFaceHub,
     FakeModelLibrary,
     FakeOllamaServer,
     FakeRemoteOllama,
@@ -140,6 +141,7 @@ class Fakes:
     remote_ollama: FakeRemoteOllama
     model_library: FakeModelLibrary
     google_oauth: FakeGoogleOAuth
+    huggingface: FakeHuggingFaceHub
     server: FakeOllamaServer
 
     def as_kwargs(self) -> dict[str, Any]:
@@ -149,6 +151,7 @@ class Fakes:
             "remote_ollama": self.remote_ollama,
             "model_library": self.model_library,
             "google_oauth": self.google_oauth,
+            "huggingface": self.huggingface,
         }
 
 
@@ -169,6 +172,7 @@ def fakes(ollama_server: FakeOllamaServer) -> Fakes:
         remote_ollama=FakeRemoteOllama(ollama_server),
         model_library=FakeModelLibrary(),
         google_oauth=FakeGoogleOAuth(),
+        huggingface=FakeHuggingFaceHub(),
         server=ollama_server,
     )
 
@@ -228,7 +232,8 @@ def ollama_client(asgi_clients: tuple[httpx.AsyncClient, httpx.AsyncClient]) -> 
 
 
 def _bind(port: int) -> socket.socket:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # proto 要明寫 TCP:asyncio 只對 proto 為 TCP 的連線設 TCP_NODELAY,否則回應的標頭與第一段之間會被 Nagle 多等約 40 毫秒
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("127.0.0.1", port))
     sock.listen(128)

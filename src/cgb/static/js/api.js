@@ -33,3 +33,32 @@ export function readThenFollow(path, apply) {
     apply(value);
   };
 }
+
+// 對話頁送出一則(contracts/ui.openapi.yaml § paths./chat.post):200 時回 `lines`,邊收邊交出每一行解析好的 `ChatStreamLine`;
+// 其他狀態回 `Error` 本文。`signal` 中止時連線一起斷開(停止,FR-006)
+export async function chat(body, signal) {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    return { ok: false, status: response.status, data };
+  }
+  return { ok: true, status: response.status, lines: ndjsonLines(response.body) };
+}
+
+async function* ndjsonLines(stream) {
+  const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
+  let pending = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    const parts = (pending + value).split("\n");
+    pending = parts.pop();
+    for (const part of parts) if (part.trim()) yield JSON.parse(part);
+  }
+  if (pending.trim()) yield JSON.parse(pending);
+}
