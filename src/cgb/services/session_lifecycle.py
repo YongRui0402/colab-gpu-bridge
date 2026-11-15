@@ -9,6 +9,7 @@ from cgb.adapters.errors import AdapterError
 from cgb.domain.errors import ApiError, reason_message
 from cgb.domain.session_state import ACTIVE_STATES, TERMINAL_STATES, iso, listed_names, release_warning_fields, session_payload
 from cgb.repos.sessions import ActiveSessionExists, SessionsRepo
+from cgb.repos.tunings import TuningsRepo, machine_of, tuning_of
 from cgb.services.auth import AuthService
 
 # 本機轉發的 port(contracts/tunnel.openapi.yaml § OpenTunnelInput.localPort 預設)
@@ -17,6 +18,12 @@ TUNNEL_LOCAL_PORT = 11435
 
 # 工作階段被結束(使用者結束、變更執行階段類型)時進入的狀態;進行中的轉送要隨之中斷(FR-013)
 _ENDED_STATES = frozenset({"ending", "ended"})
+
+# 三個覆蓋值都是自動(contracts/ui.openapi.yaml § TuningOverrides 的 null)
+AUTO_OVERRIDES: dict[str, int | None] = {"numParallel": None, "contextLength": None, "maxLoadedModels": None}
+
+# 開啟流程裡 `starting_ollama` 之後的步驟(contracts/ui.openapi.yaml § OpeningStep)
+_AFTER_STARTING_OLLAMA = frozenset({"connecting", "verifying"})
 
 # contracts/ui.openapi.yaml § Session.balanceMayBeDepleted:重連中或失聯時才判斷
 _MAY_BE_DEPLETED_STATES = frozenset({"reconnecting", "lost"})
@@ -31,10 +38,12 @@ class ForwardTarget:
 
 
 class SessionLifecycle:
-    def __init__(self, state: Any, repo: SessionsRepo, auth: AuthService, key_path: str) -> None:
+    def __init__(self, state: Any, repo: SessionsRepo, auth: AuthService, key_path: str, tunings: TuningsRepo) -> None:
         self._state = state
         self._auth = auth
         self._repo = repo
+        # 每一次開啟的 Ollama 設定(contracts/store.dbml § Table session_tunings)
+        self._tunings = tunings
         self._key_path = key_path
         self._tasks: set[asyncio.Task[None]] = set()
         self._open_tasks: dict[str, asyncio.Task[None]] = {}
@@ -59,6 +68,8 @@ class SessionLifecycle:
     def current(self) -> dict[str, Any]:
         row = self._repo.latest()
         payload = session_payload(row, self._repo.unmanaged_runtimes)
+        if row is not None:
+            payload["ollama"] = self._ollama_status(row["name"])
         if row is not None and row["name"] == self.resuming and row["state"] in ACTIVE_STATES:
             payload["resuming"] = True
         if row is not None and payload.get("idle") is not None and self.idle is not None:
@@ -66,6 +77,21 @@ class SessionLifecycle:
         if row is not None and row["state"] in _MAY_BE_DEPLETED_STATES and self.usage is not None:
             payload["balanceMayBeDepleted"] = self.usage.balance_may_be_depleted()
         return payload
+
+    def _ollama_status(self, name: str) -> dict[str, Any]:
+        """`Session.ollama`(contracts/ui.openapi.yaml § OllamaStatus):照紀錄裡 `startOllama` 回報的硬體與設定,不重算。"""
+        record = self._tunings.latest(name)
+        if record is None:
+            # 沒有紀錄:還沒走完 `starting_ollama` 是 `pending`;已經走過(005 之前開、升級後接回)是 `unknown`
+            status = "unknown" if self._passed_starting_ollama(name) else "pending"
+            return {"status": status, "machine": None, "tuning": None, "lastApply": None}
+        tuning = tuning_of(record)
+        # 遠端 Ollama 在執行、但讀不到它套用的設定(OllamaStatus.status 的 `unknown`)
+        status = "applied" if tuning is not None else "unknown"
+        return {"status": status, "machine": machine_of(record), "tuning": tuning, "lastApply": None}
+
+    def _passed_starting_ollama(self, name: str) -> bool:
+        return any(t["state"] == "ready" or t["step"] in _AFTER_STARTING_OLLAMA for t in self._repo.transitions(name))
 
     def ready_base_url(self) -> str | None:
         """工作階段就緒時的轉發位址;開啟中、重連中、結束後都是 None(不去連轉發位址)。"""
@@ -243,7 +269,10 @@ class SessionLifecycle:
         await asyncio.shield(creating)
         progress["allocated"] = True
         self._repo.update(name, step="starting_ollama")
-        await colab.start_ollama(name=name, overrides={"numParallel": None, "contextLength": None, "maxLoadedModels": None})
+        started = await colab.start_ollama(name=name, overrides=AUTO_OVERRIDES)
+        self._tunings.insert_open(
+            session_name=name, at=iso(self._state.clock.now()), requested=AUTO_OVERRIDES, started=started
+        )
         self._repo.update(name, step="connecting")
         # Q64:`colab ssh --proxy-mode` 找不到名稱會自己開一台新的,建立通道前一定先確認名稱在列
         listed = await colab.list_sessions()

@@ -198,135 +198,135 @@
 
 > 依賴 E5 節的 US1-CLI-01、US1-CLI-05 綠燈(T002b、T003b)完成才開始(`plan.md` § 待決問題 Q32、Q55),之後和 E5、E4 平行。E2 只改 `src/cgb/services/`、`src/cgb/repos/`、`src/cgb/api/`、`src/cgb/domain/tuning.py`、`tests/integration/test_api_tuning.py`、`tests/unit/test_tuning.py`(及綠燈任務寫明的既有測試);`src/cgb/db/schema.py` 由 E4 節負責,寫 `session_tunings` 的 T021b、T026b 依賴 E4 的 T038b。E2 不重算設定(`info.x-tuning-rule` (2)),級距由 US1-API-11~16 的單元案例驗;等待以 `wait_for_state`、`wait_until` 帶 1 秒上限,時間以 `fake_clock` 推進
 
-- [ ] T021a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-01 的測試(以 `open_ready(ui_client, A100)` 開到就緒,`GET /api/session`;分隔註解寫 `# ---- 005 US1-API-01`);同一個任務在檔內新增 `testplan.md` § 2.2 的 `GIB`、`A100`、`L4`、`applied`、`started`、`restarted`、`A100_STARTED`、`record_of`、`sent_overrides`(`T4_STARTED` 從 `tests/integration/test_api_session.py` 匯入,`plan.md` § 待決問題 Q59),執行確認它因為「`Session` 沒有 `ollama` 欄位,或 `startOllama` 的結果只取 `ollamaVersion` 就丟掉」這類實作而失敗
+- [x] T021a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-01 的測試(以 `open_ready(ui_client, A100)` 開到就緒,`GET /api/session`;分隔註解寫 `# ---- 005 US1-API-01`);同一個任務在檔內新增 `testplan.md` § 2.2 的 `GIB`、`A100`、`L4`、`applied`、`started`、`restarted`、`A100_STARTED`、`record_of`、`sent_overrides`(`T4_STARTED` 從 `tests/integration/test_api_session.py` 匯入,`plan.md` § 待決問題 Q59),執行確認它因為「`Session` 沒有 `ollama` 欄位,或 `startOllama` 的結果只取 `ollamaVersion` 就丟掉」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § FR-004、FR-002、FR-001、使用者故事 1 驗收情境 1、使用者故事 1 驗收情境 2、使用者故事 1 獨立測試;`research.md` § R9
-- [ ] T021b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py`、`tests/e2e/test_us1_session.py` 只寫讓 US1-API-01 通過的程式碼;`startOllama` 回傳的 `machine`、`tuning` 原樣存起來,`Session.ollama` 照 `OllamaStatus` 回(E2 不重算,`info.x-tuning-rule` (2));同一個任務把 `tests/e2e/test_us1_session.py` 的 `ColabWorld` 裡 `start_ollama` 的回傳改成 T4 的 `OllamaStarted`(和 `T4_STARTED` 同值),既有 e2e 照原樣回歸,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T021a、T002b、T003b、T038b)
+- [x] T021b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py`、`tests/e2e/test_us1_session.py` 只寫讓 US1-API-01 通過的程式碼;`startOllama` 回傳的 `machine`、`tuning` 原樣存起來,`Session.ollama` 照 `OllamaStatus` 回(E2 不重算,`info.x-tuning-rule` (2));同一個任務把 `tests/e2e/test_us1_session.py` 的 `ColabWorld` 裡 `start_ollama` 的回傳改成 T4 的 `OllamaStarted`(和 `T4_STARTED` 同值),既有 e2e 照原樣回歸,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T021a、T002b、T003b、T038b)
   - 🧪 `testplan.md` § US1-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § FR-004、FR-002、FR-001、使用者故事 1 驗收情境 1、使用者故事 1 驗收情境 2、使用者故事 1 獨立測試;`research.md` § R9
-- [ ] T022a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US1-API-02 的測試(`open_ready(ui_client, A100)`,`GET /api/session`;分隔註解寫 `# ---- 005 US1-API-02`);T021b 原樣轉交遠端回報的 `tuning` 與 `machine`(`src/cgb/services/session_lifecycle.py`),不依 `runtimeType.gpu` 查表、不用 `probe_resources` 的值已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「後端以 `runtimeType.gpu` 為 A100 就填 32~64 GiB 那一級(8、2),或用 001 `probe_resources` 讀到的 T4 值覆蓋遠端回報」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T022a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US1-API-02 的測試(`open_ready(ui_client, A100)`,`GET /api/session`;分隔註解寫 `# ---- 005 US1-API-02`);T021b 原樣轉交遠端回報的 `tuning` 與 `machine`(`src/cgb/services/session_lifecycle.py`),不依 `runtimeType.gpu` 查表、不用 `probe_resources` 的值已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「後端以 `runtimeType.gpu` 為 A100 就填 32~64 GiB 那一級(8、2),或用 001 `probe_resources` 讀到的 T4 值覆蓋遠端回報」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § FR-002(只看顯示記憶體)、FR-004
-- [ ] T022b [US1] 🟢 /tdd 綠燈:US1-API-02 由 T021b 原樣轉交遠端回報的 `tuning` 與 `machine`(`src/cgb/services/session_lifecycle.py`),不依 `runtimeType.gpu` 查表、不用 `probe_resources` 的值滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-02 通過的程式碼(依賴 T022a)
+- [x] T022b [US1] 🟢 /tdd 綠燈:US1-API-02 由 T021b 原樣轉交遠端回報的 `tuning` 與 `machine`(`src/cgb/services/session_lifecycle.py`),不依 `runtimeType.gpu` 查表、不用 `probe_resources` 的值滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-02 通過的程式碼(依賴 T022a)
   - 🧪 `testplan.md` § US1-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § FR-002(只看顯示記憶體)、FR-004
-- [ ] T023a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-03 的測試(送 `POST /api/session`(`A100`);等閘門被走到時 `GET /api/session`;放行閘門,讀 SSE 直到收到 `state` 為 `ready` 的 `session.updated`(最多 1 秒);分隔註解寫 `# ---- 005 US1-API-03`),執行確認它因為「`ollama` 等到 `ready` 那一則才寫入(連線中與驗證中畫面一直是「量測中」)」這類實作而失敗
+- [x] T023a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-03 的測試(送 `POST /api/session`(`A100`);等閘門被走到時 `GET /api/session`;放行閘門,讀 SSE 直到收到 `state` 為 `ready` 的 `session.updated`(最多 1 秒);分隔註解寫 `# ---- 005 US1-API-03`),執行確認它因為「`ollama` 等到 `ready` 那一則才寫入(連線中與驗證中畫面一直是「量測中」)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-004、FR-001
-- [ ] T023b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-03 通過的程式碼;`startOllama` 一回來就寫 `ollama` 並推 `session.updated`,不等 `ready`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T023a)
+- [x] T023b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-03 通過的程式碼;`startOllama` 一回來就寫 `ollama` 並推 `session.updated`,不等 `ready`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T023a)
   - 🧪 `testplan.md` § US1-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § FR-004、FR-001
-- [ ] T024a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-04 的測試(`POST /api/session`(`T4`),`wait_for_state(ui_client, "ready")`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-04`),執行確認它因為「顯示記憶體是 null 就當成量測失敗、開啟失敗」這類實作而失敗
+- [x] T024a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-04 的測試(`POST /api/session`(`T4`),`wait_for_state(ui_client, "ready")`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-04`),執行確認它因為「顯示記憶體是 null 就當成量測失敗、開啟失敗」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-003、FR-004、使用者故事 1 驗收情境 3
-- [ ] T024b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-04 通過的程式碼;`machine.vramTotalBytes` 為 null 時照常就緒,`ollama` 標出讀不到顯示記憶體,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T024a)
+- [x] T024b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-04 通過的程式碼;`machine.vramTotalBytes` 為 null 時照常就緒,`ollama` 標出讀不到顯示記憶體,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T024a)
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-003、FR-004、使用者故事 1 驗收情境 3
-- [ ] T025a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-05 的測試(`POST /api/session`(`T4`),等 `ready`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-05`),執行確認它因為「`tuning` 為 null 時取 `["numParallel"]` 丟 `TypeError`,開啟變成 `open_failed` 或 `GET /api/session` 回 500」這類實作而失敗
+- [x] T025a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-05 的測試(`POST /api/session`(`T4`),等 `ready`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-05`),執行確認它因為「`tuning` 為 null 時取 `["numParallel"]` 丟 `TypeError`,開啟變成 `open_failed` 或 `GET /api/session` 回 500」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-004、FR-003
-- [ ] T025b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-05 通過的程式碼;`tuning` 為 null 時不取值,`ollama` 照合約回讀不到設定,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T025a)
+- [x] T025b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-05 通過的程式碼;`tuning` 為 null 時不取值,`ollama` 照合約回讀不到設定,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T025a)
   - 🧪 `testplan.md` § US1-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-004、FR-003
-- [ ] T026a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-06 的測試(送 `POST /api/session`(`A100`);等閘門被走到後 `fake_clock.advance(30)`,放行閘門;等 `ready`,`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-06`),執行確認它因為「受理時就寫開啟那一筆(`at` 是受理的時間)」這類實作而失敗
+- [x] T026a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-06 的測試(送 `POST /api/session`(`A100`);等閘門被走到後 `fake_clock.advance(30)`,放行閘門;等 `ready`,`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-06`),執行確認它因為「受理時就寫開啟那一筆(`at` 是受理的時間)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-005、使用者故事 1 驗收情境 4;`research.md` § R9
-- [ ] T026b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/repos/tunings.py`、`src/cgb/api/history.py` 只寫讓 US1-API-06 通過的程式碼;`startOllama` 成功時以它回來的時間寫開啟那一筆 `session_tunings`(`trigger` 為 `open`,`src/cgb/repos/tunings.py`),`getSessionRecord` 回 `tunings`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T026a、T038b)
+- [x] T026b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/repos/tunings.py`、`src/cgb/api/history.py` 只寫讓 US1-API-06 通過的程式碼;`startOllama` 成功時以它回來的時間寫開啟那一筆 `session_tunings`(`trigger` 為 `open`,`src/cgb/repos/tunings.py`),`getSessionRecord` 回 `tunings`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T026a、T038b)
   - 🧪 `testplan.md` § US1-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-005、使用者故事 1 驗收情境 4;`research.md` § R9
-- [ ] T027a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-07 的測試(各送 `POST /api/session`(`T4`),`wait_for_state(ui_client, "open_failed")`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-07`),執行確認它因為「開啟時先寫一筆 `in_progress` 或 `failed` 的開啟紀錄,失敗時沒刪」這類實作而失敗
+- [x] T027a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-07 的測試(各送 `POST /api/session`(`T4`),`wait_for_state(ui_client, "open_failed")`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-07`),執行確認它因為「開啟時先寫一筆 `in_progress` 或 `failed` 的開啟紀錄,失敗時沒刪」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-005
-- [ ] T027b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-07 通過的程式碼;開啟失敗時不留開啟那一筆,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T027a)
+- [x] T027b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-07 通過的程式碼;開啟失敗時不留開啟那一筆,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T027a)
   - 🧪 `testplan.md` § US1-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-005
-- [ ] T028a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-08 的測試(以同一個 SQLite 檔 `running(make_app())` 跑第二個 app,`wait_until` `state` 為 `ready` 且 `world.calls("open_tunnel")` 不是空的(最多 1 秒);`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-08`),執行確認它因為「`Session.ollama` 只存在記憶體,重新啟動後是 `pending` 或 `unknown`」這類實作而失敗
+- [x] T028a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-08 的測試(以同一個 SQLite 檔 `running(make_app())` 跑第二個 app,`wait_until` `state` 為 `ready` 且 `world.calls("open_tunnel")` 不是空的(最多 1 秒);`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-08`),執行確認它因為「`Session.ollama` 只存在記憶體,重新啟動後是 `pending` 或 `unknown`」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § 使用者故事 1 驗收情境 5、FR-004
-- [ ] T028b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-08 通過的程式碼;後端重新啟動接回時從 `session_tunings` 讀回 `Session.ollama`,不重新量測、不重啟遠端 Ollama,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T028a)
+- [x] T028b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-08 通過的程式碼;後端重新啟動接回時從 `session_tunings` 讀回 `Session.ollama`,不重新量測、不重啟遠端 Ollama,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T028a)
   - 🧪 `testplan.md` § US1-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § 使用者故事 1 驗收情境 5、FR-004
-- [ ] T029a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US1-API-09 的測試(`GET /api/sessions/cgb-test-not-there`;分隔註解寫 `# ---- 005 US1-API-09`);既有 `src/cgb/api/history.py` 的 `getSessionRecord`(名稱不存在回 404 `SESSION_NOT_FOUND`),加上 T026b 先查 `sessions` 再讀 `tunings`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「查詢改成 `sessions LEFT JOIN session_tunings` 後,名稱不存在時組出 `{"tunings": []}` 回 200」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T029a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US1-API-09 的測試(`GET /api/sessions/cgb-test-not-there`;分隔註解寫 `# ---- 005 US1-API-09`);既有 `src/cgb/api/history.py` 的 `getSessionRecord`(名稱不存在回 404 `SESSION_NOT_FOUND`),加上 T026b 先查 `sessions` 再讀 `tunings`已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「查詢改成 `sessions LEFT JOIN session_tunings` 後,名稱不存在時組出 `{"tunings": []}` 回 200」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-005(getSessionRecord 的 SESSION_NOT_FOUND)
-- [ ] T029b [US1] 🟢 /tdd 綠燈:US1-API-09 由 既有 `src/cgb/api/history.py` 的 `getSessionRecord`(名稱不存在回 404 `SESSION_NOT_FOUND`),加上 T026b 先查 `sessions` 再讀 `tunings`滿足,確認 `src/cgb/api/history.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/history.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-09 通過的程式碼(依賴 T029a)
+- [x] T029b [US1] 🟢 /tdd 綠燈:US1-API-09 由 既有 `src/cgb/api/history.py` 的 `getSessionRecord`(名稱不存在回 404 `SESSION_NOT_FOUND`),加上 T026b 先查 `sessions` 再讀 `tunings`滿足,確認 `src/cgb/api/history.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/api/history.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-09 通過的程式碼(依賴 T029a)
   - 🧪 `testplan.md` § US1-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-005(getSessionRecord 的 SESSION_NOT_FOUND)
-- [ ] T030a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-10 的測試(跑第二個 app,等 `state` 為 `ready`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-10`),執行確認它因為「沒有紀錄時照「沒有就是開啟中」回 `pending`,UI 一直顯示量測中」這類實作而失敗
+- [x] T030a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US1-API-10 的測試(跑第二個 app,等 `state` 為 `ready`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US1-API-10`),執行確認它因為「沒有紀錄時照「沒有就是開啟中」回 `pending`,UI 一直顯示量測中」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-004
-- [ ] T030b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-10 通過的程式碼;005 之前開的工作階段沒有紀錄時,`ollama.status` 照合約回 `unknown`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T030a)
+- [x] T030b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-10 通過的程式碼;005 之前開的工作階段沒有紀錄時,`ollama.status` 照合約回 `unknown`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T030a)
   - 🧪 `testplan.md` § US1-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-004
-- [ ] T031a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-11 的測試(依序以 `0`、`6 * GIB`、`12_000_000_000`(十進位的 12 GB,約 11.18 GiB)、`12 * GIB - 1` 呼叫;分隔註解寫 `# ---- 005 US1-API-11`),執行確認它因為「單位用 10⁹ 換算,十進位 12 GB 被歸到 12~20 GiB 那一級」這類實作而失敗
+- [x] T031a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-11 的測試(依序以 `0`、`6 * GIB`、`12_000_000_000`(十進位的 12 GB,約 11.18 GiB)、`12 * GIB - 1` 呼叫;分隔註解寫 `# ---- 005 US1-API-11`),執行確認它因為「單位用 10⁹ 換算,十進位 12 GB 被歸到 12~20 GiB 那一級」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(級距邊界);`research.md` § R4;`plan.md` § 待決問題 Q31
-- [ ] T031b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-11 通過的程式碼;新增 `auto_tier(vram_total_bytes)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
+- [x] T031b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-11 通過的程式碼;新增 `auto_tier(vram_total_bytes)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
   - 🧪 `testplan.md` § US1-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(級距邊界);`research.md` § R4;`plan.md` § 待決問題 Q31
-- [ ] T032a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-12 的測試(依序以 `12 * GIB`、`15 * GIB`(T4)、`20 * GIB - 1` 呼叫;分隔註解寫 `# ---- 005 US1-API-12`),執行確認它因為「下邊界寫成 `>`,剛好 12 GiB 掉到第一級」這類實作而失敗
+- [x] T032a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-12 的測試(依序以 `12 * GIB`、`15 * GIB`(T4)、`20 * GIB - 1` 呼叫;分隔註解寫 `# ---- 005 US1-API-12`),執行確認它因為「下邊界寫成 `>`,剛好 12 GiB 掉到第一級」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(級距邊界);`plan.md` § 待決問題 Q31
-- [ ] T032b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T032a)
+- [x] T032b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-12 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T032a)
   - 🧪 `testplan.md` § US1-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(級距邊界);`plan.md` § 待決問題 Q31
-- [ ] T033a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-13 的測試(依序以 `20 * GIB`、`int(22.5 * GIB)`(L4)、`32 * GIB - 1` 呼叫;分隔註解寫 `# ---- 005 US1-API-13`),執行確認它因為「下邊界寫成 `>`,剛好 20 GiB 掉到第二級」這類實作而失敗
+- [x] T033a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-13 的測試(依序以 `20 * GIB`、`int(22.5 * GIB)`(L4)、`32 * GIB - 1` 呼叫;分隔註解寫 `# ---- 005 US1-API-13`),執行確認它因為「下邊界寫成 `>`,剛好 20 GiB 掉到第二級」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(L4 22.5 GiB);`plan.md` § 待決問題 Q31
-- [ ] T033b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T033a)
+- [x] T033b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-13 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T033a)
   - 🧪 `testplan.md` § US1-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(L4 22.5 GiB);`plan.md` § 待決問題 Q31
-- [ ] T034a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-14 的測試(依序以 `32 * GIB`、`40 * GIB`(A100)、`64 * GIB - 1` 呼叫;分隔註解寫 `# ---- 005 US1-API-14`),執行確認它因為「剛好 32 GiB 被歸到 20~32 那一級(spec 邊界情況點名的錯)」這類實作而失敗
+- [x] T034a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-14 的測試(依序以 `32 * GIB`、`40 * GIB`(A100)、`64 * GIB - 1` 呼叫;分隔註解寫 `# ---- 005 US1-API-14`),執行確認它因為「剛好 32 GiB 被歸到 20~32 那一級(spec 邊界情況點名的錯)」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(剛好 32 GiB);`plan.md` § 待決問題 Q31
-- [ ] T034b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T034a)
+- [x] T034b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-14 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T034a)
   - 🧪 `testplan.md` § US1-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(剛好 32 GiB);`plan.md` § 待決問題 Q31
-- [ ] T035a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-15 的測試(依序以 `64 * GIB`、`80 * GIB`(H100)、`96 * GIB` 呼叫;分隔註解寫 `# ---- 005 US1-API-15`),執行確認它因為「剛好 64 GiB 掉到第四級」這類實作而失敗
+- [x] T035a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-15 的測試(依序以 `64 * GIB`、`80 * GIB`(H100)、`96 * GIB` 呼叫;分隔註解寫 `# ---- 005 US1-API-15`),執行確認它因為「剛好 64 GiB 掉到第四級」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(級距邊界);`plan.md` § 待決問題 Q31
-- [ ] T035b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T035a)
+- [x] T035b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-15 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T035a)
   - 🧪 `testplan.md` § US1-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(級距邊界);`plan.md` § 待決問題 Q31
-- [ ] T036a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-16 的測試(以 `None` 呼叫;分隔註解寫 `# ---- 005 US1-API-16`),執行確認它因為「讀不到時回最低一級 `(1, 4096, 1)`,開啟時就會帶 FR-002 的變數,違反 FR-003」這類實作而失敗
+- [x] T036a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US1-API-16 的測試(以 `None` 呼叫;分隔註解寫 `# ---- 005 US1-API-16`),執行確認它因為「讀不到時回最低一級 `(1, 4096, 1)`,開啟時就會帶 FR-002 的變數,違反 FR-003」這類實作而失敗
   - 🧪 `testplan.md` § US1-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-003、SC-005;`plan.md` § 待決問題 Q31
-- [ ] T036b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-16 通過的程式碼;`auto_tier(None)` 回 None(讀不到就不帶 FR-002 的變數),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T036a)
+- [x] T036b [US1] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US1-API-16 通過的程式碼;`auto_tier(None)` 回 None(讀不到就不帶 FR-002 的變數),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T036a)
   - 🧪 `testplan.md` § US1-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-003、SC-005;`plan.md` § 待決問題 Q31
-- [ ] T037 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T021b~T036b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/repos/`、`src/cgb/api/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_tuning.py`、`tests/unit/test_tuning.py` 的斷言(依賴 T036b)
+- [x] T037 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T021b~T036b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/repos/`、`src/cgb/api/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_tuning.py`、`tests/unit/test_tuning.py` 的斷言(依賴 T036b)
   - 🧪 `testplan.md` § US1-API-01~US1-API-16
   - 📎 `testplan.md` § 2.2
 
