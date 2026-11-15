@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from cgb.domain.errors import ApiError
 from cgb.domain.session_state import parse_iso, runtime_type_of
+from cgb.repos.tunings import record_of
 
 router = APIRouter()
 
@@ -45,4 +46,7 @@ async def get_session_record(name: str, request: Request) -> JSONResponse:
         {"at": t["at"], "state": t["state"], "step": t["step"], "endReason": t["end_reason"], "reasonCode": t["reason_code"]}
         for t in repo.transitions(name)
     ]
-    return JSONResponse({**record_payload(row, request.app.state.cgb.clock.now()), "transitions": transitions})
+    tunings = [record_of(t) for t in request.app.state.services.tunings_repo.for_session(name)]
+    return JSONResponse(
+        {**record_payload(row, request.app.state.cgb.clock.now()), "transitions": transitions, "tunings": tunings}
+    )

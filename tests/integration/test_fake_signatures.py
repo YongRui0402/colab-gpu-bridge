@@ -153,7 +153,13 @@ def adapter_classes(module: Any) -> list[type]:
 def test_adapters裡每個定義了轉接層類別的模組都在比對清單裡() -> None:
     # Arrange
     root = Path(cgb.adapters.__file__).parent
-    modules = [importlib.import_module(info.name) for info in pkgutil.walk_packages([str(root)], prefix="cgb.adapters.")]
+    # `cgb.adapters.scripts` 是送到遠端 kernel 執行的腳本,不是轉接層;import 它們會在桌機上執行
+    # (舊版 start_ollama.py 會對 127.0.0.1:11434 送請求,違反 P6),所以不掃
+    modules = [
+        importlib.import_module(info.name)
+        for info in pkgutil.walk_packages([str(root)], prefix="cgb.adapters.")
+        if not info.name.startswith("cgb.adapters.scripts")
+    ]
 
     # Act
     found = {cls for module in modules for cls in adapter_classes(module)}

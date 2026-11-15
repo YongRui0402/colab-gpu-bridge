@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>狀態總覽|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body class="states-page">
+  <header class="topbar">
+    <span class="brand">Colab GPU 橋接 · 005 狀態總覽</span>
+    <nav>
+      <a href="index.html">開啟原型</a>
+      <button type="button" onclick="Proto.reset()">重設假資料</button>
+    </nav>
+  </header>
+  <main>
+    <p class="muted">只收 005 新增或改變的畫面;資料照 contracts/ui.openapi.yaml。模型、下載模型、對話三頁這一輪沒有改,連到 004 的原型(資料各自獨立),被 Colab 收回、重連逾時、開啟失敗等沒有改的工作階段狀態也照 004。每一格讀的是那個狀態自己的假資料,停在打開的那一刻,不會改到「開啟原型」裡的資料。</p>
+    <section>
+      <h2 class="states-heading"><a href="index.html">工作階段</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="index.html?state=normal" title="工作階段:未開啟" loading="lazy"></iframe>
+          <figcaption>未開啟:類型選單下有收起的「Ollama 設定」,預設全部自動(FR-006,R11)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=tuning-prefilled" title="工作階段:預先填入記住的值" loading="lazy"></iframe>
+          <figcaption>預先填入記住的值:選 L4 時三個欄位填入 L4 記住的值,沒記過的留空;「全部改回自動」只清欄位,用清空的欄位開啟才清掉記住的值(FR-008、FR-009、FR-018,Q8,US2 情境 2、3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=tuning-invalid" title="工作階段:範圍錯誤" loading="lazy"></iframe>
+          <figcaption>範圍錯誤:平行數填 64:擋下、說明「平行數要是 1~32 的整數」,不開、不記住(FR-017,US2 情境 4;400 INVALID_NUM_PARALLEL)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=starting" title="工作階段:開啟中" loading="lazy"></iframe>
+          <figcaption>開啟中:starting_ollama 這一步量顯示記憶體並依設定啟動(FR-001、FR-007;ollama.status pending)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready" title="工作階段:就緒:自動值" loading="lazy"></iframe>
+          <figcaption>就緒:自動值:A100 量到 40 GB,平行 8 · context 8192 · 同時載入 2,三項都標「自動」;flash attention 與 KV cache 只顯示(FR-002、FR-004,US1 情境 1)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready-manual" title="工作階段:就緒:有手動值" loading="lazy"></iframe>
+          <figcaption>就緒:有手動值:只填平行數 4,平行數標「手動」、其他兩項「自動」(FR-004、FR-007,US2 情境 1)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready-no-vram" title="工作階段:就緒:讀不到顯示記憶體" loading="lazy"></iframe>
+          <figcaption>就緒:讀不到顯示記憶體:三項都不帶,說明「讀不到顯示記憶體,使用 Ollama 預設值」(FR-003,US1 情境 3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready-no-vram-manual" title="工作階段:就緒:讀不到顯示記憶體但有手動值" loading="lazy"></iframe>
+          <figcaption>就緒:讀不到顯示記憶體但有手動值:平行數照覆蓋值 4,其他兩項用 Ollama 預設值(FR-007,US2 情境 5)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready-unknown-tuning" title="工作階段:就緒:讀不到目前的設定" loading="lazy"></iframe>
+          <figcaption>就緒:讀不到目前的設定:ollama.status 為 unknown:接回時 Ollama 已在執行、讀不到遠端設定檔,仍可以套用(Q2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=edit-tuning" title="工作階段:修改設定" loading="lazy"></iframe>
+          <figcaption>修改設定:目前的手動值預先填入,留空 = 自動,佔位字是這台的自動值(FR-010、FR-017)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=apply-invalid" title="工作階段:修改設定:範圍錯誤" loading="lazy"></iframe>
+          <figcaption>修改設定:範圍錯誤:context 長度 200000、同時載入 1.5:擋下並說明各項範圍,不重啟、不記住(FR-017)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=confirm-apply" title="工作階段:套用前確認" loading="lazy"></iframe>
+          <figcaption>套用前確認:說明會重啟遠端 Ollama、已載入的模型要重新載入、這段時間無法對話與送請求;列出不會重新載入的模型(FR-010,US3 情境 2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=apply-blocked-download" title="工作階段:擋下:正在下載" loading="lazy"></iframe>
+          <figcaption>擋下:正在下載:按套用並確認後回 409 DOWNLOAD_IN_PROGRESS:下載完才能套用,Ollama 沒有重啟、下載不中斷(FR-011,US3 情境 3、SC-006,Q18)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=apply-blocked-request" title="工作階段:擋下:請求進行中" loading="lazy"></iframe>
+          <figcaption>擋下:請求進行中:409 REQUESTS_IN_PROGRESS:對話或相容端點的請求還沒回完(FR-011,US3 情境 4、SC-006)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=apply-conflict" title="工作階段:擋下:正在套用" loading="lazy"></iframe>
+          <figcaption>擋下:正在套用:409 TUNING_IN_PROGRESS:兩個分頁同時按套用,後到的被拒絕(spec 邊界情況)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=apply-not-ready" title="工作階段:擋下:不是就緒" loading="lazy"></iframe>
+          <figcaption>擋下:不是就緒:503 NO_READY_SESSION(spec 邊界情況)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=apply-auth-required" title="工作階段:擋下:Colab 沒有登入" loading="lazy"></iframe>
+          <figcaption>擋下:Colab 沒有登入:409 AUTH_REQUIRED:套用前檢查授權(Q15)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=restarting" title="工作階段:套用設定中:重啟 Ollama" loading="lazy"></iframe>
+          <figcaption>套用設定中:重啟 Ollama:state applying_tuning、step restarting_ollama;閒置倒數暫停,可以結束(FR-012、FR-015,Q7)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=reloading" title="工作階段:套用設定中:重新載入模型" loading="lazy"></iframe>
+          <figcaption>套用設定中:重新載入模型:step reloading_models,列出已重新載入的模型(FR-012、FR-015)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready-not-reloaded" title="工作階段:就緒:有模型沒有重新載入" loading="lazy"></iframe>
+          <figcaption>就緒:有模型沒有重新載入:同時載入模型數改成 1,列出「llama3.2:3b 沒有重新載入」(OVER_LIMIT;FR-012,US3 情境 9)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready-preload-failed" title="工作階段:就緒:有模型重新載入失敗" loading="lazy"></iframe>
+          <figcaption>就緒:有模型重新載入失敗:PRELOAD_FAILED:設定已套用,只有那個模型沒載入(Q14)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=fallback-restarting" title="工作階段:套用設定中:改回自動值重啟" loading="lazy"></iframe>
+          <figcaption>套用設定中:改回自動值重啟:lastApply.attempt 為 auto_fallback:列出這次要求的值與失敗的那一段(停止、啟動或驗證都改回自動值重試;FR-013,Q4、Q20;最壞 180 秒內,NFR-002、SC-004)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ready-fallback" title="工作階段:就緒:已改回自動值" loading="lazy"></iframe>
+          <figcaption>就緒:已改回自動值:fell_back_to_auto:「手動設定沒有套用成功,已改回自動值」,列出要求的值,記住的值沒有改(FR-013、FR-014,US3 情境 6,Q20)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=lost-restart" title="工作階段:失聯:Ollama 重啟失敗" loading="lazy"></iframe>
+          <figcaption>失聯:Ollama 重啟失敗:改回自動值也失敗:EndReason OLLAMA_RESTART_FAILED,紀錄追加一筆 failed(FR-013,US3 情境 7,Q11、Q19)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=confirm-switch" title="工作階段:確認變更類型" loading="lazy"></iframe>
+          <figcaption>確認變更類型:新類型的「Ollama 設定」填入那種類型記住的值,不沿用舊類型的設定(spec 邊界情況)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=switching" title="工作階段:變更類型中" loading="lazy"></iframe>
+          <figcaption>變更類型中:opening、step ending_previous;新的執行環境重新量顯示記憶體(spec 邊界情況)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=confirm-stop" title="工作階段:確認結束" loading="lazy"></iframe>
+          <figcaption>確認結束:套用中也可以結束,這一次記為「中斷」;各類型記住的設定不受影響(FR-018)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=stopping" title="工作階段:結束中" loading="lazy"></iframe>
+          <figcaption>結束中:沿用 004</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ended" title="工作階段:已結束" loading="lazy"></iframe>
+          <figcaption>已結束:這次的 Ollama 設定記在紀錄(FR-005)</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="history.html">紀錄</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="history.html?state=normal" title="紀錄:最近的工作階段" loading="lazy"></iframe>
+          <figcaption>最近的工作階段:列出開啟與結束時間、類型、結束原因(含 Ollama 重啟失敗);點一列看設定明細</figcaption>
+        </figure>
+        <figure>
+          <iframe src="history.html?state=tuning-log" title="紀錄:Ollama 設定明細" loading="lazy"></iframe>
+          <figcaption>Ollama 設定明細:開啟時與每一次套用各一筆:時間、要求的值、量到的硬體、三項設定與來源、flash attention、KV cache,結果有成功、改回自動值、中斷、失敗(套用中顯示「套用中」)(FR-005、FR-016,US1 情境 4、US3 情境 10,Q12、Q19、Q20)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="history.html?state=empty" title="紀錄:沒有紀錄" loading="lazy"></iframe>
+          <figcaption>沒有紀錄:沿用 001</figcaption>
+        </figure>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

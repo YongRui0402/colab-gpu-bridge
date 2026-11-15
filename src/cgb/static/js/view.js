@@ -58,3 +58,75 @@ export function mmss(ms) {
 
 // 放進 HTML 前跳脫遠端或使用者給的文字
 export const escape = (text) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+// ---------------------------------------------------------------- 005:Ollama 設定的顯示文字(contracts/ui.openapi.yaml § AppliedTuning、MachineProbe)
+
+const GIB = 1073741824;
+
+// 位元組 → 以 GiB 計的「40 GB」「15 GB」「12.7 GB」(顯示記憶體與系統記憶體)
+export function gib(n) {
+  const v = Math.round((n / GIB) * 10) / 10;
+  return `${Number.isInteger(v) ? v : v.toFixed(1)} GB`;
+}
+
+// 可以覆蓋的三項設定(FR-001);flash attention 與 KV cache 固定開啟,不在這裡
+export const TUNING_FIELDS = [
+  { key: "numParallel", label: "平行數", short: "平行", env: "OLLAMA_NUM_PARALLEL", unit: "" },
+  { key: "contextLength", label: "context 長度", short: "context", env: "OLLAMA_CONTEXT_LENGTH", unit: " tokens" },
+  { key: "maxLoadedModels", label: "同時載入模型數", short: "同時載入", env: "OLLAMA_MAX_LOADED_MODELS", unit: " 個" },
+];
+
+// 設定卡的五列:三項設定加上固定開啟的兩項
+export const TUNING_ROWS = [
+  ...TUNING_FIELDS,
+  { key: "flashAttention", label: "flash attention", env: "OLLAMA_FLASH_ATTENTION", fixed: true },
+  { key: "kvCacheType", label: "KV cache", env: "OLLAMA_KV_CACHE_TYPE", fixed: true },
+];
+
+// 設定的來源(contracts/ui.openapi.yaml § TuningSource)
+const SOURCE = { auto: ["src-auto", "自動"], manual: ["src-manual", "手動"], ollama_default: ["src-default", "Ollama 預設"] };
+export const sourceText = (source) => SOURCE[source][1];
+export const sourceTag = (source) => `<span class="src ${SOURCE[source][0]}">${SOURCE[source][1]}</span>`;
+
+// 一項設定的值:「8,192 tokens」「開啟」「q8_0」;沒有帶的是 Ollama 預設值
+export function tuningValue(key, item, { unit = true } = {}) {
+  if (item.value === null) return null;
+  if (key === "flashAttention") return "開啟";
+  if (key === "kvCacheType") return `<span class="mono">${escape(item.value)}</span>`;
+  const field = TUNING_FIELDS.find((f) => f.key === key);
+  return `${item.value.toLocaleString("zh-TW")}${unit ? field.unit : ""}`;
+}
+
+// 量到的硬體:「NVIDIA A100-SXM4-40GB · 顯示記憶體 40 GB · 系統記憶體 83 GB」
+export function machineText(machine) {
+  if (!machine) return "沒有量到的硬體";
+  const mem = `系統記憶體 ${machine.systemMemoryTotalBytes ? gib(machine.systemMemoryTotalBytes) : "讀不到"}`;
+  if (!machine.vramTotalBytes) return `讀不到顯示記憶體 · ${mem}`;
+  return `${escape(machine.gpuName ?? "")} · 顯示記憶體 ${gib(machine.vramTotalBytes)} · ${mem}`;
+}
+
+// 一行摘要:「顯示記憶體 40 GB · 平行 8 · context 8192 · 同時載入 2 個模型(自動)」(使用者故事 1 驗收情境 1)
+export function tuningSummary(machine, tuning) {
+  const head = machine?.vramTotalBytes ? `顯示記憶體 ${gib(machine.vramTotalBytes)}` : "讀不到顯示記憶體";
+  if (!tuning) return `${head} · 讀不到目前的 Ollama 設定`;
+  const v = (item) => item.value ?? "Ollama 預設";
+  const sources = new Set(TUNING_FIELDS.map(({ key }) => tuning[key].source));
+  const tail = sources.size === 1 ? `(${sourceText([...sources][0])})` : "";
+  const models = tuning.maxLoadedModels.value ? " 個模型" : "";
+  return `${head} · 平行 ${v(tuning.numParallel)} · context ${v(tuning.contextLength)} · 同時載入 ${v(tuning.maxLoadedModels)}${models}${tail}`;
+}
+
+// 要求的覆蓋值:「平行 32 · context 131,072 · 同時載入 自動」;三個都是 null 時是「全部自動」(contracts/ui.openapi.yaml § TuningOverrides)
+export function requestedText(requested) {
+  if (TUNING_FIELDS.every((f) => requested[f.key] === null)) return "全部自動";
+  return TUNING_FIELDS.map((f) => `${f.short} ${requested[f.key] === null ? "自動" : requested[f.key].toLocaleString("zh-TW")}`).join(" · ");
+}
+
+// 一筆 Ollama 設定的結果(contracts/ui.openapi.yaml § TuningResult)
+export const TUNING_RESULT = {
+  in_progress: { text: "套用中", cls: "pill-busy" },
+  applied: { text: "成功", cls: "pill-ok" },
+  fell_back_to_auto: { text: "改回自動值", cls: "pill-warn" },
+  failed: { text: "失敗", cls: "pill-danger" },
+  interrupted: { text: "中斷", cls: "" },
+};

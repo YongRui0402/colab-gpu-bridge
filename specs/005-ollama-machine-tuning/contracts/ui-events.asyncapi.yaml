@@ -1,0 +1,107 @@
+asyncapi: 3.0.0
+info:
+  title: 後端 UI API 的狀態推送事件(SSE;Ollama 設定、套用並重啟的進度與結果)
+  version: 0.5.0
+  description: >-
+    S3(E2 後端 UI API)依 005 的 spec.md、research.md R1、R8、R10 與 plan.md 產出;REST 操作見同目錄的 `ui.openapi.yaml`,
+    本檔的 payload 直接參照那一份的 schema,兩邊同一個形狀。
+    以 004 的同名檔為底(更早的事件在 001 的同名檔),只收這一輪內容或時機改變的事件:
+    `session.updated`(`Session` 多了 `ollama`、`state` 多了 `applying_tuning`、`step` 多了 `restarting_ollama`、`reloading_models`,
+    並多了套用並重啟的推送時機)與 `models.updated`(多了「遠端 Ollama 重啟完成、已載入的模型清空」的時機,內容照 003)。
+    這一輪沒有新的事件名稱;`auth.updated`、`usage.updated`、`settings.updated`、`downloads.snapshot`、`download.updated`、`download.removed`、
+    `autoDownload.updated` 的內容與時機以 001、004 的檔為準(套用失敗而失聯時,下載佇列照 004 清空、照 004 推送)。
+    類型覆蓋值不推送:開啟與變更類型的選擇畫面打開時以 `getTuningOverrides` 讀一次(FR-008)。
+
+    傳輸照 001:UI 以 `GET /api/events` 開一條 `text/event-stream`,只有伺服器往 UI 推送,所以本檔沒有 `receive` 的操作;
+    每則事件的 SSE `event:` 欄位是訊息的 `name`,`data:` 是一行 JSON(`type` 與 `event:` 相同);每 15 秒 `: ping`、`retry: 3000`。
+    快照照 001、004(連上時先送 `session.updated`,所以重新整理或另一個分頁連上時就看得到目前的 Ollama 設定與套用進度);
+    事件都是完整的現況,UI 收到就整份取代。
+
+    收件者:家中區網(含 VPN)所有連著的 UI,不需要登入(001 的 NFR-009);單一使用者,每條連線收到的內容相同,
+    不含任何憑證、token、金鑰、執行環境的遠端位址或轉發位址(NFR-003,沿用 001 的 NFR-010)。
+
+    `x-requirements` 與沒有標前綴的編號指 005 spec.md;`info.x-apply-flow`、`info.x-applying-state` 指 `ui.openapi.yaml` 的同名段落。
+servers:
+  ui:
+    host: '{uiHost}'
+    pathname: /api/events
+    protocol: http
+    description: 與 UI 靜態檔同一個來源;SSE(`text/event-stream`),port 沿用 001(8780)
+    variables:
+      uiHost:
+        description: 本系統所在主機與 UI 的 port
+channels:
+  uiEvents:
+    address: /api/events
+    messages:
+      sessionUpdated:
+        $ref: '#/components/messages/sessionUpdated'
+      modelsUpdated:
+        $ref: '#/components/messages/modelsUpdated'
+operations:
+  sendSessionUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/sessionUpdated'
+    summary: 工作階段狀態變化(含 Ollama 設定與套用並重啟的進度)
+    x-requirements: [FR-004, FR-005, FR-012, FR-013, FR-015, FR-016, NFR-002, NFR-003, SC-004]
+    x-callers: >-
+      沿用 001 的每一個時機(連上時、狀態或步驟變化、重連、釋放警告、閒置計時等)。這一輪多了:
+      開啟的 `starting_ollama` 那一步完成、`ollama` 寫入量到的硬體與套用的設定時(和 `step` 變成 `connecting` 同一則,FR-004);
+      `applyTuning` 受理(`state` 為 `applying_tuning`、`step` 為 `restarting_ollama`、`ollama.lastApply.result` 為 `in_progress`);
+      要求的設定重啟失敗、開始改回自動值時(`ollama.lastApply.attempt` 變成 `auto_fallback`,FR-013);
+      重啟成功、`step` 變成 `reloading_models` 時(`ollama.tuning` 換成新的設定;從受理到這一則 90 秒內,改回自動值時 180 秒內,NFR-002、SC-004);
+      重新載入每一個模型完成或失敗時(`ollama.lastApply.reloaded`、`notReloaded` 增加);
+      全部處理完回到 `ready` 時(`lastApply.result` 為 `applied` 或 `fell_back_to_auto`,`idle` 重設);
+      失敗而失聯時(`state` 為 `lost`、`endReason` 為 `OLLAMA_RESTART_FAILED` 或 `RECLAIMED_BY_COLAB`,`lastApply.result` 為 `failed`);
+      套用中被結束、或後端恢復時把中斷的那一次記為 `interrupted` 時(`info.x-applying-state` (3)(4))。
+      流程見 `ui.openapi.yaml` 的 `info.x-apply-flow`
+    x-error-codes: []
+  sendModelsUpdated:
+    action: send
+    channel:
+      $ref: '#/channels/uiEvents'
+    messages:
+      - $ref: '#/channels/uiEvents/messages/modelsUpdated'
+    summary: 模型目錄變化
+    x-requirements: [FR-012]
+    x-callers: >-
+      沿用 001、003 的每一個時機(就緒、下載完成、預先載入開始、完成或失敗、結束或失聯)。這一輪多了:
+      套用並重啟時遠端 Ollama 重啟成功、已載入的模型都被清掉時推一次(每個模型的 `loaded` 為 false);
+      之後重新載入每一個模型照 001 預先載入的時機推送(開始、完成、失敗)
+    x-error-codes: []
+components:
+  messages:
+    sessionUpdated:
+      name: session.updated
+      summary: 目前工作階段的完整現況,含 `ollama`(量到的硬體、目前生效的設定、最近一次套用的進度與結果)
+      x-recipients: 所有連著的 UI(內容相同;不含 token 與遠端位址)
+      payload:
+        $ref: '#/components/schemas/SessionUpdated'
+    modelsUpdated:
+      name: models.updated
+      summary: 執行環境上的模型目錄(照 003 的 `ModelCatalog`)
+      x-recipients: 所有連著的 UI(內容相同)
+      payload:
+        $ref: '#/components/schemas/ModelsUpdated'
+  schemas:
+    SessionUpdated:
+      type: object
+      required: [type, session]
+      properties:
+        type:
+          type: string
+          const: session.updated
+        session:
+          $ref: './ui.openapi.yaml#/components/schemas/Session'
+    ModelsUpdated:
+      type: object
+      required: [type, catalog]
+      properties:
+        type:
+          type: string
+          const: models.updated
+        catalog:
+          $ref: '../../003-download-dedup-model-cache/contracts/ui.openapi.yaml#/components/schemas/ModelCatalog'

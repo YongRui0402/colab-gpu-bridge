@@ -40,6 +40,14 @@ CONNECTION_LOST = "Connection was lost"
 SCRIPTS = files("cgb.adapters.scripts")
 # 遠端 Ollama 只聽執行環境本機(NFR-003,SSH 轉發接到這個位址);`OLLAMA_ORIGINS=*` 見 Q18、Q20
 START_OLLAMA_ENV = ("--env", "OLLAMA_HOST=127.0.0.1:11434", "--env", "OLLAMA_ORIGINS=*")
+# 覆蓋值 → 遠端 kernel 的環境變數;每次都帶齊三個,沒有覆蓋值代入空字串(共用約定 10、11:kernel 會留著上一次的值)
+TUNE_ENV_NAMES = (
+    ("numParallel", "CGB_TUNE_NUM_PARALLEL"),
+    ("contextLength", "CGB_TUNE_CONTEXT_LENGTH"),
+    ("maxLoadedModels", "CGB_TUNE_MAX_LOADED_MODELS"),
+)
+# 覆蓋值的範圍(spec FR-017,含上下限);啟動子行程之前檢查(共用約定 11)
+TUNE_RANGES = {"numParallel": (1, 32), "contextLength": (2048, 131072), "maxLoadedModels": (1, 4)}
 TRACEBACK = "Traceback (most recent call last)"
 # 網址一律換成 `<網址>`(網址裡有執行環境的 endpoint,NFR-010);結尾的標點不算網址的一部分
 URL = re.compile(r"https?://\S*[^\s:,.;)\]'\"]")
@@ -59,6 +67,11 @@ USAGE_LINES = {
 }
 # `ProbeScriptResult` 原樣交出的欄位(`RuntimeResources` 再加上 checkedAt)
 RESOURCE_FIELDS = ("diskFreeBytes", "diskTotalBytes", "gpuName", "vramTotalBytes", "vramFreeBytes")
+# `AppliedTuning` 的五項(`TuningSource` 的列舉、各項 `value` 可以是什麼)
+TUNING_SOURCES = frozenset({"auto", "manual", "ollama_default"})
+INT_TUNING_KEYS = ("numParallel", "contextLength", "maxLoadedModels")
+# `OllamaStarted.machine` 從結果行原樣交出的欄位
+MACHINE_FIELDS = ("gpuName", "vramTotalBytes", "systemMemoryTotalBytes")
 # `GpuType`;CLI 對認不得的 GPU 名稱不報錯、直接當成 A100,所以只有這幾個值能放進命令列
 GPU_TYPES = frozenset({"T4", "L4", "G4", "A100", "H100"})
 
@@ -168,22 +181,33 @@ class ColabControl:
             "readAt": datetime.now(UTC).isoformat(),
         }
 
-    async def start_ollama(self, name: str) -> dict[str, Any]:
+    async def start_ollama(self, name: str, overrides: dict[str, int | None]) -> dict[str, Any]:
+        check_overrides(overrides)
         stdout, stderr = await self._exec_script(
             self.timeouts.start_ollama,
             "-s", name, "-f", str(SCRIPTS / "start_ollama.py"), "--timeout", "240", *START_OLLAMA_ENV,
+            *tune_env(overrides),
         )  # fmt: skip
         # 安裝程式等其他輸出一律忽略,取最後一個結果行(共用約定 5)
         if not any(line.startswith(RESULT_PREFIX) for line in stdout.splitlines()) and TRACEBACK in stderr:
             last = masked_last_line(stderr)
             raise AdapterError("COLAB_REMOTE_ERROR", f"執行環境上的初始化腳本發生錯誤:{last}", last)
         result = result_line(stdout)
-        if result.get("ok") is not True:
-            raise AdapterError(
-                "COLAB_REMOTE_ERROR",
-                f"在執行環境上啟動 Ollama 失敗(階段 {result.get('stage')}):{result.get('detail')}",
-            )
-        return {"ollamaVersion": result["ollamaVersion"], "alreadyRunning": result["alreadyRunning"]}
+        raise_script_failure(result, "在執行環境上啟動 Ollama 失敗")
+        if not is_started_result(result):
+            raise AdapterError("COLAB_BAD_RESPONSE", "執行環境上的初始化腳本回報的結果格式不符")
+        # 硬體與設定原樣交出,不依顯示記憶體重算(共用約定 12 (e));probedAt 是轉接層收到結果的時間
+        return {
+            "ollamaVersion": result["ollamaVersion"],
+            "alreadyRunning": result["alreadyRunning"],
+            "machine": {
+                "gpuName": result["gpuName"],
+                "vramTotalBytes": result["vramTotalBytes"],
+                "systemMemoryTotalBytes": result["systemMemoryTotalBytes"],
+                "probedAt": datetime.now(UTC).isoformat(),
+            },
+            "tuning": result["tuning"],
+        }
 
     async def probe_resources(self, name: str) -> dict[str, Any]:
         stdout, _ = await self._exec_script(
@@ -255,6 +279,71 @@ class ColabControl:
         raise_network_failure(stderr, EXEC_TIMEOUT_MARKERS)
         raise_failed(returncode, stderr)
         return stdout, stderr
+
+
+def tune_env(overrides: dict[str, int | None]) -> list[str]:
+    """三個 `--env CGB_TUNE_*=<值>`;None 代成空字串。"""
+    env: list[str] = []
+    for key, env_name in TUNE_ENV_NAMES:
+        value = overrides[key]
+        env += ["--env", f"{env_name}={'' if value is None else value}"]
+    return env
+
+
+def check_overrides(overrides: dict[str, int | None]) -> None:
+    """三個覆蓋值都是 None 或範圍內的整數(bool 不算);否則丟 COLAB_INVALID_TUNING(共用約定 11,啟動子行程之前)。"""
+    for key, (low, high) in TUNE_RANGES.items():
+        value = overrides[key]
+        if value is not None and not (is_int_at_least(value, low) and value <= high):
+            raise AdapterError("COLAB_INVALID_TUNING", f"覆蓋值 {key} 必須是 {low}~{high} 的整數")
+
+
+def is_int_at_least(value: Any, minimum: int) -> bool:
+    """整數(bool 不算)而且不小於 `minimum`;None 也算(讀不到、不帶)。"""
+    return value is None or (isinstance(value, int) and not isinstance(value, bool) and value >= minimum)
+
+
+def is_applied_tuning(tuning: Any) -> bool:
+    """`AppliedTuning`:五項都有,`source` 在 `TuningSource` 的列舉裡,`value` 的型別對。"""
+    if not isinstance(tuning, dict):
+        return False
+    items = [tuning.get(key) for key in (*INT_TUNING_KEYS, "flashAttention", "kvCacheType")]
+    if not all(isinstance(item, dict) and item.get("source") in TUNING_SOURCES and "value" in item for item in items):
+        return False
+    *ints, flash, kv = (item["value"] for item in items)
+    return (
+        all(is_int_at_least(v, 1) for v in ints)
+        and (flash is None or isinstance(flash, bool))
+        and kv in (None, "q8_0")
+    )
+
+
+def is_started_result(result: dict[str, Any]) -> bool:
+    """`ok` 為 true 的 `StartOllamaScriptResult`;只有已在執行(讀不到設定檔)時 `tuning` 可以是 null(Q50)。"""
+    if not (isinstance(result.get("ollamaVersion"), str) and isinstance(result.get("alreadyRunning"), bool)):
+        return False
+    if not all(key in result for key in (*MACHINE_FIELDS, "tuning")):
+        return False
+    if not (result["gpuName"] is None or isinstance(result["gpuName"], str)):
+        return False
+    if not (is_int_at_least(result["vramTotalBytes"], 0) and is_int_at_least(result["systemMemoryTotalBytes"], 0)):
+        return False
+    if result["tuning"] is None:
+        return result["alreadyRunning"]
+    return is_applied_tuning(result["tuning"])
+
+
+def raise_script_failure(result: dict[str, Any], message: str) -> None:
+    """結果行的 `ok` 不是 true 時丟出:`stage` 為 `input` 是 COLAB_INVALID_TUNING,其他是帶 `remoteStage` 的 COLAB_REMOTE_ERROR。"""
+    if result.get("ok") is False and result.get("stage") == "input":
+        # 遠端擋下不符的覆蓋值(沒有經過轉接層的呼叫);`remoteStage` 只有 COLAB_REMOTE_ERROR 帶
+        raise AdapterError("COLAB_INVALID_TUNING", f"執行環境上的腳本拒絕覆蓋值:{result.get('detail')}")
+    if result.get("ok") is not True:
+        raise AdapterError(
+            "COLAB_REMOTE_ERROR",
+            f"{message}(階段 {result.get('stage')}):{result.get('detail')}",
+            remote_stage=result.get("stage"),
+        )
 
 
 def masked_last_line(text: str) -> str | None:

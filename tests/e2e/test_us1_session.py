@@ -14,6 +14,7 @@ from playwright.sync_api import BrowserContext, Page, expect
 
 from cgb.adapters.errors import AdapterError
 from fakes import Gate
+from integration.test_api_session import T4_STARTED
 
 # 至少一個中日韓統一表意文字:給使用者看的原因是繁體中文,不是代碼本身
 CJK = re.compile(r"[\u4e00-\u9fff]")
@@ -38,7 +39,8 @@ class ColabWorld:
         colab.get_usage.side_effect(self._usage)
         colab.list_sessions.side_effect(self._list)
         colab.create_session.side_effect(self._create)
-        colab.start_ollama.side_effect(lambda *a, **k: {"ollamaVersion": "0.40.15", "alreadyRunning": False})
+        # 005:`OllamaStarted` 多了量到的硬體與套用的設定;15 GiB 的 T4(和整合測試的 `T4_STARTED` 同值)
+        colab.start_ollama.side_effect(lambda *a, **k: T4_STARTED)
         colab.stop_session.side_effect(self._stop)
         # 故事 3:模型目錄與下載佇列會讀剩餘磁碟與顯示記憶體總量(S8 probe_resources)
         colab.probe_resources.side_effect(
