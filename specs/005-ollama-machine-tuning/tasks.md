@@ -834,39 +834,39 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(Playwright)接測試行程內真的後端(`tests/e2e/conftest.py` 的 `e2e_servers`,UI 127.0.0.1:8781),轉接層用替身;e2e 用固定 port,同一時間只跑一份
 
-- [ ] T095a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us2_overrides.py` 寫 US2-AJ-01 的測試(使用者在開啟畫面選 A100、展開「Ollama 設定」,平行數填 4、其他留空,按開啟;分隔註解寫 `# ---- 005 US2-AJ-01`),執行確認它因為「沒填的欄位送成 0 或空字串被當成手動;覆蓋值沒有帶到遠端」這類實作而失敗
+- [x] T095a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us2_overrides.py` 寫 US2-AJ-01 的測試(使用者在開啟畫面選 A100、展開「Ollama 設定」,平行數填 4、其他留空,按開啟;分隔註解寫 `# ---- 005 US2-AJ-01`),執行確認它因為「沒填的欄位送成 0 或空字串被當成手動;覆蓋值沒有帶到遠端」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-01
   - ⚙ `prototype/index.html` § `[data-state="normal"]`、`#open`、`.tuning-block`、`.tuning-fields`、`.hint`、`[data-state="ready-manual"]`、`#t-manual-note`、`[data-state="ready-no-vram-manual"]`;`contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-006、FR-007;`research.md` § R11;`plan.md` § 待決問題 Q57
-- [ ] T095b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js` 只寫讓 US2-AJ-01 通過的程式碼;開啟與變更類型共用的 `renderPicker` 加「Ollama 設定」區塊(三個欄位、欄位旁「留空 = 自動」),開啟時把填了的值與 null 送進 `POST /api/session` 的 `tuning`;設定卡把手動的項目標「手動」;讀不到顯示記憶體又有覆蓋值時照原型 `ready-no-vram-manual` 說明(這個狀態沒有案例斷言,完成報告列為未直接驗證,`plan.md` § 待決問題 Q57),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T095a)
+- [x] T095b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js` 只寫讓 US2-AJ-01 通過的程式碼;開啟與變更類型共用的 `renderPicker` 加「Ollama 設定」區塊(三個欄位、欄位旁「留空 = 自動」),開啟時把填了的值與 null 送進 `POST /api/session` 的 `tuning`;設定卡把手動的項目標「手動」;讀不到顯示記憶體又有覆蓋值時照原型 `ready-no-vram-manual` 說明(這個狀態沒有案例斷言,完成報告列為未直接驗證,`plan.md` § 待決問題 Q57),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T095a)
   - 🧪 `testplan.md` § US2-AJ-01
   - ⚙ `prototype/index.html` § `[data-state="normal"]`、`#open`、`.tuning-block`、`.tuning-fields`、`.hint`、`[data-state="ready-manual"]`、`#t-manual-note`、`[data-state="ready-no-vram-manual"]`;`contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-006、FR-007;`research.md` § R11;`plan.md` § 待決問題 Q57
-- [ ] T096a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us2_overrides.py` 寫 US2-AJ-02 的測試(使用者再開開啟畫面,先選 A100、再改選 T4;分隔註解寫 `# ---- 005 US2-AJ-02`),執行確認它因為「預先填入不分類型,T4 也帶出 4;換類型後殘留上一個類型的值」這類實作而失敗
+- [x] T096a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us2_overrides.py` 寫 US2-AJ-02 的測試(使用者再開開啟畫面,先選 A100、再改選 T4;分隔註解寫 `# ---- 005 US2-AJ-02`),執行確認它因為「預先填入不分類型,T4 也帶出 4;換類型後殘留上一個類型的值」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-02
   - ⚙ `prototype/index.html` § `[data-state="tuning-prefilled"]`、`#prefill-note`、`.type-picker`、`[data-state="confirm-switch"]`、`[data-state="switching"]`、`#cw-current`;`contracts/ui.openapi.yaml` § `paths./tuning/overrides.get`
   - 📎 `spec.md` § FR-008、FR-018;`plan.md` § 待決問題 Q57
-- [ ] T096b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US2-AJ-02 通過的程式碼;選一種類型時以 `GET /api/tuning/overrides` 預先填入那一種記住的值、沒記過的留空,換類型時不殘留;變更類型的確認畫面共用同一個區塊(`confirm-switch`、`switching` 沒有案例斷言,完成報告列為未直接驗證,`plan.md` § 待決問題 Q57),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T096a)
+- [x] T096b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US2-AJ-02 通過的程式碼;選一種類型時以 `GET /api/tuning/overrides` 預先填入那一種記住的值、沒記過的留空,換類型時不殘留;變更類型的確認畫面共用同一個區塊(`confirm-switch`、`switching` 沒有案例斷言,完成報告列為未直接驗證,`plan.md` § 待決問題 Q57),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T096a)
   - 🧪 `testplan.md` § US2-AJ-02
   - ⚙ `prototype/index.html` § `[data-state="tuning-prefilled"]`、`#prefill-note`、`.type-picker`、`[data-state="confirm-switch"]`、`[data-state="switching"]`、`#cw-current`;`contracts/ui.openapi.yaml` § `paths./tuning/overrides.get`
   - 📎 `spec.md` § FR-008、FR-018;`plan.md` § 待決問題 Q57
-- [ ] T097a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us2_overrides.py` 寫 US2-AJ-03 的測試(使用者選 A100、按「全部改回自動」並開啟,就緒後結束,再開開啟畫面選 A100;分隔註解寫 `# ---- 005 US2-AJ-03`),執行確認它因為「按鈕只清畫面欄位、沒有清除記住的值;按下按鈕當下就清除而不是開啟時」這類實作而失敗
+- [x] T097a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us2_overrides.py` 寫 US2-AJ-03 的測試(使用者選 A100、按「全部改回自動」並開啟,就緒後結束,再開開啟畫面選 A100;分隔註解寫 `# ---- 005 US2-AJ-03`),執行確認它因為「按鈕只清畫面欄位、沒有清除記住的值;按下按鈕當下就清除而不是開啟時」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-03
   - ⚙ `prototype/index.html` § `[data-state="normal"]`、`.tuning-block`、`[data-state="confirm-stop"]`、`[data-state="stopping"]`、`[data-state="ended"]`
   - 📎 `spec.md` § FR-009
-- [ ] T097b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US2-AJ-03 通過的程式碼;「全部改回自動」只清空三個欄位,開啟時送三個 null(清除由後端在開啟時做),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T097a)
+- [x] T097b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US2-AJ-03 通過的程式碼;「全部改回自動」只清空三個欄位,開啟時送三個 null(清除由後端在開啟時做),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T097a)
   - 🧪 `testplan.md` § US2-AJ-03
   - ⚙ `prototype/index.html` § `[data-state="normal"]`、`.tuning-block`、`[data-state="confirm-stop"]`、`[data-state="stopping"]`、`[data-state="ended"]`
   - 📎 `spec.md` § FR-009
-- [ ] T098a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us2_overrides.py` 寫 US2-AJ-04 的測試(使用者選 A100、平行數填 64,按開啟;分隔註解寫 `# ---- 005 US2-AJ-04`),執行確認它因為「範圍檢查只在前端或只在後端漏掉;超出範圍的值被記住」這類實作而失敗
+- [x] T098a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us2_overrides.py` 寫 US2-AJ-04 的測試(使用者選 A100、平行數填 64,按開啟;分隔註解寫 `# ---- 005 US2-AJ-04`),執行確認它因為「範圍檢查只在前端或只在後端漏掉;超出範圍的值被記住」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-04
   - ⚙ `prototype/index.html` § `[data-state="tuning-invalid"]`、`#invalid-note`、`.field-error`;`contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-017
-- [ ] T098b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US2-AJ-04 通過的程式碼;開啟回 400 的三個範圍代碼時在 `#invalid-note` 與欄位旁顯示範圍說明,不離開開啟畫面,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T098a)
+- [x] T098b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US2-AJ-04 通過的程式碼;開啟回 400 的三個範圍代碼時在 `#invalid-note` 與欄位旁顯示範圍說明,不離開開啟畫面,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T098a)
   - 🧪 `testplan.md` § US2-AJ-04
   - ⚙ `prototype/index.html` § `[data-state="tuning-invalid"]`、`#invalid-note`、`.field-error`;`contracts/ui.openapi.yaml` § `paths./session.post`
   - 📎 `spec.md` § FR-017
-- [ ] T099 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T095b~T098b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T098b)
+- [x] T099 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T095b~T098b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T098b)
   - 🧪 `testplan.md` § US2-AJ-01~US2-AJ-04
   - 📎 `testplan.md` § 3.4
 

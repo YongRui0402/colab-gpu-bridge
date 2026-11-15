@@ -28,6 +28,8 @@
       <h2 class="state-title"><span class="pill">未開啟</span>目前沒有工作階段</h2>
       <p class="muted">選好執行階段類型後按「開啟」,系統會在 Colab 開一台執行環境、裝好 Ollama 並接上通道;實測 1 到 3 分鐘。</p>
       <div data-picker="open"></div>
+      <div class="notice" id="prefill-note" hidden></div>
+      <div class="notice notice-error" id="invalid-note" hidden></div>
       <div class="actions">
         <button type="button" class="btn btn-primary" id="open">開啟</button>
       </div>
@@ -113,6 +115,11 @@
         <strong>讀不到顯示記憶體,使用 Ollama 預設值</strong>
         開好時執行環境的 <span class="mono">nvidia-smi</span> 沒有回報顯示記憶體,三項設定都沒有帶,用 Ollama 自己的預設值;工作階段照常可以用。
       </div>
+      <div class="notice notice-warn" data-state="ready-no-vram-manual" hidden>
+        <strong>讀不到顯示記憶體</strong>
+        填了的項目照你的值套用;沒填的項目沒有自動值可用,用 Ollama 自己的預設值。
+      </div>
+      <div class="notice" data-state="ready-manual" id="t-manual-note" hidden></div>
       <div class="notice notice-warn" data-state="ready-unknown-tuning" hidden>
         <strong>讀不到目前的 Ollama 設定</strong>
         系統接回這台時 Ollama 已經在執行,執行環境上沒有留下設定檔(例如這台是更新前開的),所以不知道它帶了哪些設定。

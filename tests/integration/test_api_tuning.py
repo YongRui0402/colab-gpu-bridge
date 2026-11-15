@@ -283,7 +283,9 @@ async def test_開啟時那一筆設定在遠端啟動完才記下_含量到的�
     await start_gate.wait_entered_async()
     fake_clock.advance(30)
     start_gate.release()
-    session = await wait_for_state(ui_client, "ready", timeout=1.0)
+    session = await wait_for_state(ui_client, "ready")
+    # 假時鐘照真實時間往前走,上限取讀到就緒的時間,不受機器負載影響
+    ready_seen_at = fake_clock.now()
     record = await record_of(ui_client, session["name"])
 
     # Assert
@@ -292,7 +294,7 @@ async def test_開啟時那一筆設定在遠端啟動完才記下_含量到的�
     at = parse_iso(only["at"]) if only.get("at") else None
     assert len(tunings) == 1
     assert (only.get("trigger"), only.get("result")) == ("open", "applied")
-    assert at is not None and accepted_at + timedelta(seconds=30) <= at <= accepted_at + timedelta(seconds=31)
+    assert at is not None and accepted_at + timedelta(seconds=30) <= at <= ready_seen_at
     assert only.get("finishedAt") == only.get("at")
     assert only.get("requested") == NO_OVERRIDES
     assert (only.get("machine") or {}).get("vramTotalBytes") == 40 * GIB

@@ -1,7 +1,7 @@
 // 首頁(工作階段面板):依後端推送的 `Session` 顯示對應的狀態區塊(prototype/index.html)
 import { readThenFollow, request } from "./api.js";
 import { startHeader } from "./header.js";
-import { PICKABLE_TYPES, TUNING_ROWS, cu, duration, machineText, mmss, showState, sourceTag, tuningSummary, tuningValue, typeInfo, typeText } from "./view.js";
+import { PICKABLE_TYPES, TUNING_FIELDS, TUNING_ROWS, cu, escape, duration, machineText, mmss, showState, sourceTag, tuningSummary, tuningValue, typeInfo, typeText } from "./view.js";
 
 // 可選的類型與顯示記憶體在 view.js(FR-009 預設 T4、不開高 RAM)
 
@@ -37,6 +37,15 @@ let sessionKnown = false;
 // 工作階段名稱 → 變更類型前的類型(不是變更類型開的是 null;還沒查到的不在表裡)
 const switchedFrom = {};
 let picked = { gpu: "T4", highMem: false };
+// 005 FR-006~FR-009:「Ollama 設定」三個欄位的文字(空字串 = 自動),選類型時換成那一種記住的值
+const EMPTY_FIELDS = { numParallel: "", contextLength: "", maxLoadedModels: "" };
+let fields = { ...EMPTY_FIELDS };
+// 各 GPU 類型記住的覆蓋值(contracts/ui.openapi.yaml § RuntimeTypeTuningOverride);還沒讀到時是空陣列
+let typeOverrides = [];
+let tuningOpen = false;
+// 開啟被後端以範圍代碼擋下時的說明:欄位 → 訊息
+let fieldErrors = {};
+const RANGE_CODES = { INVALID_NUM_PARALLEL: "numParallel", INVALID_CONTEXT_LENGTH: "contextLength", INVALID_MAX_LOADED_MODELS: "maxLoadedModels" };
 // 只在這個分頁裡的畫面(確認畫面等);null 時照後端的狀態顯示
 let local = null;
 
@@ -57,9 +66,75 @@ function renderPicker() {
           </label>`).join("")}
       </div>
       <label class="check"><input type="checkbox" name="highmem-${key}" ${picked.highMem && info.highMem ? "checked" : ""} ${info.highMem ? "" : "disabled"}> 高 RAM</label>
-      <span class="small muted">${info.highMem ? "需要 Colab Pro 以上;能不能開到要看當下 Colab 的分配" : "L4 不支援高 RAM 選項"}</span>`;
+      <span class="small muted">${info.highMem ? "需要 Colab Pro 以上;能不能開到要看當下 Colab 的分配" : "L4 不支援高 RAM 選項"}</span>
+      ${tuningBlock(key)}`;
   });
 }
+
+// 開啟與變更類型共用的「Ollama 設定」區塊:留空 = 自動,開好時依量到的顯示記憶體決定(FR-006、FR-017)
+const RANGE = { numParallel: "1~32", contextLength: "2048~131072", maxLoadedModels: "1~4" };
+function tuningBlock(key) {
+  const filled = TUNING_FIELDS.filter((f) => fields[f.key] !== "");
+  const summary = filled.length ? `手動:${filled.map((f) => `${f.label} ${escape(fields[f.key])}`).join("、")}` : "全部自動";
+  return `
+      <details class="tuning-block" data-tuning ${tuningOpen ? "open" : ""}>
+        <summary>Ollama 設定 <span class="small muted">${summary}</span></summary>
+        <div class="tuning-body">
+          <p class="small muted">留空 = 自動:開好時依這台量到的顯示記憶體決定。開啟時這三個欄位會整組記成 ${picked.gpu} 的值,下次選 ${picked.gpu} 時預先填入;三個都留空就是清掉記住的值。</p>
+          <div class="tuning-fields">
+            ${TUNING_FIELDS.map((f) => `
+              <div class="field">
+                <label for="${key}-${f.key}">${f.label}</label>
+                <span class="hint">${RANGE[f.key]} 的整數 · 留空 = 自動</span>
+                <input type="number" id="${key}-${f.key}" data-field="${f.key}" step="1" inputmode="numeric" placeholder="自動"
+                  value="${escape(fields[f.key])}" class="${fieldErrors[f.key] ? "is-bad" : ""}">
+                ${fieldErrors[f.key] ? `<div class="field-error">${escape(fieldErrors[f.key])}</div>` : ""}
+              </div>`).join("")}
+          </div>
+          <p class="tuning-fixed">flash attention 與 KV cache <span class="mono">q8_0</span> 固定開啟,不能修改。系統不估算這組值放不放得進顯示記憶體。</p>
+          <button type="button" class="btn btn-small" data-clear>全部改回自動</button>
+        </div>
+      </details>`;
+}
+
+// 選到的類型記住的值填進欄位;沒記過的留空(FR-008)
+function prefill() {
+  const remembered = typeOverrides.find((o) => o.gpu === picked.gpu);
+  fields = { ...EMPTY_FIELDS };
+  if (remembered?.updatedAt) TUNING_FIELDS.forEach((f) => { fields[f.key] = remembered[f.key] === null ? "" : String(remembered[f.key]); });
+  fieldErrors = {};
+}
+
+async function loadTypeOverrides() {
+  const response = await request("GET", "/tuning/overrides");
+  typeOverrides = response.ok ? response.data.items : [];
+  prefill();
+  renderOpen();
+}
+
+// 類型選單(含 Ollama 設定)與它下面的說明一起重畫
+function renderOpen() {
+  renderPicker();
+  renderOpenNotes();
+}
+
+// 開啟畫面的說明:範圍不符(後端擋下)優先,否則有記住的值時說明已預先填入
+function renderOpenNotes() {
+  const invalid = $("invalid-note");
+  const prefilled = $("prefill-note");
+  const errors = Object.values(fieldErrors);
+  invalid.hidden = !errors.length;
+  if (errors.length) invalid.innerHTML = `<strong>Ollama 設定有 ${errors.length} 項不在範圍內</strong>沒有開啟工作階段,也沒有記住這組值。${errors.map(escape).join(";")}。`;
+  const remembered = typeOverrides.find((o) => o.gpu === picked.gpu);
+  prefilled.hidden = Boolean(errors.length) || !remembered?.updatedAt;
+  if (!prefilled.hidden) {
+    const items = TUNING_FIELDS.filter((f) => remembered[f.key] !== null).map((f) => `${f.label} ${remembered[f.key]}`).join("、");
+    prefilled.textContent = `已預先填入 ${picked.gpu} 記住的值:${items}。不想用的話展開「Ollama 設定」按「全部改回自動」,再開啟就會清掉記住的值。`;
+  }
+}
+
+// 欄位文字 → `TuningOverrides`:空的是 null,其餘照數字送,範圍由後端檢查(FR-017)
+const tuningBody = () => Object.fromEntries(TUNING_FIELDS.map((f) => [f.key, fields[f.key] === "" ? null : Number(fields[f.key])]));
 
 // FR-010:這個工作階段是不是變更類型重開的,原本是什麼類型(查紀錄;查到後重畫)
 async function loadSwitchedFrom(name) {
@@ -213,7 +288,14 @@ function renderTuningCard() {
   // 讀不到目前的設定(`unknown`)與讀不到顯示記憶體各有一段說明;前者優先
   const unknown = ollama.status === "unknown";
   document.querySelector('[data-state="ready-unknown-tuning"]').hidden = !unknown;
-  document.querySelector('[data-state="ready-no-vram"]').hidden = unknown || !machine || Boolean(machine.vramTotalBytes);
+  const noVram = !unknown && machine && !machine.vramTotalBytes;
+  // 標「手動」的是使用者填的值(FR-007);讀不到顯示記憶體時,有沒有填值各用一段說明
+  const manual = tuning ? TUNING_FIELDS.filter((f) => tuning[f.key].source === "manual") : [];
+  document.querySelector('[data-state="ready-no-vram"]').hidden = !noVram || manual.length > 0;
+  document.querySelector('[data-state="ready-no-vram-manual"]').hidden = !noVram || manual.length === 0;
+  const manualNote = $("t-manual-note");
+  manualNote.hidden = unknown || noVram || manual.length === 0;
+  if (!manualNote.hidden) manualNote.textContent = `標「手動」的是你填的值(${manual.map((f) => f.label).join("、")});沒填的項目照這台量到的顯示記憶體自動決定。`;
 }
 
 // FR-026:閒置倒數以後端給的 `deadline` 自己倒數(contracts/ui.openapi.yaml § IdleCountdown)
@@ -249,17 +331,55 @@ document.querySelector("main").addEventListener("click", (event) => {
   render();
 });
 
+document.querySelector("main").addEventListener("input", (event) => {
+  const key = event.target.dataset?.field;
+  if (!key || !(key in fields)) return;
+  fields[key] = event.target.value.trim();
+  // 同一組欄位出現在好幾個狀態區塊(開啟、低餘額、變更類型),其他區塊跟著同步
+  document.querySelectorAll(`input[data-field="${key}"]`).forEach((input) => {
+    if (input !== event.target) input.value = event.target.value;
+  });
+});
+
+document.querySelector("main").addEventListener("toggle", (event) => {
+  if (event.target.matches?.("[data-tuning]")) tuningOpen = event.target.open;
+}, true);
+
 document.querySelector("main").addEventListener("change", (event) => {
-  if (event.target.name?.startsWith("type-")) picked.gpu = event.target.value;
+  if (event.target.dataset?.field) return;
+  if (event.target.name?.startsWith("type-")) {
+    picked.gpu = event.target.value;
+    prefill();
+  }
   if (event.target.name?.startsWith("highmem-")) picked.highMem = event.target.checked;
   if (!typeInfo(picked.gpu).highMem) picked.highMem = false;
-  renderPicker();
+  renderOpen();
+});
+
+// 「全部改回自動」只清空三個欄位;記住的值在開啟時由後端清除(FR-009)
+document.querySelector("main").addEventListener("click", (event) => {
+  if (!event.target.closest("[data-clear]")) return;
+  fields = { ...EMPTY_FIELDS };
+  fieldErrors = {};
+  renderOpen();
 });
 
 // 操作的結果一律等 `session.updated` 推送;回應本文可能比推送晚到,不拿來蓋掉畫面
 async function openSession() {
   local = null;
-  const response = await request("POST", "/session", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem } });
+  const response = await request("POST", "/session", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem }, tuning: tuningBody() });
+  // FR-017:範圍不符時後端回 400,不開啟、不記住;說明留在開啟畫面
+  const rangeField = RANGE_CODES[response.data?.code];
+  if (rangeField) {
+    fieldErrors = { [rangeField]: response.data.message };
+    tuningOpen = true;
+    renderOpen();
+    return;
+  }
+  if (response.ok) {
+    fieldErrors = {};
+    loadTypeOverrides();
+  }
   if (response.data?.code === "AUTH_REQUIRED") {
     // FR-008:沒有授權就不開,引導先登入(不是失聯)
     local = "needs-login";
@@ -292,7 +412,7 @@ $("cancel-open").addEventListener("click", () => {
 $("switch").addEventListener("click", async () => {
   local = null;
   render();
-  await request("POST", "/session/restart", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem } });
+  await request("POST", "/session/restart", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem }, tuning: tuningBody() });
 });
 
 $("stop").addEventListener("click", async () => {
@@ -308,6 +428,7 @@ const usageUpdated = readThenFollow("/usage", (value) => {
 });
 
 renderPicker();
+loadTypeOverrides();
 startHeader({
   "session.updated": (payload) => {
     pushed = true;
