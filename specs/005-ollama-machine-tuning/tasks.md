@@ -334,95 +334,95 @@
 
 > 只改 `src/cgb/db/schema.py`、`tests/integration/test_db_schema.py` 與 `tests/fixtures/db/`。連線一律用 `cgb.db.connection.connect`(遷移的交易要明寫 `BEGIN`);001、004 的案例保留,斷言 `user_version == 1` 的 8 處照 `plan.md` § 待決問題 Q41 在 T038b、T045b 改成 2;失敗注入照 `testplan.md` § 2.3 的 `set_authorizer`。全新庫的整份 DDL(含故事 2、3 用到的表)由 T038b 照 `contracts/store.dbml` 建,故事 2、3 的 E4 節因此都是對照組
 
-- [ ] T038a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-01 的測試(以 `connect` 開檔並呼叫 `create_schema(conn)`,再讀 `PRAGMA user_version`、`sqlite_master`、`PRAGMA table_info(session_tunings)`、`PRAGMA index_list(session_tunings)`、`PRAGMA foreign_key_list(session_tunings)` 與同一條連線的 `PRAGMA foreign_keys`;分隔註解寫 `# ---- 005 US1-DB-01`);**在改 `src/cgb/db/schema.py` 之前**,照 `testplan.md` § 2.3 以現行(commit 7a2f328)的 `create_schema` 建空庫,匯出 `tests/fixtures/db/schema_v1.sql`(15 句,每句以 `;` 結尾,另加 `INSERT INTO settings (id) VALUES (1);`,最後一行寫 `PRAGMA user_version = 1;`),在檔內加 helper `_build_v1`,`_insert_session` 加 `step`、`end_reason`、`reason_code` 與其他 001 欄位的 keyword 參數(預設值不變),執行確認它因為「全新庫的 `_create_fresh` 沒有改,仍設 `user_version = 1`,新表只在 1 → 2 的路徑建,全新庫要等第二次啟動才有 `session_tunings`」這類實作而失敗
+- [x] T038a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-01 的測試(以 `connect` 開檔並呼叫 `create_schema(conn)`,再讀 `PRAGMA user_version`、`sqlite_master`、`PRAGMA table_info(session_tunings)`、`PRAGMA index_list(session_tunings)`、`PRAGMA foreign_key_list(session_tunings)` 與同一條連線的 `PRAGMA foreign_keys`;分隔註解寫 `# ---- 005 US1-DB-01`);**在改 `src/cgb/db/schema.py` 之前**,照 `testplan.md` § 2.3 以現行(commit 7a2f328)的 `create_schema` 建空庫,匯出 `tests/fixtures/db/schema_v1.sql`(15 句,每句以 `;` 結尾,另加 `INSERT INTO settings (id) VALUES (1);`,最後一行寫 `PRAGMA user_version = 1;`),在檔內加 helper `_build_v1`,`_insert_session` 加 `step`、`end_reason`、`reason_code` 與其他 001 欄位的 keyword 參數(預設值不變),執行確認它因為「全新庫的 `_create_fresh` 沒有改,仍設 `user_version = 1`,新表只在 1 → 2 的路徑建,全新庫要等第二次啟動才有 `session_tunings`」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-01
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`、`Table runtime_type_tunings`、`Table session_tunings`、`Table session_tuning_models`
   - 📎 `spec.md` § FR-005;`research.md` § R9;`plan.md` § 待決問題 Q22、Q28、Q41、Q42、Q44、Q62
-- [ ] T038b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py`、`tests/integration/test_db_schema.py` 只寫讓 US1-DB-01 通過的程式碼;全新庫照 `contracts/store.dbml` 建出整份 DDL:`sessions`、`session_transitions` 收下 `applying_tuning` 與 `restarting_ollama`、`reloading_models`(`end_reason` 不加 CHECK),新表 `runtime_type_tunings`、`session_tunings`、`session_tuning_models` 與 `uq_session_tunings_in_progress`,新表的列舉欄位寫 `CHECK IN`;`user_version` 設 2;同一個任務把 `tests/integration/test_db_schema.py` 斷言全新庫 `user_version == 1` 的 `test_全新資料庫建出_user_version_為_1_且_download_jobs_有所屬工作階段與不分大小寫的唯一索引`(第 143 行)與 `test_後端重新啟動後精選清單_自動下載設定與自動下載結果都還在`(第 1048 行)改成 2,執行全部測試確認都通過、不留 skip,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T038a)
+- [x] T038b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py`、`tests/integration/test_db_schema.py` 只寫讓 US1-DB-01 通過的程式碼;全新庫照 `contracts/store.dbml` 建出整份 DDL:`sessions`、`session_transitions` 收下 `applying_tuning` 與 `restarting_ollama`、`reloading_models`(`end_reason` 不加 CHECK),新表 `runtime_type_tunings`、`session_tunings`、`session_tuning_models` 與 `uq_session_tunings_in_progress`,新表的列舉欄位寫 `CHECK IN`;`user_version` 設 2;同一個任務把 `tests/integration/test_db_schema.py` 斷言全新庫 `user_version == 1` 的 `test_全新資料庫建出_user_version_為_1_且_download_jobs_有所屬工作階段與不分大小寫的唯一索引`(第 143 行)與 `test_後端重新啟動後精選清單_自動下載設定與自動下載結果都還在`(第 1048 行)改成 2,執行全部測試確認都通過、不留 skip,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T038a)
   - 🧪 `testplan.md` § US1-DB-01
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`、`Table runtime_type_tunings`、`Table session_tunings`、`Table session_tuning_models`
   - 📎 `spec.md` § FR-005;`research.md` § R9;`plan.md` § 待決問題 Q22、Q28、Q41、Q42、Q44、Q62
-- [ ] T039a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-02 的測試(依序執行:①寫入「開啟那一筆(A100)」;②以 `SELECT * FROM session_tunings WHERE session_name='cgb-a'` 與 `SELECT typeof(vram_total_bytes), typeof(system_memory_total_bytes) FROM session_tunings` 讀回;③再寫一筆 `cgb-a` 的 `trigger='open'`(其他同 ①、`at` 改成 `'2026-11-15T08:10:00Z'`);④寫一筆 `cgb-b` 的開啟那一筆(T4:`gpu_name='Tesla T4'`、`vram_total_bytes=16106127360`、`num_parallel=2`、`context_length=4096`、`max_loaded_models=1`);⑤寫一筆 `cgb-c` 的 `trigger='open'`、`attempt='requested'`(`cgb-c` 還沒有開啟那一筆,被擋只會是因為 CHECK);分隔註解寫 `# ---- 005 US1-DB-02`);T038b 照 `contracts/store.dbml` 宣告 `session_tunings` 的欄位型別(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「顯示記憶體、系統記憶體的欄位宣告成 REAL 或 TEXT(例如照 UI 顯示存成 GiB),`typeof` 不是 `integer`,換算回位元組時和級距表的邊界比不準」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T039a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-02 的測試(依序執行:①寫入「開啟那一筆(A100)」;②以 `SELECT * FROM session_tunings WHERE session_name='cgb-a'` 與 `SELECT typeof(vram_total_bytes), typeof(system_memory_total_bytes) FROM session_tunings` 讀回;③再寫一筆 `cgb-a` 的 `trigger='open'`(其他同 ①、`at` 改成 `'2026-11-15T08:10:00Z'`);④寫一筆 `cgb-b` 的開啟那一筆(T4:`gpu_name='Tesla T4'`、`vram_total_bytes=16106127360`、`num_parallel=2`、`context_length=4096`、`max_loaded_models=1`);⑤寫一筆 `cgb-c` 的 `trigger='open'`、`attempt='requested'`(`cgb-c` 還沒有開啟那一筆,被擋只會是因為 CHECK);分隔註解寫 `# ---- 005 US1-DB-02`);T038b 照 `contracts/store.dbml` 宣告 `session_tunings` 的欄位型別(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「顯示記憶體、系統記憶體的欄位宣告成 REAL 或 TEXT(例如照 UI 顯示存成 GiB),`typeof` 不是 `integer`,換算回位元組時和級距表的邊界比不準」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-DB-02
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-005、使用者故事 1 驗收情境 4
-- [ ] T039b [US1] 🟢 /tdd 綠燈:US1-DB-02 由 T038b 照 `contracts/store.dbml` 宣告 `session_tunings` 的欄位型別(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-02 通過的程式碼(依賴 T039a)
+- [x] T039b [US1] 🟢 /tdd 綠燈:US1-DB-02 由 T038b 照 `contracts/store.dbml` 宣告 `session_tunings` 的欄位型別(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-02 通過的程式碼(依賴 T039a)
   - 🧪 `testplan.md` § US1-DB-02
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-005、使用者故事 1 驗收情境 4
-- [ ] T040a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-03 的測試(依序寫入開啟那一筆(其他欄位同「開啟那一筆(A100)」):①`cgb-a`:讀不到顯示記憶體,`gpu_name`、`vram_total_bytes` NULL,`system_memory_total_bytes=13605273600`,五項值都是 NULL、五個 `*_source` 都是 `ollama_default`;②`cgb-b`:遠端 Ollama 已在執行而讀不到設定檔(plan Q2),五項值與五個 `*_source` 全部 NULL;③~⑨ 依序寫在 `cgb-c3`~`cgb-c9`(各自還沒有開啟那一筆,被擋只會是因為 CHECK 或 NOT NULL):③`vram_total_bytes=-1`;④`num_parallel=0`;⑤`flash_attention=2`;⑥`num_parallel_source='default'`;⑦`kv_cache_type='q4_0'`;⑧`trigger='restart'`;⑨`result` NULL;⑩`session_name` 改成 `sessions` 沒有的 `cgb-zzz`;分隔註解寫 `# ---- 005 US1-DB-03`);T038b 照 `contracts/store.dbml` 讓硬體欄位可為空、沒有預設 0(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`vram_total_bytes` 設成 `NOT NULL` 或預設 0,讀不到顯示記憶體(FR-003)時開啟那一筆寫不進去,或寫成 0、UI 顯示「顯示記憶體 0 GB」而不是「讀不到」」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T040a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-03 的測試(依序寫入開啟那一筆(其他欄位同「開啟那一筆(A100)」):①`cgb-a`:讀不到顯示記憶體,`gpu_name`、`vram_total_bytes` NULL,`system_memory_total_bytes=13605273600`,五項值都是 NULL、五個 `*_source` 都是 `ollama_default`;②`cgb-b`:遠端 Ollama 已在執行而讀不到設定檔(plan Q2),五項值與五個 `*_source` 全部 NULL;③~⑨ 依序寫在 `cgb-c3`~`cgb-c9`(各自還沒有開啟那一筆,被擋只會是因為 CHECK 或 NOT NULL):③`vram_total_bytes=-1`;④`num_parallel=0`;⑤`flash_attention=2`;⑥`num_parallel_source='default'`;⑦`kv_cache_type='q4_0'`;⑧`trigger='restart'`;⑨`result` NULL;⑩`session_name` 改成 `sessions` 沒有的 `cgb-zzz`;分隔註解寫 `# ---- 005 US1-DB-03`);T038b 照 `contracts/store.dbml` 讓硬體欄位可為空、沒有預設 0(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`vram_total_bytes` 設成 `NOT NULL` 或預設 0,讀不到顯示記憶體(FR-003)時開啟那一筆寫不進去,或寫成 0、UI 顯示「顯示記憶體 0 GB」而不是「讀不到」」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-DB-03
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-005、FR-003
-- [ ] T040b [US1] 🟢 /tdd 綠燈:US1-DB-03 由 T038b 照 `contracts/store.dbml` 讓硬體欄位可為空、沒有預設 0(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-03 通過的程式碼(依賴 T040a)
+- [x] T040b [US1] 🟢 /tdd 綠燈:US1-DB-03 由 T038b 照 `contracts/store.dbml` 讓硬體欄位可為空、沒有預設 0(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-03 通過的程式碼(依賴 T040a)
   - 🧪 `testplan.md` § US1-DB-03
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-005、FR-003
-- [ ] T041a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-04 的測試(以 `connect` 開同一個檔,呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-04`),執行確認它因為「`create_schema` 照 004 的寫法「`user_version` 不是 0 就直接 return」,v1 舊庫什麼都沒做,`user_version` 停在 1、沒有新表」這類實作而失敗
+- [x] T041a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-04 的測試(以 `connect` 開同一個檔,呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-04`),執行確認它因為「`create_schema` 照 004 的寫法「`user_version` 不是 0 就直接 return」,v1 舊庫什麼都沒做,`user_version` 停在 1、沒有新表」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-04
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`、`Table session_tunings`
   - 📎 `spec.md` § FR-005、FR-015、FR-016
-- [ ] T041b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-04 通過的程式碼;`user_version` 為 1 時照 `contracts/store.dbml` 開頭的步驟遷移到 2,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T041a)
+- [x] T041b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-04 通過的程式碼;`user_version` 為 1 時照 `contracts/store.dbml` 開頭的步驟遷移到 2,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T041a)
   - 🧪 `testplan.md` § US1-DB-04
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`、`Table session_tunings`
   - 📎 `spec.md` § FR-005、FR-015、FR-016
-- [ ] T042a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-05 的測試(兩個庫各讀 `PRAGMA table_info(sessions)`、`PRAGMA table_info(session_transitions)`;遷移後的庫再讀 `PRAGMA index_list(sessions)`、`PRAGMA index_list(session_transitions)`、`PRAGMA foreign_key_list(...)`(`session_transitions`、`download_jobs`、`auto_download_results`)、`PRAGMA foreign_key_check`,再插入一筆 `session_transitions(session_name='cgb-live', at='2026-11-15T08:00:00Z', state='ready')`;分隔註解寫 `# ---- 005 US1-DB-05`),執行確認它因為「照「舊表改名 `sessions_old` → 建新表 → 複製 → DROP 舊表」的順序重建,SQLite 把 `download_jobs`、`session_transitions`、`auto_download_results` 的外鍵改寫成指到 `sessions_old`(節首實測),DROP 之後外鍵指到不存在的表」這類實作而失敗
+- [x] T042a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-05 的測試(兩個庫各讀 `PRAGMA table_info(sessions)`、`PRAGMA table_info(session_transitions)`;遷移後的庫再讀 `PRAGMA index_list(sessions)`、`PRAGMA index_list(session_transitions)`、`PRAGMA foreign_key_list(...)`(`session_transitions`、`download_jobs`、`auto_download_results`)、`PRAGMA foreign_key_check`,再插入一筆 `session_transitions(session_name='cgb-live', at='2026-11-15T08:00:00Z', state='ready')`;分隔註解寫 `# ---- 005 US1-DB-05`),執行確認它因為「照「舊表改名 `sessions_old` → 建新表 → 複製 → DROP 舊表」的順序重建,SQLite 把 `download_jobs`、`session_transitions`、`auto_download_results` 的外鍵改寫成指到 `sessions_old`(節首實測),DROP 之後外鍵指到不存在的表」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-05
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-015、FR-016
-- [ ] T042b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-05 通過的程式碼;重建用「建 `sessions_new` → 複製 → DROP 舊表 → 改名」(`session_transitions` 同法、照原值複製 `id`),不用 `ALTER TABLE ... RENAME` 舊表,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T042a)
+- [x] T042b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-05 通過的程式碼;重建用「建 `sessions_new` → 複製 → DROP 舊表 → 改名」(`session_transitions` 同法、照原值複製 `id`),不用 `ALTER TABLE ... RENAME` 舊表,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T042a)
   - 🧪 `testplan.md` § US1-DB-05
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-015、FR-016
-- [ ] T043a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-06 的測試(呼叫 `create_schema(conn)`;關掉連線後以新的 `connect` 開同一個檔(`foreign_keys` 為 0)讀回;分隔註解寫 `# ---- 005 US1-DB-06`),執行確認它因為「遷移沒有先檢查 `PRAGMA foreign_keys` 就 `DROP TABLE sessions`,外鍵開著時 SQLite 對 `session_transitions`、`download_jobs`、`auto_download_results` 做 `ON DELETE CASCADE`,狀態變化紀錄與佇列被刪光、還照常 commit(節首實測讀回 0 筆)」這類實作而失敗
+- [x] T043a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-06 的測試(呼叫 `create_schema(conn)`;關掉連線後以新的 `connect` 開同一個檔(`foreign_keys` 為 0)讀回;分隔註解寫 `# ---- 005 US1-DB-06`),執行確認它因為「遷移沒有先檢查 `PRAGMA foreign_keys` 就 `DROP TABLE sessions`,外鍵開著時 SQLite 對 `session_transitions`、`download_jobs`、`auto_download_results` 做 `ON DELETE CASCADE`,狀態變化紀錄與佇列被刪光、還照常 commit(節首實測讀回 0 筆)」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-06
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-015、FR-016;`plan.md` § 待決問題 Q40
-- [ ] T043b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-06 通過的程式碼;遷移前先讀 `PRAGMA foreign_keys`,開著就丟 `RuntimeError`(訊息含 `foreign_keys`)、不碰任何資料,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
+- [x] T043b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-06 通過的程式碼;遷移前先讀 `PRAGMA foreign_keys`,開著就丟 `RuntimeError`(訊息含 `foreign_keys`)、不碰任何資料,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
   - 🧪 `testplan.md` § US1-DB-06
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-015、FR-016;`plan.md` § 待決問題 Q40
-- [ ] T044a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-07 的測試(呼叫 `create_schema(conn)`;接著 `conn.set_authorizer(None)`,再呼叫一次 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-07`),執行確認它因為「1 → 2 沒有包在交易裡,或用 `with conn:` 包起來(`connect` 是 `isolation_level=None`,不會開交易),失敗時 `sessions` 已經重建、新表已經建好,下次啟動在 `CREATE TABLE sessions_new` 或 `CREATE TABLE runtime_type_tunings` 就失敗,後端起不來」這類實作而失敗
+- [x] T044a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-07 的測試(呼叫 `create_schema(conn)`;接著 `conn.set_authorizer(None)`,再呼叫一次 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-07`),執行確認它因為「1 → 2 沒有包在交易裡,或用 `with conn:` 包起來(`connect` 是 `isolation_level=None`,不會開交易),失敗時 `sessions` 已經重建、新表已經建好,下次啟動在 `CREATE TABLE sessions_new` 或 `CREATE TABLE runtime_type_tunings` 就失敗,後端起不來」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-07
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_tunings`
   - 📎 `spec.md` § FR-005、FR-016
-- [ ] T044b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-07 通過的程式碼;1 → 2 包在明寫的 `BEGIN` … `COMMIT`,失敗時 rollback、原例外往上丟,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
+- [x] T044b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-07 通過的程式碼;1 → 2 包在明寫的 `BEGIN` … `COMMIT`,失敗時 rollback、原例外往上丟,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
   - 🧪 `testplan.md` § US1-DB-07
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_tunings`
   - 📎 `spec.md` § FR-005、FR-016
-- [ ] T045a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-08 的測試(以 `connect` 開檔,呼叫一次 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-08`),執行確認它因為「0 → 1 做完就 return(沿用 004「做完一段就結束」的結構),要第二次啟動才升到 2,這次啟動的後端以 v1 的 schema 寫 `session_tunings` 就失敗」這類實作而失敗
+- [x] T045a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-08 的測試(以 `connect` 開檔,呼叫一次 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-08`),執行確認它因為「0 → 1 做完就 return(沿用 004「做完一段就結束」的結構),要第二次啟動才升到 2,這次啟動的後端以 v1 的 schema 寫 `session_tunings` 就失敗」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-08
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_tunings`
   - 📎 `spec.md` § FR-005;`plan.md` § 待決問題 Q41、Q62
-- [ ] T045b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py`、`tests/integration/test_db_schema.py` 只寫讓 US1-DB-08 通過的程式碼;0 → 1 之後在同一次 `create_schema` 接著跑 1 → 2;同一個任務把 `tests/integration/test_db_schema.py` 斷言 v0 舊庫遷移後 `user_version == 1` 的 `test_舊資料庫升級後保留三筆舊項目且下載項目表與全新庫一致`(第 257 行)、`test_遷移中途失敗時整個還原_原例外往上丟_下次啟動可再升級`(第 369 行)、`test_升級過的資料庫再啟動一次不重跑遷移_項目的所屬工作階段不變`(第 396 行)、`test_從沒開過工作階段的舊資料庫也升級_sessions_表在就是舊庫`(第 416 行)、`test_舊資料庫有只差大小寫的排隊項目時留_id_最小的並把刪掉的名稱寫進日誌`(第 460 行)、`test_舊資料庫有只差大小寫的精選名稱時留_id_最小的並把刪掉的名稱寫進日誌`(第 738 行)改成 2,執行全部測試確認都通過、不留 skip,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T045a)
+- [x] T045b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py`、`tests/integration/test_db_schema.py` 只寫讓 US1-DB-08 通過的程式碼;0 → 1 之後在同一次 `create_schema` 接著跑 1 → 2;同一個任務把 `tests/integration/test_db_schema.py` 斷言 v0 舊庫遷移後 `user_version == 1` 的 `test_舊資料庫升級後保留三筆舊項目且下載項目表與全新庫一致`(第 257 行)、`test_遷移中途失敗時整個還原_原例外往上丟_下次啟動可再升級`(第 369 行)、`test_升級過的資料庫再啟動一次不重跑遷移_項目的所屬工作階段不變`(第 396 行)、`test_從沒開過工作階段的舊資料庫也升級_sessions_表在就是舊庫`(第 416 行)、`test_舊資料庫有只差大小寫的排隊項目時留_id_最小的並把刪掉的名稱寫進日誌`(第 460 行)、`test_舊資料庫有只差大小寫的精選名稱時留_id_最小的並把刪掉的名稱寫進日誌`(第 738 行)改成 2,執行全部測試確認都通過、不留 skip,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T045a)
   - 🧪 `testplan.md` § US1-DB-08
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_tunings`
   - 📎 `spec.md` § FR-005;`plan.md` § 待決問題 Q41、Q62
-- [ ] T046a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-09 的測試(呼叫 `create_schema(conn)`;接著 `conn.set_authorizer(None)`,再呼叫一次 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-09`),執行確認它因為「0 → 1 與 1 → 2 包在同一個交易裡,1 → 2 失敗時連 0 → 1 也 rollback,停在 0(store.dbml:兩個交易,1 → 2 失敗停在 1)」這類實作而失敗
+- [x] T046a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_db_schema.py` 寫 US1-DB-09 的測試(呼叫 `create_schema(conn)`;接著 `conn.set_authorizer(None)`,再呼叫一次 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-09`),執行確認它因為「0 → 1 與 1 → 2 包在同一個交易裡,1 → 2 失敗時連 0 → 1 也 rollback,停在 0(store.dbml:兩個交易,1 → 2 失敗停在 1)」這類實作而失敗
   - 🧪 `testplan.md` § US1-DB-09
   - ⚙ `contracts/store.dbml` § `Table sessions`
   - 📎 `spec.md` § FR-005
-- [ ] T046b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-09 通過的程式碼;0 → 1 與 1 → 2 是兩個交易,1 → 2 失敗時停在 1,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T046a)
+- [x] T046b [US1] 🟢 /tdd 綠燈:在 `src/cgb/db/schema.py` 只寫讓 US1-DB-09 通過的程式碼;0 → 1 與 1 → 2 是兩個交易,1 → 2 失敗時停在 1,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T046a)
   - 🧪 `testplan.md` § US1-DB-09
   - ⚙ `contracts/store.dbml` § `Table sessions`
   - 📎 `spec.md` § FR-005
-- [ ] T047a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-10 的測試(A:`conn.close()`,以新的 `connect` 開同一個檔,再呼叫 `create_schema(conn)`(後端重新啟動);B:呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-10`);T041b 讓 `user_version` 已是 2 的庫不再跑遷移(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「已經是 2 的庫每次啟動都重跑 1 → 2 的某一步(例如 `DROP TABLE IF EXISTS session_tunings` 再建),後端重啟後開啟那一筆不見,工作階段頁與紀錄看不到這次量到的設定(驗收情境 5)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T047a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-10 的測試(A:`conn.close()`,以新的 `connect` 開同一個檔,再呼叫 `create_schema(conn)`(後端重新啟動);B:呼叫 `create_schema(conn)`;分隔註解寫 `# ---- 005 US1-DB-10`);T041b 讓 `user_version` 已是 2 的庫不再跑遷移(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「已經是 2 的庫每次啟動都重跑 1 → 2 的某一步(例如 `DROP TABLE IF EXISTS session_tunings` 再建),後端重啟後開啟那一筆不見,工作階段頁與紀錄看不到這次量到的設定(驗收情境 5)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-DB-10
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-005、使用者故事 1 驗收情境 5
-- [ ] T047b [US1] 🟢 /tdd 綠燈:US1-DB-10 由 T041b 讓 `user_version` 已是 2 的庫不再跑遷移(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-10 通過的程式碼(依賴 T047a)
+- [x] T047b [US1] 🟢 /tdd 綠燈:US1-DB-10 由 T041b 讓 `user_version` 已是 2 的庫不再跑遷移(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-10 通過的程式碼(依賴 T047a)
   - 🧪 `testplan.md` § US1-DB-10
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-005、使用者故事 1 驗收情境 5
-- [ ] T048a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-11 的測試(呼叫 `create_schema(conn)`,再讀 `cgb-odd` 的 `sessions.end_reason` 與它的 `session_transitions.end_reason`;分隔註解寫 `# ---- 005 US1-DB-11`);T042b 照 `contracts/store.dbml` 重建 `sessions_new`、`session_transitions_new`,不補 `end_reason` 的 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「趁重建在 `sessions_new` 或 `session_transitions_new` 補了 `end_reason IN (...)` 的 CHECK(Q22 定為不補),既有資料只要有一筆不在清單裡,`INSERT ... SELECT` 就丟 `IntegrityError`、整個遷移 rollback,之後每次啟動都失敗、後端起不來」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T048a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US1-DB-11 的測試(呼叫 `create_schema(conn)`,再讀 `cgb-odd` 的 `sessions.end_reason` 與它的 `session_transitions.end_reason`;分隔註解寫 `# ---- 005 US1-DB-11`);T042b 照 `contracts/store.dbml` 重建 `sessions_new`、`session_transitions_new`,不補 `end_reason` 的 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「趁重建在 `sessions_new` 或 `session_transitions_new` 補了 `end_reason IN (...)` 的 CHECK(Q22 定為不補),既有資料只要有一筆不在清單裡,`INSERT ... SELECT` 就丟 `IntegrityError`、整個遷移 rollback,之後每次啟動都失敗、後端起不來」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-DB-11
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-016、FR-015;`plan.md` § 待決問題 Q22
-- [ ] T048b [US1] 🟢 /tdd 綠燈:US1-DB-11 由 T042b 照 `contracts/store.dbml` 重建 `sessions_new`、`session_transitions_new`,不補 `end_reason` 的 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-11 通過的程式碼(依賴 T048a)
+- [x] T048b [US1] 🟢 /tdd 綠燈:US1-DB-11 由 T042b 照 `contracts/store.dbml` 重建 `sessions_new`、`session_transitions_new`,不補 `end_reason` 的 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US1-DB-11 通過的程式碼(依賴 T048a)
   - 🧪 `testplan.md` § US1-DB-11
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-016、FR-015;`plan.md` § 待決問題 Q22
-- [ ] T049 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T038b~T048b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T048b)
+- [x] T049 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T038b~T048b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T048b)
   - 🧪 `testplan.md` § US1-DB-01~US1-DB-11
   - 📎 `testplan.md` § 2.3
 
