@@ -37,6 +37,13 @@ T4_STARTED = {
         "kvCacheType": {"value": "q8_0", "source": "auto"},
     },
 }
+# 替身預設的 `OllamaRestarted`(Q32):同一台 T4、同樣的自動值;停掉舊行程靠 pid 檔
+T4_RESTARTED = {
+    "ollamaVersion": T4_STARTED["ollamaVersion"],
+    "stoppedBy": "pid_file",
+    "machine": T4_STARTED["machine"],
+    "tuning": T4_STARTED["tuning"],
+}
 NAME_PATTERN = re.compile(r"^cgb-test-[a-z0-9-]+$")
 
 
@@ -63,12 +70,14 @@ class ColabWorld:
         self.hardware: dict[str, str] = {}  # 名稱 → `colab sessions` 列出的硬體,沒寫的是 T4
         self.log: list[tuple[str, Any]] = []
         self.start_result: dict[str, Any] = T4_STARTED  # `start_ollama` 回的結果;測試要別的機器時換掉
+        self.restart_result: dict[str, Any] = T4_RESTARTED  # `restart_ollama` 回的結果;測試要別的結果時換掉
         colab, tunnel, remote = fakes.colab, fakes.tunnel, fakes.remote_ollama
 
         colab.get_usage.side_effect(self._usage)
         colab.list_sessions.side_effect(self._list)
         colab.create_session.side_effect(self._create)
         colab.start_ollama.side_effect(self._start_ollama)
+        colab.restart_ollama.side_effect(self._restart_ollama)
         colab.stop_session.side_effect(self._stop)
         tunnel.open_tunnel.side_effect(self._open_tunnel)
         tunnel.close_tunnel.side_effect(self._close_tunnel)
@@ -112,6 +121,10 @@ class ColabWorld:
     def _start_ollama(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.log.append(("start_ollama", kwargs.get("name")))
         return self.start_result
+
+    def _restart_ollama(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        self.log.append(("restart_ollama", kwargs.get("name")))
+        return self.restart_result
 
     def _stop(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         name = kwargs["name"]

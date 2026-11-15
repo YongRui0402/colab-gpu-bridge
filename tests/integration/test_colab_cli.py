@@ -1503,3 +1503,62 @@ async def test_遠端腳本回報覆蓋值不符時是_COLAB_INVALID_TUNING_沒�
     # Assert
     assert code_of(error) == "COLAB_INVALID_TUNING"
     assert remote_stage_of(error) is None
+
+
+# ---- 005 US3-CLI-01
+
+# 重啟腳本在後端本機的路徑,和 `start_ollama.py` 不同(合約 § `paths./exec/restart-ollama.post` 的 `x-argv`)
+RESTART_OLLAMA_SCRIPT = str(files("cgb.adapters.scripts") / "restart_ollama.py")
+
+# 合約 `x-stdout` 的成功範例:T4、平行數 4(manual)、其餘兩項依 15 GiB 級距(auto)
+RESTARTED_T4_P4 = {
+    "ok": True,
+    "ollamaVersion": "0.40.15",
+    "stoppedBy": "pid_file",
+    "gpuName": "Tesla T4",
+    "vramTotalBytes": 16106127360,
+    "systemMemoryTotalBytes": 13605855232,
+    "tuning": {
+        "numParallel": {"value": 4, "source": "manual"},
+        "contextLength": {"value": 4096, "source": "auto"},
+        "maxLoadedModels": {"value": 1, "source": "auto"},
+        "flashAttention": {"value": True, "source": "auto"},
+        "kvCacheType": {"value": "q8_0", "source": "auto"},
+    },
+}
+
+
+def restart_argv(np="", cl="", ml=""):
+    """重啟的命令列:`--timeout 120`、`OLLAMA_HOST`、`OLLAMA_ORIGINS` 再帶一次,後面接三個 `--env CGB_TUNE_*`。"""
+    return [
+        "exec", "-s", "cgb-test-0001", "-f", RESTART_OLLAMA_SCRIPT, "--timeout", "120",
+        "--env", "OLLAMA_HOST=127.0.0.1:11434", "--env", "OLLAMA_ORIGINS=*",
+        "--env", f"CGB_TUNE_NUM_PARALLEL={np}",
+        "--env", f"CGB_TUNE_CONTEXT_LENGTH={cl}",
+        "--env", f"CGB_TUNE_MAX_LOADED_MODELS={ml}",
+    ]  # fmt: skip
+
+
+async def test_套用覆蓋值與改回自動值的重啟各執行一次_命令列都帶齊三個_CGB_TUNE_(fake_cli):
+    # Arrange
+    restarted = {"stdout": result(**RESTARTED_T4_P4)}
+    fake_cli.script({"colab": {shlex.join(argv): restarted for argv in (restart_argv(np="4"), restart_argv())}})
+    colab = ColabControl()
+
+    # Act
+    await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=AUTO))
+
+    # Assert
+    assert [call["argv"] for call in fake_cli.calls("colab")] == [restart_argv(np="4"), restart_argv()]
+
+
+async def test_重啟_Ollama_的命令列真的_colab_解讀得了(tmp_path):
+    """Q56:重啟的命令列(含空值的 `--env CGB_TUNE_*=`)讓真的 `colab` 0.7.5 解讀一次;會在本機執行 `colab`(快速層排除,執行前先問本人)。"""
+    # Act
+    real = run_real_colab_without_auth(restart_argv(np="4"), tmp_path / "real-home")
+
+    # Assert
+    assert [marker for marker in ARGUMENT_ERRORS if marker in real.stderr + real.stdout] == []
+    # 同 `start_ollama` 的那一支:參數被接受之後,`colab exec` 先查工作階段(空的 HOME 裡沒有),再要求授權
+    assert "not found" in real.stdout or "To authorize colab-cli, visit this URL" in real.stderr

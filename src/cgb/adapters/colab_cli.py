@@ -84,6 +84,7 @@ class CliTimeouts:
     version: float = 10.0
     new: float = 300.0
     start_ollama: float = 300.0
+    restart_ollama: float = 180.0
     probe_resources: float = 90.0
     stop: float = 60.0
     usage: float = 60.0
@@ -200,6 +201,27 @@ class ColabControl:
         return {
             "ollamaVersion": result["ollamaVersion"],
             "alreadyRunning": result["alreadyRunning"],
+            "machine": {
+                "gpuName": result["gpuName"],
+                "vramTotalBytes": result["vramTotalBytes"],
+                "systemMemoryTotalBytes": result["systemMemoryTotalBytes"],
+                "probedAt": datetime.now(UTC).isoformat(),
+            },
+            "tuning": result["tuning"],
+        }
+
+    async def restart_ollama(self, name: str, overrides: dict[str, int | None]) -> dict[str, Any]:
+        # 腳本路徑、`--timeout 120` 與 start_ollama 不同;`OLLAMA_HOST`、`OLLAMA_ORIGINS` 再帶一次,不依賴 kernel 留著開啟時的值
+        stdout, _ = await self._exec_script(
+            self.timeouts.restart_ollama,
+            "-s", name, "-f", str(SCRIPTS / "restart_ollama.py"), "--timeout", "120", *START_OLLAMA_ENV,
+            *tune_env(overrides),
+        )  # fmt: skip
+        result = result_line(stdout)
+        # 硬體與設定原樣交出;probedAt 是轉接層收到結果的時間(同 start_ollama)
+        return {
+            "ollamaVersion": result["ollamaVersion"],
+            "stoppedBy": result["stoppedBy"],
             "machine": {
                 "gpuName": result["gpuName"],
                 "vramTotalBytes": result["vramTotalBytes"],

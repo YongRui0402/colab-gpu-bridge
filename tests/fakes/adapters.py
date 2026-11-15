@@ -234,6 +234,7 @@ class FakeColabControl(_FakeAdapter):
         "list_sessions",
         "create_session",
         "start_ollama",
+        "restart_ollama",
         "probe_resources",
         "stop_session",
         "get_usage",
