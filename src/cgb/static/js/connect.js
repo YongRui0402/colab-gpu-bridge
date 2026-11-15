@@ -1,7 +1,7 @@
 // 連線設定頁:把 Colab 上的模型接到 opencode 或 pi 的設定片段(prototype/connect.html;contracts/ui.openapi.yaml § paths./connect.get)
 import { request } from "./api.js";
 import { startHeader } from "./header.js";
-import { showState } from "./view.js";
+import { gib, showState } from "./view.js";
 
 // 片段文字裡的 `{{host}}` 換成目前網址的主機名稱;片段本身由後端產生(info.x-snippet-rule;plan.md Q10、Q16)。
 // 沒有附的片段(null)照樣回 null
@@ -54,7 +54,17 @@ function bindCopy(root) {
   });
 }
 
-function render(root, info) {
+// 片段上方的兩種提醒:context 太小(目前值、下限、建議值與顯示記憶體;FR-006、FR-007)與讀不到目前設定(FR-008)
+function renderNotices(set, show, info, contextText, vramBytes) {
+  set("current", contextText ?? "");
+  set("min", tokens(info.recommendedMinContextLength));
+  set("suggested", tokens(info.recommendedContextLength));
+  set("vram", vramBytes ? gib(vramBytes) : "讀不到");
+  show("low-notice", info.shouldWarn);
+  show("unknown-notice", contextText === null);
+}
+
+function render(root, info, vramBytes) {
   root.replaceChildren(document.getElementById("tpl-snippets").content.cloneNode(true));
   const code = {
     opencode: withHost(info.snippets.opencode),
@@ -72,13 +82,13 @@ function render(root, info) {
     });
   };
   set("baseurl", `http://${location.hostname}:${info.ollamaPort}${info.basePath}`);
-  set("context", tokens(info.contextLength));
+  // `contextLength` 為 null(005 讀不到目前設定)時寫「讀不到」,不顯示 null(FR-008;plan.md Q9)
+  const contextText = info.contextLength === null ? null : tokens(info.contextLength);
+  set("context", contextText ?? "讀不到");
   set("count", `${info.models.length} 個(模型目錄裡的全部)`);
   set("opencode-cmd", `opencode -m cgb/${info.models[0]}`);
   set("pi-cmd", `pi --model cgb/${info.models[0]}`);
-  set("current", tokens(info.contextLength));
-  set("min", tokens(info.recommendedMinContextLength));
-  show("low-notice", info.shouldWarn);
+  renderNotices(set, show, info, contextText, vramBytes);
   // `snippets.piSettings` 為 null(讀不到 context)時,settings.json 那段與它的步驟都不顯示(FR-013)
   const hasPiSettings = code["pi-settings"] !== null;
   show("pi-settings", hasPiSettings);
@@ -91,12 +101,19 @@ function render(root, info) {
   selectTab(root, root.dataset.tab);
 }
 
+// 提醒裡的顯示記憶體:`ConnectInfo` 沒有這一項,照工作階段頁讀 005 量到的硬體(`Session.ollama.machine`)
+async function vramOf() {
+  const response = await request("GET", "/session");
+  return response.ok ? (response.data?.ollama?.machine?.vramTotalBytes ?? null) : null;
+}
+
 async function loadConnect() {
   const response = await request("GET", "/connect");
   if (!response.ok) return;
   const state = stateOf(response.data);
   const target = document.querySelector(`[data-render="snippets"][data-state="${state}"]`);
-  if (target) render(target, response.data);
+  const vramBytes = response.data.shouldWarn ? await vramOf() : null;
+  if (target) render(target, response.data, vramBytes);
   showState(state);
 }
 

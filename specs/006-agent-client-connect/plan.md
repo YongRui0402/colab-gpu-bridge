@@ -122,3 +122,7 @@ tests/
 | Q30 | implement T019a | 001 的 `Catalog.list()` 讀不到遠端時沒有接 `AdapterError`,`GET /api/models` 回 500 而不是合約的 502/504:a 這一輪只在 `GET /api/connect` 接住轉成 502/504,`/api/models` 的落差列進完成報告留下一輪(先採用);b 這一輪一併修 `services/catalog.py` | — | a(D18) |
 | Q31 | implement T026b | 複製只用 `navigator.clipboard.writeText`,從區網其他機器以 `http://<IP>` 打開時不是安全環境,複製按鈕沒有反應:a 在故事 2 的複製綠燈(T036b)補原型的 `execCommand("copy")` 退路,完成報告列為未驗證(e2e 走 127.0.0.1 抓不到)(先採用);b 不補 | — | a(D19) |
 | Q32 | implement T029a | US1-AJ-05 寫「分頁名稱都是繁體中文」,原型的分頁名稱是工具原名:a testplan 改成「分頁名稱照工具原名」(先採用);b 分頁名稱改中文 | — | a(D19):testplan 已改 |
+| Q33 | implement T043b | 提醒的連結 `index.html#ollama-tuning`,首頁沒有這個 id,設定卡是 `#t-card`:a 改指 `index.html#t-card`;b 在首頁加 id;c 維持 | — | a(D22):已改 |
+| Q34 | implement T043b | 提醒寫「套用並重啟」,005 的按鈕叫「套用並重啟 Ollama」:a 照按鈕名稱;b 維持 | — | a(D22):已改 |
+| Q35 | implement T043b | 提醒要顯示顯示記憶體,`ConnectInfo` 沒有這一項:a 前端在要提醒時另外讀 `GET /api/session` 的 `ollama.machine.vramTotalBytes`(先採用);b 合約加欄位 | — | a(D22) |
+| Q36 | implement T043b | 原型的建議值用 `<strong>`,會讓 US1-AJ-05「`.notice strong` 都含中文」不過:a 改成 `<span class="mono">`(先採用);b 改測試 | — | a(D22) |

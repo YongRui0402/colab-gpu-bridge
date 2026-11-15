@@ -471,31 +471,31 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器接真的後端
 
-- [ ] T043a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US3-AJ-01 的測試(工作階段就緒,context 4096;打開連線設定頁;斷言看到提醒,寫著目前 4096、建議 32768,以及「開啟前在 Ollama 設定填 context 長度」與「套用並重啟」兩種改法,附回首頁的連結且連得到 `index.html#ollama-tuning`;片段仍然顯示、可以複製),執行確認它因為「提醒時把片段藏起來(plan Q17);或沒寫改法」這類實作而失敗
+- [x] T043a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US3-AJ-01 的測試(工作階段就緒,context 4096;打開連線設定頁;斷言看到提醒,寫著目前 4096、建議 32768,以及「開啟前在 Ollama 設定填 context 長度」與「套用並重啟」兩種改法,附回首頁的連結且連得到 `index.html#ollama-tuning`;片段仍然顯示、可以複製),執行確認它因為「提醒時把片段藏起來(plan Q17);或沒寫改法」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/connect.html` § `[data-state="low-context"]`、`.notice`、`.notice-warn`、`.note-list`;`prototype/index.html` § `[data-state="normal"]`、`[data-state="applying"]`、`#ollama-tuning`
   - 📎 `spec.md` § FR-006、FR-007、NFR-002;`plan.md` § 待決問題 Q14、Q17、Q26
-- [ ] T043b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US3-AJ-01 通過的程式碼(`shouldWarn` 為 true 時顯示 `low-notice`:目前值、下限、建議值、顯示記憶體與兩種改法,連結指向 005 已做好的 `index.html#ollama-tuning`,那一頁的 `normal`、`applying` 畫面不由本任務重做,`plan.md` § 待決問題 Q26;片段照樣顯示);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
+- [x] T043b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US3-AJ-01 通過的程式碼(`shouldWarn` 為 true 時顯示 `low-notice`:目前值、下限、建議值、顯示記憶體與兩種改法,連結指向 005 已做好的 `index.html#ollama-tuning`,那一頁的 `normal`、`applying` 畫面不由本任務重做,`plan.md` § 待決問題 Q26;片段照樣顯示);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T043a)
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/connect.html` § `[data-state="low-context"]`、`.notice`、`.notice-warn`、`.note-list`;`prototype/index.html` § `[data-state="normal"]`、`[data-state="applying"]`、`#ollama-tuning`
   - 📎 `spec.md` § FR-006、FR-007、NFR-002;`plan.md` § 待決問題 Q14、Q17、Q26
-- [ ] T044a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US3-AJ-02 的測試(工作階段以覆蓋值 context 32768 開到就緒;打開連線設定頁;斷言沒有提醒區塊),執行確認它因為「一律顯示提醒」這類實作而失敗
+- [x] T044a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US3-AJ-02 的測試(工作階段以覆蓋值 context 32768 開到就緒;打開連線設定頁;斷言沒有提醒區塊),執行確認它因為「一律顯示提醒」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/connect.html` § `[data-state="normal"]`
   - 📎 `spec.md` § FR-006
-- [ ] T044b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/connect.js` 只寫讓 US3-AJ-02 通過的程式碼(`shouldWarn` 為 false 時不顯示 `low-notice`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
+- [x] T044b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/js/connect.js` 只寫讓 US3-AJ-02 通過的程式碼(`shouldWarn` 為 false 時不顯示 `low-notice`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T044a)
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/connect.html` § `[data-state="normal"]`
   - 📎 `spec.md` § FR-006
-- [ ] T045a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US3-AJ-03 的測試(工作階段就緒,005 的 `ollama.status` 是 `unknown`;打開連線設定頁;斷言看到「讀不到目前的 Ollama 設定,片段不帶 context 長度」的說明、pi 分頁沒有 `settings.json` 那段),執行確認它因為「讀不到時顯示 context `null`,或仍顯示 `settings.json`」這類實作而失敗
+- [x] T045a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US3-AJ-03 的測試(工作階段就緒,005 的 `ollama.status` 是 `unknown`;打開連線設定頁;斷言看到「讀不到目前的 Ollama 設定,片段不帶 context 長度」的說明、pi 分頁沒有 `settings.json` 那段),執行確認它因為「讀不到時顯示 context `null`,或仍顯示 `settings.json`」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/connect.html` § `[data-state="unknown-context"]`
   - 📎 `spec.md` § FR-008、NFR-002;`plan.md` § 待決問題 Q9
-- [ ] T045b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US3-AJ-03 通過的程式碼(`contextLength` 為 null 時顯示 `unknown-notice`、context 欄位寫「讀不到」,`piSettings` 為 null 時 pi 分頁不渲染 `settings.json` 與它的使用步驟);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T045a)
+- [x] T045b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US3-AJ-03 通過的程式碼(`contextLength` 為 null 時顯示 `unknown-notice`、context 欄位寫「讀不到」,`piSettings` 為 null 時 pi 分頁不渲染 `settings.json` 與它的使用步驟);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T045a)
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/connect.html` § `[data-state="unknown-context"]`
   - 📎 `spec.md` § FR-008、NFR-002;`plan.md` § 待決問題 Q9
-- [ ] T046 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T043b~T045b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T045b)
+- [x] T046 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T043b~T045b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T045b)
   - 🧪 `testplan.md` § US3-AJ-01~US3-AJ-03
   - 📎 `testplan.md` § 4.2
 

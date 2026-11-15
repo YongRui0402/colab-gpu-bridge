@@ -7,13 +7,16 @@
 """
 
 import json
+import re
 from typing import Any
 
 from playwright.sync_api import BrowserContext, Page, expect
 
+from e2e.test_005_us2_overrides import open_screen, press_open
 from e2e.test_locale import SIMPLIFIED_OR_MAINLAND
 from e2e.test_us1_session import CJK, ColabWorld, open_to_ready, world  # noqa: F401 - `world` 是 fixture
 from integration.test_api_models import QWEN_7B_BYTES, QWEN_SMALL_BYTES
+from integration.test_api_tuning import GIB, applied, started
 
 CODER_7B = "qwen2.5-coder:7b"
 QWEN_3B = "qwen2.5:3b"
@@ -216,3 +219,103 @@ def test_按_settings_json_那段的複製後剪貼簿的內容和畫面上的_s
     expect(button).to_have_text("已複製")
     copied = page.evaluate("navigator.clipboard.readText()")
     assert copied == settings.text_content()
+
+
+# ---- 006 US3-AJ-01
+
+
+def test_context_太小時提醒目前值_建議值與兩種改法並連回首頁的_Ollama_設定_片段照樣可以複製(page: Page, context: BrowserContext, e2e_servers: Any, world: ColabWorld) -> None:
+    # Arrange:預設資料,15 GiB 的 T4 套用 context 4096
+    context.grant_permissions(["clipboard-read", "clipboard-write"])
+    ready_with_default_models(page, world)
+
+    # Act
+    page.goto("/connect.html")
+
+    # Assert
+    shown = snippets(page)
+    notice = shown.locator('[data-part="low-notice"]')
+    # 則1:提醒寫著目前 4096、建議 32768(依顯示記憶體估),以及開啟前與開著時的兩種改法,都連回首頁的 Ollama 設定
+    expect(notice).to_be_visible()
+    expect(notice).to_contain_text("目前套用的 context 是 4,096")
+    expect(notice).to_contain_text("建議值:32,768")
+    expect(notice).to_contain_text("顯示記憶體 15 GB")
+    ways = notice.locator(".note-list li")
+    expect(ways).to_have_count(2)
+    expect(ways.nth(0)).to_contain_text(re.compile(r"開啟前在\s*Ollama 設定\s*填 context 長度"))
+    expect(ways.nth(1)).to_contain_text("套用並重啟 Ollama")
+    links = notice.locator('a[href="index.html#t-card"]')
+    expect(links).to_have_count(2)
+    # 則2:片段照樣顯示,按複製後剪貼簿的內容和畫面上的片段完全相同
+    code = shown.locator('[data-code="opencode"]')
+    expect(code).to_contain_text("http://127.0.0.1:11436/v1")
+    button = shown.locator('[data-copy="opencode"]')
+    button.click()
+    expect(button).to_have_text("已複製")
+    assert page.evaluate("navigator.clipboard.readText()") == code.text_content()
+    # 回首頁的連結連得到工作階段頁的 Ollama 設定(005 已做好的畫面,plan.md Q26)
+    links.first.click()
+    expect(page).to_have_url("http://127.0.0.1:8781/index.html#t-card")
+    expect(page.locator("#t-card h2")).to_have_text("Ollama 設定")
+    expect(page.locator("#t-card")).to_be_visible()
+
+
+# ---- 006 US3-AJ-02
+
+
+def t4_start(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    """15 GiB 的 T4:填了 context 長度時照覆蓋值套用、標手動,其他照級距(平行 2、同時載入 1)。"""
+    context_length = kwargs["overrides"]["contextLength"]
+    tuning = applied(2, context_length, 1, ("auto", "manual", "auto"))
+    return started(15 * GIB, tuning, gpu_name="Tesla T4", system_bytes=13_605_855_232)
+
+
+def test_以覆蓋值_context_32768_開到就緒時沒有提醒區塊(page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any) -> None:
+    # Arrange:開啟前在 Ollama 設定填 context 32768
+    fakes.colab.start_ollama.side_effect(t4_start)
+    screen = open_screen(page)
+    screen.locator(".tuning-block > summary").click()
+    screen.locator('input[data-field="contextLength"]').fill("32768")
+    press_open(screen)
+    expect(page.locator('[data-state="ready"]')).to_be_visible(timeout=10_000)
+    world.models[CODER_7B] = (QWEN_7B_BYTES, False)
+    world.models[QWEN_3B] = (QWEN_SMALL_BYTES, False)
+
+    # Act
+    page.goto("/connect.html")
+
+    # Assert
+    shown = snippets(page)
+    expect(shown.locator('[data-field="context"]')).to_have_text("32,768")
+    # 則1:沒有提醒區塊
+    expect(shown.locator(".notice:visible")).to_have_count(0)
+
+
+# ---- 006 US3-AJ-03
+
+
+def test_讀不到目前的_Ollama_設定時說明片段不帶_context_長度_pi_分頁沒有_settings_json(page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any) -> None:
+    # Arrange:005 的 ollama.status 是 unknown(遠端 Ollama 已在執行、讀不到設定)
+    fakes.colab.start_ollama.side_effect(
+        lambda *a, **k: started(15 * GIB, None, gpu_name="Tesla T4", system_bytes=13_605_855_232, already_running=True)
+    )
+    ready_with_default_models(page, world)
+
+    # Act
+    page.goto("/connect.html")
+
+    # Assert
+    shown = snippets(page)
+    # 則1:看到讀不到設定的說明,目前 context 寫「讀不到」而不是 null
+    unknown = shown.locator('[data-part="unknown-notice"]')
+    expect(unknown).to_be_visible()
+    expect(unknown).to_contain_text("讀不到目前的 Ollama 設定,片段不帶 context 長度")
+    expect(shown.locator('[data-field="context"]')).to_have_text("讀不到")
+    expect(shown.locator('[data-part="low-notice"]')).to_be_hidden()
+    # 則2:pi 分頁只有 models.json 一段,使用方式不提 settings.json
+    shown.locator('.tab[data-tab="pi"]').click()
+    pi = shown.locator('[data-panel="pi"]')
+    expect(pi).to_be_visible()
+    expect(pi.locator(".snippet:visible .snippet-head h3")).to_have_text(["models.json"])
+    expect(pi.locator('.code[data-code="pi-settings"]')).to_be_hidden()
+    expect(pi.locator(".howto")).not_to_contain_text("settings.json", use_inner_text=True)

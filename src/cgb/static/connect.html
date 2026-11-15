@@ -56,6 +56,16 @@
       <strong>context 太小,coding agent 的提示詞可能被截掉</strong>
       <p>目前套用的 context 是 <span class="mono" data-field="current"></span>,低於 coding agent 建議的下限 <span class="mono" data-field="min"></span>。
         opencode 光第一個請求就約 6.5k token,超過 context 的部分會被默默截掉,不會有任何錯誤訊息,只是工具呼叫變得不穩或沒有回應。</p>
+      <p>建議值:<span class="mono" data-field="suggested"></span>(依這台機器的顯示記憶體 <span data-field="vram"></span> 與平行數估算,以 7B 級模型為準;改完後到工作階段頁確認模型全部在 GPU)。</p>
+      <ul class="note-list">
+        <li>還沒開啟工作階段:開啟前在 <a href="index.html#t-card">Ollama 設定</a> 填 context 長度。</li>
+        <li>工作階段已經開著:到 <a href="index.html#t-card">工作階段頁</a> 改 context 長度,按「套用並重啟 Ollama」。</li>
+      </ul>
+    </div>
+    <div class="notice notice-warn" data-part="unknown-notice" hidden>
+      <strong>讀不到目前的 Ollama 設定,片段不帶 context 長度</strong>
+      <p>工作階段就緒,但這一次沒能向遠端 Ollama 讀回目前的 context 長度(可能是設定剛套用、遠端暫時沒有回應)。所以下面的片段不帶 context 長度,opencode 與 pi 會用各自的預設值,pi 也不附 <span class="mono">settings.json</span>。
+        到 <a href="index.html#t-card">工作階段頁</a> 確認設定讀得回來之後,重新整理這一頁就會帶上。</p>
     </div>
 
     <div class="panel">
