@@ -29,7 +29,7 @@
 
 ## 新引入與沿用
 
-- 新引入:遠端腳本 `restart_ollama.py` 與 pid 檔 `/root/cgb-ollama-serve.pid`(R1)
+- 新引入:遠端腳本 `restart_ollama.py`、pid 檔 `/root/cgb-ollama-serve.pid` 與設定狀態檔 `/root/cgb-ollama-tuning.json`(R1)
 - 新引入:`cgb/domain/tuning.py` 的級距表(R7)
 - 沿用:Colab 執行環境上的遠端 Ollama(R2)、001 的 `colab exec` 重跑一次約定(R1)、001 的預先載入(R8)、001 的閒置計時(R10)、004 的 `PRAGMA user_version` 遷移(R9)
 

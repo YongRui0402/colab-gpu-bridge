@@ -4,9 +4,9 @@
 
 ## 判定
 
-**最新一輪:第 1 輪(2026-11-15)— ⛔ 不能進 `/implement`**
+**最新一輪:第 2 輪(2026-11-15)— ✅ 可以進 `/implement`**
 
-有 2 個未解決的 HIGH(A1、A2);另有 1 個 MEDIUM(A3)、4 個 LOW(A4~A7)不擋實作,建議和 HIGH 一起修掉。
+沒有未解決的 CRITICAL 或 HIGH;第 1 輪的 A1~A3、A5~A7 已修正,SC-004 已澄清(D49)。剩 2 個 LOW(A4 仍存在、新的 A8),不擋實作,建議實作前順手修掉。
 
 ## 檢查範圍
 
@@ -74,3 +74,41 @@
 5. `/testplan` 刪 US3-API-28 則4 過時的備註(A5);照第 4 步的 A2 寫法,在 US3-API-02 補斷言重新載入中的 `lastApply.tuning`
 6. `/tasks` 照第 4、5 步更新 T121b、T148b 的 ⚙ 與目前生效設定的取法(A2),並涵蓋第 5 步補的斷言
 7. 重跑 `/analyze`
+
+---
+
+## 第 2 輪(2026-11-15)
+
+### 前置檢查
+
+| 腳本 | 結果 |
+|---|---|
+| `specify/scripts/check_spec.py` | ✅ 通過(第 1 輪的結果;這一輪的修正只改敘述文字,沒有重跑前置檢查) |
+| `system-analysis/scripts/check_plan.py` | ✅ 通過(同上) |
+| `testplan/scripts/check_testplan.py` | ✅ 通過(同上) |
+| `tasks/scripts/check_tasks.py` | ✅ 通過(同上) |
+
+### 上一輪的問題
+
+| ID | 狀態 | 依據 |
+|---|---|---|
+| A1 | ✅ 已修正 | `research.md` § R1 改成「先用 `pgrep -f "^ollama serve"` 找出 pid,再對每個 pid 的行程群組送 `SIGTERM`/`SIGKILL`(plan Q5、D16)」,替代方案同步改;`plan.md` § Source Code 的 `restart_ollama.py` 改成「停掉 ollama serve 的行程群組(pid 檔,備援 pgrep)」,與 `colab-cli.openapi.yaml` § `restartOllama` (c)、`tasks.md` T109b 一致 |
+| A2 | ✅ 已修正 | D48 選「重新載入中顯示新設定」:`ui.openapi.yaml` § `TuningRecord.machine`、`tuning` 改成「`in_progress` 而重啟還沒成功時、`failed` 時為 null,重啟成功、進入 `reloading_models` 後就有值」;`store.dbml` § Project 的 `Session.ollama` 推導加上「result 為 in_progress 而 tuning 不為 NULL」;`testplan.md` US3-API-02 則5 補斷言 `lastApply.tuning`;`tasks.md` T121b、T148b 寫明取 `in_progress` 那一筆;與 `x-apply-flow` (4)、asyncapi `sendSessionUpdated`、`prototype/mock.js` `advanceApply` 一致 |
+| A3 | ✅ 已修正 | `plan.md` § Source Code 的 `repos/` 改成 `runtime_type_tunings`、`session_tunings`、`session_tuning_models`,與 `store.dbml` 一致 |
+| A4 | ❌ 仍存在 | `research.md` § R9 已補 `session_tuning_models`、§ R1 已補設定狀態檔,`techstack.md` § 一覽也補了;但 `techstack.md` § 新引入與沿用的「新引入」仍只列 `restart_ollama.py` 與 pid 檔,沒有 `/root/cgb-ollama-tuning.json`(合約共用約定 13-1)。照哪一份做行為都一樣,維持 LOW |
+| A5 | ✅ 已修正 | `testplan.md` US3-API-28 則4 的備註改成「store.dbml 的寫入時機、`info.x-applying-state` (4),plan Q33」,不再說不一致 |
+| A6 | ✅ 已修正 | `ui.openapi.yaml` § `info.x-apply-flow` (3)(5) 改引「照 FR-013 結束工作階段」「結束工作階段(結束原因「重啟 Ollama 失敗」)」;`colab-cli.openapi.yaml` § `restartOllama` 改成「由呼叫者照 spec FR-013 結束工作階段(`OLLAMA_RESTART_FAILED`)」 |
+| A7 | ✅ 已修正 | `spec.md` § 關鍵實體「Ollama 設定」的結果改成「……或套用中被結束、後端停機而中斷」,與 `TuningResult.interrupted` 一致 |
+| SC-004 | ✅ 已澄清 | D49 選從確認套用起算:`spec.md` § SC-004 改成「替身讓新設定重啟失敗時,從確認到回到就緒在 180 秒內」,與 NFR-002、testplan US3-API-31 則2、US3-CLI-19 則2 一致 |
+
+### 新問題
+
+| ID | 類別 | 嚴重度 | 位置 | 摘要 | 回哪一步 |
+|---|---|---|---|---|---|
+| A8 | 矛盾 | LOW | `contracts/ui.openapi.yaml` § `components.schemas.OllamaStatus`;`contracts/store.dbml` § `Project colab_gpu_bridge` | 修 A2 時 store.dbml 的 `Session.ollama` 推導加上了「result 為 in_progress 而 tuning 不為 NULL」;`OllamaStatus.tuning` 的括號仍只列「紀錄裡最新一筆有 `tuning` 的 `applied`、`fell_back_to_auto`,或恢復時讀到設定的 `interrupted`」,沒有 `in_progress`。同一句後半已寫「套用中仍是重啟前的那一組,重啟成功才換成新的」,照哪一份做行為都一樣,只有列舉不齊 | `/api-plan` |
+
+### 修正順序
+
+1. `/technical-research` 在 `techstack.md` § 新引入與沿用補上設定狀態檔 `/root/cgb-ollama-tuning.json`(A4)
+2. `/api-plan` 在 `OllamaStatus.tuning` 的列舉補上「重啟成功、重新載入中的 `in_progress`」(A8)
+3. 重跑 `/analyze`

@@ -570,7 +570,7 @@ components:
             - $ref: '#/components/schemas/AppliedTuning'
             - type: 'null'
           description: >-
-            目前生效的設定(紀錄裡最新一筆有 `tuning` 的 `applied`、`fell_back_to_auto`,或恢復時讀到設定的 `interrupted`,plan Q24);套用中仍是重啟前的那一組,重啟成功才換成新的
+            目前生效的設定(紀錄裡最新一筆有 `tuning` 的 `applied`、`fell_back_to_auto`,或恢復時讀到設定的 `interrupted`,plan Q24;以及重啟成功、重新載入中的 `in_progress`,analysis A2);套用中仍是重啟前的那一組,重啟成功才換成新的
         lastApply:
           oneOf:
             - $ref: '#/components/schemas/TuningRecord'

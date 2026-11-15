@@ -26,7 +26,7 @@ specs/005-ollama-machine-tuning/
 
 ```text
 src/cgb/
-├── adapters/scripts/start_ollama.py    # E5:啟動前量顯示記憶體與系統記憶體、依級距與 CGB_TUNE_* 組環境、寫 pid 檔、回報套用的設定
+├── adapters/scripts/start_ollama.py    # E5:啟動前量顯示記憶體與系統記憶體、依級距與 CGB_TUNE_* 組環境、寫 pid 檔與設定狀態檔、回報套用的設定
 ├── adapters/scripts/restart_ollama.py  # 新增:E5 停掉 ollama serve 的行程群組(pid 檔,備援 pgrep)、寫設定狀態檔、以新設定啟動並驗證
 ├── adapters/colab_cli.py               # E5:start_ollama 帶齊 CGB_TUNE_*;新增 restart_ollama
 ├── domain/tuning.py                    # 新增:級距表、覆蓋值範圍檢查、「覆蓋值 > 級距 > 不帶」(純函式)
