@@ -35,7 +35,7 @@
 
 **Purpose**: 沿用 001~004 的工具鏈、`uv.lock` 與測試基礎(`tests/conftest.py`、`tests/fakes/`、`tests/e2e/conftest.py`、`tests/realrun/helpers.py`);這一輪不新增套件、服務、port 與掛載,不複製規格檔、不改 CI(`plan.md` § Project Structure)。只新增一個 pytest marker。新的 fixture 與替身由第一個需要它的紅燈任務建立:`tests/fixtures/db/schema_v1.sql` 由 T038a(要在改 `src/cgb/db/schema.py` 之前凍結),遠端腳本的 `box` 與假 `nvidia-smi` 由 T009a,`_open_db(kind="from_v1")` 由 T089a
 
-- [ ] T001 在 `pyproject.toml` 的 `[tool.pytest.ini_options]` 新增 marker `realrun_local`(說明:接本機臨時 `ollama serve` 的實跑案例,不開 Colab、不花 compute units),`addopts` 改成 `["-m", "not realrun and not realrun_local"]`,照 `realrun` 的做法讓快速層與預設的 `uv run pytest` 排除它、全部層另外以 `uv run pytest -m realrun_local` 執行;完成條件是 `uv run pytest --markers` 列得出 `realrun_local`
+- [x] T001 在 `pyproject.toml` 的 `[tool.pytest.ini_options]` 新增 marker `realrun_local`(說明:接本機臨時 `ollama serve` 的實跑案例,不開 Colab、不花 compute units),`addopts` 改成 `["-m", "not realrun and not realrun_local"]`,照 `realrun` 的做法讓快速層與預設的 `uv run pytest` 排除它、全部層另外以 `uv run pytest -m realrun_local` 執行;完成條件是 `uv run pytest --markers` 列得出 `realrun_local`
   - 📎 `plan.md` § 待決問題 Q30;`testplan.md` § 測試指令
 
 ---
