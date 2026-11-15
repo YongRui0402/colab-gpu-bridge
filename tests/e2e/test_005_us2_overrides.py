@@ -215,7 +215,9 @@ def test_變更類型的平行數超出範圍時留在確認頁說明範圍_原�
     open_t4_ready(page)
     page.locator('[data-state="ready"]').get_by_role("button", name="變更類型").click()
     confirm = page.locator('[data-state="confirm-switch"]')
-    confirm.locator(".tuning-block > summary").click()
+    # 設定區塊的展開狀態會沿用(開 T4 時已展開),沒展開才點,免得點了反而收起來
+    if not confirm.locator(".tuning-block").evaluate("d => d.open"):
+        confirm.locator(".tuning-block > summary").click()
     field(confirm, "numParallel").fill("64")
 
     # Act
