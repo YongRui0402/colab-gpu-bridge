@@ -173,7 +173,7 @@ def _build_v0(db_path: Path) -> sqlite3.Connection:
 # ---- 004 US1-DB-01
 
 
-def test_全新資料庫建出_user_version_為_1_且_download_jobs_有所屬工作階段與不分大小寫的唯一索引(tmp_path: Path) -> None:
+def test_全新資料庫建出_user_version_為_2_且_download_jobs_有所屬工作階段與不分大小寫的唯一索引(tmp_path: Path) -> None:
     # Arrange:tmp_path 裡還沒有資料庫檔
     conn = connect(tmp_path / "cgb.sqlite3")
 

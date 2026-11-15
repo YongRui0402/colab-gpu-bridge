@@ -226,7 +226,7 @@
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-003、FR-004、使用者故事 1 驗收情境 3
-- [x] T024b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-04 通過的程式碼;`machine.vramTotalBytes` 為 null 時照常就緒,`ollama` 標出讀不到顯示記憶體,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T024a)
+- [x] T024b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py`、`src/cgb/api/history.py`(Q68)只寫讓 US1-API-04 通過的程式碼;`machine.vramTotalBytes` 為 null 時照常就緒,`ollama` 標出讀不到顯示記憶體,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T024a)
   - 🧪 `testplan.md` § US1-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-003、FR-004、使用者故事 1 驗收情境 3
@@ -274,7 +274,7 @@
   - 🧪 `testplan.md` § US1-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-004
-- [x] T030b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US1-API-10 通過的程式碼;005 之前開的工作階段沒有紀錄時,`ollama.status` 照合約回 `unknown`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T030a)
+- [x] T030b [US1] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py`、`src/cgb/services/session_lifecycle.py`(Q68)只寫讓 US1-API-10 通過的程式碼;005 之前開的工作階段沒有紀錄時,`ollama.status` 照合約回 `unknown`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T030a)
   - 🧪 `testplan.md` § US1-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-004

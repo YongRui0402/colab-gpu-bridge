@@ -158,3 +158,10 @@ tests/
 | Q61 | tasks | plan.md Source Code 樹的 `tests/unit/` 寫「遠端腳本內嵌級距表與 domain 一致」,testplan 沒有這個案例:a 不另排,由 US1-CLI-08 與 US1-API-11~15 用同一組邊界與期望值分別驗兩邊(先採用);b 回 testplan 補一個比對兩邊輸出的案例 | — | a(D47) |
 | Q62 | tasks | Q41 的 8 處 `user_version == 1` 在哪個綠燈改:a 斷言全新庫的 2 處(第 143、1048 行)在 US1-DB-01 的綠燈改,斷言 v0 舊庫遷移的 6 處(第 257、369、396、416、460、738 行)在 US1-DB-08(0 → 1 → 2 一次跑完)的綠燈改(先採用);b 全部在 US1-DB-01 的綠燈改 | — | a(D47) |
 | Q63 | tasks | `tests/realrun/test_host_adapter.py`(realrun,會開 Colab)的 `START_OLLAMA_ENV` 和新的命令列不同:a 在 US1-CLI-01 的綠燈補三個 `CGB_TUNE_*`、不執行它(先採用);b 不改,等下一次實跑再處理 | — | a(D47) |
+| Q64 | implement T041b | Q62 說 004 第 396 行的 `user_version == 1` 在 US1-DB-08 的綠燈改,實際上 T041b 讓它變紅、就在 T041b 改成 2:a 追認(先採用);b 回 tasks 移任務 | — | a(D51) |
+| Q65 | implement T041a | testplan § 2.3 寫 `session_transitions` 的「8 個欄位」,實際是 7 欄,測試比對全部 7 欄:a testplan 改成 7 個欄位(先採用);b 不改 | — | a(D51):testplan 已改 |
+| Q66 | implement T038a | `test_全新資料庫建出_user_version_為_1_...` 斷言已改成 2,名稱仍寫 1:a 現在改名(先採用);b 留到 US2 E4 的重構任務 | — | a(D51):已改名為 `..._為_2_...` |
+| Q67 | implement T013b | `start_ollama.py` 驗證逾時的 detail 寫死「within 60 seconds」,`CGB_VERIFY_SECONDS` 改了也一樣:a 現在改成照實際秒數(先採用);b 留到 US3 E5 的重構任務 | — | a(D51):改成 `VERIFY_SECONDS` |
+| Q68 | implement T024b | E2 的 T024b、T030b 改了任務清單以外的 `src/cgb/api/history.py` 與 `src/cgb/services/session_lifecycle.py`(照 ⚙ 錨點與合約,SSE 與 GET 才一致):a 追認,把兩個檔補進 tasks.md 的清單(先採用);b 改回照清單的寫法 | — | a(D51):tasks.md 已補 |
+| Q69 | implement T028a | US1-API-08 則5 因替身還沒有 `restart_ollama`,改成斷言 `world.calls("restart_ollama") == []`,目前一定成立:a US3-CLI-01 做出替身後改回 `restart_ollama.call_count == 0`(先採用);b 維持 | — | a(D51):US3 E2 交辦時一併交代 |
+| Q70 | implement T001 | testplan 快速層沒有排除會呼叫真的 `colab` 的 `test_啟動_Ollama_的命令列真的_colab_解讀得了`(CI 已排除):a testplan 的快速層指令補上(先採用);b 不補 | — | a(D51):testplan 已補 |

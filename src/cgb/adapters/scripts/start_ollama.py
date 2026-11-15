@@ -195,7 +195,7 @@ def main():
             detail = last_line(f.read())
     except OSError:
         detail = ""
-    report(ok=False, stage="verify", detail=detail or "no response from /api/version within 60 seconds")
+    report(ok=False, stage="verify", detail=detail or f"no response from /api/version within {VERIFY_SECONDS} seconds")
 
 
 main()
