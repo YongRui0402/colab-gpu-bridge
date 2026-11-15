@@ -130,3 +130,13 @@ export const TUNING_RESULT = {
   failed: { text: "失敗", cls: "pill-danger" },
   interrupted: { text: "中斷", cls: "" },
 };
+
+// 遠端腳本失敗在哪一段(contracts/ui.openapi.yaml § ScriptStage);沒有回報時用 `remoteStageText` 的預設說明
+export const REMOTE_STAGE = {
+  input: "覆蓋值不符",
+  install: "安裝 Ollama 失敗",
+  stop: "停不掉舊的 Ollama",
+  start: "新的 Ollama 啟動失敗",
+  verify: "60 秒內沒有回應",
+};
+export const remoteStageText = (stage) => REMOTE_STAGE[stage] ?? "遠端腳本沒有回報是哪一段";

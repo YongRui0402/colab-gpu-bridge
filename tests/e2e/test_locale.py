@@ -730,7 +730,9 @@ def err_requests_in_progress(w: World) -> httpx.Response:
     w.fakes.server.add("POST", "/api/chat", NdjsonReply([{"message": {"role": "assistant", "content": "a"}, "done": False}, gate, {"done": True}]))
     chat = {"model": MODEL, "messages": [{"role": "user", "content": "你好"}]}
     with w.api() as client, client.stream("POST", "/api/chat", json=chat) as stream:
-        next(stream.iter_lines())
+        # 迭代器要留著:用完就丟的話,它被回收時會把串流一起關掉,請求就不算進行中了
+        lines = stream.iter_lines()
+        next(lines)
         response = trigger_ok(w, "POST", "/session/tuning", json={"numParallel": 4, "contextLength": None, "maxLoadedModels": None})
         gate.release()
     return response

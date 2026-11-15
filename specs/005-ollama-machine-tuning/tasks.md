@@ -1418,55 +1418,55 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(Playwright)接測試行程內真的後端(`tests/e2e/conftest.py` 的 `e2e_servers`,UI 127.0.0.1:8781),轉接層用替身;e2e 用固定 port,同一時間只跑一份
 
-- [ ] T163a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-01 的測試(使用者在設定卡把平行數改成 4,按「套用並重啟 Ollama」並在確認視窗按確認;分隔註解寫 `# ---- 005 US3-AJ-01`),執行確認它因為「確認視窗少了重新載入的說明;重啟中仍顯示就緒;回到就緒後仍顯示舊設定」這類實作而失敗
+- [x] T163a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-01 的測試(使用者在設定卡把平行數改成 4,按「套用並重啟 Ollama」並在確認視窗按確認;分隔註解寫 `# ---- 005 US3-AJ-01`),執行確認它因為「確認視窗少了重新載入的說明;重啟中仍顯示就緒;回到就緒後仍顯示舊設定」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/index.html` § `[data-state="edit-tuning"]`、`#et-fields`、`#apply`、`#edit-clear`、`[data-state="confirm-apply"]`、`#ca-rows`、`#ca-effects`、`#confirm-apply`、`[data-state="restarting"]`、`[data-state="reloading"]`、`[data-state="${view}"]`、`[data-state="ready-manual"]`;`contracts/ui.openapi.yaml` § `paths./session/tuning.post`
   - 📎 `spec.md` § FR-010、FR-012、FR-015;`research.md` § R11;`plan.md` § 待決問題 Q18、Q21、Q57
-- [ ] T163b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js`、`src/cgb/static/js/header.js` 只寫讓 US3-AJ-01 通過的程式碼;設定卡可修改三項並按「套用並重啟 Ollama」,確認視窗寫出會重啟、要重新載入、這段時間無法對話與送請求;套用中照 001 開啟步驟的方式依序顯示「重啟 Ollama」「重新載入模型」(`[data-apply-steps]`、`[data-apply-elapsed]` 寫進目前的畫面);`applying_tuning` 與 `restarting_ollama`、`reloading_models` 加進 `src/cgb/static/js/session.js` 與 `src/cgb/static/js/header.js` 的狀態與步驟標籤,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T163a)
+- [x] T163b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js`、`src/cgb/static/js/header.js` 只寫讓 US3-AJ-01 通過的程式碼;設定卡可修改三項並按「套用並重啟 Ollama」,確認視窗寫出會重啟、要重新載入、這段時間無法對話與送請求;套用中照 001 開啟步驟的方式依序顯示「重啟 Ollama」「重新載入模型」(`[data-apply-steps]`、`[data-apply-elapsed]` 寫進目前的畫面);`applying_tuning` 與 `restarting_ollama`、`reloading_models` 加進 `src/cgb/static/js/session.js` 與 `src/cgb/static/js/header.js` 的狀態與步驟標籤,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T163a)
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/index.html` § `[data-state="edit-tuning"]`、`#et-fields`、`#apply`、`#edit-clear`、`[data-state="confirm-apply"]`、`#ca-rows`、`#ca-effects`、`#confirm-apply`、`[data-state="restarting"]`、`[data-state="reloading"]`、`[data-state="${view}"]`、`[data-state="ready-manual"]`;`contracts/ui.openapi.yaml` § `paths./session/tuning.post`
   - 📎 `spec.md` § FR-010、FR-012、FR-015;`research.md` § R11;`plan.md` § 待決問題 Q18、Q21、Q57
-- [ ] T164a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-02 的測試(使用者改平行數並按套用並確認;分隔註解寫 `# ---- 005 US3-AJ-02`),執行確認它因為「擋下後下載被中斷;沒有說明原因」這類實作而失敗
+- [x] T164a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-02 的測試(使用者改平行數並按套用並確認;分隔註解寫 `# ---- 005 US3-AJ-02`),執行確認它因為「擋下後下載被中斷;沒有說明原因」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/index.html` § `[data-state="apply-blocked-download"]`、`#blocked-download-text`、`[data-state="${state}"]`、`[data-state="apply-blocked-request"]`、`#blocked-request-text`、`[data-state="apply-conflict"]`、`[data-state="apply-not-ready"]`、`[data-state="apply-auth-required"]`、`[data-state="apply-invalid"]`、`#apply-invalid-note`;`contracts/ui.openapi.yaml` § `paths./session/tuning.post`
   - 📎 `spec.md` § FR-011;`plan.md` § 待決問題 Q57
-- [ ] T164b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US3-AJ-02 通過的程式碼;套用回 409、503、400 時依代碼顯示對應的說明(`[data-error-message]` 寫進那一個狀態),不改工作階段與下載;`apply-blocked-request`、`apply-conflict`、`apply-not-ready`、`apply-auth-required`、`apply-invalid` 沒有案例斷言,完成報告列為未直接驗證,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T164a)
+- [x] T164b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US3-AJ-02 通過的程式碼;套用回 409、503、400 時依代碼顯示對應的說明(`[data-error-message]` 寫進那一個狀態),不改工作階段與下載;`apply-blocked-request`、`apply-conflict`、`apply-not-ready`、`apply-auth-required`、`apply-invalid` 沒有案例斷言,完成報告列為未直接驗證,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T164a)
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/index.html` § `[data-state="apply-blocked-download"]`、`#blocked-download-text`、`[data-state="${state}"]`、`[data-state="apply-blocked-request"]`、`#blocked-request-text`、`[data-state="apply-conflict"]`、`[data-state="apply-not-ready"]`、`[data-state="apply-auth-required"]`、`[data-state="apply-invalid"]`、`#apply-invalid-note`;`contracts/ui.openapi.yaml` § `paths./session/tuning.post`
   - 📎 `spec.md` § FR-011;`plan.md` § 待決問題 Q57
-- [ ] T165a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-03 的測試(使用者把平行數改成 16 並套用確認;分隔註解寫 `# ---- 005 US3-AJ-03`),執行確認它因為「失敗後直接結束工作階段;改回自動值後仍顯示 16」這類實作而失敗
+- [x] T165a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-03 的測試(使用者把平行數改成 16 並套用確認;分隔註解寫 `# ---- 005 US3-AJ-03`),執行確認它因為「失敗後直接結束工作階段;改回自動值後仍顯示 16」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/index.html` § `[data-state="fallback-restarting"]`、`#fb-note`、`[data-state="ready-fallback"]`、`#t-fallback`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q20
-- [ ] T165b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js` 只寫讓 US3-AJ-03 通過的程式碼;改回自動值的重啟中顯示 `fallback-restarting`,回到就緒後設定卡說明「手動設定沒有套用成功,已改回自動值」並列出要求的值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T165a)
+- [x] T165b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js` 只寫讓 US3-AJ-03 通過的程式碼;改回自動值的重啟中顯示 `fallback-restarting`,回到就緒後設定卡說明「手動設定沒有套用成功,已改回自動值」並列出要求的值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T165a)
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/index.html` § `[data-state="fallback-restarting"]`、`#fb-note`、`[data-state="ready-fallback"]`、`#t-fallback`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q20
-- [ ] T166a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-04 的測試(使用者把同時載入模型數改成 1 並套用確認;分隔註解寫 `# ---- 005 US3-AJ-04`),執行確認它因為「全部重新載入;沒有列出沒重新載入的模型」這類實作而失敗
+- [x] T166a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-04 的測試(使用者把同時載入模型數改成 1 並套用確認;分隔註解寫 `# ---- 005 US3-AJ-04`),執行確認它因為「全部重新載入;沒有列出沒重新載入的模型」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-04
   - ⚙ `prototype/index.html` § `[data-state="ready-not-reloaded"]`、`#t-not-reloaded`、`[data-state="ready-preload-failed"]`、`#t-preload-failed`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q57
-- [ ] T166b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US3-AJ-04 通過的程式碼;回到就緒後列出沒有重新載入的模型;預先載入失敗的說明照原型 `ready-preload-failed`(沒有案例斷言,完成報告列為未直接驗證),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T166a)
+- [x] T166b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US3-AJ-04 通過的程式碼;回到就緒後列出沒有重新載入的模型;預先載入失敗的說明照原型 `ready-preload-failed`(沒有案例斷言,完成報告列為未直接驗證),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T166a)
   - 🧪 `testplan.md` § US3-AJ-04
   - ⚙ `prototype/index.html` § `[data-state="ready-not-reloaded"]`、`#t-not-reloaded`、`[data-state="ready-preload-failed"]`、`#t-preload-failed`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q57
-- [ ] T167a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-05 的測試(使用者套用確認;分隔註解寫 `# ---- 005 US3-AJ-05`),執行確認它因為「兩次失敗後工作階段停在套用中;結束原因顯示成一般的失聯」這類實作而失敗
+- [x] T167a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-05 的測試(使用者套用確認;分隔註解寫 `# ---- 005 US3-AJ-05`),執行確認它因為「兩次失敗後工作階段停在套用中;結束原因顯示成一般的失聯」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-05
   - ⚙ `prototype/index.html` § `[data-state="lost-restart"]`、`#lr-message`、`#lr-requested`、`#lr-stage`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q19
-- [ ] T167b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/history.js` 只寫讓 US3-AJ-05 通過的程式碼;`OLLAMA_RESTART_FAILED` 加進 `src/cgb/static/js/session.js` 的結束原因與畫面對應,以及 `src/cgb/static/js/history.js` 的結束原因標籤;畫面顯示「重啟 Ollama 失敗」、要求的值與失敗的階段,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T167a)
+- [x] T167b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/history.js` 只寫讓 US3-AJ-05 通過的程式碼;`OLLAMA_RESTART_FAILED` 加進 `src/cgb/static/js/session.js` 的結束原因與畫面對應,以及 `src/cgb/static/js/history.js` 的結束原因標籤;畫面顯示「重啟 Ollama 失敗」、要求的值與失敗的階段,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T167a)
   - 🧪 `testplan.md` § US3-AJ-05
   - ⚙ `prototype/index.html` § `[data-state="lost-restart"]`、`#lr-message`、`#lr-requested`、`#lr-stage`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q19
-- [ ] T168a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-06 的測試(使用者到紀錄頁點這一筆;分隔註解寫 `# ---- 005 US3-AJ-06`),執行確認它因為「只留最後一筆;套用的紀錄沒有要求的值」這類實作而失敗
+- [x] T168a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-06 的測試(使用者到紀錄頁點這一筆;分隔註解寫 `# ---- 005 US3-AJ-06`),執行確認它因為「只留最後一筆;套用的紀錄沒有要求的值」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-06
   - ⚙ `prototype/history.html` § `[data-state="tuning-log"]`、`#d-body`、`.tuning-table`;`contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`
   - 📎 `spec.md` § FR-016;`plan.md` § 待決問題 Q20
-- [ ] T168b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/history.html`、`src/cgb/static/js/history.js`、`src/cgb/static/js/view.js` 只寫讓 US3-AJ-06 通過的程式碼;紀錄頁的明細依時間列出開啟與每一次套用,套用的那幾筆寫出要求的值與結果,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T168a)
+- [x] T168b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/history.html`、`src/cgb/static/js/history.js`、`src/cgb/static/js/view.js` 只寫讓 US3-AJ-06 通過的程式碼;紀錄頁的明細依時間列出開啟與每一次套用,套用的那幾筆寫出要求的值與結果,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T168a)
   - 🧪 `testplan.md` § US3-AJ-06
   - ⚙ `prototype/history.html` § `[data-state="tuning-log"]`、`#d-body`、`.tuning-table`;`contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`
   - 📎 `spec.md` § FR-016;`plan.md` § 待決問題 Q20
-- [ ] T169 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T163b~T168b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T168b)
+- [x] T169 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T163b~T168b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T168b)
   - 🧪 `testplan.md` § US3-AJ-01~US3-AJ-06
   - 📎 `testplan.md` § 4.4
 

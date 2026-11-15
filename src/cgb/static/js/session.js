@@ -1,7 +1,7 @@
 // 首頁(工作階段面板):依後端推送的 `Session` 顯示對應的狀態區塊(prototype/index.html)
 import { readThenFollow, request } from "./api.js";
 import { startHeader } from "./header.js";
-import { PICKABLE_TYPES, TUNING_FIELDS, TUNING_ROWS, cu, escape, duration, machineText, mmss, showState, sourceTag, tuningSummary, tuningValue, typeInfo, typeText } from "./view.js";
+import { PICKABLE_TYPES, TUNING_FIELDS, TUNING_ROWS, cu, escape, duration, gib, machineText, mmss, remoteStageText, requestedText, showState, sourceTag, tuningSummary, tuningValue, typeInfo, typeText } from "./view.js";
 
 // 可選的類型與顯示記憶體在 view.js(FR-009 預設 T4、不開高 RAM)
 
@@ -13,17 +13,25 @@ const OPEN_STEPS = [
   { step: "verifying", text: () => "確認模型服務有回應" },
 ];
 
+// 005:套用設定中的步驟(contracts/ui.openapi.yaml § TuningStep)與畫面上的文字(FR-015,照開啟步驟的方式)
+const APPLY_STEPS = [
+  { step: "restarting_ollama", text: "重啟 Ollama", when: "停掉目前的 Ollama,以新設定啟動並確認有回應" },
+  { step: "reloading_models", text: "重新載入模型", when: "依重啟前的順序逐一載入" },
+];
+
 // 結束原因(contracts/ui.openapi.yaml § EndReason)
 const END_REASON_TEXT = {
   USER_ENDED: "使用者結束",
   RECLAIMED_BY_COLAB: "被 Colab 收回(Colab 上已經沒有這台執行環境)",
   RECONNECT_TIMEOUT: "重連逾時(5 分鐘內接不回)",
+  OLLAMA_RESTART_FAILED: "重啟 Ollama 失敗",
 };
 
 // 占著唯一位子的狀態在畫面上的名稱(FR-003、FR-006)
 const ACTIVE_STATE_PILL = {
   opening: { text: "開啟中", cls: "pill-busy" },
   ready: { text: "就緒", cls: "pill-ok" },
+  applying_tuning: { text: "套用設定中", cls: "pill-busy" },
   reconnecting: { text: "重連中", cls: "pill-warn" },
 };
 
@@ -48,8 +56,25 @@ let fieldErrors = {};
 const RANGE_CODES = { INVALID_NUM_PARALLEL: "numParallel", INVALID_CONTEXT_LENGTH: "contextLength", INVALID_MAX_LOADED_MODELS: "maxLoadedModels" };
 // 只在這個分頁裡的畫面(確認畫面等);null 時照後端的狀態顯示
 let local = null;
+// 005 FR-010:修改設定畫面的三個欄位(空字串 = 自動);進修改畫面時照目前的設定填入
+let editFields = { ...EMPTY_FIELDS };
+// 確認後被後端擋下的錯誤(`Error`:{code, message, …});null 時沒有說明(FR-011)
+let applyError = null;
+// 擋下的代碼 → 修改畫面裡說明它的區塊;範圍與格式不符(400)都是 `apply-invalid`
+const APPLY_ERROR_STATE = {
+  DOWNLOAD_IN_PROGRESS: "apply-blocked-download",
+  REQUESTS_IN_PROGRESS: "apply-blocked-request",
+  TUNING_IN_PROGRESS: "apply-conflict",
+  NO_READY_SESSION: "apply-not-ready",
+  AUTH_REQUIRED: "apply-auth-required",
+};
+const APPLY_NOTES = [...Object.values(APPLY_ERROR_STATE), "apply-invalid"];
+// 確認畫面要列的已載入模型(依目錄);還沒讀到時是 null
+let loadedModels = null;
 
 const $ = (id) => document.getElementById(id);
+// 模型名稱清單:「<span class="mono">a</span>、<span class="mono">b</span>」
+const modelNames = (list) => list.map((n) => `<span class="mono">${escape(n)}</span>`).join("、");
 
 function renderPicker() {
   document.querySelectorAll("[data-picker]").forEach((box) => {
@@ -73,6 +98,22 @@ function renderPicker() {
 
 // 開啟與變更類型共用的「Ollama 設定」區塊:留空 = 自動,開好時依量到的顯示記憶體決定(FR-006、FR-017)
 const RANGE = { numParallel: "1~32", contextLength: "2048~131072", maxLoadedModels: "1~4" };
+// 三個數字欄位:開啟畫面(`form` 是選單的 key)與修改設定(`form` 是 `edit`)共用;留空 = 自動
+function fieldsHtml(form, values, errors = {}) {
+  const formAttr = form === "edit" ? ' data-form="edit"' : "";
+  return `
+    <div class="tuning-fields">
+      ${TUNING_FIELDS.map((f) => `
+        <div class="field">
+          <label for="${form}-${f.key}">${f.label}</label>
+          <span class="hint">${RANGE[f.key]} 的整數 · 留空 = 自動</span>
+          <input type="number" id="${form}-${f.key}"${formAttr} data-field="${f.key}" step="1" inputmode="numeric" placeholder="自動"
+            value="${escape(values[f.key])}" class="${errors[f.key] ? "is-bad" : ""}">
+          ${errors[f.key] ? `<div class="field-error">${escape(errors[f.key])}</div>` : ""}
+        </div>`).join("")}
+    </div>`;
+}
+
 function tuningBlock(key) {
   const filled = TUNING_FIELDS.filter((f) => fields[f.key] !== "");
   const summary = filled.length ? `手動:${filled.map((f) => `${f.label} ${escape(fields[f.key])}`).join("、")}` : "全部自動";
@@ -81,16 +122,7 @@ function tuningBlock(key) {
         <summary>Ollama 設定 <span class="small muted">${summary}</span></summary>
         <div class="tuning-body">
           <p class="small muted">留空 = 自動:開好時依這台量到的顯示記憶體決定。開啟時這三個欄位會整組記成 ${picked.gpu} 的值,下次選 ${picked.gpu} 時預先填入;三個都留空就是清掉記住的值。</p>
-          <div class="tuning-fields">
-            ${TUNING_FIELDS.map((f) => `
-              <div class="field">
-                <label for="${key}-${f.key}">${f.label}</label>
-                <span class="hint">${RANGE[f.key]} 的整數 · 留空 = 自動</span>
-                <input type="number" id="${key}-${f.key}" data-field="${f.key}" step="1" inputmode="numeric" placeholder="自動"
-                  value="${escape(fields[f.key])}" class="${fieldErrors[f.key] ? "is-bad" : ""}">
-                ${fieldErrors[f.key] ? `<div class="field-error">${escape(fieldErrors[f.key])}</div>` : ""}
-              </div>`).join("")}
-          </div>
+          ${fieldsHtml(key, fields, fieldErrors)}
           <p class="tuning-fixed">flash attention 與 KV cache <span class="mono">q8_0</span> 固定開啟,不能修改。系統不估算這組值放不放得進顯示記憶體。</p>
           <button type="button" class="btn btn-small" data-clear>全部改回自動</button>
         </div>
@@ -136,7 +168,7 @@ function renderOpenNotes() {
 }
 
 // 欄位文字 → `TuningOverrides`:空的是 null,其餘照數字送,範圍由後端檢查(FR-017)
-const tuningBody = () => Object.fromEntries(TUNING_FIELDS.map((f) => [f.key, fields[f.key] === "" ? null : Number(fields[f.key])]));
+const bodyOf = (values) => Object.fromEntries(TUNING_FIELDS.map((f) => [f.key, values[f.key] === "" ? null : Number(values[f.key])]));
 
 // FR-010:這個工作階段是不是變更類型重開的,原本是什麼類型(查紀錄;查到後重畫)
 async function loadSwitchedFrom(name) {
@@ -161,7 +193,13 @@ function viewOf(s) {
   // 邊界情況:最後讀到的餘額小於等於 0 時,失聯多半是餘額歸零,另外提示
   if (s.state === "lost" && s.balanceMayBeDepleted) return "lost-zero";
   if (s.state === "lost" && s.endReason === "RECONNECT_TIMEOUT") return "lost-timeout";
+  if (s.state === "lost" && s.endReason === "OLLAMA_RESTART_FAILED") return "lost-restart";
   if (s.state === "ended" && s.endReason === "IDLE_TIMEOUT") return "ended-idle";
+  if (s.state === "applying_tuning") {
+    if (s.step === "reloading_models") return "reloading";
+    // 要求的設定起不來,正在改回自動值重啟(FR-013)
+    return s.ollama?.lastApply?.attempt === "auto_fallback" ? "fallback-restarting" : "restarting";
+  }
   return { none: "normal", opening: "starting", ready: "ready", ended: "ended", open_failed: "failed", lost: "lost", reconnecting: "reconnecting", ending: "stopping" }[s.state];
 }
 
@@ -208,6 +246,56 @@ const RENDER = {
   },
   "confirm-switch"() {
     $("cw-current").textContent = typeText(session.runtimeType);
+  },
+  "edit-tuning"() {
+    const machine = session.ollama?.machine;
+    const gpu = session.runtimeType.gpu;
+    $("et-intro").textContent = machine?.vramTotalBytes
+      ? `這台量到顯示記憶體 ${gib(machine.vramTotalBytes)}。留空的項目用自動值;套用成功後,這三個欄位會整組記成 ${gpu} 的值,下次開 ${gpu} 時預先填入。`
+      : `這台讀不到顯示記憶體,沒有自動值:留空的項目用 Ollama 自己的預設值。套用成功後,這三個欄位會整組記成 ${gpu} 的值。`;
+    // 擋下的原因寫進那一個狀態的 `[data-error-message]`;工作階段與下載都沒有動
+    const state = applyError ? (APPLY_ERROR_STATE[applyError.code] ?? "apply-invalid") : null;
+    APPLY_NOTES.forEach((name) => {
+      document.querySelector(`[data-state="${name}"]`).hidden = name !== state;
+    });
+    if (state === "apply-invalid") {
+      $("apply-invalid-note").innerHTML = `<strong>${escape(applyError.message ?? "")}</strong>沒有套用,遠端 Ollama 沒有重啟,也沒有記住這組值。`;
+    } else if (state) {
+      document.querySelector(`[data-state="${state}"] [data-error-message]`).textContent = applyError.message;
+    }
+    if (state === "apply-blocked-download") {
+      $("blocked-download-text").innerHTML = `<span class="mono">${escape(applyError.model ?? "")}</span> 正在下載;遠端 Ollama 沒有重啟,下載繼續進行。`;
+    }
+    if (state === "apply-blocked-request") {
+      $("blocked-request-text").textContent = "遠端 Ollama 沒有重啟,這些請求照常進行。";
+    }
+  },
+  "confirm-apply"() {
+    const tuning = session.ollama?.tuning;
+    $("ca-rows").innerHTML = TUNING_ROWS.map((r) => {
+      const now = tuning?.[r.key];
+      const next = estimated(r.key);
+      const before = now ? `${tuningValue(r.key, now) ?? '<span class="muted">不帶</span>'} ${sourceTag(now.source)}` : '<span class="muted">讀不到</span>';
+      const after = next ? `${tuningValue(r.key, next) ?? '<span class="muted">不帶</span>'} ${sourceTag(next.source)}` : '<span class="muted">自動</span>';
+      const changed = !now || !next || now.value !== next.value || now.source !== next.source;
+      return `<tr class="${r.fixed ? "is-fixed" : ""}"><td>${r.label}</td><td class="${changed ? "diff-old" : ""}">${before}</td><td>${changed ? `<strong>${after}</strong>` : after}</td></tr>`;
+    }).join("");
+    const gpu = session.runtimeType.gpu;
+    const loaded = loadedModels ?? [];
+    const limit = estimated("maxLoadedModels")?.value ?? loaded.length;
+    $("ca-effects").innerHTML = [
+      loaded.length ? `重啟後依目前的順序重新載入 ${modelNames(loaded.slice(0, limit))}。` : "目前沒有載入任何模型,重啟後不必重新載入。",
+      loaded.length > limit ? `新的同時載入模型數是 ${limit},${modelNames(loaded.slice(limit))} 不會重新載入。` : null,
+      `套用成功後,這三個欄位會整組記成 ${gpu} 的值,下次開 ${gpu} 時預先填入。`,
+      "這組值讓 Ollama 起不來時,系統會改用這台的自動值再重啟一次,這組值不會被記住;自動值也起不來的話,工作階段會失聯。",
+    ].filter(Boolean).map((text) => `<li>${text}</li>`).join("");
+  },
+  restarting: () => renderApplying("restarting"),
+  reloading: () => renderApplying("reloading"),
+  "fallback-restarting"() {
+    renderApplying("fallback-restarting");
+    const record = session.ollama.lastApply;
+    $("fb-note").innerHTML = `<strong>這次要求的值沒能讓 Ollama 起來,改用自動值再重啟一次</strong>要求的值:${requestedText(record.requested)};失敗在「${remoteStageText(record.remoteStage)}」。這組值不會被記住;改回自動值也失敗的話,這個工作階段會失聯。`;
   },
   ready() {
     const info = typeInfo(session.runtimeType.gpu);
@@ -260,6 +348,14 @@ const RENDER = {
   lost: fillName("lost"),
   reconnecting: fillName("reconnecting"),
   "lost-timeout": fillName("lost-timeout"),
+  // FR-013:改回自動值也失敗;寫出要求的值與失敗的階段(Q19)
+  "lost-restart"() {
+    fillName("lost-restart")();
+    const record = session.ollama?.lastApply;
+    $("lr-message").textContent = session.message ?? "";
+    $("lr-requested").textContent = record ? requestedText(record.requested) : "—";
+    $("lr-stage").innerHTML = record ? `${remoteStageText(record.remoteStage)} <span class="mono small muted">${escape(record.reasonCode ?? "")}</span>` : "—";
+  },
   stopping: fillName("stopping"),
   failed() {
     loadSwitchedFrom(session.name);
@@ -271,6 +367,30 @@ const RENDER = {
     if (from) $("f-switch-note").textContent = `原本的 ${typeText(from)} 執行環境在變更類型時已經結束,不會留著。`;
   },
 };
+
+// 005 FR-010:修改設定的欄位;目前是手動的項目填上目前的值,其餘留空 = 自動
+function startEdit() {
+  const tuning = session.ollama?.tuning;
+  const remembered = typeOverrides.find((o) => o.gpu === session.runtimeType.gpu);
+  editFields = { ...EMPTY_FIELDS };
+  TUNING_FIELDS.forEach((f) => {
+    const value = tuning ? (tuning[f.key].source === "manual" ? tuning[f.key].value : null) : remembered?.updatedAt ? remembered[f.key] : null;
+    if (value !== null && value !== undefined) editFields[f.key] = String(value);
+  });
+  renderEditFields();
+}
+
+function renderEditFields() {
+  $("et-fields").innerHTML = fieldsHtml("edit", editFields);
+}
+
+// 套用後的預估:填了的是手動;留空的在同一台機器上自動值不變,目前是自動就照目前的值,否則寫「自動」
+function estimated(key) {
+  const now = session.ollama?.tuning?.[key];
+  if (editFields[key] !== undefined && editFields[key] !== "") return { value: Number(editFields[key]), source: "manual" };
+  if (key === "flashAttention" || key === "kvCacheType") return now ?? null;
+  return now && now.source !== "manual" ? now : null;
+}
 
 // FR-004:Ollama 設定卡照 `Session.ollama` 顯示(contracts/ui.openapi.yaml § OllamaStatus),不查 GPU 類型的表
 function renderTuningCard() {
@@ -287,6 +407,25 @@ function renderTuningCard() {
         <td>${sourceTag(tuning[r.key].source)}${r.fixed ? ' <span class="small muted">固定</span>' : ""}</td>
       </tr>`).join("")
     : "";
+  // 最近一次套用改回了自動值:說明沒有套用成功,列出這次要求的值(FR-013、Q20)
+  const last = ollama.lastApply;
+  const fellBack = last?.result === "fell_back_to_auto";
+  $("t-fallback").hidden = !fellBack;
+  if (fellBack) {
+    $("t-fallback").innerHTML = `<strong>${escape(last.message ?? "")}</strong>這次要求的值(${requestedText(last.requested)})在「${remoteStageText(last.remoteStage)}」失敗,系統改用這台的自動值重啟;這組值沒有被記住,${session.runtimeType.gpu} 記住的值沒有改。`;
+  }
+  // 沒有重新載入的模型(FR-012):超出新的同時載入模型數的,與預先載入失敗的各一段說明
+  const over = last?.notReloaded?.filter((n) => n.reason === "OVER_LIMIT").map((n) => n.model) ?? [];
+  const failed = last?.notReloaded?.filter((n) => n.reason === "PRELOAD_FAILED") ?? [];
+  $("t-not-reloaded").hidden = !over.length;
+  if (over.length) {
+    const reloaded = last.reloaded?.length ? modelNames(last.reloaded) : "沒有任何模型";
+    $("t-not-reloaded").innerHTML = `<strong>${modelNames(over)} 沒有重新載入</strong>新的同時載入模型數是 ${tuning?.maxLoadedModels.value ?? "—"},依重啟前的順序只重新載入了 ${reloaded};要用的話在「對話」選它,或從相容端點直接送請求,Ollama 會自己載入。`;
+  }
+  $("t-preload-failed").hidden = !failed.length;
+  if (failed.length) {
+    $("t-preload-failed").innerHTML = `<strong>${modelNames(failed.map((n) => n.model))} 重新載入失敗</strong>載入時沒有成功(<span class="mono">${failed.map((n) => escape(n.reasonCode ?? "")).join("、")}</span>),設定已經套用;要用的話在「對話」選它再試一次。`;
+  }
   // 讀不到目前的設定(`unknown`)與讀不到顯示記憶體各有一段說明;前者優先
   const unknown = ollama.status === "unknown";
   document.querySelector('[data-state="ready-unknown-tuning"]').hidden = !unknown;
@@ -298,6 +437,29 @@ function renderTuningCard() {
   const manualNote = $("t-manual-note");
   manualNote.hidden = unknown || noVram || manual.length === 0;
   if (!manualNote.hidden) manualNote.textContent = `標「手動」的是你填的值(${manual.map((f) => f.label).join("、")});沒填的項目照這台量到的顯示記憶體自動決定。`;
+}
+
+// FR-015:套用中的步驟照 `Session.step` 與 `ollama.lastApply`,寫進目前的畫面(`[data-apply-steps]`、`[data-apply-elapsed]`)
+function renderApplying(view) {
+  fillName(view)();
+  const record = session.ollama?.lastApply;
+  const current = APPLY_STEPS.findIndex((s) => s.step === session.step);
+  const steps = APPLY_STEPS.map((s, i) => {
+    const cls = i < current ? "done" : i === current ? "current" : "";
+    return `<li class="${cls}">${s.text}${i === current ? ` <span class="when">${s.when}</span>` : ""}</li>`;
+  });
+  if (record?.attempt === "auto_fallback") {
+    // 改回自動值:第一次以要求的設定重啟失敗,接著改回自動值重啟
+    steps.splice(0, 1,
+      `<li class="failed">以要求的設定重啟 Ollama <span class="when">${remoteStageText(record.remoteStage)}</span></li>`,
+      `<li class="${current > 0 ? "done" : "current"}">改回自動值重啟 Ollama</li>`);
+  }
+  steps.push("<li>回到就緒</li>");
+  document.querySelectorAll(`[data-state="${view}"] [data-apply-steps]`).forEach((el) => { el.innerHTML = steps.join(""); });
+  const elapsed = record ? Math.max(0, Math.round((Date.now() - Date.parse(record.at)) / 1000)) : 0;
+  document.querySelectorAll(`[data-state="${view}"] [data-apply-elapsed]`).forEach((el) => {
+    el.innerHTML = `${typeText(session.runtimeType)} · 確認套用後已經過 <strong>${duration(elapsed)}</strong>`;
+  });
 }
 
 // FR-026:閒置倒數以後端給的 `deadline` 自己倒數(contracts/ui.openapi.yaml § IdleCountdown)
@@ -326,7 +488,13 @@ function render() {
 document.querySelector("main").addEventListener("click", (event) => {
   const go = event.target.closest("[data-go]");
   if (!go) return;
+  // 從確認畫面「回去修改」時保留剛填的欄位
+  const backToEdit = go.dataset.go === "edit-tuning" && local === "confirm-apply";
   local = go.dataset.go === "ready" ? null : go.dataset.go;
+  if (local === "edit-tuning" && !backToEdit) {
+    applyError = null;
+    startEdit();
+  }
   // 變更類型預設選另一種(prototype/index.html)
   if (local === "confirm-switch") {
     picked = { gpu: session.runtimeType.gpu === "T4" ? "L4" : "T4", highMem: false };
@@ -340,9 +508,13 @@ document.querySelector("main").addEventListener("click", (event) => {
 document.querySelector("main").addEventListener("input", (event) => {
   const key = event.target.dataset?.field;
   if (!key || !(key in fields)) return;
+  if (event.target.dataset.form === "edit") {
+    editFields[key] = event.target.value.trim();
+    return;
+  }
   fields[key] = event.target.value.trim();
   // 同一組欄位出現在好幾個狀態區塊(開啟、低餘額、變更類型),其他區塊跟著同步
-  document.querySelectorAll(`input[data-field="${key}"]`).forEach((input) => {
+  document.querySelectorAll(`input[data-field="${key}"]:not([data-form="edit"])`).forEach((input) => {
     if (input !== event.target) input.value = event.target.value;
   });
 });
@@ -373,7 +545,7 @@ document.querySelector("main").addEventListener("click", (event) => {
 // 操作的結果一律等 `session.updated` 推送;回應本文可能比推送晚到,不拿來蓋掉畫面
 async function openSession() {
   local = null;
-  const response = await request("POST", "/session", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem }, tuning: tuningBody() });
+  const response = await request("POST", "/session", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem }, tuning: bodyOf(fields) });
   // FR-017:範圍不符時後端回 400,不開啟、不記住;說明留在開啟畫面
   const rangeField = RANGE_CODES[response.data?.code];
   if (rangeField) {
@@ -416,7 +588,7 @@ $("cancel-open").addEventListener("click", () => {
 });
 
 $("switch").addEventListener("click", async () => {
-  const response = await request("POST", "/session/restart", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem }, tuning: tuningBody() });
+  const response = await request("POST", "/session/restart", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem }, tuning: bodyOf(fields) });
   // FR-017:範圍不符時後端回 400,沒有重開;留在確認畫面、保留輸入並說明範圍
   const rangeField = RANGE_CODES[response.data?.code];
   if (rangeField) {
@@ -429,6 +601,34 @@ $("switch").addEventListener("click", async () => {
   // 受理後才離開確認畫面,之後的結果等 `session.updated` 推送
   local = response.data?.code === "AUTH_REQUIRED" ? "needs-login" : null;
   if (response.ok) loadTypeOverrides();
+  render();
+});
+
+$("edit-clear").addEventListener("click", () => {
+  editFields = { ...EMPTY_FIELDS };
+  applyError = null;
+  renderEditFields();
+  render();
+});
+
+// 先到確認畫面;確認之後才送出,忙碌與否由後端判斷(Q18)
+$("apply").addEventListener("click", () => {
+  local = "confirm-apply";
+  loadedModels = null;
+  render();
+  request("GET", "/models").then((response) => {
+    loadedModels = response.ok ? response.data.items.filter((m) => m.loaded).map((m) => m.name) : [];
+    if (local === "confirm-apply") render();
+  });
+});
+
+$("confirm-apply").addEventListener("click", async () => {
+  $("confirm-apply").disabled = true;
+  const response = await request("POST", "/session/tuning", bodyOf(editFields));
+  $("confirm-apply").disabled = false;
+  // 擋下時回到修改畫面說明原因,保留剛填的欄位(FR-011);受理後的進度等 `session.updated` 推送
+  applyError = response.ok ? null : response.data;
+  local = response.ok ? null : "edit-tuning";
   render();
 });
 
