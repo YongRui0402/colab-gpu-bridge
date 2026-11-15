@@ -1,0 +1,97 @@
+# 系統分析規劃: 依機器配置調整遠端 Ollama 的設定,並在 UI 顯示與修改
+
+**Feature**: [spec.md](./spec.md) | **Research**: [research.md](./research.md) | **Techstack**: [techstack.md](./techstack.md) | **Date**: 2026-11-15
+
+建立在前一次迭代 [004-chat-hf-curated-queue 的 plan.md](../004-chat-hf-curated-queue/plan.md) 之上;端點編號照 004 沿用 001 的 [plan.md](../001-session-model-catalog/plan.md)(E1~E12),這一輪沒有新的端點。
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/005-ollama-machine-tuning/
+├── spec.md              # 輸入(specify 產出)
+├── research.md          # 輸入(technical-research 產出)
+├── techstack.md         # 輸入(technical-research 產出)
+├── plan.md              # 本文件
+├── prototype/           # S2 產出(E1 前端 UI,ui-plan)
+└── contracts/
+    ├── colab-cli.openapi.yaml       # S1 產出(E5 Colab CLI,api-plan)
+    ├── ui.openapi.yaml              # S3 產出(E2 後端 UI API,api-plan)
+    ├── ui-events.asyncapi.yaml      # S3 產出(E2 後端 UI API 的 SSE 事件,api-plan)
+    └── store.dbml                   # S4 產出(E4 資料庫,data-plan)
+```
+
+### Source Code (repository root)
+
+```text
+src/cgb/
+├── adapters/scripts/start_ollama.py    # E5:啟動前量顯示記憶體與系統記憶體、依級距與 CGB_TUNE_* 組環境、寫 pid 檔、回報套用的設定
+├── adapters/scripts/restart_ollama.py  # 新增:E5 停掉 ollama serve(pid 檔,備援 pkill)、以新設定啟動並驗證
+├── adapters/colab_cli.py               # E5:start_ollama 帶齊 CGB_TUNE_*;新增 restart_ollama
+├── domain/tuning.py                    # 新增:級距表、覆蓋值範圍檢查、「覆蓋值 > 級距 > 不帶」(純函式)
+├── services/session_lifecycle.py       # 用例:開啟時帶覆蓋值、記下開啟時的 Ollama 設定
+├── services/tuning.py                  # 新增:用例:套用並重啟、忙碌判斷、失敗改回自動值、依序重新載入
+├── services/idle_monitor.py            # 用例:非就緒時暫停閒置倒數
+├── api/session.py                      # E2:開啟時接受覆蓋值;工作階段狀態加 Ollama 設定
+├── api/tuning.py                       # 新增:E2 類型覆蓋值的讀取與清除、套用並重啟
+├── repos/                              # E4:runtime_type_tuning、session_tunings
+├── db/schema.py                        # E4:PRAGMA user_version 1 → 2
+└── static/                             # E1:開啟畫面的「Ollama 設定」區塊、工作階段頁的設定卡與套用流程
+
+tests/
+├── unit/                               # tuning 級距與範圍、遠端腳本內嵌級距表與 domain 一致
+├── integration/                        # E2 經 ASGI transport,E5 用替身(不同顯示記憶體、重啟失敗)
+├── fakes/                              # colab 替身補 restart_ollama 與回報的硬體
+└── e2e/                                # 開啟畫面覆蓋、工作階段頁套用、擋下與改回自動
+```
+
+**Structure Decision**: 沿用 001 的單一 Python 專案與單一映像,這一輪不新增服務、port 與掛載;覆蓋值與每次套用的紀錄存在掛載的 `/data` 裡的 SQLite。規格檔照 004 的做法以前一次的同名檔為底、只收這一輪新增或改變的操作、事件與表:
+
+- `colab-cli.openapi.yaml` 以 001 的同名檔為底,只收 `/exec/start-ollama`(新的 `--env`、結果欄位、pid 檔)與新的 `/exec/restart-ollama`;其他操作以 001 的檔為準。
+- `ui.openapi.yaml`、`ui-events.asyncapi.yaml` 以 004 的同名檔為底,只收開啟工作階段的覆蓋值、工作階段狀態的 Ollama 設定、類型覆蓋值、套用並重啟,以及對應的事件。
+- `store.dbml` 以 004 的同名檔為底,只收新增的兩張表與遷移。
+
+後端分層是 api → services → domain / repos / adapters:api 解析與回應,services 放用例(套用並重啟、忙碌判斷),domain 放級距與範圍檢查的純函式,repos 讀寫 SQLite;E5 Colab CLI 由 `adapters/colab_cli.py` 轉接,遠端腳本放在 `adapters/scripts/`。
+
+前端沿用 001~004 的原生 JS 分頁:開啟與變更類型共用的 `renderPicker` 加「Ollama 設定」區塊,設定卡與套用流程放在 `session.js`,級距表的顯示文字放在 `view.js`。
+
+## 分析流程規劃
+
+> 本段排定分析的順序與每一步指派的 planner;分析由 Phase 3 照波段交給 sub agent 執行,產出寫在 Documentation 樹列的路徑。
+
+### 端點盤點
+
+這次需求涉及 4 個端點。每個端點視為一個獨立系統,分析的對象是它對外的介面:
+
+| # | 端點 | 介面 | 需求出處 |
+|---|---|---|---|
+| E1 | 前端 UI(瀏覽器,原生 HTML/CSS/JS) | 畫面與互動:開啟畫面的「Ollama 設定」區塊(三個欄位、留空 = 自動、依類型預先填入、全部改回自動、範圍錯誤)、工作階段頁的設定卡(量到的硬體、三項設定與來源、讀不到時的說明)、套用並重啟的確認、擋下的說明、重啟進度、改回自動值與沒有重新載入的模型的說明 | FR-004、FR-006、FR-008–FR-012、FR-015、FR-017、SC-004 |
+| E2 | 後端 UI API(FastAPI REST 與 SSE) | 資源、操作、錯誤與狀態碼、狀態推送事件:開啟時的覆蓋值、工作階段狀態的 Ollama 設定、類型覆蓋值的讀取與清除、套用並重啟、忙碌與非就緒的拒絕、重啟進度與結果的推送、工作階段紀錄的設定明細 | FR-004、FR-005、FR-007–FR-018、NFR-002、NFR-003、SC-004、SC-006 |
+| E4 | 資料庫(SQLite) | 資料表、欄位、關聯、唯一性與狀態約束、既有資料庫的遷移:類型覆蓋值、每次開啟或套用的 Ollama 設定 | FR-005、FR-016、FR-018、關鍵實體 |
+| E5 | Colab CLI(`colab exec` 遠端腳本) | 指令與結果格式:啟動 Ollama 時帶的環境變數、量到的硬體與套用設定的回報、新的重啟指令、重啟失敗的階段、逾時與斷線重跑 | FR-001–FR-003、FR-007、FR-012、FR-013、NFR-001、SC-003、SC-005 |
+
+沒有列的 001 端點:E3 Ollama 相容端點(重啟期間照 001「未就緒」回錯誤,介面不變)、E7 遠端 Ollama(沿用 `/api/ps` 與預先載入,介面不變)、E8 Ollama 官方模型庫、E12 Hugging Face Hub(與這次無關)、E6、E9、E10、E11(資料庫檔、掛載、port 與部署都不變)。
+
+### 分析波段
+
+排序原則:**一個介面排在它所依賴的介面都分析完之後**;同一波裡的介面彼此不依賴,可以各開一個 sub agent 平行分析。
+
+第三方端點的介面是對方定好的,我們只能照著接、不能改,所以它不依賴我們任何一個介面;
+反過來,我們這邊碰到它的介面都要遷就它。因此**第三方端點排在最前面**,依賴它的介面往後推一波。
+
+| Wave | 步驟 | 介面 | Planner | 平行 | 排在這一波的理由 |
+|---|---|---|---|---|---|
+| 1 | S1 | E5 Colab CLI | api-plan | — | `colab exec` 的 `--env` 與 `CGB-RESULT` 行是 CLI 已經定好的形式,不依賴任何介面;遠端回報哪些硬體與設定、重啟失敗在哪一段,決定 UI API 能提供什麼 |
+| 2 | S2 | E1 前端 UI | ui-plan | ✅ 與 S3 平行 | 由使用者故事推出;設定卡顯示的硬體、來源與重啟階段要照 S1 的回報欄位。前端與後端以同一份需求為準,不必等對方 |
+| 2 | S3 | E2 後端 UI API | api-plan | ✅ 與 S2 平行 | 由 FR 推出;工作階段狀態的 Ollama 設定與重啟失敗的錯誤照 S1 的結果格式 |
+| 3 | S4 | E4 資料庫 | data-plan | — | 要存什麼由 S3 的資源決定(類型覆蓋值、每次開啟或套用的 Ollama 設定) |
+
+共 3 個 wave、4 個步驟:Wave 1 一個介面,Wave 2 兩個介面平行,Wave 3 一個介面。
+
+## 待決問題
+
+> Phase 3 每一波交回的待決問題都登記在這裡;有問題擋住下一波時,在下一波開始之前把所有還沒決定的一次問完,沒有擋住就等最後一波之後一起問。
+
+| Q | 提出的步驟 | 問題與可選的做法 | 擋住 | 決定 |
+|---|---|---|---|---|
