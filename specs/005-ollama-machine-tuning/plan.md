@@ -95,3 +95,9 @@ tests/
 
 | Q | 提出的步驟 | 問題與可選的做法 | 擋住 | 決定 |
 |---|---|---|---|---|
+| Q1 | S1 | 改回自動值(FR-013)最壞會超過 NFR-002 的 90 秒:a 合約維持 60 秒驗證、NFR-002 只管第一次成功(先採用);b 驗證縮到 30 秒;c 改 spec,改回自動值另訂上限 | S3 | c(分身決策紀錄 D12):spec NFR-002、SC-004 補「改回自動值時 180 秒內」;合約維持 60 秒驗證 |
+| Q2 | S1 | `alreadyRunning` 時怎麼回報設定:a 讀 `/proc/<pid>/environ` 反推(先採用);b 照這次輸入重算;c 啟動時寫設定狀態檔 | S3 | c(D13):S1 合約改成寫 `/root/cgb-ollama-tuning.json`,已在執行時讀它,讀不到時 `tuning` 為 null |
+| Q3 | S1 | 新增 `COLAB_INVALID_TUNING` 與 `Error.remoteStage`:a 照寫(先採用);b 不加 | S3 | a(D14) |
+| Q4 | S1 | `stage: "stop"` 失敗要不要也改回自動值重試:a 所有遠端失敗都重試(建議);b 只有 start、verify | S3 | a(D15) |
+| Q5 | S1 | 沒有 pid 檔時的停法:a `pkill -f`(先採用);b 先 `pgrep` 找 pid 再停整個行程群組 | — | b(D16):S1 合約照改 |
+| Q6 | S1 | 改回自動值最壞約 160 秒加兩次 `colab exec` 來回,可能超過 NFR-002 的 180 秒:a 維持現狀、實跑 SC-004 時量(先採用);b 改回自動值那次驗證縮到 30~40 秒;c 兩個等待各縮到 5 秒 | — | a(D17):研究 R1 待驗證補上 |
