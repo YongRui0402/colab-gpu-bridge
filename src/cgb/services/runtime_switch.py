@@ -27,6 +27,9 @@ class RuntimeSwitch:
         if latest is not None and latest["state"] == "ending":
             # 照 001 restartSession 的 409:目前的工作階段正在結束
             raise ApiError(409, "SESSION_ENDING")
+        if latest is not None and latest["state"] == "applying_tuning":
+            # 套用設定中結束舊的執行環境,套用的工作會對已不在的執行環境重新載入;等套用結束再變更(`info.x-applying-state` (3))
+            raise ApiError(409, "TUNING_IN_PROGRESS")
         if latest is None or latest["state"] not in ACTIVE_STATES:
             # 沒有工作階段時不把 restart 當成開啟(這時直接用 openSession)
             raise ApiError(409, "NO_ACTIVE_SESSION")

@@ -723,6 +723,28 @@ def err_no_ready_session(w: World) -> httpx.Response:
     return trigger_ok(w, "GET", "/models")
 
 
+def err_requests_in_progress(w: World) -> httpx.Response:
+    ready_api(w)
+    gate = Gate()
+    w.gates.append(gate)
+    w.fakes.server.add("POST", "/api/chat", NdjsonReply([{"message": {"role": "assistant", "content": "a"}, "done": False}, gate, {"done": True}]))
+    chat = {"model": MODEL, "messages": [{"role": "user", "content": "你好"}]}
+    with w.api() as client, client.stream("POST", "/api/chat", json=chat) as stream:
+        next(stream.iter_lines())
+        response = trigger_ok(w, "POST", "/session/tuning", json={"numParallel": 4, "contextLength": None, "maxLoadedModels": None})
+        gate.release()
+    return response
+
+
+def err_tuning_in_progress(w: World) -> httpx.Response:
+    ready_api(w)
+    restart = w.gate(w.fakes.colab.restart_ollama)
+    body = {"numParallel": 4, "contextLength": None, "maxLoadedModels": None}
+    trigger_ok(w, "POST", "/session/tuning", json=body)
+    restart.wait_entered()
+    return trigger_ok(w, "POST", "/session/tuning", json=body)
+
+
 def err_invalid_model_name(w: World) -> httpx.Response:
     w.start()
     return trigger_ok(w, "POST", "/chat", json={"model": "Qwen2.5", "messages": [{"role": "user", "content": "你好"}]})
@@ -973,6 +995,8 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ("INVALID_CONTEXT_LENGTH", err_invalid_tuning({"numParallel": None, "contextLength": 1024, "maxLoadedModels": None})),
     ("INVALID_MAX_LOADED_MODELS", err_invalid_tuning({"numParallel": None, "contextLength": None, "maxLoadedModels": 5})),
     ("NO_READY_SESSION", err_no_ready_session),
+    ("REQUESTS_IN_PROGRESS", err_requests_in_progress),
+    ("TUNING_IN_PROGRESS", err_tuning_in_progress),
     ("INVALID_CURATED_DESCRIPTION", err_invalid_curated_description),
     ("INVALID_AUTO_DOWNLOAD", err_invalid_auto_download),
     ("CURATED_DUPLICATE", err_curated_duplicate),

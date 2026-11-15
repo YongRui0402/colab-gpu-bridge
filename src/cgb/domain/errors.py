@@ -27,6 +27,8 @@ MESSAGES: dict[str, str] = {
     "INVALID_CONTEXT_LENGTH": "context 長度要是 2048~131072 的整數",
     "INVALID_MAX_LOADED_MODELS": "同時載入模型數要是 1~4 的整數",
     "NO_READY_SESSION": "目前沒有就緒的工作階段,請等工作階段就緒後再試。",
+    "TUNING_IN_PROGRESS": "正在套用設定,請等它完成。",
+    "REQUESTS_IN_PROGRESS": "有對話或請求還沒回完,請等它們結束後再套用。",
     "INVALID_CURATED_DESCRIPTION": "說明最多 200 個字。",
     "INVALID_AUTO_DOWNLOAD": "「開好就自動下載」只能是開或關。",
     "CURATED_DUPLICATE": "精選清單已經有這個模型(沒寫版本視為 latest)。",
@@ -90,15 +92,19 @@ RELEASE_WARNING_MESSAGE = "無法確認 Colab 已釋放這個執行環境,它可
 class ApiError(Exception):
     """以 HTTP 錯誤回給 UI 的情況;`code` 是 `Error.code`。"""
 
-    def __init__(self, status: int, code: str, *, model: str | None = None, reason_code: str | None = None) -> None:
+    def __init__(
+        self, status: int, code: str, *, model: str | None = None, reason_code: str | None = None, message: str | None = None
+    ) -> None:
         super().__init__(code)
         self.status = status
         self.code = code
         self.model = model
         self.reason_code = reason_code
+        # 同一個代碼在不同操作說的話不同時覆寫(沒有給就用 `MESSAGES` 的)
+        self.message = message
 
     def body(self) -> dict[str, Any]:
-        body: dict[str, Any] = {"code": self.code, "message": MESSAGES[self.code]}
+        body: dict[str, Any] = {"code": self.code, "message": self.message or MESSAGES[self.code]}
         if self.model is not None:
             # 下載相關的錯誤指出是哪一個模型(Error.model)
             body["model"] = self.model

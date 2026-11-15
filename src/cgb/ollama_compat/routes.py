@@ -31,6 +31,7 @@ NO_READY_SESSION_MESSAGE = "目前沒有可用的工作階段:{},請稍後再試
 _STATE_DESCRIPTIONS = {
     "none": "尚未開啟工作階段",
     "opening": "工作階段開啟中",
+    "applying_tuning": "工作階段正在套用 Ollama 設定",
     "reconnecting": "工作階段重連中",
     "ending": "工作階段結束中",
     "ended": "工作階段已結束",
