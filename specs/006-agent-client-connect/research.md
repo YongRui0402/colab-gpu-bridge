@@ -54,7 +54,7 @@
 
 **決策**:
 
-- **`models.json` 片段**:`providers.cgb` 有 `baseUrl`(R7 的 `/v1`)、`api: "openai-completions"`、`apiKey: "ollama"`(pi 要求有值,本系統不驗證)、`compat: {"supportsDeveloperRole": false, "supportsReasoningEffort": false}`,`models` 陣列每個模型 `{id, name, reasoning: false, input: ["text"], contextWindow, maxTokens: 4096}`;讀不到 context 時不寫 `contextWindow`。
+- **`models.json` 片段**:`providers.cgb` 有 `baseUrl`(R7 的 `/v1`)、`api: "openai-completions"`、`apiKey: "ollama"`(pi 要求有值,本系統不驗證)、`compat: {"supportsDeveloperRole": false, "supportsReasoningEffort": false}`,`models` 陣列每個模型 `{id, name, reasoning: false, input: ["text"], contextWindow, maxTokens}`,`maxTokens` 同 R2 的 `limit.output` 取 `min(4096, ⌊context ÷ 2⌋)`;讀不到 context 時不寫 `contextWindow`、`maxTokens` 為 4096。
 - **`settings.json` 片段**(FR-013):`{"compaction": {"reserveTokens": <context 長度的四分之一,無條件捨去>}}`;讀不到 context 時不附。
 - 使用方式說明:`models.json` 放 `~/.pi/agent/models.json`、`settings.json` 放 `~/.pi/agent/settings.json`(已有檔案時合併進去),用 `pi --model cgb/<模型名稱>` 選。
 - 驗證時以 `npm install --prefix <暫存資料夾> @mariozechner/pi-coding-agent` 安裝,`PI_OFFLINE=1` 關掉版本檢查。
@@ -148,4 +148,6 @@
 
 ## 修訂紀錄
 
-無(2026-11-16 初版,尚未修訂)。
+### 2026-11-16
+
+- R3:pi 的 `maxTokens` 從固定 4096 改成 `min(4096, ⌊context ÷ 2⌋)`。原因:S4 原型發現 context 4096 時 `maxTokens` 等於 context,一次回覆就能用完整個 context;和 R2 的 opencode 規則一致(plan Q15)。連帶:`contracts/ui.openapi.yaml` 的 `x-snippet-rule` 同步改。

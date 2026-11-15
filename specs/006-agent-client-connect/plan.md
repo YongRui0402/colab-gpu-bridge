@@ -96,3 +96,14 @@ tests/
 | Q4 | S1 | `/v1` 串流中途補的錯誤段 `error.code`:a 與執行環境斷線補 `stream_interrupted`、工作階段被結束補 `no_ready_session`,`type` 都是 `api_error`(先採用);b 兩種同一個新代碼;c 另開 `session_ended` | — | a(D10) |
 | Q5 | S1 | `/v1` 的逾時(001 的 504):a 本檔不收,照 001(先採用);b 補 504 `gateway_timeout` | — | a(D10) |
 | Q6 | S1 | `/v1/{path}` 以單一操作代表所有方法:a 照這樣,描述寫明不論方法(先採用);b 每個方法各一個操作 | — | a(D10) |
+| Q7 | S3 | 模型清單讀不到時:a 回 502/504,代碼同 001 `listCatalog`(先採用);b 回 200、`reason` 為 `no_models` | — | a(D11) |
+| Q8 | S3 | Google 沒授權時:a 一律當沒有就緒的工作階段,回 200 `no_ready_session`,不另列授權錯誤(先採用);b `reason` 多加一個值 | — | a(D11) |
+| Q9 | S3 | `ollama.status` 為 `pending`/`unknown` 時:a `contextLength` null、`reason` null、`shouldWarn` false,前端依 null 顯示固定說明(先採用);b 加 `contextReason` | — | a(D11) |
+| Q10 | S3 | 片段交付:a 後端回結構化資料加 `{{host}}` 佔位的片段文字,前端只換主機名稱(先採用);b 片段由前端組 | — | a(D11) |
+| Q11 | S3 | 讀不到顯示記憶體或沒有工作階段時 `recommendedContextLength`:a 回 16384(先採用);b 回 null | — | a(D11) |
+| Q12 | S3 | `GET /api/connect` 不計入閒置:a 照 001 `listCatalog`(先採用);b 計入 | — | a(D11) |
+| Q13 | S4 | 審美方向:a 沿用 005 與現有 UI(先採用);b 另提新方向 | — | a(D12) |
+| Q14 | S4 | 原型的 `index.html` 是為了「提醒連到首頁」做的示意頁:a 保留,只當原型的入口,不是新需求(先採用);b 改連到 005 原型 | — | a(D12) |
+| Q15 | S4 | pi 的 `maxTokens` 固定 4096 時,context 4096 會等於 context:a 改成 `min(4096, ⌊context ÷ 2⌋)`,和 opencode 一致;b 維持固定 4096(原型先採用) | — | a(D12):research R3 與 `ui.openapi.yaml` 已改,原型的假資料不改 |
+| Q16 | S4 | 原型由前端組片段、欄位名稱(`minContext`、`suggestedContext`)和 S3 合約不同:a 實作照 S3 合約與 Q10(後端產生片段、前端換主機名稱,欄位名稱照 `ConnectInfo`),原型只當畫面與 `data-state` 的依據(先採用);b 改合約照原型 | — | a(D12) |
+| Q17 | S4 | context 太小時仍顯示片段:a 仍顯示,不擋複製(先採用);b 提醒時隱藏片段 | — | a(D12) |
