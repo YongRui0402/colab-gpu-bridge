@@ -20,7 +20,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from realrun.conftest import write_measurement  # noqa: F401 - 只用來確保 conftest 載入
+from realrun.conftest import check_model, mask_urls
 from realrun.helpers_container import TERMINAL, get_stack
 
 MODEL = "qwen2.5:7b"
@@ -105,10 +105,20 @@ def remote_log(realrun, name: str, probe_path: Path) -> list[str]:
 def measure(stack, realrun, name: str, probe_path: Path, deadline: float) -> dict:
     """下載模型、暖機、量 3 輪;回這一組的數字。"""
     out: dict = {"name": name}
-    pull, pull_s = stack.ollama("POST", "/api/pull", {"model": MODEL, "stream": False}, timeout=PULL_TIMEOUT)
-    out["pull"] = f"{pull.status_code},{pull_s:.0f} 秒"
-    if pull.status_code != 200:
-        raise RuntimeError(f"下載 {MODEL} 回 {pull.status_code}")
+    # 相容端點不開放 /api/pull(回 403);和 004 G-06 一樣經 UI 的下載佇列下載
+    check_model(MODEL)
+    queued = stack.ui("POST", "/api/downloads", {"models": [MODEL]})
+    pull_started = time.monotonic()
+    job = None
+    while time.monotonic() - pull_started <= PULL_TIMEOUT and queued.status_code in (200, 201, 202):
+        jobs = stack.ui("GET", "/api/downloads").json().get("jobs", [])
+        job = next((j for j in jobs if j.get("model", "").lower() == MODEL), None)
+        if job and job.get("state") in ("completed", "failed"):
+            break
+        time.sleep(3)
+    out["pull"] = f"加入 {queued.status_code};{(job or {}).get('state')}({(job or {}).get('reasonCode')}),{time.monotonic() - pull_started:.0f} 秒"
+    if (job or {}).get("state") != "completed":
+        raise RuntimeError(f"下載 {MODEL} 沒有完成:{out['pull']}")
     warm, warm_s = stack.ollama(
         "POST", "/api/generate", {"model": MODEL, "prompt": "hi", "stream": False, "options": {"num_predict": 8}}, timeout=REQUEST_TIMEOUT
     )
@@ -187,6 +197,11 @@ def test_005_g_02_03(realrun):
             group["sessionMinutes"] = round((time.monotonic() - opened_at) / 60, 1)
     except RuntimeError as error:
         data["error"] = str(error)
+        # 收尾(compose down)之前先留下容器日誌,開啟失敗時才查得到原因
+        failed_name = (stack.session() or {}).get("name") or "unknown"
+        log_text = stack.save_compose_logs(failed_name).read_text(encoding="utf-8", errors="replace")
+        keys = ("tunnel", "ssh", "TUNNEL", "Tunnel", "ERROR", "WARNING", "Traceback", "通道")
+        data["composeTail"] = [mask_urls(line)[:300] for line in log_text.splitlines() if any(k in line for k in keys) and "token" not in line.lower()][-40:]
     finally:
         end_session(stack)
         end_usage, _ = realrun.read_usage()
