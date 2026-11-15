@@ -43,3 +43,34 @@
 - **5 次 × 20 段的最大延遲 0.0567 秒,門檻每一段 ≤ 0.5 秒:過**
 - 判定者:腳本;樣本:固定 20 段(延遲以「請求送出 + i × 間隔」當送出時間,是上限)
 - 收尾:假伺服器與 uvicorn 由 fixture 停下;沒有起任何外部行程
+
+## G-01(T048)opencode 照片段接上本系統(本機臨時 `ollama serve`)
+
+- 日期:2026-11-16 05:39;環境:以硬連結複製已下載 `qwen2.5:3b` 的 `OLLAMA_MODELS`(原本那份不動);臨時 `ollama serve` 0.32.15(127.0.0.1 隨機 port,`OLLAMA_CONTEXT_LENGTH=16384`,暫存 `HOME` 與 `OLLAMA_MODELS`);opencode 1.18.31(`env -i` 只留 `PATH`,`HOME` 與四個 `XDG_*` 指到暫存資料夾);本系統:測試行程內的 uvicorn,相容端點 127.0.0.1:59687,Colab 與通道用替身,不開 Colab、不花錢
+- `/api/connect`:contextLength 16384、models ['qwen2.5:3b', 'qwen3:4b']、shouldWarn False
+- opencode 結束碼 0;總耗時 83.1 秒(上限 300 秒)
+- 回答文字(opencode 的 `text` 事件)含 `紫色長頸鹿 42`:是;前 80 字 `'檔案 secret.txt 的內容如下：\n\n1: 紫色長頸鹿 42\n\n(End of file - total 1 lines)'`
+- 工具呼叫 1 次:['read'];每一步的 input tokens [6423, 6536]
+- 臨時 serve 收到的 `POST /v1/chat/completions` 3 個,帶 `tools` 的 2 個(工具數 [10, 10],`stream` [True, True, True])
+- 臨時 serve 的 `/api/ps`:qwen2.5:3b size 2721946009 size_vram 2721946009 context 16384
+- **則1 結束碼 0、輸出含 `紫色長頸鹿 42`,門檻同左:過**
+- **則2 有帶 `tools` 的 `/v1/chat/completions` 與 `read` 工具呼叫,門檻同左:過**
+- **則3 總耗時 83.1 秒(只記錄,沒有門檻)**
+- 判定者:腳本;樣本:固定的 `secret.txt`(內容 `紫色長頸鹿 42`,沒有用來調整規則),一次實跑
+- 收尾:opencode(結束碼 0)行程群組已空;臨時 serve(pid 2231272,行程群組 2231272)SIGTERM,0.21 秒;行程已結束 是(poll() = 0),行程群組已空 是(`killpg(pgid, 0)` 丟 ProcessLookupError),127.0.0.1:38545 已不在聽 是;使用者自己的 `ollama serve`(pid 3585)沒有碰,收尾後仍在
+
+## G-02(T049)pi 照片段接上本系統(本機臨時 `ollama serve`)
+
+- 日期:2026-11-16 05:41;環境:以硬連結複製已下載 `qwen2.5:3b` 的 `OLLAMA_MODELS`(原本那份不動);臨時 `ollama serve` 0.32.15(127.0.0.1 隨機 port,`OLLAMA_CONTEXT_LENGTH=16384`,暫存 `HOME` 與 `OLLAMA_MODELS`);pi(@mariozechner/pi-coding-agent)0.73.1,`npm install --prefix <暫存資料夾> @mariozechner/pi-coding-agent` 13 秒;pi 以 `env -i` 只留 `PATH`,`HOME` 與四個 `XDG_*` 指到暫存資料夾,另加 `PI_OFFLINE=1`;本系統:測試行程內的 uvicorn,相容端點 127.0.0.1:43669,Colab 與通道用替身,不開 Colab、不花錢
+- `/api/connect`:contextLength 16384、reserveTokens 4096、settings.json `{"compaction": {"reserveTokens": 4096}}`
+- pi 結束碼 0;總耗時 62.0 秒(上限 300 秒)
+- 回答文字(assistant 的 `message_end`)含 `紫色長頸鹿 42`:是;前 80 字 `'讀取到的檔案 `secret.txt` 的內容是：\n```\n紫色長頸鹿 42\n```\n请稍候，我正在查找更多信息。'`
+- 工具呼叫 1 次:['read'];每則 assistant 訊息的 input tokens [1306, 1351]
+- 壓縮:JSON 事件 [];臨時 serve 收到的 `POST /v1/chat/completions` 2 個,其中壓縮的請求 0 個
+- 臨時 serve 的 `/api/ps`:qwen2.5:3b size 2721946009 size_vram 2721946009 context 16384
+- **則1 結束碼 0、輸出含 `紫色長頸鹿 42`,門檻同左:過**
+- **則2 JSON 事件裡有 `read` 工具呼叫,門檻同左:過**
+- **則3 這一回合沒有因為 `threshold` 觸發自動壓縮(沒有壓縮事件、臨時 serve 沒收到壓縮的請求),門檻同左:過**
+- **則4 總耗時 62.0 秒(只記錄,沒有門檻)**
+- 判定者:腳本;樣本:固定的 `secret.txt`(內容 `紫色長頸鹿 42`,沒有用來調整規則),一次實跑
+- 收尾:npm install(結束碼 0)行程群組已空;pi(結束碼 0)行程群組已空;臨時 serve(pid 2231650,行程群組 2231650)SIGTERM,0.21 秒;行程已結束 是(poll() = 0),行程群組已空 是(`killpg(pgid, 0)` 丟 ProcessLookupError),127.0.0.1:46747 已不在聽 是;使用者自己的 `ollama serve`(pid 3585)沒有碰,收尾後仍在
