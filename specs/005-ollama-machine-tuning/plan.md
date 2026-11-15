@@ -101,3 +101,12 @@ tests/
 | Q4 | S1 | `stage: "stop"` 失敗要不要也改回自動值重試:a 所有遠端失敗都重試(建議);b 只有 start、verify | S3 | a(D15) |
 | Q5 | S1 | 沒有 pid 檔時的停法:a `pkill -f`(先採用);b 先 `pgrep` 找 pid 再停整個行程群組 | — | b(D16):S1 合約照改 |
 | Q6 | S1 | 改回自動值最壞約 160 秒加兩次 `colab exec` 來回,可能超過 NFR-002 的 180 秒:a 維持現狀、實跑 SC-004 時量(先採用);b 改回自動值那次驗證縮到 30~40 秒;c 兩個等待各縮到 5 秒 | — | a(D17):研究 R1 待驗證補上 |
+| Q7 | S3 | 套用中怎麼表示:a 新增 `SessionState` `applying_tuning`,step 為 `restarting_ollama`/`reloading_models`(先採用);b state 維持 ready 只加 step | S2、S4 | a(分身決策紀錄 D18):001「step 只在 opening 時有值」不再成立,S2 原型對齊 |
+| Q8 | S3 | 類型覆蓋值的清除:a 不另設操作,三個 null 開啟或套用時清除(先採用);b `DELETE /tuning/overrides/{gpu}` | S2 | a(D19) |
+| Q9 | S3 | 開啟時何時寫入類型覆蓋值:a 受理時就寫、開啟失敗不還原(先採用);b 就緒後才寫 | — | a(D20) |
+| Q10 | S3 | 哪些失敗改回自動值重試:a 只有 `COLAB_REMOTE_ERROR`、`COLAB_INVALID_TUNING`(先採用);b 所有失敗 | — | a(D21):spec FR-013 改寫成「遠端回報停止、啟動或驗證失敗時」 |
+| Q11 | S3 | 「照 001 的失聯處理」:a 新增 `EndReason` `OLLAMA_RESTART_FAILED`,直接 lost、釋放執行環境、清佇列(先採用);b 走 001 重連;c 沿用既有 EndReason | S4 | a(D22):spec FR-013、US3 驗收情境 7 改寫 |
+| Q12 | S3 | 紀錄結果值:a `TuningResult` 加 `in_progress`、`failed`、`interrupted`(先採用);b 只留成功、改回自動值 | S4 | a(D23):spec 關鍵實體改寫 |
+| Q13 | S3 | 套用到一半後端停機:a 恢復時以這次的覆蓋值呼叫一次 `startOllama`,這次記 `interrupted`(先採用);b 不碰遠端 | — | a(D24):spec 邊界情況改寫 |
+| Q14 | S3 | 重新載入細節:a `maxLoadedModels` null 時全部重新載入,單一模型載入失敗列進 `notReloaded`(先採用);b 載入失敗算套用失敗 | — | a(D25) |
+| Q15 | S3 | 套用前授權檢查:a 受理前檢查,未登入回 409 `AUTH_REQUIRED`(先採用);b 不檢查 | — | a(D26) |
