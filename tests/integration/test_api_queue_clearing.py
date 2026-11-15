@@ -659,3 +659,54 @@ async def test_結束中與結束後的各種操作都有明確的回應_不回_
     assert (after_ended.status_code, after_ended.json()["jobs"]) == (200, [])  # 則6
     statuses = [response.status_code for response in (listed, retried, enqueued, auto_result, after_ended)]
     assert all(status != 500 for status in statuses)  # 則7
+
+
+# ---- 004 US1-API-競爭:取大小期間工作階段結束或換成另一個
+
+
+async def post_while_sizing(client: httpx.AsyncClient, fakes: Any) -> tuple[Gate, "asyncio.Task[httpx.Response]"]:
+    """加入 `qwen2.5:7b`,停在取 manifest 的閘門前(請求已通過開頭的就緒檢查);回傳 (閘門, 那個請求)。"""
+    gate = fakes.model_library.get_manifest.gate()
+    request = asyncio.create_task(client.post("/api/downloads", json={"models": [QWEN_7B]}))
+    await gate.wait_entered_async(timeout=3.0)
+    return gate, request
+
+
+async def test_取大小期間結束工作階段_舊請求被拒_不重建佇列也不向舊通道下載(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    await open_ready(ui_client)
+    gate, request = await post_while_sizing(ui_client, fakes)
+
+    # Act:請求還在取大小時結束工作階段,再放行
+    await ui_client.delete("/api/session")
+    await wait_for_state(ui_client, "ended")
+    gate.release()
+    response = await request
+    await asyncio.sleep(0.2)
+
+    # Assert
+    assert (response.status_code, error_code(response)) == (503, "NO_READY_SESSION")  # 則1
+    assert (await queue(ui_client))["jobs"] == []  # 則2
+    assert fakes.remote_ollama.pull_model.call_count == 0  # 則3
+
+
+async def test_取大小期間換成另一個工作階段_舊請求被拒_項目不會記到新的工作階段(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    downloadable(fakes)
+    old = (await open_ready(ui_client))["name"]
+    gate, request = await post_while_sizing(ui_client, fakes)
+
+    # Act:結束舊的、開好新的,再放行舊請求
+    await ui_client.delete("/api/session")
+    await wait_for_state(ui_client, "ended")
+    new = await open_ready(ui_client)
+    gate.release()
+    response = await request
+    await asyncio.sleep(0.2)
+
+    # Assert
+    assert new["name"] != old  # 前提:真的是另一個工作階段
+    assert (response.status_code, error_code(response)) == (503, "NO_READY_SESSION")  # 則1
+    assert (await queue(ui_client))["jobs"] == []  # 則2
+    assert fakes.remote_ollama.pull_model.call_count == 0  # 則3

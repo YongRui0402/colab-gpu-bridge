@@ -14,8 +14,9 @@ from typing import Any
 import httpx
 
 from cgb.adapters.errors import AdapterError
+from fakes import Gate
 from integration.test_api_curated import HF_SMOL, HF_SMOL_BYTES, curate, set_hf, wait_auto
-from integration.test_api_downloads import LATEST_SIZES, downloadable, hold_pulls, queue, set_library, states, wait_queue
+from integration.test_api_downloads import LATEST_SIZES, MANIFEST_SIZES, downloadable, hold_pulls, queue, set_library, states, wait_queue
 from integration.test_api_events import sse_events
 from integration.test_api_models import L4, VRAM_TOTAL, resources, set_loaded, set_tags, tag
 from integration.test_api_recovery import reset_calls, running
@@ -913,3 +914,36 @@ async def test_跳過的項目帶大小_剩餘空間_顯示記憶體_依原因�
     assert after["skipped"] == before["skipped"]  # 則5
     unknown = next(item for item in result_b["skipped"] if item["reason"] == "DISK_SPACE_UNKNOWN")
     assert (unknown["model"], unknown["sizeBytes"], unknown["freeDiskBytes"], unknown["vramBytes"]) == ("qwen2.5:7b", 4_683_087_332, None, None)  # 則6
+
+
+# ---- 004 US3-API-競爭:自動下載取大小期間手動加入其中一項
+
+
+async def test_自動下載取大小期間手動加入其中一項_其餘照常排入_結果只列實際排入的(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:自動下載目標 7b 與 0.5b;0.5b 的 manifest 停在閘門前,7b 的照常回
+    downloadable(fakes)
+    hold_pulls(fakes)
+    await curate(ui_client, "qwen2.5:7b", auto=True)
+    await curate(ui_client, "qwen2.5:0.5b", auto=True)
+    held = Gate()
+
+    async def manifest(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        if kwargs["tag"] == "0.5b":
+            await held.pass_async()
+        return {"name": kwargs["name"], "tag": kwargs["tag"], "sizeBytes": MANIFEST_SIZES[f"{kwargs['name']}:{kwargs['tag']}"]}
+
+    fakes.model_library.get_manifest.side_effect(manifest)
+    await open_ready(ui_client)
+    await held.wait_entered_async(timeout=3.0)
+
+    # Act:判定還沒結束,使用者手動加入 7b;再放行 0.5b
+    manual = await ui_client.post("/api/downloads", json={"models": ["qwen2.5:7b"]})
+    held.release()
+    result = await wait_auto(ui_client, lambda r: r is not None and r["state"] == "done")
+    jobs = (await queue(ui_client))["jobs"]
+
+    # Assert
+    assert manual.status_code == 201  # 則1
+    assert result is not None and result["enqueued"] == ["qwen2.5:0.5b"]  # 則2
+    assert result["skipped"] == []  # 則3
+    assert sorted((job["model"], job["origin"]) for job in jobs) == [("qwen2.5:0.5b", "auto"), ("qwen2.5:7b", "user")]  # 則4

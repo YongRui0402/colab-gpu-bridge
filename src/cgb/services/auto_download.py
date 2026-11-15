@@ -78,9 +78,13 @@ class AutoDownload:
         """依精選清單的順序判定每一項:已在執行環境上或佇列中的不排,取不到大小的跳過,其餘一次排入佇列。"""
         wanted = await self._not_there_yet(targets, base_url)
         candidates = await self._with_sizes(name, wanted)
-        sized = await self._fit_in_resources(name, candidates)
-        # 排入、記下完成與推送之間沒有 `await`:工作階段結束的清除不會夾在中間
-        self._downloads.enqueue_auto(sized, name, base_url)
+        fitting = await self._fit_in_resources(name, candidates)
+        # 排入、記下完成與推送之間沒有 `await`:工作階段結束的清除不會夾在中間;
+        # 判定期間被手動加入的同名模型由 `enqueue_auto` 略過,結果只列實際排入的
+        enqueued = set(self._downloads.enqueue_auto([(model, size) for _, model, size in fitting], name, base_url))
+        for position, model, _ in fitting:
+            if model in enqueued:
+                self._repo.add_item(name, position, model)
         self._repo.finish(name, iso(self._state.clock.now()))
         self._publish()
 
@@ -121,9 +125,9 @@ class AutoDownload:
             candidates.append((position, model, size))
         return candidates
 
-    async def _fit_in_resources(self, name: str, candidates: list[tuple[int, str, int]]) -> list[tuple[str, int]]:
+    async def _fit_in_resources(self, name: str, candidates: list[tuple[int, str, int]]) -> list[tuple[int, str, int]]:
         """剩餘磁碟空間讀一次,依清單順序累加:已決定排入的大小 + 佇列裡還沒下載完的大小 + 這一項 > 剩餘 → 跳過,
-        後面較小的照常判斷;回傳要排入的 (名稱, 大小)。"""
+        後面較小的照常判斷;回傳要排入的 (位置, 名稱, 大小),排入後才記進結果。"""
         try:
             resources = await self._state.colab.probe_resources(name=name)
         except AdapterError as error:
@@ -140,7 +144,7 @@ class AutoDownload:
                 )
             return []
         used = sum(row["size_bytes"] for row in self._downloads.pending())
-        sized: list[tuple[str, int]] = []
+        fitting: list[tuple[int, str, int]] = []
         vram = resources["vramTotalBytes"]
         for position, model, size in candidates:
             if vram is not None and size > vram:
@@ -167,9 +171,8 @@ class AutoDownload:
                 )
                 continue
             used += size
-            self._repo.add_item(name, position, model)
-            sized.append((model, size))
-        return sized
+            fitting.append((position, model, size))
+        return fitting
 
     def clear_if_session_over(self) -> None:
         """`SessionsRepo.listeners` 的清除(`info.x-queue-clearing` (5)):工作階段變成結束類的狀態時,

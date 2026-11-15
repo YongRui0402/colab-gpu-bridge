@@ -145,7 +145,11 @@ async function send(text) {
       renderLog();
     }
   } catch (error) {
-    if (error.name !== "AbortError") throw error;
+    // 瀏覽器與後端之間斷線、後端重新啟動或讀串流失敗:不重新拋出,保留已收到的內容並標示中斷,收尾一定執行
+    // (按停止時 stop() 已先記成 stopped,不覆寫)
+    if (error.name !== "AbortError" && reply.status === "streaming") {
+      endReply(reply, reply.content || reply.thinking ? "interrupted" : "unavailable");
+    }
   }
   finishTurn(reply);
 }

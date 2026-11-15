@@ -482,3 +482,65 @@ def test_對話頁逾時的兩種說明也是繁體中文(page: Page, e2e_server
         send(page, "你好")
         expect(page.locator(f'[data-state="{state}"]')).to_be_visible()
         assert_traditional_chinese(page, state)
+
+
+# ---- 004 US2-AJ-網路例外:瀏覽器與後端之間斷線
+
+
+def test_送出前連線被拒_標示中斷並釋放送出鈕_恢復後可以再送(page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any) -> None:
+    # Arrange:第一次送出的 `/api/chat` 在瀏覽器端被拒絕(模擬斷線),之後放行
+    open_chat(page, world, QWEN)
+    fakes.server.add("POST", "/api/chat", NdjsonReply([chunk("好"), DONE]), times=1)
+    page.route("**/api/chat", lambda route: route.abort(), times=1)
+
+    # Act
+    send(page, "你好")
+
+    # Assert:這一則標示中斷,送出鈕與模型選單回復
+    expect(page.locator('[data-state="turn-interrupted"]')).to_be_visible()
+    expect(page.locator("#send")).to_be_visible()
+    expect(page.locator("#model")).to_be_enabled()
+
+    # Act、Assert:恢復後再送一則,回覆完成
+    send(page, "再試一次")
+    expect(replies(page).last.locator(".content")).to_have_text("好")
+    expect(page.locator("#send")).to_be_visible()
+
+
+def test_收到部分內容後串流讀取失敗_保留已收到的內容並標示中斷_恢復後可以再送(
+    page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any
+) -> None:
+    # Arrange:第一次的回應送出一行就讓串流讀取丟例外,之後的請求走真的後端
+    open_chat(page, world, QWEN)
+    fakes.server.add("POST", "/api/chat", NdjsonReply([chunk("好"), DONE]), times=1)
+    page.evaluate(
+        """() => {
+            const real = window.fetch.bind(window);
+            let broken = false;
+            window.fetch = async (input, init) => {
+                if (!broken && String(input).includes("/api/chat")) {
+                    broken = true;
+                    const line = JSON.stringify({ model: "m", message: { role: "assistant", content: "一二" }, done: false }) + "\\n";
+                    const body = new ReadableStream({
+                        start(controller) { controller.enqueue(new TextEncoder().encode(line)); },
+                        pull() { return new Promise((_, reject) => setTimeout(() => reject(new TypeError("network disconnected")), 50)); },
+                    });
+                    return new Response(body, { status: 200, headers: { "Content-Type": "application/x-ndjson" } });
+                }
+                return real(input, init);
+            };
+        }"""
+    )
+
+    # Act
+    send(page, "你好")
+
+    # Assert
+    expect(page.locator('[data-state="turn-interrupted"]')).to_be_visible()
+    expect(replies(page).last.locator(".content")).to_have_text("一二")
+    expect(page.locator("#send")).to_be_visible()
+    expect(page.locator("#model")).to_be_enabled()
+
+    # Act、Assert:恢復後再送一則,回覆完成
+    send(page, "再試一次")
+    expect(replies(page).last.locator(".content")).to_have_text("好")
