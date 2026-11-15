@@ -602,183 +602,183 @@
 
 > 不改 `src/cgb/db/schema.py`(`runtime_type_tunings` 已由故事 1 的 T038b 建立)。類型覆蓋值受理時寫、開啟失敗不還原(`plan.md` § 待決問題 Q9),三個 null 開啟時刪列清除(Q8、Q23);範圍的每個邊界在單元案例 US2-API-16~22 驗,整合案例只驗 api 接上同一個檢查
 
-- [ ] T066a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-01 的測試(`open_with(ui_client, A100, tuning_body(4, None, None))`,等 `ready`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US2-API-01`);同一個任務在檔內新增 `testplan.md` § 3.2 的 `tuning_body`、`NONE3`、`open_with`、`overrides`、`remember`、`log_out`,執行確認它因為「api 解析了 `runtimeType` 卻沒把 `tuning` 交給 `start_ollama`(遠端收到三個空字串,全部是自動)」這類實作而失敗
+- [x] T066a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-01 的測試(`open_with(ui_client, A100, tuning_body(4, None, None))`,等 `ready`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US2-API-01`);同一個任務在檔內新增 `testplan.md` § 3.2 的 `tuning_body`、`NONE3`、`open_with`、`overrides`、`remember`、`log_out`,執行確認它因為「api 解析了 `runtimeType` 卻沒把 `tuning` 交給 `start_ollama`(遠端收到三個空字串,全部是自動)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-007、使用者故事 2 驗收情境 1、使用者故事 2 獨立測試
-- [ ] T066b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-API-01 通過的程式碼;`openSession` 接受 `tuning`,交給 `start_ollama(name, overrides)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T066a)
+- [x] T066b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-API-01 通過的程式碼;`openSession` 接受 `tuning`,交給 `start_ollama(name, overrides)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T066a)
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-007、使用者故事 2 驗收情境 1、使用者故事 2 獨立測試
-- [ ] T067a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-02 的測試(`open_with(ui_client, A100, tuning_body(4, None, None))`;等閘門被走到時 `GET /api/tuning/overrides`;放行閘門,`wait_for_state(ui_client, "open_failed")`,再 `GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-02`),執行確認它因為「等 `startOllama` 成功或就緒後才寫入(Q9 已決定受理時寫)」這類實作而失敗
+- [x] T067a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-02 的測試(`open_with(ui_client, A100, tuning_body(4, None, None))`;等閘門被走到時 `GET /api/tuning/overrides`;放行閘門,`wait_for_state(ui_client, "open_failed")`,再 `GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-02`),執行確認它因為「等 `startOllama` 成功或就緒後才寫入(Q9 已決定受理時寫)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-018、FR-008;`research.md` § R9;`plan.md` § 待決問題 Q9
-- [ ] T067b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/repos/tunings.py`、`src/cgb/api/tuning.py`、`src/cgb/api/__init__.py` 只寫讓 US2-API-02 通過的程式碼;受理時以這次的三個值寫入這種類型的覆蓋值(`updatedAt` 是受理的時間,`src/cgb/repos/tunings.py`);新增 `getTuningOverrides`(`src/cgb/api/tuning.py`,在 `src/cgb/api/__init__.py` 註冊路由)回 `items`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T067a)
+- [x] T067b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/repos/tunings.py`、`src/cgb/api/tuning.py`、`src/cgb/api/__init__.py` 只寫讓 US2-API-02 通過的程式碼;受理時以這次的三個值寫入這種類型的覆蓋值(`updatedAt` 是受理的時間,`src/cgb/repos/tunings.py`);新增 `getTuningOverrides`(`src/cgb/api/tuning.py`,在 `src/cgb/api/__init__.py` 註冊路由)回 `items`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T067a)
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-018、FR-008;`research.md` § R9;`plan.md` § 待決問題 Q9
-- [ ] T068a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-03 的測試(送 `POST /api/session`(`{"runtimeType": A100}`,沒有 `tuning`),等 `ready`;記下 `sent_overrides(fakes)`;`GET /api/tuning/overrides`、`GET /api/sessions/{name}`;再 `DELETE /api/session` 等 `ended`,送 `POST /api/session`(`{"runtimeType": T4}`,沒有 `tuning`)等 `ready`,記下 `sent_overrides(fakes)`;分隔註解寫 `# ---- 005 US2-API-03`),執行確認它因為「沒有帶 `tuning` 時一律當成三個 null(記住的值只在 UI 預先填入,UI 沒填時就失效)」這類實作而失敗
+- [x] T068a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-03 的測試(送 `POST /api/session`(`{"runtimeType": A100}`,沒有 `tuning`),等 `ready`;記下 `sent_overrides(fakes)`;`GET /api/tuning/overrides`、`GET /api/sessions/{name}`;再 `DELETE /api/session` 等 `ended`,送 `POST /api/session`(`{"runtimeType": T4}`,沒有 `tuning`)等 `ready`,記下 `sent_overrides(fakes)`;分隔註解寫 `# ---- 005 US2-API-03`),執行確認它因為「沒有帶 `tuning` 時一律當成三個 null(記住的值只在 UI 預先填入,UI 沒填時就失效)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-008、FR-018、使用者故事 2 驗收情境 2
-- [ ] T068b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-03 通過的程式碼;沒帶 `tuning` 時改用這種類型記住的值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T068a)
+- [x] T068b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-03 通過的程式碼;沒帶 `tuning` 時改用這種類型記住的值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T068a)
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-008、FR-018、使用者故事 2 驗收情境 2
-- [ ] T069a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-04 的測試(`open_with(ui_client, A100, NONE3)`,等 `ready`;`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-04`),執行確認它因為「把三個 null 的 `tuning` 和「沒有帶 `tuning`」當成同一種,改用記住的 4/16384/2 開啟、也沒清除」這類實作而失敗
+- [x] T069a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-04 的測試(`open_with(ui_client, A100, NONE3)`,等 `ready`;`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-04`),執行確認它因為「把三個 null 的 `tuning` 和「沒有帶 `tuning`」當成同一種,改用記住的 4/16384/2 開啟、也沒清除」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-009、使用者故事 2 驗收情境 3;`plan.md` § 待決問題 Q8、Q23
-- [ ] T069b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-04 通過的程式碼;`tuning` 三個都是 null 時清除這種類型的覆蓋值:刪掉那一列,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T069a)
+- [x] T069b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-04 通過的程式碼;`tuning` 三個都是 null 時清除這種類型的覆蓋值:刪掉那一列,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T069a)
   - 🧪 `testplan.md` § US2-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-009、使用者故事 2 驗收情境 3;`plan.md` § 待決問題 Q8、Q23
-- [ ] T070a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US2-API-05 的測試(`open_with(ui_client, L4, tuning_body(2, None, None))`,等 `ready`;`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-05`);T067b 以這次的三個值整份寫入(`src/cgb/repos/tunings.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「逐欄合併(只覆寫這次有值的欄位),上一次的 16384 留下來;合約寫的是「以這次的三個值整份取代」」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T070a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US2-API-05 的測試(`open_with(ui_client, L4, tuning_body(2, None, None))`,等 `ready`;`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-05`);T067b 以這次的三個值整份寫入(`src/cgb/repos/tunings.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「逐欄合併(只覆寫這次有值的欄位),上一次的 16384 留下來;合約寫的是「以這次的三個值整份取代」」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US2-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-018(只記填了的項目)
-- [ ] T070b [US2] 🟢 /tdd 綠燈:US2-API-05 由 T067b 以這次的三個值整份寫入(`src/cgb/repos/tunings.py`)滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-05 通過的程式碼(依賴 T070a)
+- [x] T070b [US2] 🟢 /tdd 綠燈:US2-API-05 由 T067b 以這次的三個值整份寫入(`src/cgb/repos/tunings.py`)滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-05 通過的程式碼(依賴 T070a)
   - 🧪 `testplan.md` § US2-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-018(只記填了的項目)
-- [ ] T071a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US2-API-06 的測試(以同一個 SQLite 檔 `running(make_app())` 跑第二個 app,`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-06`);T067b 把覆蓋值寫進 SQLite 的 `runtime_type_tunings`(`src/cgb/repos/tunings.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「覆蓋值放在 service 的記憶體 dict,重新啟動後全部消失」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T071a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US2-API-06 的測試(以同一個 SQLite 檔 `running(make_app())` 跑第二個 app,`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-06`);T067b 把覆蓋值寫進 SQLite 的 `runtime_type_tunings`(`src/cgb/repos/tunings.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「覆蓋值放在 service 的記憶體 dict,重新啟動後全部消失」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US2-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-018
-- [ ] T071b [US2] 🟢 /tdd 綠燈:US2-API-06 由 T067b 把覆蓋值寫進 SQLite 的 `runtime_type_tunings`(`src/cgb/repos/tunings.py`)滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-06 通過的程式碼(依賴 T071a)
+- [x] T071b [US2] 🟢 /tdd 綠燈:US2-API-06 由 T067b 把覆蓋值寫進 SQLite 的 `runtime_type_tunings`(`src/cgb/repos/tunings.py`)滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-06 通過的程式碼(依賴 T071a)
   - 🧪 `testplan.md` § US2-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-018
-- [ ] T072a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US2-API-07 的測試(`open_with(ui_client, A100, tuning_body(8, None, None))`(8 剛好是 A100 40 GiB 的自動值),等 `ready`;`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-07`);T066b 把覆蓋值原樣交給轉接層、不和自動值比較,T067b 原樣寫入已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「api 依 GPU 類型查表,把和自動值相同的覆蓋值正規化成 None,沒有傳給遠端也沒有記住(spec 邊界情況:仍標手動並記住)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T072a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US2-API-07 的測試(`open_with(ui_client, A100, tuning_body(8, None, None))`(8 剛好是 A100 40 GiB 的自動值),等 `ready`;`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-07`);T066b 把覆蓋值原樣交給轉接層、不和自動值比較,T067b 原樣寫入已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「api 依 GPU 類型查表,把和自動值相同的覆蓋值正規化成 None,沒有傳給遠端也沒有記住(spec 邊界情況:仍標手動並記住)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US2-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § 邊界情況(覆蓋值和自動值相同)、FR-018
-- [ ] T072b [US2] 🟢 /tdd 綠燈:US2-API-07 由 T066b 把覆蓋值原樣交給轉接層、不和自動值比較,T067b 原樣寫入滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-07 通過的程式碼(依賴 T072a)
+- [x] T072b [US2] 🟢 /tdd 綠燈:US2-API-07 由 T066b 把覆蓋值原樣交給轉接層、不和自動值比較,T067b 原樣寫入滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-07 通過的程式碼(依賴 T072a)
   - 🧪 `testplan.md` § US2-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § 邊界情況(覆蓋值和自動值相同)、FR-018
-- [ ] T073a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US2-API-08 的測試(`open_with(ui_client, A100, tuning_body(4, None, None))`,`wait_for_state(ui_client, "ready")`;`GET /api/session`;分隔註解寫 `# ---- 005 US2-API-08`);T021b 原樣存下遠端回報的 `tuning`(`src/cgb/services/session_lifecycle.py`),不依 `vramTotalBytes` 改寫已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`machine.vramTotalBytes` 為 null 時後端把五項一律改寫成 `ollama_default`(蓋掉遠端回報的手動 4)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T073a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning.py` 寫 US2-API-08 的測試(`open_with(ui_client, A100, tuning_body(4, None, None))`,`wait_for_state(ui_client, "ready")`;`GET /api/session`;分隔註解寫 `# ---- 005 US2-API-08`);T021b 原樣存下遠端回報的 `tuning`(`src/cgb/services/session_lifecycle.py`),不依 `vramTotalBytes` 改寫已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`machine.vramTotalBytes` 為 null 時後端把五項一律改寫成 `ollama_default`(蓋掉遠端回報的手動 4)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US2-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § FR-007、使用者故事 2 驗收情境 5
-- [ ] T073b [US2] 🟢 /tdd 綠燈:US2-API-08 由 T021b 原樣存下遠端回報的 `tuning`(`src/cgb/services/session_lifecycle.py`),不依 `vramTotalBytes` 改寫滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-08 通過的程式碼(依賴 T073a)
+- [x] T073b [US2] 🟢 /tdd 綠燈:US2-API-08 由 T021b 原樣存下遠端回報的 `tuning`(`src/cgb/services/session_lifecycle.py`),不依 `vramTotalBytes` 改寫滿足,確認 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-08 通過的程式碼(依賴 T073a)
   - 🧪 `testplan.md` § US2-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § FR-007、使用者故事 2 驗收情境 5
-- [ ] T074a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-09 的測試(`open_with(ui_client, A100, 那一組)`;`GET /api/tuning/overrides`、`GET /api/session`;分隔註解寫 `# ---- 005 US2-API-09`),執行確認它因為「交給 FastAPI 以 Pydantic 的 `ge`/`le` 驗證,回 422 與英文的 `detail`」這類實作而失敗
+- [x] T074a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-09 的測試(`open_with(ui_client, A100, 那一組)`;`GET /api/tuning/overrides`、`GET /api/session`;分隔註解寫 `# ---- 005 US2-API-09`),執行確認它因為「交給 FastAPI 以 Pydantic 的 `ge`/`le` 驗證,回 422 與英文的 `detail`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`
   - 📎 `spec.md` § FR-017、使用者故事 2 驗收情境 4(openSession 的 INVALID_NUM_PARALLEL、INVALID_CONTEXT_LENGTH、INVALID_MAX_LOADED_MODELS);`plan.md` § 待決問題 Q31
-- [ ] T074b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py`、`src/cgb/api/session.py`、`src/cgb/domain/errors.py`、`tests/e2e/test_locale.py` 只寫讓 US2-API-09 通過的程式碼;新增 `parse_overrides(body)`(不符丟 `ApiError(400, code)`),`openSession` 在開啟前呼叫它;新代碼 `INVALID_NUM_PARALLEL`、`INVALID_CONTEXT_LENGTH`、`INVALID_MAX_LOADED_MODELS` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同樣三個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T074a)
+- [x] T074b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py`、`src/cgb/api/session.py`、`src/cgb/domain/errors.py`、`tests/e2e/test_locale.py` 只寫讓 US2-API-09 通過的程式碼;新增 `parse_overrides(body)`(不符丟 `ApiError(400, code)`),`openSession` 在開啟前呼叫它;新代碼 `INVALID_NUM_PARALLEL`、`INVALID_CONTEXT_LENGTH`、`INVALID_MAX_LOADED_MODELS` 加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同樣三個代碼(該檔斷言兩份相等),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T074a)
   - 🧪 `testplan.md` § US2-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`
   - 📎 `spec.md` § FR-017、使用者故事 2 驗收情境 4(openSession 的 INVALID_NUM_PARALLEL、INVALID_CONTEXT_LENGTH、INVALID_MAX_LOADED_MODELS);`plan.md` § 待決問題 Q31
-- [ ] T075a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-10 的測試(依序送 7 個 `POST /api/session`(前 6 個各自被擋,不會開啟):(a)`tuning` 是字串 `"4"`;(b)`tuning` 是 `{"numParallel": 4, "contextLength": None}`(少了 `maxLoadedModels`);(c)`numParallel` 是 `True`;(d)`numParallel` 是字串 `"4"`;(e)`tuning_body(0, 1, 0)`;(f)`runtimeType` 為 `{"gpu": "V100", "highMem": False}`、`tuning` 為 `tuning_body(4, None, None)`;(g)`open_with(ui_client, A100, {"numParallel": 4.0, "contextLength": None, "maxLoadedModels": None})`;分隔註解寫 `# ---- 005 US2-API-10`),執行確認它因為「少了欄位時當成 null 照常開啟」這類實作而失敗
+- [x] T075a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-10 的測試(依序送 7 個 `POST /api/session`(前 6 個各自被擋,不會開啟):(a)`tuning` 是字串 `"4"`;(b)`tuning` 是 `{"numParallel": 4, "contextLength": None}`(少了 `maxLoadedModels`);(c)`numParallel` 是 `True`;(d)`numParallel` 是字串 `"4"`;(e)`tuning_body(0, 1, 0)`;(f)`runtimeType` 為 `{"gpu": "V100", "highMem": False}`、`tuning` 為 `tuning_body(4, None, None)`;(g)`open_with(ui_client, A100, {"numParallel": 4.0, "contextLength": None, "maxLoadedModels": None})`;分隔註解寫 `# ---- 005 US2-API-10`),執行確認它因為「少了欄位時當成 null 照常開啟」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`
   - 📎 `spec.md` § FR-017(openSession 的 INVALID_REQUEST_BODY、INVALID_RUNTIME_TYPE、INVALID_NUM_PARALLEL);`plan.md` § 待決問題 Q31
-- [ ] T075b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py`、`src/cgb/api/session.py` 只寫讓 US2-API-10 通過的程式碼;`tuning` 不是物件或少了鍵時回 400 `INVALID_REQUEST_BODY`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T075a)
+- [x] T075b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py`、`src/cgb/api/session.py` 只寫讓 US2-API-10 通過的程式碼;`tuning` 不是物件或少了鍵時回 400 `INVALID_REQUEST_BODY`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T075a)
   - 🧪 `testplan.md` § US2-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`
   - 📎 `spec.md` § FR-017(openSession 的 INVALID_REQUEST_BODY、INVALID_RUNTIME_TYPE、INVALID_NUM_PARALLEL);`plan.md` § 待決問題 Q31
-- [ ] T076a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-11 的測試(送 `POST /api/session/restart`(那一組本文);等 0.2 秒,`GET /api/session`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-11`),執行確認它因為「`restartSession` 只驗 `runtimeType`、沒驗 `tuning`,先結束舊的 T4,新的在 `start_ollama` 才因 `COLAB_INVALID_TUNING` 開啟失敗(使用者失去原本可用的工作階段)」這類實作而失敗
+- [x] T076a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-11 的測試(送 `POST /api/session/restart`(那一組本文);等 0.2 秒,`GET /api/session`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-11`),執行確認它因為「`restartSession` 只驗 `runtimeType`、沒驗 `tuning`,先結束舊的 T4,新的在 `start_ollama` 才因 `COLAB_INVALID_TUNING` 開啟失敗(使用者失去原本可用的工作階段)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`
   - 📎 `spec.md` § FR-017(restartSession 的 INVALID_NUM_PARALLEL、INVALID_CONTEXT_LENGTH、INVALID_MAX_LOADED_MODELS、INVALID_REQUEST_BODY、INVALID_RUNTIME_TYPE)
-- [ ] T076b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/runtime_switch.py` 只寫讓 US2-API-11 通過的程式碼;`restartSession` 在結束舊的工作階段之前先 `parse_overrides`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T076a)
+- [x] T076b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/runtime_switch.py` 只寫讓 US2-API-11 通過的程式碼;`restartSession` 在結束舊的工作階段之前先 `parse_overrides`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T076a)
   - 🧪 `testplan.md` § US2-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`
   - 📎 `spec.md` § FR-017(restartSession 的 INVALID_NUM_PARALLEL、INVALID_CONTEXT_LENGTH、INVALID_MAX_LOADED_MODELS、INVALID_REQUEST_BODY、INVALID_RUNTIME_TYPE)
-- [ ] T077a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-12 的測試(`open_with(ui_client, L4, tuning_body(4, None, None))`;`GET /api/tuning/overrides`(結束中那一種在放行閘門之前讀);分隔註解寫 `# ---- 005 US2-API-12`),執行確認它因為「一解析完本文就寫入類型覆蓋值,之後才做 001 的 409 檢查;使用者被擋下時以為沒開成,下次選 L4 卻預先填了 4(Q9:受理時才寫)」這類實作而失敗
+- [x] T077a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-12 的測試(`open_with(ui_client, L4, tuning_body(4, None, None))`;`GET /api/tuning/overrides`(結束中那一種在放行閘門之前讀);分隔註解寫 `# ---- 005 US2-API-12`),執行確認它因為「一解析完本文就寫入類型覆蓋值,之後才做 001 的 409 檢查;使用者被擋下時以為沒開成,下次選 L4 卻預先填了 4(Q9:受理時才寫)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`
   - 📎 `spec.md` § FR-018(openSession 的 SESSION_ALREADY_ACTIVE、SESSION_ENDING、AUTH_REQUIRED);`plan.md` § 待決問題 Q9
-- [ ] T077b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-12 通過的程式碼;通過 001 的 409 檢查、受理之後才寫入類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T077a)
+- [x] T077b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/api/session.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-12 通過的程式碼;通過 001 的 409 檢查、受理之後才寫入類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T077a)
   - 🧪 `testplan.md` § US2-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`
   - 📎 `spec.md` § FR-018(openSession 的 SESSION_ALREADY_ACTIVE、SESSION_ENDING、AUTH_REQUIRED);`plan.md` § 待決問題 Q9
-- [ ] T078a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-13 的測試(送 `POST /api/session/restart`(`{"runtimeType": L4, "tuning": tuning_body(4, None, None)}`);`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-13`),執行確認它因為「變更類型的路由在呼叫 `RuntimeSwitch.restart` 之前就寫入新類型的覆蓋值,被 409 擋下也留著」這類實作而失敗
+- [x] T078a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-13 的測試(送 `POST /api/session/restart`(`{"runtimeType": L4, "tuning": tuning_body(4, None, None)}`);`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-13`),執行確認它因為「變更類型的路由在呼叫 `RuntimeSwitch.restart` 之前就寫入新類型的覆蓋值,被 409 擋下也留著」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`
   - 📎 `spec.md` § FR-018(restartSession 的 NO_ACTIVE_SESSION、SESSION_ENDING、AUTH_REQUIRED);`plan.md` § 待決問題 Q9
-- [ ] T078b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/runtime_switch.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-13 通過的程式碼;`restartSession` 被 409 擋下時不寫入類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T078a)
+- [x] T078b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/session.py`、`src/cgb/services/runtime_switch.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-13 通過的程式碼;`restartSession` 被 409 擋下時不寫入類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T078a)
   - 🧪 `testplan.md` § US2-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`
   - 📎 `spec.md` § FR-018(restartSession 的 NO_ACTIVE_SESSION、SESSION_ENDING、AUTH_REQUIRED);`plan.md` § 待決問題 Q9
-- [ ] T079a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-14 的測試(送 `POST /api/session/restart`(`{"runtimeType": A100}`,沒有 `tuning`),`wait_until` 新的工作階段 `ready`;`GET /api/session`、`GET /api/sessions/{old}`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-14`),執行確認它因為「變更類型沿用舊工作階段的 `requested`(把 T4 的 context 8192 帶到 A100)」這類實作而失敗
+- [x] T079a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-14 的測試(送 `POST /api/session/restart`(`{"runtimeType": A100}`,沒有 `tuning`),`wait_until` 新的工作階段 `ready`;`GET /api/session`、`GET /api/sessions/{old}`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US2-API-14`),執行確認它因為「變更類型沿用舊工作階段的 `requested`(把 T4 的 context 8192 帶到 A100)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`、`paths./session/restart.post`
   - 📎 `spec.md` § 邊界情況(變更執行階段類型)、FR-008、FR-005
-- [ ] T079b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-API-14 通過的程式碼;變更類型時新的工作階段不沿用舊的覆蓋值;沒帶 `tuning` 時用新類型記住的值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T079a)
+- [x] T079b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/services/session_lifecycle.py` 只寫讓 US2-API-14 通過的程式碼;變更類型時新的工作階段不沿用舊的覆蓋值;沒帶 `tuning` 時用新類型記住的值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T079a)
   - 🧪 `testplan.md` § US2-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`、`paths./session/restart.post`
   - 📎 `spec.md` § 邊界情況(變更執行階段類型)、FR-008、FR-005
-- [ ] T080a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-15 的測試(送 `POST /api/session/restart`(`{"runtimeType": A100, "tuning": tuning_body(None, None, 2)}`);回應後立刻 `GET /api/tuning/overrides`;放行閘門,等新的 `ready`;分隔註解寫 `# ---- 005 US2-API-15`),執行確認它因為「變更類型把覆蓋值寫到目前(舊)工作階段的類型 T4」這類實作而失敗
+- [x] T080a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning.py` 寫 US2-API-15 的測試(送 `POST /api/session/restart`(`{"runtimeType": A100, "tuning": tuning_body(None, None, 2)}`);回應後立刻 `GET /api/tuning/overrides`;放行閘門,等新的 `ready`;分隔註解寫 `# ---- 005 US2-API-15`),執行確認它因為「變更類型把覆蓋值寫到目前(舊)工作階段的類型 T4」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-018、FR-009、邊界情況(變更執行階段類型);`plan.md` § 待決問題 Q9
-- [ ] T080b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-15 通過的程式碼;變更類型帶的覆蓋值寫到新的類型,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T080a)
+- [x] T080b [US2] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/repos/tunings.py` 只寫讓 US2-API-15 通過的程式碼;變更類型帶的覆蓋值寫到新的類型,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T080a)
   - 🧪 `testplan.md` § US2-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-018、FR-009、邊界情況(變更執行階段類型);`plan.md` § 待決問題 Q9
-- [ ] T081a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-16 的測試(依序以 `numParallel` 為 1、32、0、33(另兩項 None)呼叫;分隔註解寫 `# ---- 005 US2-API-16`),執行確認它因為「上限寫成 `< 32`,32 被擋」這類實作而失敗
+- [x] T081a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-16 的測試(依序以 `numParallel` 為 1、32、0、33(另兩項 None)呼叫;分隔註解寫 `# ---- 005 US2-API-16`),執行確認它因為「上限寫成 `< 32`,32 被擋」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017;`plan.md` § 待決問題 Q31
-- [ ] T081b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T081a)
+- [x] T081b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-16 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T081a)
   - 🧪 `testplan.md` § US2-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017;`plan.md` § 待決問題 Q31
-- [ ] T082a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-17 的測試(依序以 `contextLength` 為 2048、131072、2047、131073(另兩項 None)呼叫;分隔註解寫 `# ---- 005 US2-API-17`),執行確認它因為「範圍寫成 2000~128000 這類十進位的近似值」這類實作而失敗
+- [x] T082a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-17 的測試(依序以 `contextLength` 為 2048、131072、2047、131073(另兩項 None)呼叫;分隔註解寫 `# ---- 005 US2-API-17`),執行確認它因為「範圍寫成 2000~128000 這類十進位的近似值」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017;`plan.md` § 待決問題 Q31
-- [ ] T082b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T082a)
+- [x] T082b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-17 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T082a)
   - 🧪 `testplan.md` § US2-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017;`plan.md` § 待決問題 Q31
-- [ ] T083a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-18 的測試(依序以 `maxLoadedModels` 為 1、4、0、5(另兩項 None)呼叫;分隔註解寫 `# ---- 005 US2-API-18`),執行確認它因為「上限照 Ollama 自己的預設(3)寫」這類實作而失敗
+- [x] T083a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-18 的測試(依序以 `maxLoadedModels` 為 1、4、0、5(另兩項 None)呼叫;分隔註解寫 `# ---- 005 US2-API-18`),執行確認它因為「上限照 Ollama 自己的預設(3)寫」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017;`plan.md` § 待決問題 Q31
-- [ ] T083b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T083a)
+- [x] T083b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-18 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T083a)
   - 🧪 `testplan.md` § US2-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017;`plan.md` § 待決問題 Q31
-- [ ] T084a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-19 的測試(依序以 `numParallel` 為 `4.5`、`"4"`、`True`、`False`、`4.0`、`None`(另兩項 None)呼叫;分隔註解寫 `# ---- 005 US2-API-19`),執行確認它因為「以 `isinstance(v, int)` 判斷,`True` 被當成 1、`False` 被當成 0(訊息卻是範圍錯)」這類實作而失敗
+- [x] T084a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-19 的測試(依序以 `numParallel` 為 `4.5`、`"4"`、`True`、`False`、`4.0`、`None`(另兩項 None)呼叫;分隔註解寫 `# ---- 005 US2-API-19`),執行確認它因為「以 `isinstance(v, int)` 判斷,`True` 被當成 1、`False` 被當成 0(訊息卻是範圍錯)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017(info.x-tuning-rule (1));`plan.md` § 待決問題 Q31
-- [ ] T084b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T084a)
+- [x] T084b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-19 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T084a)
   - 🧪 `testplan.md` § US2-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017(info.x-tuning-rule (1));`plan.md` § 待決問題 Q31
-- [ ] T085a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-20 的測試(依序以 `"4"`(不是物件)、`[]`、`{"numParallel": 4, "contextLength": None}`(少一個鍵)、`tuning_body(0, 1, 0)`、`tuning_body(4, 1, 0)`、`tuning_body(4, 4096, 0)` 呼叫;分隔註解寫 `# ---- 005 US2-API-20`),執行確認它因為「以 `body.get(...)` 取值,少了的鍵當成 None(自動)通過」這類實作而失敗
+- [x] T085a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-20 的測試(依序以 `"4"`(不是物件)、`[]`、`{"numParallel": 4, "contextLength": None}`(少一個鍵)、`tuning_body(0, 1, 0)`、`tuning_body(4, 1, 0)`、`tuning_body(4, 4096, 0)` 呼叫;分隔註解寫 `# ---- 005 US2-API-20`),執行確認它因為「以 `body.get(...)` 取值,少了的鍵當成 None(自動)通過」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017(info.x-tuning-rule (1) 的順序);`plan.md` § 待決問題 Q31
-- [ ] T085b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T085a)
+- [x] T085b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-20 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T085a)
   - 🧪 `testplan.md` § US2-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.TuningOverrides`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017(info.x-tuning-rule (1) 的順序);`plan.md` § 待決問題 Q31
-- [ ] T086a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-21 的測試(依序呼叫 `resolve(40 * GIB, tuning_body(4, None, None))`、`resolve(40 * GIB, tuning_body(8, None, None))`、`resolve(15 * GIB, NONE3)`;分隔註解寫 `# ---- 005 US2-API-21`),執行確認它因為「有任何一項覆蓋時整組改用覆蓋值、沒填的變成 `ollama_default`」這類實作而失敗
+- [x] T086a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-21 的測試(依序呼叫 `resolve(40 * GIB, tuning_body(4, None, None))`、`resolve(40 * GIB, tuning_body(8, None, None))`、`resolve(15 * GIB, NONE3)`;分隔註解寫 `# ---- 005 US2-API-21`),執行確認它因為「有任何一項覆蓋時整組改用覆蓋值、沒填的變成 `ollama_default`」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-007、FR-002、邊界情況(覆蓋值和自動值相同);`plan.md` § 待決問題 Q31
-- [ ] T086b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-21 通過的程式碼;新增 `resolve(vram_total_bytes, overrides)`:「覆蓋值 > 級距 > 不帶」逐項決定,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T086a)
+- [x] T086b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-21 通過的程式碼;新增 `resolve(vram_total_bytes, overrides)`:「覆蓋值 > 級距 > 不帶」逐項決定,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T086a)
   - 🧪 `testplan.md` § US2-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-007、FR-002、邊界情況(覆蓋值和自動值相同);`plan.md` § 待決問題 Q31
-- [ ] T087a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-22 的測試(依序呼叫 `resolve(None, NONE3)`、`resolve(None, tuning_body(4, None, None))`、`resolve(None, tuning_body(None, None, 2))`;分隔註解寫 `# ---- 005 US2-API-22`),執行確認它因為「讀不到顯示記憶體時一律不帶 flash attention 與 KV cache(FR-007 要在有覆蓋值時帶)」這類實作而失敗
+- [x] T087a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_tuning.py` 寫 US2-API-22 的測試(依序呼叫 `resolve(None, NONE3)`、`resolve(None, tuning_body(4, None, None))`、`resolve(None, tuning_body(None, None, 2))`;分隔註解寫 `# ---- 005 US2-API-22`),執行確認它因為「讀不到顯示記憶體時一律不帶 flash attention 與 KV cache(FR-007 要在有覆蓋值時帶)」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-007、FR-003、使用者故事 2 驗收情境 5;`plan.md` § 待決問題 Q31
-- [ ] T087b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T087a)
+- [x] T087b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/tuning.py` 只寫讓 US2-API-22 通過的程式碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T087a)
   - 🧪 `testplan.md` § US2-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-007、FR-003、使用者故事 2 驗收情境 5;`plan.md` § 待決問題 Q31
-- [ ] T088 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T066b~T087b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/repos/`、`src/cgb/api/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_tuning.py`、`tests/unit/test_tuning.py` 的斷言(依賴 T087b)
+- [x] T088 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T066b~T087b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/repos/`、`src/cgb/api/`、`src/cgb/domain/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_tuning.py`、`tests/unit/test_tuning.py` 的斷言(依賴 T087b)
   - 🧪 `testplan.md` § US2-API-01~US2-API-22
   - 📎 `testplan.md` § 3.2
 

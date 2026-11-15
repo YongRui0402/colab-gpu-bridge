@@ -406,3 +406,480 @@ async def test_005_之前開的工作階段接回後_設定標成不知道_紀�
     assert "tuning" in ollama and ollama["tuning"] is None
     assert record.get("tunings") == []
     assert response.status_code == 200
+
+
+# ================================================================ 故事 2(testplan.md § 3.2)
+
+
+def tuning_body(np: int | None, ctx: int | None, mlm: int | None) -> dict[str, Any]:
+    """`TuningOverrides` 的本文。"""
+    return {"numParallel": np, "contextLength": ctx, "maxLoadedModels": mlm}
+
+
+NONE3 = tuning_body(None, None, None)
+
+
+async def open_with(client: httpx.AsyncClient, runtime_type: dict[str, Any], tuning: Any) -> httpx.Response:
+    """帶覆蓋值送 `POST /api/session`,回傳回應(不等就緒)。"""
+    return await client.post("/api/session", json={"runtimeType": runtime_type, "tuning": tuning})
+
+
+async def overrides(client: httpx.AsyncClient) -> dict[str, dict[str, Any]]:
+    """`GET /api/tuning/overrides` 的 `items`,以 `gpu` 為鍵。"""
+    response = await client.get("/api/tuning/overrides")
+    items = response.json().get("items", []) if response.status_code == 200 else []
+    return {item["gpu"]: item for item in items}
+
+
+async def remember(client: httpx.AsyncClient, gpu: str, tuning: dict[str, Any]) -> Any:
+    """以 `open_with` 開那一種類型到就緒再結束,讓那種類型記住 `tuning`;回傳那一次受理的時間(回應的 `openedAt`)。"""
+    accepted = await open_with(client, {"gpu": gpu, "highMem": False}, tuning)
+    assert accepted.status_code == 202, accepted.text
+    await wait_for_state(client, "ready")
+    await client.delete("/api/session")
+    await wait_for_state(client, "ended")
+    return parse_iso(accepted.json()["openedAt"])
+
+
+def without_local_models(fakes: Any) -> None:
+    """執行環境上沒有下載任何模型(變更類型時要讀 `/api/tags`;`ColabWorld` 沒有設定這一項)。"""
+    fakes.remote_ollama.list_local_models.side_effect(lambda *a, **k: {"models": []})
+
+
+def log_out(fakes: Any) -> None:
+    """讓授權檢查判成未登入(照 001 `test_沒有授權時開啟要先登入_不呼叫_CLI_開機`)。"""
+    fakes.colab.get_usage.raises("AUTH_REQUIRED")
+
+
+# ---- 005 US2-API-01
+
+
+async def test_開啟時帶的覆蓋值原樣交給遠端_設定與紀錄照遠端回報(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    world = ColabWorld(fakes)
+    world.start_result = started(
+        40 * GIB,
+        applied(4, 8192, 2, sources=("manual", "auto", "auto")),
+        gpu_name="NVIDIA A100-SXM4-40GB",
+        system_bytes=89_632_571_392,
+    )
+
+    # Act
+    accepted = await open_with(ui_client, A100, tuning_body(4, None, None))
+    await wait_for_state(ui_client, "ready")
+    session = (await ui_client.get("/api/session")).json()
+    record = await record_of(ui_client, session["name"])
+
+    # Assert
+    tuning = (session.get("ollama") or {}).get("tuning") or {}
+    tunings = record.get("tunings") or [{}]
+    assert accepted.status_code == 202
+    assert sent_overrides(fakes) == tuning_body(4, None, None)
+    assert tuning.get("numParallel") == {"value": 4, "source": "manual"}
+    assert tuning.get("contextLength") == {"value": 8192, "source": "auto"}
+    assert tunings[0].get("requested") == tuning_body(4, None, None)
+
+
+# ---- 005 US2-API-02
+
+
+async def test_受理時就記住這種類型的覆蓋值_開啟失敗也不還原(ui_client: httpx.AsyncClient, fakes: Any, fake_clock: Any) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    fakes.colab.create_session.raises("COLAB_ACCELERATOR_REJECTED")
+    create_gate = fakes.colab.create_session.gate()
+    accepted_at = fake_clock.now()
+
+    # Act
+    await open_with(ui_client, A100, tuning_body(4, None, None))
+    await create_gate.wait_entered_async()
+    before = await overrides(ui_client)
+    create_gate.release()
+    await wait_for_state(ui_client, "open_failed")
+    after = await overrides(ui_client)
+
+    # Assert
+    a100 = before.get("A100") or {}
+    updated_at = parse_iso(a100["updatedAt"]) if a100.get("updatedAt") else None
+    values = ("numParallel", "contextLength", "maxLoadedModels")
+    assert list(before) == ["T4", "L4", "G4", "A100", "H100"]
+    assert tuple(a100.get(k) for k in values) == (4, None, None)
+    assert updated_at is not None and accepted_at <= updated_at <= accepted_at + timedelta(seconds=1)
+    assert tuple((before.get("T4") or {}).get(k, "沒有") for k in (*values, "updatedAt")) == (None, None, None, None)
+    assert tuple((after.get("A100") or {}).get(k) for k in values) == (4, None, None)
+
+
+# ---- 005 US2-API-03
+
+
+async def test_沒有帶覆蓋值時用這種類型記住的值開啟_記住的值不變(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    await remember(ui_client, "A100", tuning_body(4, None, None))
+    u = (await overrides(ui_client)).get("A100", {}).get("updatedAt")
+
+    # Act
+    await ui_client.post("/api/session", json={"runtimeType": A100})
+    a100_session = await wait_for_state(ui_client, "ready")
+    a100_sent = sent_overrides(fakes)
+    a100_item = (await overrides(ui_client)).get("A100") or {}
+    record = await record_of(ui_client, a100_session["name"])
+    await ui_client.delete("/api/session")
+    await wait_for_state(ui_client, "ended")
+    await ui_client.post("/api/session", json={"runtimeType": T4})
+    await wait_for_state(ui_client, "ready")
+    t4_sent = sent_overrides(fakes)
+
+    # Assert
+    tunings = record.get("tunings") or [{}]
+    assert a100_sent == tuning_body(4, None, None)
+    assert u is not None and a100_item.get("updatedAt") == u
+    assert tunings[0].get("requested") == tuning_body(4, None, None)
+    assert t4_sent == NONE3
+
+
+# ---- 005 US2-API-04
+
+
+async def test_三個都留空開啟時以自動值開啟並清除這種類型記住的值(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    await remember(ui_client, "A100", tuning_body(4, 16384, 2))
+
+    # Act
+    await open_with(ui_client, A100, NONE3)
+    await wait_for_state(ui_client, "ready")
+    a100 = (await overrides(ui_client)).get("A100") or {}
+
+    # Assert
+    assert sent_overrides(fakes) == NONE3
+    assert (a100.get("numParallel"), a100.get("contextLength"), a100.get("maxLoadedModels")) == (None, None, None)
+    assert "updatedAt" in a100 and a100["updatedAt"] is None
+
+
+# ---- 005 US2-API-05
+
+
+async def test_帶了覆蓋值時以這次的三個值整份取代記住的值(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    await remember(ui_client, "L4", tuning_body(None, 16384, None))
+
+    # Act
+    await open_with(ui_client, L4, tuning_body(2, None, None))
+    await wait_for_state(ui_client, "ready")
+    l4 = (await overrides(ui_client)).get("L4") or {}
+
+    # Assert
+    assert l4.get("numParallel") == 2
+    assert "contextLength" in l4 and l4["contextLength"] is None
+
+
+# ---- 005 US2-API-06
+
+
+async def test_後端重新啟動後每種類型記住的值都還在(make_app: Callable[..., AppPair], fakes: Any) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    async with running(make_app()) as client:
+        await remember(client, "T4", tuning_body(None, 8192, None))
+        await remember(client, "A100", tuning_body(4, None, None))
+        before = await overrides(client)
+
+    # Act
+    async with running(make_app()) as client:
+        after = await overrides(client)
+
+    # Assert
+    l4 = after.get("L4") or {}
+    assert "T4" in before and after.get("T4") == before["T4"]
+    assert "A100" in before and after.get("A100") == before["A100"]
+    assert "L4" in after and (l4.get("numParallel"), l4.get("contextLength"), l4.get("maxLoadedModels")) == (None, None, None)
+
+
+# ---- 005 US2-API-07
+
+
+async def test_覆蓋值和自動值相同時仍原樣交給遠端並記住(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    world = ColabWorld(fakes)
+    world.start_result = A100_STARTED
+
+    # Act:8 剛好是 A100 40 GiB 的自動值
+    await open_with(ui_client, A100, tuning_body(8, None, None))
+    await wait_for_state(ui_client, "ready")
+    a100 = (await overrides(ui_client)).get("A100") or {}
+
+    # Assert
+    assert sent_overrides(fakes) == tuning_body(8, None, None)
+    assert a100.get("numParallel") == 8
+
+
+# ---- 005 US2-API-08
+
+
+async def test_讀不到顯示記憶體時照常就緒_手動覆蓋的項目照遠端回報標成手動(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:讀不到顯示記憶體,遠端只帶平行數與 flash attention、KV cache
+    world = ColabWorld(fakes)
+    world.start_result = started(
+        None,
+        applied(4, None, None, sources=("manual", "ollama_default", "ollama_default")),
+        gpu_name=None,
+        system_bytes=89_632_571_392,
+    )
+
+    # Act
+    await open_with(ui_client, A100, tuning_body(4, None, None))
+    await wait_for_state(ui_client, "ready")
+    session = (await ui_client.get("/api/session")).json()
+
+    # Assert
+    tuning = (session.get("ollama") or {}).get("tuning") or {}
+    assert session.get("state") == "ready"
+    assert sent_overrides(fakes) == tuning_body(4, None, None)
+    assert tuning.get("numParallel") == {"value": 4, "source": "manual"}
+    assert tuning.get("contextLength") == {"value": None, "source": "ollama_default"}
+    assert tuning.get("flashAttention") == {"value": True, "source": "auto"}
+
+
+# ---- 005 US2-API-09
+
+
+@pytest.mark.parametrize(
+    ("tuning", "code", "range_text"),
+    [
+        pytest.param(tuning_body(64, None, None), "INVALID_NUM_PARALLEL", "1~32", id="平行數"),
+        pytest.param(tuning_body(None, 1024, None), "INVALID_CONTEXT_LENGTH", "2048~131072", id="context"),
+        pytest.param(tuning_body(None, None, 5), "INVALID_MAX_LOADED_MODELS", "1~4", id="同時載入模型數"),
+    ],
+)
+async def test_覆蓋值超出範圍時回這一項的代碼與範圍_不開啟也不記住(
+    ui_client: httpx.AsyncClient, fakes: Any, tuning: dict[str, Any], code: str, range_text: str
+) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    await remember(ui_client, "A100", tuning_body(2, None, None))
+    kept = (await overrides(ui_client)).get("A100")
+    fakes.colab.create_session.reset_calls()
+
+    # Act
+    response = await open_with(ui_client, A100, tuning)
+    a100 = (await overrides(ui_client)).get("A100")
+    session = (await ui_client.get("/api/session")).json()
+
+    # Assert
+    message = response.json().get("message", "") if error_code(response) is not None else ""
+    assert (response.status_code, error_code(response)) == (400, code)
+    assert range_text in message
+    assert fakes.colab.create_session.call_count == 0
+    assert kept is not None and a100 == kept
+    assert session.get("state") == "ended"
+
+
+# ---- 005 US2-API-10
+
+
+async def test_覆蓋值的格式不對時依序回對應的代碼_都不記住_沒有小數部分的數字照整數交給遠端(
+    ui_client: httpx.AsyncClient, fakes: Any
+) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    blocked = [
+        {"runtimeType": A100, "tuning": "4"},
+        {"runtimeType": A100, "tuning": {"numParallel": 4, "contextLength": None}},
+        {"runtimeType": A100, "tuning": tuning_body(True, None, None)},
+        {"runtimeType": A100, "tuning": tuning_body("4", None, None)},
+        {"runtimeType": A100, "tuning": tuning_body(0, 1, 0)},
+        {"runtimeType": {"gpu": "V100", "highMem": False}, "tuning": tuning_body(4, None, None)},
+    ]
+
+    # Act
+    responses = [await ui_client.post("/api/session", json=body) for body in blocked]
+    remembered = await overrides(ui_client)
+    accepted = await open_with(ui_client, A100, {"numParallel": 4.0, "contextLength": None, "maxLoadedModels": None})
+    await wait_for_state(ui_client, "ready")
+
+    # Assert
+    values = ("numParallel", "contextLength", "maxLoadedModels")
+    assert [(r.status_code, error_code(r)) for r in responses] == [
+        (400, "INVALID_REQUEST_BODY"),
+        (400, "INVALID_REQUEST_BODY"),
+        (400, "INVALID_NUM_PARALLEL"),
+        (400, "INVALID_NUM_PARALLEL"),
+        (400, "INVALID_NUM_PARALLEL"),
+        (400, "INVALID_RUNTIME_TYPE"),
+    ]
+    assert len(remembered) == 5 and all(tuple(i.get(k) for k in values) == (None, None, None) for i in remembered.values())
+    assert accepted.status_code == 202
+    assert type(sent_overrides(fakes)["numParallel"]) is int and sent_overrides(fakes)["numParallel"] == 4
+
+
+# ---- 005 US2-API-11
+
+
+@pytest.mark.parametrize(
+    ("body", "code"),
+    [
+        pytest.param({"runtimeType": A100, "tuning": tuning_body(33, None, None)}, "INVALID_NUM_PARALLEL", id="平行數"),
+        pytest.param({"runtimeType": A100, "tuning": tuning_body(None, 131073, None)}, "INVALID_CONTEXT_LENGTH", id="context"),
+        pytest.param({"runtimeType": A100, "tuning": tuning_body(None, None, 0)}, "INVALID_MAX_LOADED_MODELS", id="同時載入模型數"),
+        pytest.param(
+            {"runtimeType": A100, "tuning": {"numParallel": 4, "maxLoadedModels": None}}, "INVALID_REQUEST_BODY", id="少一個欄位"
+        ),
+        pytest.param(
+            {"runtimeType": {"gpu": "V100", "highMem": False}, "tuning": tuning_body(4, None, None)},
+            "INVALID_RUNTIME_TYPE",
+            id="類型",
+        ),
+    ],
+)
+async def test_變更類型時覆蓋值不對就擋下_原本的工作階段照常就緒(
+    ui_client: httpx.AsyncClient, fakes: Any, body: dict[str, Any], code: str
+) -> None:
+    # Arrange
+    world = ColabWorld(fakes)
+    without_local_models(fakes)
+    ready = await open_ready(ui_client)
+    before = await overrides(ui_client)
+
+    # Act
+    response = await ui_client.post("/api/session/restart", json=body)
+    await asyncio.sleep(0.2)
+    session = (await ui_client.get("/api/session")).json()
+
+    # Assert
+    assert (response.status_code, error_code(response)) == (400, code)
+    assert (session.get("name"), session.get("state")) == (ready["name"], "ready")
+    assert world.calls("stop_session") == []
+    assert fakes.colab.create_session.call_count == 1
+    assert await overrides(ui_client) == before
+
+
+# ---- 005 US2-API-12
+
+
+@pytest.mark.parametrize(
+    ("situation", "code"),
+    [
+        pytest.param("ready", "SESSION_ALREADY_ACTIVE", id="就緒"),
+        pytest.param("ending", "SESSION_ENDING", id="結束中"),
+        pytest.param("logged_out", "AUTH_REQUIRED", id="未登入"),
+    ],
+)
+async def test_開啟被_409_擋下時不記住這次的覆蓋值(ui_client: httpx.AsyncClient, fakes: Any, situation: str, code: str) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    stop_gate = None
+    if situation in ("ready", "ending"):
+        await open_ready(ui_client)
+    if situation == "ending":
+        stop_gate = fakes.colab.stop_session.gate()
+        await ui_client.delete("/api/session")
+    if situation == "logged_out":
+        log_out(fakes)
+
+    # Act
+    response = await open_with(ui_client, L4, tuning_body(4, None, None))
+    l4 = (await overrides(ui_client)).get("L4") or {}
+    if stop_gate is not None:
+        stop_gate.release()
+
+    # Assert
+    assert (response.status_code, error_code(response)) == (409, code)
+    assert "gpu" in l4 and (l4.get("numParallel"), l4.get("contextLength"), l4.get("maxLoadedModels")) == (None, None, None)
+    assert "updatedAt" in l4 and l4["updatedAt"] is None
+
+
+# ---- 005 US2-API-13
+
+
+@pytest.mark.parametrize(
+    ("situation", "code"),
+    [
+        pytest.param("none", "NO_ACTIVE_SESSION", id="沒有工作階段"),
+        pytest.param("ending", "SESSION_ENDING", id="結束中"),
+        pytest.param("logged_out", "AUTH_REQUIRED", id="未登入"),
+    ],
+)
+async def test_變更類型被_409_擋下時不記住新類型的覆蓋值(
+    ui_client: httpx.AsyncClient, fakes: Any, situation: str, code: str
+) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    without_local_models(fakes)
+    stop_gate = None
+    if situation in ("ending", "logged_out"):
+        await open_ready(ui_client)
+    if situation == "ending":
+        stop_gate = fakes.colab.stop_session.gate()
+        await ui_client.delete("/api/session")
+    if situation == "logged_out":
+        log_out(fakes)
+
+    # Act
+    response = await ui_client.post("/api/session/restart", json={"runtimeType": L4, "tuning": tuning_body(4, None, None)})
+    l4 = (await overrides(ui_client)).get("L4") or {}
+    if stop_gate is not None:
+        stop_gate.release()
+
+    # Assert
+    assert (response.status_code, error_code(response)) == (409, code)
+    assert "gpu" in l4 and (l4.get("numParallel"), l4.get("contextLength"), l4.get("maxLoadedModels")) == (None, None, None)
+
+
+# ---- 005 US2-API-14
+
+
+async def test_變更類型沒有帶覆蓋值時新的工作階段用新類型記住的值_不沿用舊的(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    world = ColabWorld(fakes)
+    without_local_models(fakes)
+    await remember(ui_client, "A100", tuning_body(4, None, None))
+    world.start_result = T4_STARTED
+    await open_with(ui_client, T4, tuning_body(None, 8192, None))
+    old = (await wait_for_state(ui_client, "ready"))["name"]
+    world.start_result = started(
+        40 * GIB,
+        applied(4, 8192, 2, sources=("manual", "auto", "auto")),
+        gpu_name="NVIDIA A100-SXM4-40GB",
+        system_bytes=89_632_571_392,
+    )
+
+    # Act
+    await ui_client.post("/api/session/restart", json={"runtimeType": A100})
+    session = await wait_until(ui_client, lambda s: s.get("name") != old and s.get("state") == "ready", timeout=1.0)
+    old_record = await record_of(ui_client, old)
+    t4 = (await overrides(ui_client)).get("T4") or {}
+
+    # Assert
+    old_tunings = old_record.get("tunings") or [{}]
+    assert sent_overrides(fakes) == tuning_body(4, None, None)
+    assert ((session.get("ollama") or {}).get("machine") or {}).get("vramTotalBytes") == 40 * GIB
+    assert (old_tunings[0].get("machine") or {}).get("vramTotalBytes") == 15 * GIB
+    assert (t4.get("numParallel"), t4.get("contextLength"), t4.get("maxLoadedModels")) == (None, 8192, None)
+
+
+# ---- 005 US2-API-15
+
+
+async def test_變更類型帶的覆蓋值在受理時寫到新的類型(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange:T4 記住 None、8192、None,A100 沒有記過
+    world = ColabWorld(fakes)
+    without_local_models(fakes)
+    world.start_result = T4_STARTED
+    await open_with(ui_client, T4, tuning_body(None, 8192, None))
+    old = (await wait_for_state(ui_client, "ready"))["name"]
+    stop_gate = fakes.colab.stop_session.gate()
+
+    # Act
+    response = await ui_client.post("/api/session/restart", json={"runtimeType": A100, "tuning": tuning_body(None, None, 2)})
+    right_after = await overrides(ui_client)
+    stop_gate.release()
+    await wait_until(ui_client, lambda s: s.get("name") != old and s.get("state") == "ready", timeout=1.0)
+
+    # Assert
+    values = ("numParallel", "contextLength", "maxLoadedModels")
+    assert response.status_code == 202
+    assert tuple((right_after.get("A100") or {}).get(k, "沒有") for k in values) == (None, None, 2)
+    assert tuple((right_after.get("T4") or {}).get(k, "沒有") for k in values) == (None, 8192, None)
+    assert sent_overrides(fakes) == tuning_body(None, None, 2)

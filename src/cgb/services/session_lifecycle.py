@@ -151,7 +151,8 @@ class SessionLifecycle:
         task.add_done_callback(self._tasks.discard)
         return task
 
-    async def open(self, runtime_type: dict[str, Any]) -> dict[str, Any]:
+    async def open(self, runtime_type: dict[str, Any], tuning: dict[str, Any] | None) -> dict[str, Any]:
+        """`tuning` 是本文帶的覆蓋值;沒有帶時是 None。"""
         latest = self._repo.latest()
         if latest is not None and latest["state"] == "ending":
             # ending 不占位(store.dbml active_slot),但不能和正在結束的那台重疊
@@ -160,8 +161,20 @@ class SessionLifecycle:
         if (await self._auth.check())["state"] == "logged_out":
             raise ApiError(409, "AUTH_REQUIRED")
         name = self.reserve(runtime_type, step="allocating")
-        self.start_open(name, runtime_type)
+        overrides = self.accept_overrides(runtime_type["gpu"], tuning)
+        self.start_open(name, runtime_type, overrides)
         return self.current()
+
+    def accept_overrides(self, gpu: str, tuning: dict[str, Any] | None) -> dict[str, Any]:
+        """受理開啟或變更類型時決定這次交給 `start_ollama` 的覆蓋值(contracts/ui.openapi.yaml § info.x-tuning-rule (3))。
+
+        沒有帶時用這種類型記住的值,類型覆蓋值不變(FR-008);帶了就在受理時寫成這種類型記住的值,
+        三個都是 null 就是清除,開啟之後失敗也不還原(Q9、FR-009)。
+        """
+        if tuning is None:
+            return self._tunings.type_override(gpu)
+        self._tunings.put_type_override(gpu, tuning, at=iso(self._state.clock.now()))
+        return tuning
 
     def reserve(self, runtime_type: dict[str, Any], *, step: str) -> str:
         """寫入一筆開啟中的工作階段,回傳它的名稱。"""
@@ -179,17 +192,19 @@ class SessionLifecycle:
             raise ApiError(409, "SESSION_ALREADY_ACTIVE") from None
         return name
 
-    def start_open(self, name: str, runtime_type: dict[str, Any]) -> asyncio.Task[None]:
-        """在背景跑開啟流程;回傳那個 task。"""
-        task = self.spawn(self._run_open(name, runtime_type))
+    def start_open(
+        self, name: str, runtime_type: dict[str, Any], overrides: dict[str, Any] = AUTO_OVERRIDES
+    ) -> asyncio.Task[None]:
+        """在背景跑開啟流程;回傳那個 task。`overrides` 在 `starting_ollama` 那一步原樣交給 `start_ollama`。"""
+        task = self.spawn(self._run_open(name, runtime_type, overrides))
         self._open_tasks[name] = task
         task.add_done_callback(lambda _: self._open_tasks.pop(name, None))
         return task
 
-    async def _run_open(self, name: str, runtime_type: dict[str, Any]) -> None:
+    async def _run_open(self, name: str, runtime_type: dict[str, Any], overrides: dict[str, Any]) -> None:
         progress: dict[str, Any] = {"allocated": False, "unnamed_before": None}
         try:
-            await self._within_open_deadline(self._open_steps(name, runtime_type, progress))
+            await self._within_open_deadline(self._open_steps(name, runtime_type, overrides, progress))
         except TimeoutError:
             # Q58、SC-001:開啟流程的總時限
             await self._fail_open(name, "COLAB_TIMEOUT", allocated=progress["allocated"])
@@ -258,7 +273,9 @@ class SessionLifecycle:
         if name in listed_names(listed):
             self._warn_release(name, "COLAB_STOP_UNCONFIRMED")
 
-    async def _open_steps(self, name: str, runtime_type: dict[str, Any], progress: dict[str, bool]) -> None:
+    async def _open_steps(
+        self, name: str, runtime_type: dict[str, Any], overrides: dict[str, Any], progress: dict[str, bool]
+    ) -> None:
         colab, remote = self._state.colab, self._state.remote_ollama
         # Q63:記下開啟前沒有名稱的執行環境,`colab new` 逾時後比對
         progress["unnamed_before"] = (await colab.list_sessions())["unnamed"]
@@ -269,10 +286,8 @@ class SessionLifecycle:
         await asyncio.shield(creating)
         progress["allocated"] = True
         self._repo.update(name, step="starting_ollama")
-        started = await colab.start_ollama(name=name, overrides=AUTO_OVERRIDES)
-        self._tunings.insert_open(
-            session_name=name, at=iso(self._state.clock.now()), requested=AUTO_OVERRIDES, started=started
-        )
+        started = await colab.start_ollama(name=name, overrides=overrides)
+        self._tunings.insert_open(session_name=name, at=iso(self._state.clock.now()), requested=overrides, started=started)
         self._repo.update(name, step="connecting")
         # Q64:`colab ssh --proxy-mode` 找不到名稱會自己開一台新的,建立通道前一定先確認名稱在列
         listed = await colab.list_sessions()

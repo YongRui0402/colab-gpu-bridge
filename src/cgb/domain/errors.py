@@ -22,6 +22,10 @@ MESSAGES: dict[str, str] = {
     "OAUTH_INVALID_SCOPE": "登入設定有誤,無法向 Google 換得授權。",
     "SESSION_NOT_FOUND": "沒有這個工作階段的紀錄。",
     "INVALID_RUNTIME_TYPE": "不支援這種執行階段類型,請從清單選擇 T4、L4、G4、A100 或 H100。",
+    # FR-017:寫出那一項的範圍(contracts/ui.openapi.yaml § components.schemas.Error.message)
+    "INVALID_NUM_PARALLEL": "平行數要是 1~32 的整數",
+    "INVALID_CONTEXT_LENGTH": "context 長度要是 2048~131072 的整數",
+    "INVALID_MAX_LOADED_MODELS": "同時載入模型數要是 1~4 的整數",
     "NO_READY_SESSION": "目前沒有就緒的工作階段,請等工作階段就緒後再試。",
     "INVALID_CURATED_DESCRIPTION": "說明最多 200 個字。",
     "INVALID_AUTO_DOWNLOAD": "「開好就自動下載」只能是開或關。",

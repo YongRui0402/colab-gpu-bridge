@@ -1,7 +1,9 @@
-"""`session_tunings` 表的存取(contracts/store.dbml § Table session_tunings)。"""
+"""`session_tunings` 與 `runtime_type_tunings` 表的存取(contracts/store.dbml § Table session_tunings、Table runtime_type_tunings)。"""
 
 import sqlite3
 from typing import Any
+
+from cgb.domain.session_state import GPU_TYPES
 
 # AppliedTuning 的三項數值:API 的名稱 → 欄位名稱
 _INT_ITEMS = (
@@ -53,11 +55,41 @@ class TuningsRepo:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def put_type_override(self, gpu: str, overrides: dict[str, Any], *, at: str) -> None:
+        """以這次的三個值整份取代這種 GPU 類型記住的覆蓋值(contracts/ui.openapi.yaml § info.x-tuning-rule (3))。"""
+        if all(value is None for value in overrides.values()):
+            # 三個都是 null 就是清除:刪掉那一列(plan.md Q23)
+            self._conn.execute("DELETE FROM runtime_type_tunings WHERE gpu = ?", (gpu,))
+            return
+        self._conn.execute(
+            "INSERT OR REPLACE INTO runtime_type_tunings (gpu, num_parallel, context_length, max_loaded_models, updated_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (gpu, overrides["numParallel"], overrides["contextLength"], overrides["maxLoadedModels"], at),
+        )
+
+    def type_override(self, gpu: str) -> dict[str, Any]:
+        """這種 GPU 類型記住的三個覆蓋值(`TuningOverrides`);沒有記過時三個都是 None。"""
+        row = self._conn.execute("SELECT * FROM runtime_type_tunings WHERE gpu = ?", (gpu,)).fetchone()
+        return _override_values(row)
+
+    def type_overrides(self) -> list[dict[str, Any]]:
+        """五種 GPU 類型各一筆 `RuntimeTypeTuningOverride`,依 `GpuType` 的順序;沒有記過的三個值與 `updatedAt` 都是 None。"""
+        rows = {row["gpu"]: row for row in self._conn.execute("SELECT * FROM runtime_type_tunings")}
+        return [
+            {"gpu": gpu, **_override_values(rows.get(gpu)), "updatedAt": rows[gpu]["updated_at"] if gpu in rows else None}
+            for gpu in GPU_TYPES
+        ]
+
     def latest(self, session_name: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT * FROM session_tunings WHERE session_name = ? ORDER BY at DESC, id DESC LIMIT 1", (session_name,)
         ).fetchone()
         return dict(row) if row is not None else None
+
+
+def _override_values(row: Any) -> dict[str, Any]:
+    """`runtime_type_tunings` 的一列換回三個覆蓋值;沒有那一列時三個都是 None。"""
+    return {key: row[column] if row is not None else None for key, column in _INT_ITEMS}
 
 
 def machine_of(row: dict[str, Any]) -> dict[str, Any]:

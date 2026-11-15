@@ -710,6 +710,14 @@ def err_invalid_runtime_type(w: World) -> httpx.Response:
     return trigger_ok(w, "POST", "/session", json={"runtimeType": {"gpu": "V100", "highMem": False}})
 
 
+def err_invalid_tuning(tuning: dict[str, Any]) -> Callable[[World], httpx.Response]:
+    def trigger(w: World) -> httpx.Response:
+        w.start()
+        return trigger_ok(w, "POST", "/session", json={**T4, "tuning": tuning})
+
+    return trigger
+
+
 def err_no_ready_session(w: World) -> httpx.Response:
     w.start()
     return trigger_ok(w, "GET", "/models")
@@ -961,6 +969,9 @@ API_ERRORS: list[tuple[str, Callable[[World], httpx.Response]]] = [
     ],
     ("SESSION_NOT_FOUND", err_session_not_found),
     ("INVALID_RUNTIME_TYPE", err_invalid_runtime_type),
+    ("INVALID_NUM_PARALLEL", err_invalid_tuning({"numParallel": 33, "contextLength": None, "maxLoadedModels": None})),
+    ("INVALID_CONTEXT_LENGTH", err_invalid_tuning({"numParallel": None, "contextLength": 1024, "maxLoadedModels": None})),
+    ("INVALID_MAX_LOADED_MODELS", err_invalid_tuning({"numParallel": None, "contextLength": None, "maxLoadedModels": 5})),
     ("NO_READY_SESSION", err_no_ready_session),
     ("INVALID_CURATED_DESCRIPTION", err_invalid_curated_description),
     ("INVALID_AUTO_DOWNLOAD", err_invalid_auto_download),
