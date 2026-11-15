@@ -13,7 +13,7 @@ S4(E4 資料庫)依 005 的 spec.md、plan.md(含待決問題 Q7、Q9、Q11、Q1
 - 新表 session_tuning_models:每一次套用重新載入與沒有重新載入的模型(S3 TuningRecord.reloaded、notReloaded)。
 
 不建表的資料(資料表-規範〈只寫要持久化的資料〉):
-- Session.ollama(S3 OllamaStatus):由 session_tunings 推出,不另存。tuning、machine 取該工作階段依 (at, id) 最新一筆 result 為 applied、fell_back_to_auto,或 result 為 interrupted 而 probed_at 不為 NULL(後端恢復時呼叫過 startOllama,Q13)的那一列;有這一列時 status 為 applied(tuning 的十個欄位有值)或 unknown(tuning 為 NULL);沒有這一列時,sessions.state 為 opening 而 step 是 ending_previous、allocating、starting_ollama 時為 pending,其他為 unknown(含 005 之前開、升級後接回的工作階段)。lastApply 取最新一筆 trigger 為 apply 的那一列。
+- Session.ollama(S3 OllamaStatus):由 session_tunings 推出,不另存。tuning、machine 取該工作階段依 (at, id) 最新一筆 result 為 applied、fell_back_to_auto,或 result 為 interrupted 而 probed_at 不為 NULL(後端恢復時呼叫過 startOllama,Q13),或 result 為 in_progress 而 tuning 不為 NULL(重啟成功、重新載入中,analysis A2、D48)的那一列;有這一列時 status 為 applied(tuning 的十個欄位有值)或 unknown(tuning 為 NULL);沒有這一列時,sessions.state 為 opening 而 step 是 ending_previous、allocating、starting_ollama 時為 pending,其他為 unknown(含 005 之前開、升級後接回的工作階段)。lastApply 取最新一筆 trigger 為 apply 的那一列。
 - 套用受理時讀到的 /api/ps 清單與順序:只在一次套用流程裡用;後端在套用中停機時恢復流程不重新載入模型(S3 x-applying-state (4)),不需要留。重新載入的結果寫進 session_tuning_models。
 - 忙碌判斷(進行中的請求數、下載中):IdleMonitor.active_requests 與 download_jobs 的狀態(R10),不另存。
 - 遠端執行環境上的 /root/cgb-ollama-tuning.json:在執行環境上,不在本機資料庫(S1 共用約定 13-1)。

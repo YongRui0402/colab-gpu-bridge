@@ -79,14 +79,14 @@ info:
     改用自動值(三個覆蓋值都是 null)再呼叫一次 S1 `restartOllama`(FR-013、Q4、D15),`attempt` 改為 `auto_fallback`、`reasonCode` 與 `remoteStage` 記下第一次的失敗,
     推送 `session.updated`;成功 → (4),這一筆的 `result` 會是 `fell_back_to_auto`;再失敗 → (5)。
     其他代碼(`COLAB_UNREACHABLE`、`COLAB_TIMEOUT`、`COLAB_NOT_FOUND`、`AUTH_REQUIRED`、`COLAB_FAILED`、`COLAB_BAD_RESPONSE`、`COLAB_NOT_INSTALLED`)
-    不是設定造成的,不改回自動值,直接 → (5)(spec 邊界情況「重啟時 `colab exec` 斷線:重跑一次;仍失敗就照 001 的失聯處理」)。
+    不是設定造成的,不改回自動值,直接 → (5)(spec 邊界情況「重啟時 `colab exec` 斷線:照 001 共用約定 6 重跑一次;仍失敗就照 FR-013 結束工作階段」)。
     (4)重啟成功:`Session.ollama.tuning`、`machine` 換成這次 S1 回報的值,推送 `models.updated`(已載入的模型清空);`step` 改為 `reloading_models`,推送 `session.updated`;
     依 (1) 記下的順序,對前 N 個逐一呼叫 001 的預先載入(`keep_alive: -1`,一次一個,等它載入完再下一個,research.md R8),
     N 是新的 `maxLoadedModels.value`(為 null、用 Ollama 預設值時不設上限,全部重新載入);超出 N 的列進 `notReloaded`(`reason` 為 `OVER_LIMIT`),
     預先載入失敗的也列進去(`reason` 為 `PRELOAD_FAILED`、`reasonCode` 帶 001 S1 的 `OLLAMA_` 代碼),不讓套用失敗。
     全部處理完才回到就緒:`state` 為 `ready`、`step` 為 null,`result` 為 `applied`(或 `fell_back_to_auto`)、`finishedAt` 寫入;
     `applied` 時把這次要求的覆蓋值寫成這種類型記住的值(FR-014;`fell_back_to_auto` 不寫入),推送 `session.updated`。
-    (5)無法回到就緒(改回自動值也失敗,或 (3) 列的其他代碼;FR-013「失敗時照 001 的失聯處理」,Q4):`result` 為 `failed`、`reasonCode` 與 `remoteStage` 記下最後一次的失敗;
+    (5)無法回到就緒(改回自動值也失敗,或 (3) 列的其他代碼;FR-013「結束工作階段(結束原因「重啟 Ollama 失敗」)」,Q4、Q11):`result` 為 `failed`、`reasonCode` 與 `remoteStage` 記下最後一次的失敗;
     `COLAB_NOT_FOUND` 時照 001 標成 `lost`、`endReason` 為 `RECLAIMED_BY_COLAB`;其他情況標成 `lost`、`endReason` 為 `OLLAMA_RESTART_FAILED`、
     `reasonCode` 帶最後一次的代碼、`message` 說明遠端 Ollama 重啟失敗、可以重新開啟一個工作階段;接著照 001 失聯的後續釋放執行環境(001 S8 `stopSession`),
     釋放不了就寫 `releaseWarning`(001 的 FR-007);`AUTH_REQUIRED` 時另把登入狀態標成未登入(推送 `auth.updated`,照 001)。
@@ -510,13 +510,13 @@ components:
           oneOf:
             - $ref: '#/components/schemas/MachineProbe'
             - type: 'null'
-          description: 這一次量到的硬體;`in_progress`、`failed` 時為 null
+          description: 這一次量到的硬體;`in_progress` 而重啟還沒成功時、`failed` 時為 null(重啟成功、進入 `reloading_models` 後就有值,analysis A2、D48)
         tuning:
           oneOf:
             - $ref: '#/components/schemas/AppliedTuning'
             - type: 'null'
           description: >-
-            這一次實際生效的設定(`fell_back_to_auto` 時是改回自動值的那一組);`in_progress`、`failed` 時為 null;
+            這一次實際生效的設定(`fell_back_to_auto` 時是改回自動值的那一組);`in_progress` 而重啟還沒成功時、`failed` 時為 null,重啟成功、進入 `reloading_models` 後就是新的設定(analysis A2、D48);
             遠端 Ollama 已在執行而讀不到設定檔時也是 null(Q2;開啟時重跑遇到,或 `interrupted` 時恢復讀到的)
         result:
           $ref: '#/components/schemas/TuningResult'

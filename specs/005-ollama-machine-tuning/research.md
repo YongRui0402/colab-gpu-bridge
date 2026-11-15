@@ -21,7 +21,8 @@
   3. 依 R7 決定的環境變數啟動 `ollama serve`(`start_new_session=True`),把新的 pid 寫回 pid 檔。
   4. 每秒打一次 `/api/version`,60 秒內有回應就回報成功;否則回報 `stage: "verify"`,由後端照 FR-013 改用自動值再跑一次。
 - **`start_ollama.py` 也寫 pid 檔**:啟動時把 `ollama serve` 的 pid 寫進 `/root/cgb-ollama-serve.pid`,重啟才找得到要停哪一個。
-- **pid 檔不存在**(001~004 開的工作階段、或檔案被刪):改用 `pkill -f "^ollama serve"` 停掉,其餘步驟相同。
+- **pid 檔不存在或行程已不在**(001~004 開的工作階段、或檔案被刪):先用 `pgrep -f "^ollama serve"` 找出 pid,再對每個 pid 的行程群組送 `SIGTERM`/`SIGKILL`(plan Q5、D16),其餘步驟相同。
+- **設定狀態檔**:啟動 serve 之前刪掉 `/root/cgb-ollama-tuning.json`,驗證成功後寫入量到的硬體與套用的設定;`start_ollama.py` 遇到已在執行時讀它回報(plan Q2、D13)。
 
 **理由**:
 
@@ -33,7 +34,7 @@
 **考慮過的替代方案**:
 
 - 讓 `start_ollama.py` 多一個「強制重啟」參數:會改到 001 合約裡冪等的定義,開啟流程重跑時也可能誤重啟。
-- 只用 `pkill`:執行環境上若有使用者自己手動起的 `ollama`,也會被停掉;pid 檔比較精準,`pkill` 只當備援。
+- 只用 `pkill`:只對 serve 本身送訊號,載入模型的 runner 子行程要靠 Ollama 自己收掉(本研究只實測過停整個行程群組),也可能停到使用者自己起的 `ollama`;pid 檔比較精準,備援改用 `pgrep` 找 pid 再停整個行程群組。
 
 ## R2. Ollama 對五個環境變數的支援(FR-002)
 
@@ -136,6 +137,7 @@
 **決策**:沿用 SQLite 與 `PRAGMA user_version` 遷移(1 → 2):
 
 - 新表 `runtime_type_tunings`:有記住覆蓋值的 GPU 類型才有一列,三個可為 NULL 的欄位與更新時間;清除時刪掉那一列。
+- 新表 `session_tuning_models`:每次套用有重新載入與沒有重新載入的模型。
 - 新表 `session_tunings`:每次開啟或套用一列(工作階段、時間、觸發、五項值與來源、結果、顯示記憶體與系統記憶體)。
 - 表與欄位細節由 system-analysis 的 data-plan 定。
 

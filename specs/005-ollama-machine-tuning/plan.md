@@ -27,7 +27,7 @@ specs/005-ollama-machine-tuning/
 ```text
 src/cgb/
 ├── adapters/scripts/start_ollama.py    # E5:啟動前量顯示記憶體與系統記憶體、依級距與 CGB_TUNE_* 組環境、寫 pid 檔、回報套用的設定
-├── adapters/scripts/restart_ollama.py  # 新增:E5 停掉 ollama serve(pid 檔,備援 pkill)、以新設定啟動並驗證
+├── adapters/scripts/restart_ollama.py  # 新增:E5 停掉 ollama serve 的行程群組(pid 檔,備援 pgrep)、寫設定狀態檔、以新設定啟動並驗證
 ├── adapters/colab_cli.py               # E5:start_ollama 帶齊 CGB_TUNE_*;新增 restart_ollama
 ├── domain/tuning.py                    # 新增:級距表、覆蓋值範圍檢查、「覆蓋值 > 級距 > 不帶」(純函式)
 ├── services/session_lifecycle.py       # 用例:開啟時帶覆蓋值、記下開啟時的 Ollama 設定
@@ -35,7 +35,7 @@ src/cgb/
 ├── services/idle_monitor.py            # 用例:非就緒時暫停閒置倒數
 ├── api/session.py                      # E2:開啟時接受覆蓋值;工作階段狀態加 Ollama 設定
 ├── api/tuning.py                       # 新增:E2 類型覆蓋值的讀取與清除、套用並重啟
-├── repos/                              # E4:runtime_type_tuning、session_tunings
+├── repos/                              # E4:runtime_type_tunings、session_tunings、session_tuning_models
 ├── db/schema.py                        # E4:PRAGMA user_version 1 → 2
 └── static/                             # E1:開啟畫面的「Ollama 設定」區塊、工作階段頁的設定卡與套用流程
 

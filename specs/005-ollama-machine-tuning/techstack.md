@@ -10,7 +10,7 @@
 | 後端 | FastAPI | 0.162.2 | 新增讀取與套用 Ollama 設定、類型覆蓋值的路由 | R11 |
 | 後端 | `httpx` | 0.28.1 | 相容端點轉發沿用預設連線池(100 條),重新載入沿用預先載入 | R5、R8 |
 | 後端 | `IdleMonitor.active_requests` | 不適用 | 判斷有沒有對話或相容端點的請求在進行 | R10 |
-| 領域 | `colab exec -f` 遠端腳本 | 不適用 | `start_ollama.py` 加量測、級距與 pid 檔;新增 `restart_ollama.py` | R1、R6、R7 |
+| 領域 | `colab exec -f` 遠端腳本 | 不適用 | `start_ollama.py` 加量測、級距與 pid 檔;新增 `restart_ollama.py`;設定狀態檔 `/root/cgb-ollama-tuning.json` | R1、R6、R7 |
 | 領域 | Ollama(遠端) | 安裝時取最新(桌機實測 0.32.15,001 遠端實測 0.40.15) | 讀五個環境變數決定平行數、context、同時載入模型數、flash attention、KV cache | R2、R3 |
 | 領域 | `nvidia-smi` | 不適用 | 在執行環境上讀顯示記憶體總量與 GPU 名稱 | R6 |
 | 領域 | `/proc/meminfo` | 不適用 | 在執行環境上讀系統記憶體總量 | R6 |

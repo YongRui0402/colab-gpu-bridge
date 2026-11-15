@@ -1086,7 +1086,7 @@
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015、FR-012、使用者故事 3 驗收情境 1;`plan.md` § 待決問題 Q21
-- [ ] T121b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-02 通過的程式碼;`step` 依序推 `restarting_ollama`、`reloading_models` 的 `session.updated`,重新載入每個模型後推 `models.updated`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T121a)
+- [ ] T121b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-02 通過的程式碼;`step` 依序推 `restarting_ollama`、`reloading_models` 的 `session.updated`,重新載入每個模型後推 `models.updated`;重啟成功時就把量到的硬體與新設定寫進 `in_progress` 那一筆,目前生效的設定也取它(analysis A2、D48),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T121a)
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015、FR-012、使用者故事 3 驗收情境 1;`plan.md` § 待決問題 Q21
@@ -1302,7 +1302,7 @@
   - 🧪 `testplan.md` § US3-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § 使用者故事 3 驗收情境 5(故事 1)、FR-013;`plan.md` § 待決問題 Q24
-- [ ] T148b [US3] 🟢 /tdd 綠燈:在 `src/cgb/repos/tunings.py`、`src/cgb/api/session.py` 只寫讓 US3-API-29 通過的程式碼;目前生效的設定取最新一筆有讀到設定的紀錄(含 `interrupted`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T148a)
+- [ ] T148b [US3] 🟢 /tdd 綠燈:在 `src/cgb/repos/tunings.py`、`src/cgb/api/session.py` 只寫讓 US3-API-29 通過的程式碼;目前生效的設定取最新一筆有讀到設定的紀錄(含 `interrupted`,以及重啟成功、重新載入中的 `in_progress`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T148a)
   - 🧪 `testplan.md` § US3-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § 使用者故事 3 驗收情境 5(故事 1)、FR-013;`plan.md` § 待決問題 Q24
