@@ -1552,15 +1552,15 @@
 
 > 不開 Colab;替身的 token 與轉發位址是已知的假值,測試行程內攔截所有對外連線,不對 127.0.0.1:11434 送任何請求
 
-- [ ] T174a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_005_g_05.py` 寫 G-05 的測試(依序開啟(帶覆蓋值)、讀工作階段狀態與紀錄、套用並重啟、讓重啟失敗一次;分隔註解寫 `# ---- 005 G-05`),執行確認它因為「錯誤訊息或設定紀錄夾帶 `colab exec` 的命令列與 token;測試或程式連到使用者自己的 Ollama」這類實作而失敗
+- [x] T174a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_005_g_05.py` 寫 G-05 的測試(依序開啟(帶覆蓋值)、讀工作階段狀態與紀錄、套用並重啟、讓重啟失敗一次;分隔註解寫 `# ---- 005 G-05`),執行確認它因為「錯誤訊息或設定紀錄夾帶 `colab exec` 的命令列與 token;測試或程式連到使用者自己的 Ollama」這類實作而失敗
   - 🧪 `testplan.md` § G-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./sessions/{name}.get`、`paths./session/tuning.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § NFR-003
-- [ ] T174b [G] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/logging_setup.py` 只寫讓 G-05 通過的程式碼;錯誤訊息、紀錄與日誌不帶 `colab exec` 的命令列、token 與轉發位址,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T174a)
+- [x] T174b [G] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/logging_setup.py` 只寫讓 G-05 通過的程式碼;錯誤訊息、紀錄與日誌不帶 `colab exec` 的命令列、token 與轉發位址,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T174a)
   - 🧪 `testplan.md` § G-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./sessions/{name}.get`、`paths./session/tuning.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § NFR-003
-- [ ] T175 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T174b~T174b 記下的重構清單(範圍限 `src/cgb/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_005_g_05.py` 的斷言(依賴 T174b)
+- [x] T175 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T174b~T174b 記下的重構清單(範圍限 `src/cgb/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_005_g_05.py` 的斷言(依賴 T174b)
   - 🧪 `testplan.md` § G-05
   - 📎 `testplan.md` § 5.2
 
