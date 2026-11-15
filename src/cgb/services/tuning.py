@@ -239,7 +239,9 @@ class TuningService:
             local = (await remote.list_local_models(base_url=base_url))["models"]
             loaded = {m["name"] for m in (await remote.list_loaded_models(base_url=base_url))["models"]}
             catalog = catalog_payload(local, loaded, vram_bytes, {})
-        except Exception:
-            logger.exception("套用設定時推送模型目錄失敗,略過這一次")
+        except Exception as error:
+            # 不用 logger.exception:例外鏈(底層 httpx 錯誤)可能帶轉發位址,G-05 只允許固定訊息與錯誤代碼
+            code = error.code if isinstance(error, AdapterError) else type(error).__name__
+            logger.warning("套用設定時推送模型目錄失敗,略過這一次(%s)", code)
             return
         self._events.models_updated(catalog)
