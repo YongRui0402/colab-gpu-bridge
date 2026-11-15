@@ -143,7 +143,11 @@ class AutoDownload:
                     size_bytes=size,
                 )
             return []
-        used = sum(row["size_bytes"] for row in self._downloads.pending())
+        pending = self._downloads.pending()
+        # 取大小期間被手動加入的同名模型:先排除再累加空間,否則手動項目的大小會被算兩次(最後由 `enqueue_auto` 再把關)
+        queued = {match_key(row["model"]) for row in pending}
+        candidates = [item for item in candidates if match_key(item[1]) not in queued]
+        used = sum(row["size_bytes"] for row in pending)
         fitting: list[tuple[int, str, int]] = []
         vram = resources["vramTotalBytes"]
         for position, model, size in candidates:

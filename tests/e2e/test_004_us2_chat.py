@@ -487,7 +487,7 @@ def test_對話頁逾時的兩種說明也是繁體中文(page: Page, e2e_server
 # ---- 004 US2-AJ-網路例外:瀏覽器與後端之間斷線
 
 
-def test_送出前連線被拒_標示中斷並釋放送出鈕_恢復後可以再送(page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any) -> None:
+def test_送出前連線被拒_標示沒有送出並釋放送出鈕_恢復後可以再送(page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any) -> None:
     # Arrange:第一次送出的 `/api/chat` 在瀏覽器端被拒絕(模擬斷線),之後放行
     open_chat(page, world, QWEN)
     fakes.server.add("POST", "/api/chat", NdjsonReply([chunk("好"), DONE]), times=1)
@@ -496,8 +496,8 @@ def test_送出前連線被拒_標示中斷並釋放送出鈕_恢復後可以再
     # Act
     send(page, "你好")
 
-    # Assert:這一則標示中斷,送出鈕與模型選單回復
-    expect(page.locator('[data-state="turn-interrupted"]')).to_be_visible()
+    # Assert:送出前就失敗(沒有收到任何內容)標成沒有送出,送出鈕與模型選單回復
+    expect(page.locator('[data-state="turn-unavailable"]')).to_be_visible()
     expect(page.locator("#send")).to_be_visible()
     expect(page.locator("#model")).to_be_enabled()
 

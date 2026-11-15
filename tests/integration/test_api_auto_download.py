@@ -947,3 +947,34 @@ async def test_自動下載取大小期間手動加入其中一項_其餘照常�
     assert result is not None and result["enqueued"] == ["qwen2.5:0.5b"]  # 則2
     assert result["skipped"] == []  # 則3
     assert sorted((job["model"], job["origin"]) for job in jobs) == [("qwen2.5:0.5b", "auto"), ("qwen2.5:7b", "user")]  # 則4
+
+
+async def test_手動加入的重複項目先排除再試算空間_剩餘空間只夠手動與其他項目各一份時其他項目仍排入(
+    ui_client: httpx.AsyncClient, fakes: Any
+) -> None:
+    # Arrange:剩餘空間剛好放得下 7b 加 0.5b 各一份,放不下 7b 算兩次再加 0.5b;自動下載目標依序為 7b、0.5b
+    sizes = MANIFEST_SIZES
+    downloadable(fakes, disk_free=sizes["qwen2.5:7b"] + sizes["qwen2.5:0.5b"])
+    hold_pulls(fakes)
+    await curate(ui_client, "qwen2.5:7b", auto=True)
+    await curate(ui_client, "qwen2.5:0.5b", auto=True)
+    held = Gate()
+
+    async def manifest(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        if kwargs["tag"] == "0.5b":
+            await held.pass_async()
+        return {"name": kwargs["name"], "tag": kwargs["tag"], "sizeBytes": sizes[f"{kwargs['name']}:{kwargs['tag']}"]}
+
+    fakes.model_library.get_manifest.side_effect(manifest)
+    await open_ready(ui_client)
+    await held.wait_entered_async(timeout=3.0)
+
+    # Act:取大小期間手動加入 7b,再放行
+    manual = await ui_client.post("/api/downloads", json={"models": ["qwen2.5:7b"]})
+    held.release()
+    result = await wait_auto(ui_client, lambda r: r is not None and r["state"] == "done")
+
+    # Assert:0.5b 沒有被誤判成空間不足
+    assert manual.status_code == 201  # 則1
+    assert result is not None and result["enqueued"] == ["qwen2.5:0.5b"]  # 則2
+    assert result["skipped"] == []  # 則3
