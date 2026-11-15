@@ -19,6 +19,7 @@ from cgb.repos.curated import CuratedRepo
 from cgb.repos.downloads import DownloadsRepo
 from cgb.repos.sessions import SessionsRepo
 from cgb.repos.settings import SettingsRepo
+from cgb.repos.tunings import TuningsRepo
 from cgb.repos.usage import UsageRepo
 from cgb.services.auth import AuthService
 from cgb.services.auto_download import AutoDownload
@@ -46,6 +47,7 @@ class Services:
     auto_download: AutoDownload
     switch: RuntimeSwitch
     sessions_repo: SessionsRepo
+    tunings_repo: TuningsRepo
     events: EventBus
     monitor: HealthMonitor
     catalog: Catalog
@@ -66,7 +68,8 @@ def install(app: FastAPI) -> None:
         key_path = os.environ.get("CGB_SSH_IDENTITY_PATH", DEFAULT_SSH_IDENTITY_PATH)
         repo = SessionsRepo(conn, now=lambda: iso(state.clock.now()))
         auth_service = AuthService(state)
-        lifecycle = SessionLifecycle(state, repo, auth_service, key_path)
+        tunings_repo = TuningsRepo(conn)
+        lifecycle = SessionLifecycle(state, repo, auth_service, key_path, tunings_repo)
         events = EventBus()
         downloads_service = DownloadsService(state, DownloadsRepo(conn), lifecycle, events)
         curated_repo = CuratedRepo(conn)
@@ -84,6 +87,7 @@ def install(app: FastAPI) -> None:
             auto_download=auto_download,
             switch=RuntimeSwitch(state, repo, lifecycle, downloads_service),
             sessions_repo=repo,
+            tunings_repo=tunings_repo,
             events=events,
             monitor=monitor,
             catalog=Catalog(state, lifecycle, events),
