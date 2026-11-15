@@ -926,146 +926,146 @@
   - 🧪 `testplan.md` § US3-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`
   - 📎 `spec.md` § FR-012、FR-013;`plan.md` § 待決問題 Q32、Q51
-- [ ] T101a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-02 的測試(呼叫 `restart_ollama(name="cgb-test-0001", overrides={"numParallel": 4, "contextLength": None, "maxLoadedModels": None})`;分隔註解寫 `# ---- 005 US3-CLI-02`),執行確認它因為「照 `OllamaStarted` 的形狀回傳,少了 `stoppedBy`、多了 `alreadyRunning`」這類實作而失敗
+- [x] T101a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-02 的測試(呼叫 `restart_ollama(name="cgb-test-0001", overrides={"numParallel": 4, "contextLength": None, "maxLoadedModels": None})`;分隔註解寫 `# ---- 005 US3-CLI-02`),執行確認它因為「照 `OllamaStarted` 的形狀回傳,少了 `stoppedBy`、多了 `alreadyRunning`」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.StoppedBy`、`components.schemas.MachineProbe`
   - 📎 `spec.md` § FR-012
-- [ ] T101b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-02 通過的程式碼;回 `OllamaRestarted`(`stoppedBy`、`machine`、`tuning`,沒有 `alreadyRunning`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T101a)
+- [x] T101b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-02 通過的程式碼;回 `OllamaRestarted`(`stoppedBy`、`machine`、`tuning`,沒有 `alreadyRunning`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T101a)
   - 🧪 `testplan.md` § US3-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.StoppedBy`、`components.schemas.MachineProbe`
   - 📎 `spec.md` § FR-012
-- [ ] T102a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-03 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-03`),執行確認它因為「只把 `verify` 帶出 `remoteStage`,`stop` 被當成別的錯,呼叫者不改用自動值重試(plan.md Q4)」這類實作而失敗
+- [x] T102a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-03 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-03`),執行確認它因為「只把 `verify` 帶出 `remoteStage`,`stop` 被當成別的錯,呼叫者不改用自動值重試(plan.md Q4)」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-03
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`、`components.schemas.ScriptStage`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q4
-- [ ] T102b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-03 通過的程式碼;`stage` 為 `stop`、`start`、`verify` 時都帶 `remote_stage`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T102a)
+- [x] T102b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-03 通過的程式碼;`stage` 為 `stop`、`start`、`verify` 時都帶 `remote_stage`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T102a)
   - 🧪 `testplan.md` § US3-CLI-03
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`、`components.schemas.ScriptStage`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q4
-- [ ] T103a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-04 的測試(劇本一呼叫 `restart_ollama` 帶平行數 4;劇本二呼叫 `restart_ollama` 帶 `{"numParallel": 33, "contextLength": None, "maxLoadedModels": None}`;分隔註解寫 `# ---- 005 US3-CLI-04`),執行確認它因為「範圍檢查只寫在 `start_ollama`,`restart_ollama` 把 33 送到遠端」這類實作而失敗
+- [x] T103a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-04 的測試(劇本一呼叫 `restart_ollama` 帶平行數 4;劇本二呼叫 `restart_ollama` 帶 `{"numParallel": 33, "contextLength": None, "maxLoadedModels": None}`;分隔註解寫 `# ---- 005 US3-CLI-04`),執行確認它因為「範圍檢查只寫在 `start_ollama`,`restart_ollama` 把 33 送到遠端」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-04
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017、FR-013
-- [ ] T103b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-04 通過的程式碼;重啟也在呼叫 `colab` 之前檢查範圍,和 `start_ollama` 共用同一段檢查,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T103a)
+- [x] T103b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-04 通過的程式碼;重啟也在呼叫 `colab` 之前檢查範圍,和 `start_ollama` 共用同一段檢查,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T103a)
   - 🧪 `testplan.md` § US3-CLI-04
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017、FR-013
-- [ ] T104a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-05 的測試(各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-05`);T100b 讓 `restart_ollama` 經 `_exec_script`(`Connection was lost` 以同一組參數重跑一次,`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟不走 `_exec_script`,`Connection was lost` 直接失敗、套用變成結束工作階段」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T104a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-05 的測試(各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-05`);T100b 讓 `restart_ollama` 經 `_exec_script`(`Connection was lost` 以同一組參數重跑一次,`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟不走 `_exec_script`,`Connection was lost` 直接失敗、套用變成結束工作階段」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-CLI-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、邊界情況(重啟時 colab exec 斷線)
-- [ ] T104b [US3] 🟢 /tdd 綠燈:US3-CLI-05 由 T100b 讓 `restart_ollama` 經 `_exec_script`(`Connection was lost` 以同一組參數重跑一次,`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-05 通過的程式碼(依賴 T104a)
+- [x] T104b [US3] 🟢 /tdd 綠燈:US3-CLI-05 由 T100b 讓 `restart_ollama` 經 `_exec_script`(`Connection was lost` 以同一組參數重跑一次,`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-05 通過的程式碼(依賴 T104a)
   - 🧪 `testplan.md` § US3-CLI-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、邊界情況(重啟時 colab exec 斷線)
-- [ ] T105a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-06 的測試(各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-06`);T100b 讓 `restart_ollama` 用 `CliTimeouts.restart_ollama`(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟沿用 `start_ollama` 的 300 秒時限(`CliTimeouts` 沒有 `restart_ollama`,縮短的設定沒有作用)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T105a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-06 的測試(各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-06`);T100b 讓 `restart_ollama` 用 `CliTimeouts.restart_ollama`(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟沿用 `start_ollama` 的 300 秒時限(`CliTimeouts` 沒有 `restart_ollama`,縮短的設定沒有作用)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-CLI-06
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q51
-- [ ] T105b [US3] 🟢 /tdd 綠燈:US3-CLI-06 由 T100b 讓 `restart_ollama` 用 `CliTimeouts.restart_ollama`(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-06 通過的程式碼(依賴 T105a)
+- [x] T105b [US3] 🟢 /tdd 綠燈:US3-CLI-06 由 T100b 讓 `restart_ollama` 用 `CliTimeouts.restart_ollama`(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-06 通過的程式碼(依賴 T105a)
   - 🧪 `testplan.md` § US3-CLI-06
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q51
-- [ ] T106a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-07 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-07`);T100b 讓 `restart_ollama` 經 `_exec_script` 的失敗分類與 stderr 遮罩(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟自己解析輸出,只認 `CGB-RESULT`,其他失敗一律歸 `COLAB_REMOTE_ERROR`,呼叫者照 Q10 改回自動值又重啟一次(執行環境已不在或未授權時白跑)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T106a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-07 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-07`);T100b 讓 `restart_ollama` 經 `_exec_script` 的失敗分類與 stderr 遮罩(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟自己解析輸出,只認 `CGB-RESULT`,其他失敗一律歸 `COLAB_REMOTE_ERROR`,呼叫者照 Q10 改回自動值又重啟一次(執行環境已不在或未授權時白跑)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-CLI-07
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、NFR-003;`plan.md` § 待決問題 Q10
-- [ ] T106b [US3] 🟢 /tdd 綠燈:US3-CLI-07 由 T100b 讓 `restart_ollama` 經 `_exec_script` 的失敗分類與 stderr 遮罩(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-07 通過的程式碼(依賴 T106a)
+- [x] T106b [US3] 🟢 /tdd 綠燈:US3-CLI-07 由 T100b 讓 `restart_ollama` 經 `_exec_script` 的失敗分類與 stderr 遮罩(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-07 通過的程式碼(依賴 T106a)
   - 🧪 `testplan.md` § US3-CLI-07
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、NFR-003;`plan.md` § 待決問題 Q10
-- [ ] T107a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-08 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-08`),執行確認它因為「照 `start_ollama` 的寬鬆規則接受 `tuning` 為 null,重啟後後端寫進一筆沒有設定的紀錄」這類實作而失敗
+- [x] T107a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-08 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-08`),執行確認它因為「照 `start_ollama` 的寬鬆規則接受 `tuning` 為 null,重啟後後端寫進一筆沒有設定的紀錄」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-08
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`、`components.schemas.StoppedBy`
   - 📎 `spec.md` § FR-012
-- [ ] T107b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-08 通過的程式碼;重啟的結果 `tuning` 不得為 null、`stoppedBy` 要在列舉裡,不符歸 `COLAB_BAD_RESPONSE`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T107a)
+- [x] T107b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-08 通過的程式碼;重啟的結果 `tuning` 不得為 null、`stoppedBy` 要在列舉裡,不符歸 `COLAB_BAD_RESPONSE`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T107a)
   - 🧪 `testplan.md` § US3-CLI-08
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`、`components.schemas.StoppedBy`
   - 📎 `spec.md` § FR-012
-- [ ] T108a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-09 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-09`),執行確認它因為「只對 pid 送訊號、不送行程群組,載入模型的子行程留著佔顯示記憶體(research.md R1)」這類實作而失敗
+- [x] T108a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-09 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-09`),執行確認它因為「只對 pid 送訊號、不送行程群組,載入模型的子行程留著佔顯示記憶體(research.md R1)」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q53
-- [ ] T108b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-09 通過的程式碼;對 pid 檔那個 pid 的行程群組送 SIGTERM(`os.killpg`),`stoppedBy` 為 `pid_file`;pid 被重用不另檢查,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T108a)
+- [x] T108b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-09 通過的程式碼;對 pid 檔那個 pid 的行程群組送 SIGTERM(`os.killpg`),`stoppedBy` 為 `pid_file`;pid 被重用不另檢查,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T108a)
   - 🧪 `testplan.md` § US3-CLI-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q53
-- [ ] T109a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-10 的測試(每種各 `box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-10`),執行確認它因為「pid 檔不在就直接啟動新的,舊的佔著 port,新的起不來、回報 `verify`」這類實作而失敗
+- [x] T109a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-10 的測試(每種各 `box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-10`),執行確認它因為「pid 檔不在就直接啟動新的,舊的佔著 port,新的起不來、回報 `verify`」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-10
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q5、Q45
-- [ ] T109b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-10 通過的程式碼;pid 檔不在或內容不是數字時以 `pgrep -f`(`CGB_SERVE_PGREP_PATTERN`,預設 `^ollama serve`)找 pid,再停整個行程群組,`stoppedBy` 為 `pgrep`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T109a)
+- [x] T109b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-10 通過的程式碼;pid 檔不在或內容不是數字時以 `pgrep -f`(`CGB_SERVE_PGREP_PATTERN`,預設 `^ollama serve`)找 pid,再停整個行程群組,`stoppedBy` 為 `pgrep`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T109a)
   - 🧪 `testplan.md` § US3-CLI-10
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q5、Q45
-- [ ] T110a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-11 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-11`),執行確認它因為「找不到要停的行程就回報 `stage: "stop"`,Ollama 自己掛掉時無法以重啟救回」這類實作而失敗
+- [x] T110a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-11 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-11`),執行確認它因為「找不到要停的行程就回報 `stage: "stop"`,Ollama 自己掛掉時無法以重啟救回」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-11
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012
-- [ ] T110b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-11 通過的程式碼;找不到要停的行程不算失敗,`stoppedBy` 為 `none`,照常啟動,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T110a)
+- [x] T110b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-11 通過的程式碼;找不到要停的行程不算失敗,`stoppedBy` 為 `none`,照常啟動,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T110a)
   - 🧪 `testplan.md` § US3-CLI-11
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012
-- [ ] T111a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-12 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-12`),執行確認它因為「送了 SIGTERM 就不再確認,忽略 SIGTERM 的成員留在執行環境上」這類實作而失敗
+- [x] T111a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-12 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-12`),執行確認它因為「送了 SIGTERM 就不再確認,忽略 SIGTERM 的成員留在執行環境上」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-12
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q45
-- [ ] T111b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-12 通過的程式碼;`CGB_STOP_SECONDS`(預設 10)內行程群組沒結束就送 SIGKILL,確認都結束才往下,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T111a)
+- [x] T111b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-12 通過的程式碼;`CGB_STOP_SECONDS`(預設 10)內行程群組沒結束就送 SIGKILL,確認都結束才往下,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T111a)
   - 🧪 `testplan.md` § US3-CLI-12
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q45
-- [ ] T112a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-13 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-13`),執行確認它因為「不確認舊的已停止回應就啟動,新的 bind 失敗、回報成 `verify`」這類實作而失敗
+- [x] T112a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-13 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-13`),執行確認它因為「不確認舊的已停止回應就啟動,新的 bind 失敗、回報成 `verify`」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-13
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013;`research.md` § R1
-- [ ] T112b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-13 通過的程式碼;確認舊的已停止回應 `/api/version` 才啟動新的,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T112a)
+- [x] T112b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-13 通過的程式碼;確認舊的已停止回應 `/api/version` 才啟動新的,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T112a)
   - 🧪 `testplan.md` § US3-CLI-13
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013;`research.md` § R1
-- [ ] T113a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-14 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-14`),執行確認它因為「啟動丟出的 `OSError` 沒接住,變成沒有結果行的 traceback(轉接層歸成 `remoteStage` 為 null)」這類實作而失敗
+- [x] T113a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-14 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-14`),執行確認它因為「啟動丟出的 `OSError` 沒接住,變成沒有結果行的 traceback(轉接層歸成 `remoteStage` 為 null)」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-14
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T113b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-14 通過的程式碼;啟動丟出的 `OSError` 回 `stage: start`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T113a)
+- [x] T113b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-14 通過的程式碼;啟動丟出的 `OSError` 回 `stage: start`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T113a)
   - 🧪 `testplan.md` § US3-CLI-14
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T114a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-15 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-15`),執行確認它因為「驗證失敗時寫了狀態檔或留著舊的」這類實作而失敗
+- [x] T114a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-15 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-15`),執行確認它因為「驗證失敗時寫了狀態檔或留著舊的」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-15
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T114b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-15 通過的程式碼;驗證失敗時不寫狀態檔、刪掉舊的,並停掉新起的那一個,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T114a)
+- [x] T114b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-15 通過的程式碼;驗證失敗時不寫狀態檔、刪掉舊的,並停掉新起的那一個,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T114a)
   - 🧪 `testplan.md` § US3-CLI-15
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T115a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-16 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-16`),執行確認它因為「先停舊的才檢查覆蓋值,使用者打錯一個值,已載入的模型就被清掉、還要改回自動值重啟一次」這類實作而失敗
+- [x] T115a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-16 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-16`),執行確認它因為「先停舊的才檢查覆蓋值,使用者打錯一個值,已載入的模型就被清掉、還要改回自動值重啟一次」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-16
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-017、FR-013
-- [ ] T115b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-16 通過的程式碼;停舊的之前先檢查三個 `CGB_TUNE_*`,不符回 `stage: input`、不碰舊的 serve,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T115a)
+- [x] T115b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-16 通過的程式碼;停舊的之前先檢查三個 `CGB_TUNE_*`,不符回 `stage: input`、不碰舊的 serve,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T115a)
   - 🧪 `testplan.md` § US3-CLI-16
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-017、FR-013
-- [ ] T116a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-17 的測試(同一個 kernel 以同一組環境連跑兩次 `restart_ollama.py`(`Connection was lost` 的重跑);分隔註解寫 `# ---- 005 US3-CLI-17`),執行確認它因為「第二次讀到的 pid 檔還是第一次之前的舊 pid(第一次沒寫回),停不到第一次起的 serve,新的起不來」這類實作而失敗
+- [x] T116a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-17 的測試(同一個 kernel 以同一組環境連跑兩次 `restart_ollama.py`(`Connection was lost` 的重跑);分隔註解寫 `# ---- 005 US3-CLI-17`),執行確認它因為「第二次讀到的 pid 檔還是第一次之前的舊 pid(第一次沒寫回),停不到第一次起的 serve,新的起不來」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-17
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013、邊界情況(重啟時 colab exec 斷線)
-- [ ] T116b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-17 通過的程式碼;新的 serve 起來就寫回 pid 檔,重跑時停得到上一次起的那一個,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T116a)
+- [x] T116b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-17 通過的程式碼;新的 serve 起來就寫回 pid 檔,重跑時停得到上一次起的那一個,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T116a)
   - 🧪 `testplan.md` § US3-CLI-17
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013、邊界情況(重啟時 colab exec 斷線)
-- [ ] T117a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-18 的測試(同一個 kernel 依序跑兩步:`restart_ollama.py` 帶 `CGB_TUNE_NUM_PARALLEL=4`;再以三個 `CGB_TUNE_*` 都是空字串跑一次(FR-013 改回自動值);分隔註解寫 `# ---- 005 US3-CLI-18`),執行確認它因為「第一步失敗後 pid 檔指著已結束的 pid,第二步 `os.killpg` 丟例外變成 traceback,改回自動值也失敗、工作階段被結束」這類實作而失敗
+- [x] T117a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-18 的測試(同一個 kernel 依序跑兩步:`restart_ollama.py` 帶 `CGB_TUNE_NUM_PARALLEL=4`;再以三個 `CGB_TUNE_*` 都是空字串跑一次(FR-013 改回自動值);分隔註解寫 `# ---- 005 US3-CLI-18`),執行確認它因為「第一步失敗後 pid 檔指著已結束的 pid,第二步 `os.killpg` 丟例外變成 traceback,改回自動值也失敗、工作階段被結束」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T117b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-18 通過的程式碼;pid 指著已結束的行程時(`ProcessLookupError`)當成已停止,不丟例外,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T117a)
+- [x] T117b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-18 通過的程式碼;pid 指著已結束的行程時(`ProcessLookupError`)當成已停止,不丟例外,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T117a)
   - 🧪 `testplan.md` § US3-CLI-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T118 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T100b~T117b 記下的重構清單(範圍限 `src/cgb/adapters/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_colab_cli.py`、`tests/integration/test_ollama_scripts.py` 的斷言(依賴 T117b)
+- [x] T118 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T100b~T117b 記下的重構清單(範圍限 `src/cgb/adapters/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_colab_cli.py`、`tests/integration/test_ollama_scripts.py` 的斷言(依賴 T117b)
   - 🧪 `testplan.md` § US3-CLI-01~US3-CLI-18
   - 📎 `testplan.md` § 4.1
-- [ ] T119 [US3] 📏 量測:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-19(標 `realrun_local`),照案例起好舊的 serve、pid 檔指著它、量到 15360 MiB,`CGB_STOP_SECONDS`、`CGB_VERIFY_SECONDS` 都不設(用預設 10、60);情況 A 以 `CGB_TUNE_NUM_PARALLEL=4` 連續重啟 5 次、記每次從開始到結果行的時間與 `ok`,情況 B 跑一次 US3-CLI-18 的兩步(新設定起不來、等滿 60 秒,再改回自動值)、記兩步合計的時間,和門檻(A 的 5 次都 ≤ 90 秒且 `ok` 都是 true、B ≤ 180 秒,SC-004,只含遠端腳本)比較,結果寫進 `specs/005-ollama-machine-tuning/measurements.md`;serve 是 `box` 起的臨時 `ollama serve`(`free_loopback_port()`、暫存 `HOME` 與 `OLLAMA_MODELS`,不 pull 任何模型),腳本裡的 socket 守門只放行那個 port,不對 127.0.0.1:11434 送請求;停止靠 pid 檔,不以預設樣式執行 `pgrep`;不執行 `colab`、不花 compute units;紀錄只寫 pytest 暫存資料夾;約 2 分鐘;收尾照 `box` 確認行程與行程群組都已結束;Colab 上含 `colab exec` 來回的時間由 G-04 量;判定者:腳本;樣本:一次實跑,A 5 次、B 1 次(未用於調整)
+- [x] T119 [US3] 📏 量測:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-19(標 `realrun_local`),照案例起好舊的 serve、pid 檔指著它、量到 15360 MiB,`CGB_STOP_SECONDS`、`CGB_VERIFY_SECONDS` 都不設(用預設 10、60);情況 A 以 `CGB_TUNE_NUM_PARALLEL=4` 連續重啟 5 次、記每次從開始到結果行的時間與 `ok`,情況 B 跑一次 US3-CLI-18 的兩步(新設定起不來、等滿 60 秒,再改回自動值)、記兩步合計的時間,和門檻(A 的 5 次都 ≤ 90 秒且 `ok` 都是 true、B ≤ 180 秒,SC-004,只含遠端腳本)比較,結果寫進 `specs/005-ollama-machine-tuning/measurements.md`;serve 是 `box` 起的臨時 `ollama serve`(`free_loopback_port()`、暫存 `HOME` 與 `OLLAMA_MODELS`,不 pull 任何模型),腳本裡的 socket 守門只放行那個 port,不對 127.0.0.1:11434 送請求;停止靠 pid 檔,不以預設樣式執行 `pgrep`;不執行 `colab`、不花 compute units;紀錄只寫 pytest 暫存資料夾;約 2 分鐘;收尾照 `box` 確認行程與行程群組都已結束;Colab 上含 `colab exec` 來回的時間由 G-04 量;判定者:腳本;樣本:一次實跑,A 5 次、B 1 次(未用於調整)
   - 🧪 `testplan.md` § US3-CLI-19
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`
   - 📎 `spec.md` § NFR-002、SC-004

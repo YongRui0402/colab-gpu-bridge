@@ -9,6 +9,7 @@ pytest 暫存資料夾。kernel 子行程的 socket 只放行那個 port,不對 
 
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -82,15 +83,17 @@ for step in config["steps"]:
     lines = [line for line in out.getvalue().splitlines() if line.startswith("CGB-RESULT ")]
     # 這一步結束時 pid 檔指的 serve 讀到的環境(下一步可能停掉它),以及 kernel 自己的環境
     serve_env = None
+    pid_text = None
     try:
-        pid = int(open(config["pid_file"], encoding="utf-8").read().strip())
+        pid_text = open(config["pid_file"], encoding="utf-8").read()
+        pid = int(pid_text.strip())
         raw = open(f"/proc/{pid}/environ", "rb").read()
         serve_env = [item.decode(errors="replace").split("=", 1) for item in raw.split(b"\0") if b"=" in item]
     except (OSError, ValueError):
         pass
     print(json.dumps({
         "stdout": out.getvalue(), "result": lines[-1] if lines else None, "elapsed": elapsed, "error": error,
-        "serve_env": serve_env, "environ": dict(os.environ),
+        "serve_env": serve_env, "pid_file": pid_text, "environ": dict(os.environ),
     }))
 print(json.dumps({"environ": dict(os.environ)}))
 """
@@ -127,6 +130,7 @@ class Step:
     error: str | None
     serve_env: list[tuple[str, str]] | None
     environ: dict[str, str]
+    pid_file: str | None = None  # 這一步結束時 pid 檔的內容
 
 
 @dataclass
@@ -151,6 +155,10 @@ class Box:
             path.mkdir()
         (self.bin / "ollama").symlink_to(OLLAMA_BIN)
         (self.bin / "pgrep").symlink_to(PGREP_BIN)
+        # 舊的 serve 以這個路徑起,pgrep 的比對樣式只認它;桌機上使用者自己的 `ollama serve` 比對不到、也不會收到訊號(護欄 P6)
+        self.oldbin = root / "oldbin"
+        self.oldbin.mkdir()
+        (self.oldbin / "ollama").symlink_to(OLLAMA_BIN)
         self.pid_path = root / "cgb-ollama-serve.pid"
         self.tuning_path = root / "cgb-ollama-tuning.json"
         self.log_path = root / "cgb-ollama-serve.log"
@@ -180,6 +188,7 @@ class Box:
             "CGB_SERVE_PID_FILE": str(self.pid_path),
             "CGB_TUNING_FILE": str(self.tuning_path),
             "CGB_SERVE_LOG": str(self.log_path),
+            "CGB_SERVE_PGREP_PATTERN": f"^{re.escape(str(self.oldbin / 'ollama'))} serve",
             "CGB_INSTALL_COMMAND": "true",
             "CGB_TEST_MARKER": self.marker,
         }
@@ -222,6 +231,7 @@ class Box:
                 error=r["error"],
                 serve_env=[tuple(pair) for pair in r["serve_env"]] if r["serve_env"] is not None else None,
                 environ=r["environ"],
+                pid_file=r.get("pid_file"),
             )
             for r in records[:-1]
         ]
@@ -236,29 +246,73 @@ class Box:
             "OLLAMA_HOST": f"127.0.0.1:{self.port}",
             "CGB_TEST_MARKER": self.marker,
         }
+        # 成員要和 serve 在同一個 session 與行程群組:不能事後 setpgid 加入別的 session 的群組,
+        # 所以由新 session 的 `sh` 先在背景放出成員,再 `exec` 成 serve(pid 不變、cmdline 是 `<via> serve`)
+        child_pid_file = self.root / f"old-serve-child-{uuid.uuid4().hex}.pid"
+        member = ""
+        if with_child:
+            member = "( " + ("trap '' TERM; " if child_ignores_term else "") + f"exec /usr/bin/sleep 300 ) & echo $! > {child_pid_file}; "
         with (self.root / "old-serve.log").open("ab") as log:
             serve = subprocess.Popen(
-                [str(via), "serve"], stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, env=env, start_new_session=True
+                ["/bin/sh", "-c", member + 'exec "$0" serve', str(via)],
+                stdin=subprocess.DEVNULL,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                env=env,
+                start_new_session=True,
             )
         self.old_serves.append(serve)
         child_pid = None
-        if with_child:
-            # 同一個行程群組的成員,代表載入模型的 llama-server
-            code = "import signal, time\n" + ("signal.signal(signal.SIGTERM, signal.SIG_IGN)\n" if child_ignores_term else "")
-            child = subprocess.Popen(
-                [sys.executable, "-I", "-c", code + "time.sleep(300)"], env=env, process_group=serve.pid, stdin=subprocess.DEVNULL
-            )
-            self.old_serves.append(child)
-            child_pid = child.pid
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             try:
                 if self.version().status_code == 200:
+                    if with_child:
+                        child_pid = int(child_pid_file.read_text(encoding="utf-8").strip())
                     return serve.pid, child_pid
             except httpx.HTTPError:
                 pass
             time.sleep(0.2)
         raise AssertionError("舊的 serve 30 秒內沒有回應")
+
+    def start_bystander(self) -> int:
+        """不符合 pgrep 比對樣式的 `sleep 300`(帶 `CGB_TEST_MARKER`,收尾時一併結束);回傳 pid。"""
+        env = {"PATH": str(self.bin), "CGB_TEST_MARKER": self.marker}
+        bystander = subprocess.Popen(
+            ["/usr/bin/sleep", "300"], stdin=subprocess.DEVNULL, env=env, start_new_session=True
+        )
+        self.old_serves.append(bystander)
+        return bystander.pid
+
+    def start_http_stub(self) -> int:
+        """`<port>` 上一個小 HTTP 伺服器,對 `/api/version` 回 200;不是 ollama、不在 pid 檔、不符合 pgrep 樣式;回傳 pid。"""
+        code = (
+            "import http.server, json, sys\n"
+            "class Handler(http.server.BaseHTTPRequestHandler):\n"
+            "    def do_GET(self):\n"
+            "        body = json.dumps({'version': '0.0.0'}).encode()\n"
+            "        self.send_response(200)\n"
+            "        self.send_header('Content-Length', str(len(body)))\n"
+            "        self.end_headers()\n"
+            "        self.wfile.write(body)\n"
+            "    def log_message(self, *args):\n"
+            "        pass\n"
+            "http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), Handler).serve_forever()\n"
+        )
+        env = {"PATH": str(self.bin), "CGB_TEST_MARKER": self.marker}
+        stub = subprocess.Popen(
+            [sys.executable, "-I", "-c", code, str(self.port)], stdin=subprocess.DEVNULL, env=env, start_new_session=True
+        )
+        self.old_serves.append(stub)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                if self.version().status_code == 200:
+                    return stub.pid
+            except httpx.HTTPError:
+                pass
+            time.sleep(0.1)
+        raise AssertionError("HTTP 伺服器 10 秒內沒有回應")
 
     # ---- 觀察
 
@@ -882,3 +936,284 @@ def test_覆蓋值不符時回報_input_不量硬體_不刪狀態檔也不啟動
     assert box.pid_file() is None
     assert box.gpu_calls() == []
     assert box.state() == OLD_STATE
+
+
+# ---- 005 US3-CLI-09
+
+
+def is_gone(box, pid: int) -> bool:
+    """行程已不在(測試自己起的先回收,defunct 也算不在)。"""
+    for serve in box.old_serves:
+        serve.poll()
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except (OSError, IndexError):
+        return True
+    return state == "Z"
+
+
+def test_重啟停掉_pid_檔那個_serve_的整個行程群組_以新設定起新的並寫回_pid_檔與狀態檔(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    old_pid, child_pid = box.start_old_serve(with_child=True)
+    box.pid_path.write_text(f"{old_pid}\n", encoding="utf-8")
+
+    # Act
+    restarted = box.run([RESTART_OLLAMA], CGB_TUNE_NUM_PARALLEL="4").steps[0]
+
+    # Assert
+    result = restarted.result or {}
+    new_pid_text = (box.pid_file() or "").strip()
+    new_pid = int(new_pid_text) if new_pid_text.isdigit() else -1
+    tuning = result.get("tuning") or {}
+    assert result.get("ok") is True
+    assert result.get("stoppedBy") == "pid_file"
+    assert is_gone(box, old_pid)
+    assert child_pid is not None and is_gone(box, child_pid)
+    assert new_pid > 0 and new_pid != old_pid
+    assert env_value(box.serve_env(new_pid), "OLLAMA_NUM_PARALLEL") == ["4"]
+    assert box.version().status_code == 200
+    assert [tuning.get(k) for k in ("numParallel", "contextLength", "maxLoadedModels")] == [
+        {"value": 4, "source": "manual"},
+        {"value": 4096, "source": "auto"},
+        {"value": 1, "source": "auto"},
+    ]
+    assert (box.state() or {}).get("tuning") == tuning
+
+
+# ---- 005 US3-CLI-10
+
+NO_USABLE_PID_FILE = ["a-missing", "b-dead-pid"]
+
+
+@pytest.mark.parametrize("case", NO_USABLE_PID_FILE)
+def test_pid_檔不能用時以_pgrep_找到舊的_serve_停掉它的整個行程群組(box, case):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    old_pid, child_pid = box.start_old_serve(via=box.oldbin / "ollama", with_child=True)
+    bystander_pid = box.start_bystander()
+    if case == "b-dead-pid":
+        gone = subprocess.Popen(["/usr/bin/true"])
+        gone.wait()
+        box.pid_path.write_text(f"{gone.pid}\n", encoding="utf-8")
+
+    # Act
+    restarted = box.run([RESTART_OLLAMA]).steps[0].result or {}
+
+    # Assert
+    assert restarted.get("ok") is True
+    assert restarted.get("stoppedBy") == "pgrep"
+    assert is_gone(box, old_pid)
+    assert child_pid is not None and is_gone(box, child_pid)
+    assert not is_gone(box, bystander_pid)
+    assert box.version().status_code == 200
+
+
+# ---- 005 US3-CLI-11
+
+
+def test_找不到要停的行程時照常啟動_停止方式是_not_running(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+
+    # Act
+    restarted = box.run([RESTART_OLLAMA]).steps[0].result or {}
+
+    # Assert
+    assert restarted.get("ok") is True
+    assert restarted.get("stoppedBy") == "not_running"
+    assert box.version().status_code == 200
+
+
+# ---- 005 US3-CLI-12
+
+
+def test_群組裡有成員忽略_SIGTERM_時寬限過了就強制結束_確認都沒了才啟動新的(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    old_pid, stubborn_pid = box.start_old_serve(with_child=True, child_ignores_term=True)
+    box.pid_path.write_text(f"{old_pid}\n", encoding="utf-8")
+
+    # Act
+    step = box.run([RESTART_OLLAMA], CGB_STOP_SECONDS="1").steps[0]
+
+    # Assert
+    assert (step.result or {}).get("ok") is True
+    assert stubborn_pid is not None and is_gone(box, stubborn_pid)
+    assert 1 <= step.elapsed <= 8
+
+
+# ---- 005 US3-CLI-13
+
+
+def test_port_上有停不掉的別人時回報_stop_不啟動新的_也不動它(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    stub_pid = box.start_http_stub()
+
+    # Act
+    step = box.run([RESTART_OLLAMA], CGB_STOP_SECONDS="1").steps[0]
+
+    # Assert
+    failed = step.result or {}
+    assert (failed.get("ok"), failed.get("stage")) == (False, "stop")
+    assert failed.get("stoppedBy") == "not_running"
+    assert not is_gone(box, stub_pid)
+    assert box.pid_file() is None
+    assert 1 <= step.elapsed <= 3
+
+
+# ---- 005 US3-CLI-14
+
+
+def test_找不到_ollama_而啟動不了時回報_start_並刪掉舊的狀態檔(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    old_pid, _ = box.start_old_serve()
+    box.pid_path.write_text(f"{old_pid}\n", encoding="utf-8")
+    box.tuning_path.write_text(json.dumps(OLD_STATE), encoding="utf-8")
+    (box.bin / "ollama").unlink()
+
+    # Act
+    failed = box.run([RESTART_OLLAMA]).steps[0].result or {}
+
+    # Assert
+    assert (failed.get("ok"), failed.get("stage")) == (False, "start")
+    assert "No such file or directory" in (failed.get("detail") or "")
+    assert failed.get("stoppedBy") == "pid_file"
+    assert box.state() is None
+
+
+# ---- 005 US3-CLI-15
+
+
+def test_新的_serve_起來了但沒有回應時回報_verify_與紀錄檔最後一行_沒有狀態檔(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    old_pid, _ = box.start_old_serve()
+    box.pid_path.write_text(f"{old_pid}\n", encoding="utf-8")
+    box.tuning_path.write_text(json.dumps(OLD_STATE), encoding="utf-8")
+    (box.bin / "ollama").unlink()
+    (box.bin / "ollama").write_text("#!/bin/sh\necho 'Error: invalid OLLAMA_CONTEXT_LENGTH' >&2\nexit 1\n", encoding="utf-8")
+    (box.bin / "ollama").chmod(0o755)
+
+    # Act
+    step = box.run([RESTART_OLLAMA], CGB_VERIFY_SECONDS="2").steps[0]
+
+    # Assert
+    failed = step.result or {}
+    assert (failed.get("ok"), failed.get("stage")) == (False, "verify")
+    assert failed.get("detail") == "Error: invalid OLLAMA_CONTEXT_LENGTH"
+    assert failed.get("stoppedBy") == "pid_file"
+    assert box.state() is None
+    assert 2 <= step.elapsed <= 6
+
+
+# ---- 005 US3-CLI-16
+
+
+def test_覆蓋值不符時回報_input_不碰舊的_serve(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    old_pid, _ = box.start_old_serve()
+    box.pid_path.write_text(f"{old_pid}\n", encoding="utf-8")
+
+    # Act
+    failed = box.run([RESTART_OLLAMA], CGB_TUNE_NUM_PARALLEL="33").steps[0].result or {}
+
+    # Assert
+    assert (failed.get("ok"), failed.get("stage")) == (False, "input")
+    assert "stoppedBy" not in failed
+    assert not is_gone(box, old_pid)
+    assert box.version().status_code == 200
+
+
+# ---- 005 US3-CLI-17
+
+
+def test_同一個_kernel_連跑兩次重啟時第二次停得到第一次起的_serve_最後只有一個(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    old_pid, _ = box.start_old_serve()
+    box.pid_path.write_text(f"{old_pid}\n", encoding="utf-8")
+
+    # Act
+    first, second = box.run([RESTART_OLLAMA, RESTART_OLLAMA], CGB_TUNE_NUM_PARALLEL="4").steps
+
+    # Assert
+    serves = [pid for pid in box.marked() if is_ollama_serve(pid)]
+    assert (second.result or {}).get("ok") is True
+    assert (second.result or {}).get("stoppedBy") == "pid_file"
+    assert second.pid_file != first.pid_file
+    assert len(serves) == 1
+    assert (second.result or {}).get("tuning") == (first.result or {}).get("tuning")
+
+
+# ---- 005 US3-CLI-18
+
+
+def test_新設定起不來之後改回自動值的重啟照樣完成_pid_檔指著已結束的行程也不出錯(box):
+    # Arrange
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    old_pid, _ = box.start_old_serve()
+    box.pid_path.write_text(f"{old_pid}\n", encoding="utf-8")
+    (box.bin / "ollama").unlink()
+    (box.bin / "ollama").write_text(
+        '#!/bin/sh\nif [ "$OLLAMA_NUM_PARALLEL" = "4" ]; then echo "Error: boom" >&2; exit 1; fi\n'
+        f'exec {OLLAMA_BIN} "$@"\n',
+        encoding="utf-8",
+    )
+    (box.bin / "ollama").chmod(0o755)
+
+    # Act
+    first, second = box.run(
+        [(RESTART_OLLAMA, {"CGB_TUNE_NUM_PARALLEL": "4"}), (RESTART_OLLAMA, {"CGB_TUNE_NUM_PARALLEL": ""})],
+        CGB_VERIFY_SECONDS="3",
+    ).steps
+
+    # Assert
+    assert (first.result or {}).get("stage") == "verify"
+    assert (second.result or {}).get("ok") is True
+    assert (second.result or {}).get("stoppedBy") == "not_running"
+    assert env_value(second.serve_env or [], "OLLAMA_NUM_PARALLEL") == ["2"]
+    assert ((box.state() or {}).get("tuning") or {}).get("numParallel") == {"value": 2, "source": "auto"}
+
+
+# ---- 005 US3-CLI-19(📏 量測:判定者是腳本;A 連續 5 次、B 一次,未用於調整)
+
+APPLY_LIMIT_SECONDS = 90
+REVERT_LIMIT_SECONDS = 180
+
+
+def test_量測_遠端重啟占用的時間_套用在_90_秒內_改回自動值兩步合計在_180_秒內(box):
+    # Arrange:舊的 serve 起好、pid 檔指著它;`CGB_STOP_SECONDS`、`CGB_VERIFY_SECONDS` 都不設(預設 10、60);
+    # 停止靠 pid 檔,不以預設樣式執行 pgrep(step_env 的樣式只認這支測試的 oldbin)
+    box.fake_gpu(lines=[("Tesla T4", 15360)])
+    old_pid, _ = box.start_old_serve()
+    box.pid_path.write_text(f"{old_pid}\n", encoding="utf-8")
+
+    # Act
+    # 情況 A:以平行數 4 連續重啟 5 次(同一個 kernel,每一步各自計時)
+    apply = box.run([RESTART_OLLAMA] * 5, CGB_TUNE_NUM_PARALLEL="4").steps
+    # 情況 B:新設定起不來(等滿 60 秒),再改回自動值(同 US3-CLI-18 的 `bin/ollama`)
+    (box.bin / "ollama").unlink()
+    (box.bin / "ollama").write_text(
+        '#!/bin/sh\nif [ "$OLLAMA_NUM_PARALLEL" = "4" ]; then echo "Error: boom" >&2; exit 1; fi\n'
+        f'exec {OLLAMA_BIN} "$@"\n',
+        encoding="utf-8",
+    )
+    (box.bin / "ollama").chmod(0o755)
+    failed, reverted = box.run(
+        [(RESTART_OLLAMA, {"CGB_TUNE_NUM_PARALLEL": "4"}), (RESTART_OLLAMA, {"CGB_TUNE_NUM_PARALLEL": ""})]
+    ).steps
+
+    # Assert
+    seconds = [round(step.elapsed, 1) for step in apply]
+    total_b = round(failed.elapsed + reverted.elapsed, 1)
+    print(f"\nUS3-CLI-19 A 每次秒數={seconds} ok={[(step.result or {}).get('ok') for step in apply]}")
+    print(f"US3-CLI-19 B 第一步={round(failed.elapsed, 1)} 第二步={round(reverted.elapsed, 1)} 合計={total_b}")
+    assert [(step.result or {}).get("ok") for step in apply] == [True] * 5
+    assert [s for s in seconds if s > APPLY_LIMIT_SECONDS] == []
+    assert (failed.result or {}).get("stage") == "verify"
+    assert (reverted.result or {}).get("ok") is True
+    assert total_b <= REVERT_LIMIT_SECONDS
