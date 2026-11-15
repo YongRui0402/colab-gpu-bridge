@@ -135,14 +135,14 @@
 
 **決策**:沿用 SQLite 與 `PRAGMA user_version` 遷移(1 → 2):
 
-- 新表 `runtime_type_tuning`:每種 GPU 類型一列,三個可為 NULL 的欄位與更新時間。
+- 新表 `runtime_type_tunings`:有記住覆蓋值的 GPU 類型才有一列,三個可為 NULL 的欄位與更新時間;清除時刪掉那一列。
 - 新表 `session_tunings`:每次開啟或套用一列(工作階段、時間、觸發、五項值與來源、結果、顯示記憶體與系統記憶體)。
 - 表與欄位細節由 system-analysis 的 data-plan 定。
 
 **理由**:
 
 - 查證(`src/cgb/db/schema.py`):004 已用 `PRAGMA user_version` 從 0 遷到 1,`sessions.runtime_type_gpu` 的 CHECK 列出五種類型。
-- 判斷:只是加表,不改既有表,不需要重建;沿用同一套遷移方式不新增套件。
+- 判斷:`sessions` 與 `session_transitions` 要加 `applying_tuning` 狀態與新的 step(plan Q7),SQLite 不能改 CHECK,照 004 的做法重建這兩張表,其餘只加表;沿用同一套遷移方式不新增套件。
 
 **考慮過的替代方案**:把覆蓋值存成 JSON 放進既有的 `settings` 表:要查某一種類型的值得整份解析,每次套用的紀錄也還是要另一張表。
 
@@ -184,4 +184,6 @@
 
 ## 修訂紀錄
 
-無(2026-11-15 初版,尚未修訂)。
+### 2026-11-15
+
+- R9:決策從「只加 `runtime_type_tuning`、`session_tunings` 兩張表,不重建」改成「加 `runtime_type_tunings`、`session_tunings`、`session_tuning_models`,並重建 `sessions`、`session_transitions`」。原因:plan Q7 新增 `applying_tuning` 狀態與重啟的 step,SQLite 不能改 CHECK;清除覆蓋值改成刪列(plan Q23)。連帶:無。

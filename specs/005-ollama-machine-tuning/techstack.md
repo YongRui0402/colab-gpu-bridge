@@ -15,7 +15,7 @@
 | 領域 | `nvidia-smi` | 不適用 | 在執行環境上讀顯示記憶體總量與 GPU 名稱 | R6 |
 | 領域 | `/proc/meminfo` | 不適用 | 在執行環境上讀系統記憶體總量 | R6 |
 | 前端 | 原生 HTML / CSS / JS | 不適用 | 開啟畫面的「Ollama 設定」區塊、工作階段頁的設定卡 | R11 |
-| 資料 | SQLite(`sqlite3` 標準函式庫) | 不適用 | `PRAGMA user_version` 1 → 2,新增 `runtime_type_tuning`、`session_tunings` | R9 |
+| 資料 | SQLite(`sqlite3` 標準函式庫) | 不適用 | `PRAGMA user_version` 1 → 2,重建 `sessions`、`session_transitions`,新增 `runtime_type_tunings`、`session_tunings`、`session_tuning_models` | R9 |
 | 測試 | `pytest` | 9.2.0 | 級距、覆蓋值、重啟流程的整合測試 | R4、R7 |
 | 測試 | `pytest-asyncio` | 1.4.1.post1 | 非同步案例 | R1 |
 | 測試 | `tests/fakes` 的替身 | 不適用 | 回報不同顯示記憶體的 `colab` 替身、重啟失敗的替身 | R1、R4 |

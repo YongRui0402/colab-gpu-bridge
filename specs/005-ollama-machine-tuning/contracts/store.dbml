@@ -1,0 +1,213 @@
+Project colab_gpu_bridge {
+  database_type: 'SQLite'
+  Note: '''
+S4(E4 資料庫)依 005 的 spec.md、plan.md(含待決問題 Q7、Q9、Q11、Q12、Q13 的決定)、research.md R9、R10,與 S3 的 ui.openapi.yaml、ui-events.asyncapi.yaml、S1 的 colab-cli.openapi.yaml 產出;資源、欄位與 enum 值照 S3、S1 原文,只做 camelCase 轉 snake_case。
+
+以 004 的同名檔為底(更早的在 001 的同名檔),只收這一輪新增或改變的表;沒有列的表(download_jobs、curated_models、auto_download_results、auto_download_items、settings、usage_snapshots)以前一次的 store.dbml 為準(004 有收的以 004 為準,其他以 001 為準)。慣例沿用 001:Python 標準函式庫 sqlite3、WAL 模式;時間欄位以 ISO 8601 UTC 字串存;boolean 存成 INTEGER 0/1 並以 CHECK 限制;pydbml 1.x 解析不了 DBML 的 checks 語法,數值範圍與跨欄位的 CHECK 寫在欄位或表的 note,建表時照寫成 SQL 的 CHECK。
+
+這一輪的變更:
+- sessions:state 加 applying_tuning(Q7);step 改用 session_step,多了 restarting_ollama、reloading_models(Q7);end_reason 可用的值多了 OLLAMA_RESTART_FAILED(Q11);end_reason 照現行 schema.py 維持沒有 CHECK(Q22),值由 repos 保證。其他欄位不變。
+- session_transitions:state、step 的 CHECK 跟 sessions 一起改;end_reason 同樣維持沒有 CHECK(Q22)。
+- 新表 runtime_type_tunings:類型覆蓋值(spec 關鍵實體「類型覆蓋值」,research R9 暫名 runtime_type_tuning,照表名慣例改成複數)。
+- 新表 session_tunings:每一次開啟或套用的 Ollama 設定(spec 關鍵實體「Ollama 設定」與「機器量測」,R9 暫名照用)。
+- 新表 session_tuning_models:每一次套用重新載入與沒有重新載入的模型(S3 TuningRecord.reloaded、notReloaded)。
+
+不建表的資料(資料表-規範〈只寫要持久化的資料〉):
+- Session.ollama(S3 OllamaStatus):由 session_tunings 推出,不另存。tuning、machine 取該工作階段依 (at, id) 最新一筆 result 為 applied、fell_back_to_auto,或 result 為 interrupted 而 probed_at 不為 NULL(後端恢復時呼叫過 startOllama,Q13)的那一列;有這一列時 status 為 applied(tuning 的十個欄位有值)或 unknown(tuning 為 NULL);沒有這一列時,sessions.state 為 opening 而 step 是 ending_previous、allocating、starting_ollama 時為 pending,其他為 unknown(含 005 之前開、升級後接回的工作階段)。lastApply 取最新一筆 trigger 為 apply 的那一列。
+- 套用受理時讀到的 /api/ps 清單與順序:只在一次套用流程裡用;後端在套用中停機時恢復流程不重新載入模型(S3 x-applying-state (4)),不需要留。重新載入的結果寫進 session_tuning_models。
+- 忙碌判斷(進行中的請求數、下載中):IdleMonitor.active_requests 與 download_jobs 的狀態(R10),不另存。
+- 遠端執行環境上的 /root/cgb-ollama-tuning.json:在執行環境上,不在本機資料庫(S1 共用約定 13-1)。
+
+寫入的時機(S3 info.x-tuning-rule、x-apply-flow、x-applying-state):
+- runtime_type_tunings:openSession、restartSession 帶了 tuning 而受理時,以三個值整份取代那種類型的列(Q9,開啟失敗不還原);applyTuning 的 result 變成 applied 時,以這次要求的值整份取代(FR-014)。三個值都是 NULL 就是清除:刪掉那一列(FR-009),不留三個 NULL 的列。
+- session_tunings 開啟那一筆:startOllama 成功時寫入,result 一律 applied,at 與 finished_at 相同;開啟失敗的工作階段沒有這一筆。requested 是這次本文的 tuning,沒有帶時是當時那種類型的列(沒有列就是三個 NULL)。
+- session_tunings 套用那一筆:applyTuning 受理時寫入 result 為 in_progress、attempt 為 requested;改回自動值時 attempt 改為 auto_fallback 並寫入第一次失敗的 reason_code、remote_stage;重啟成功寫入 machine 與 tuning 的欄位;回到就緒時寫入 result(applied 或 fell_back_to_auto)與 finished_at;失聯時寫入 failed、最後一次的 reason_code、remote_stage、message 與 finished_at(machine、tuning 維持 NULL)。
+- 套用中被 endSession 結束:那一列改為 interrupted、寫入 finished_at,machine、tuning 維持重啟成功前的值(還沒重啟成功就是 NULL)。
+- 後端在 applying_tuning 停機(Q13):恢復時照 001 的恢復流程判斷工作階段;接回同一個工作階段而 startOllama 成功時,把 in_progress 那一列改為 interrupted、寫入 finished_at 與 startOllama 回報的 machine、tuning(讀不到設定檔時 tuning 為 NULL),不寫 runtime_type_tunings;被收回或 startOllama 失敗而失聯時同樣改為 interrupted,machine、tuning 維持原值。後端啟動時,工作階段不是 applying_tuning 卻還有 in_progress 的列(停機在寫入兩者之間),一律改為 interrupted。
+
+遷移(R9;user_version 1 → 2):後端啟動時 create_schema 依 PRAGMA user_version 判斷,不能再像 004 那樣「不是 0 就直接 return」。
+- 全新資料庫(user_version 為 0 且還沒有 sessions 表):直接建這一版的表與 index(sessions、session_transitions 用本檔的 CHECK,其他表照 004),設 user_version = 2。
+- 004 之前的資料庫(user_version 為 0 且已有 sessions 表):先照 004 做 0 → 1(自己的交易),成功後接著做 1 → 2(另一個交易);1 → 2 失敗時停在 1,下次啟動只再試 1 → 2。
+- user_version 為 1:在一個交易裡做 1 → 2,任何一步失敗整個 rollback、原例外往上丟、user_version 仍是 1,下次啟動再試(照 004 Q39):
+  0. BEGIN 之前確認 PRAGMA foreign_keys 為 0(現行程式沒有開,PRAGMA foreign_keys 在交易裡改不了);開著時 DROP TABLE sessions 會對參照它的 download_jobs、auto_download_results、session_transitions 做 ON DELETE CASCADE,把資料刪光,所以不是 0 就丟例外、不遷移。
+  1. sessions(SQLite 不能改 CHECK,照 004 重建 download_jobs 的做法重建):建 sessions_new(本檔的欄位與 CHECK)→ `INSERT INTO sessions_new (<001 的全部欄位,依名稱>) SELECT <同一組欄位> FROM sessions` → DROP TABLE sessions → ALTER TABLE sessions_new RENAME TO sessions → 重建 idx_sessions_opened_at、idx_sessions_state。既有的列都符合新的 CHECK(新的 CHECK 只多了值);end_reason 沒有 CHECK,照原值複製(Q22)。
+  2. session_transitions:同樣建 session_transitions_new → 依名稱複製全部欄位(id 照原值,AUTOINCREMENT 的序號由 SQLite 依最大 id 接續)→ DROP → RENAME → 重建 idx_session_transitions_session。
+  3. 建 runtime_type_tunings、session_tunings、session_tuning_models 與它們的 index。既有的工作階段不補 session_tunings(getSessionRecord 回空陣列,S3);runtime_type_tunings 一開始沒有列。
+  4. PRAGMA user_version = 2。
+- 已經是 2:不做任何事;再跑一次 create_schema 不出錯。大於 2(用舊版後端開新版的資料庫):不做任何事、不降版。
+- 其他表參照 sessions 是以名稱寫在它們的 DDL 裡,重建後 sessions 的名稱不變,參照照樣成立;download_jobs、auto_download_results、curated_models 這一輪不動。
+
+關聯的刪除:現行程式沒有開 PRAGMA foreign_keys,SQLite 不執行 Ref 的 delete 行為;下面的 cascade 是約束的意圖(照 004),本系統不刪 sessions 的列。
+'''
+}
+
+Enum gpu_type {
+  T4 [note: '照 004']
+  L4 [note: '照 004']
+  G4 [note: '照 004']
+  A100 [note: '照 004']
+  H100 [note: '照 004;只在 UI 選單隱藏,類型覆蓋值照樣可以有這一種(FR-018)']
+}
+
+Enum session_state {
+  opening [note: '開啟中(照 001)']
+  ready [note: '就緒(照 001)']
+  applying_tuning [note: '套用設定中(這一輪新增,Q7):不算就緒,和開啟中、就緒、重連中一樣占用 active_slot(S3 x-applying-state (1))']
+  reconnecting [note: '重連中(照 001)']
+  ending [note: '結束中(照 001)']
+  ended [note: '已結束,一定有 end_reason(照 001)']
+  open_failed [note: '開啟失敗,一定有 end_reason(照 001)']
+  lost [note: '失聯,一定有 end_reason(照 001)']
+}
+
+Enum session_step {
+  ending_previous [note: 'S3 OpeningStep(照 001):結束原本的執行環境(只在變更類型時)']
+  allocating [note: 'S3 OpeningStep(照 001):在 Colab 配置執行環境']
+  starting_ollama [note: 'S3 OpeningStep(照 001):安裝並啟動 Ollama;這一輪多了量硬體與決定設定(S1)']
+  connecting [note: 'S3 OpeningStep(照 001):建立通道']
+  verifying [note: 'S3 OpeningStep(照 001):確認模型服務可回應']
+  restarting_ollama [note: 'S3 TuningStep(這一輪新增,Q7):停掉並以新設定啟動遠端 Ollama,含改回自動值的那一次']
+  reloading_models [note: 'S3 TuningStep(這一輪新增,Q7):依重啟前 /api/ps 的順序重新載入模型']
+}
+
+Enum tuning_trigger {
+  open [note: '開啟(含變更類型開出的新工作階段)時的那一筆;每個工作階段最多一筆']
+  apply [note: '工作階段開著時套用的那一筆;零到多筆']
+}
+
+Enum tuning_result {
+  in_progress [note: '套用中;每個工作階段最多一筆(uq_session_tunings_in_progress)']
+  applied [note: '成功;開啟時那一筆一律是這個']
+  fell_back_to_auto [note: '要求的設定重啟失敗、改回自動值成功(FR-013)']
+  failed [note: '改回自動值也失敗,或不是設定造成的失敗而失聯(S3 x-apply-flow (5))']
+  interrupted [note: '套用到一半被結束或後端停機(Q13,S3 x-applying-state (3)(4))']
+}
+
+Enum tuning_attempt {
+  requested [note: '最後一次重啟用的是要求的設定']
+  auto_fallback [note: '最後一次重啟是改回自動值的那一次(三個覆蓋值都是 null)']
+}
+
+Enum tuning_source {
+  auto [note: '依顯示記憶體級距(flash attention 與 KV cache 是固定開啟)']
+  manual [note: '覆蓋值;和自動值相同的手動值仍是 manual']
+  ollama_default [note: '沒有帶這個變數,用 Ollama 自己的預設值(值為 NULL)']
+}
+
+Enum kv_cache_type {
+  q8_0 [note: '照 S1、S3 KvCacheTypeItem.value;沒有帶時欄位為 NULL']
+}
+
+Enum script_stage {
+  input [note: '照 S1 ScriptStage:覆蓋值不符']
+  install [note: '照 S1 ScriptStage:安裝']
+  stop [note: '照 S1 ScriptStage:停不掉舊的']
+  start [note: '照 S1 ScriptStage:啟動失敗']
+  verify [note: '照 S1 ScriptStage:60 秒內沒有回應']
+}
+
+Enum not_reloaded_reason {
+  OVER_LIMIT [note: '照 S3 NotReloadedModel.reason:超出新的同時載入模型數']
+  PRELOAD_FAILED [note: '照 S3 NotReloadedModel.reason:重新載入(預先載入)失敗']
+}
+
+Table sessions {
+  name varchar(64) [pk, note: '照 001']
+  runtime_type_gpu gpu_type [not null, note: '照 001']
+  runtime_type_high_mem boolean [not null, note: '照 001']
+  state session_state [not null, default: 'opening', note: '這一輪多了 applying_tuning(Q7);其他照 001']
+  active_slot integer [unique, note: 'FR-006(001):state 為 opening、ready、applying_tuning、reconnecting 時固定為 1(這一輪多了 applying_tuning,S3 x-applying-state (1)),其他狀態為 NULL;ready ↔ applying_tuning 之間不釋放']
+  step session_step [note: '只在 state 為 opening 時是 ending_previous、allocating、starting_ollama、connecting、verifying 之一,state 為 applying_tuning 時是 restarting_ollama、reloading_models 之一,其他狀態為 NULL(001「只在 opening 時有值」這一輪不再成立,Q7)。跨欄位的對應不寫成 CHECK(既有資料沒有驗過),由 repos 保證']
+  end_reason varchar(32) [note: 'state 為 ended、open_failed、lost 時必填,其他為 NULL(照 001)。可用的值:USER_ENDED、IDLE_TIMEOUT、RUNTIME_TYPE_CHANGED、OPEN_FAILED、RECLAIMED_BY_COLAB(套用時 restartOllama 回 COLAB_NOT_FOUND 也是這個)、RECONNECT_TIMEOUT,與這一輪新增的 OLLAMA_RESTART_FAILED(Q11:改回自動值也失敗,或 colab exec 重跑後仍失敗而失聯,reason_code 帶最後一次的 COLAB_ 代碼,FR-013)。照現行 schema.py 維持沒有 CHECK(Q22),寫入的值由 repos 保證只用這七個']
+  reason_code varchar(64) [note: '照 001、004 的 ReasonCode;OLLAMA_RESTART_FAILED 時帶最後一次的 COLAB_ 代碼(含 COLAB_INVALID_TUNING、COLAB_REMOTE_ERROR)']
+  message text [note: '照 001;OLLAMA_RESTART_FAILED 時說明遠端 Ollama 重啟失敗、可以重新開啟一個工作階段']
+  opened_at datetime [not null, note: '照 001']
+  ready_at datetime [note: '第一次就緒的時間(照 001);套用設定後回到就緒不改']
+  ended_at datetime [note: '照 001']
+  last_request_at datetime [note: '照 001;從 applying_tuning 回到就緒時設為回到就緒的時間(重設閒置倒數,R10)']
+  reconnect_started_at datetime [note: '照 001']
+  reconnect_deadline datetime [note: '照 001']
+  release_warning_reason_code varchar(64) [note: '照 001']
+  release_warning_message text [note: '照 001']
+  release_warning_detected_at datetime [note: '照 001']
+  indexes {
+    (opened_at) [name: 'idx_sessions_opened_at', note: '照 001;遷移重建表後重建']
+    (state) [name: 'idx_sessions_state', note: '照 001;後端啟動時找最後一筆未結束的工作階段,這一輪含 applying_tuning']
+  }
+  Note: '需求: FR-012、FR-013、FR-015、NFR-002'
+}
+
+Table session_transitions {
+  id integer [pk, increment, note: '照 001;遷移時照原值複製']
+  session_name varchar(64) [not null, note: '照 001']
+  at datetime [not null, note: '照 001']
+  state session_state [not null, note: '照 S3 StateTransition.state;這一輪多了 applying_tuning']
+  step session_step [note: '照 S3 StateTransition.step;applying_tuning 的兩個步驟各記一筆(FR-015)']
+  end_reason varchar(32) [note: '照 S3 StateTransition.endReason;可用的值同 sessions.end_reason(這一輪多了 OLLAMA_RESTART_FAILED),維持沒有 CHECK(Q22),由 repos 保證']
+  reason_code varchar(64) [note: '照 001']
+  indexes {
+    (session_name, at) [name: 'idx_session_transitions_session', note: '照 001;遷移重建表後重建']
+  }
+  Note: '需求: FR-015、FR-016'
+}
+
+Table runtime_type_tunings {
+  gpu gpu_type [pk, note: '照 S3 RuntimeTypeTuningOverride.gpu;每種 GPU 類型最多一列(FR-018)']
+  num_parallel integer [note: '照 S3 numParallel:1~32,建表時加 CHECK (num_parallel BETWEEN 1 AND 32);NULL 代表自動']
+  context_length integer [note: '照 S3 contextLength:2048~131072,建表時加 CHECK (context_length BETWEEN 2048 AND 131072);NULL 代表自動']
+  max_loaded_models integer [note: '照 S3 maxLoadedModels:1~4,建表時加 CHECK (max_loaded_models BETWEEN 1 AND 4);NULL 代表自動']
+  updated_at datetime [not null, note: '照 S3 updatedAt:最後一次寫入的時間。清除時刪掉這一列,所以有列就有值;沒有列時 getTuningOverrides 回三個 null 與 updatedAt null']
+  Note: '需求: FR-008、FR-009、FR-014、FR-017、FR-018。表層級建表時加 CHECK (num_parallel IS NOT NULL OR context_length IS NOT NULL OR max_loaded_models IS NOT NULL):三個都是 NULL 就是清除,刪列而不是寫入(S3 x-tuning-rule (3))。範圍外的值由 api 先擋(FR-017,不寫入),CHECK 是最後一道'
+}
+
+Table session_tunings {
+  id integer [pk, increment, note: '同一個工作階段裡 at 相同時以 id 排序']
+  session_name varchar(64) [not null, note: '屬於哪一個工作階段']
+  at datetime [not null, note: '照 S3 TuningRecord.at:開啟時是 startOllama 成功的時間;套用時是受理的時間']
+  finished_at datetime [note: '照 S3 finishedAt:套用回到就緒、失聯或中斷的時間;開啟時那一筆和 at 相同;result 為 in_progress 時為 NULL,其他必填']
+  trigger tuning_trigger [not null, note: '照 S3 trigger']
+  attempt tuning_attempt [note: '照 S3 attempt:trigger 為 apply 時必填(受理時 requested),open 時為 NULL']
+  requested_num_parallel integer [note: '照 S3 requested.numParallel:這一次要求的覆蓋值,NULL 代表自動;範圍同 runtime_type_tunings.num_parallel(CHECK 1~32)']
+  requested_context_length integer [note: '照 S3 requested.contextLength;NULL 代表自動;CHECK 2048~131072']
+  requested_max_loaded_models integer [note: '照 S3 requested.maxLoadedModels;NULL 代表自動;CHECK 1~4']
+  gpu_name varchar(200) [note: '照 S3 machine.gpuName(S1 MachineProbe):第一張 GPU 的名稱;machine 為 null 或讀不到時為 NULL']
+  vram_total_bytes integer [note: '照 S3 machine.vramTotalBytes:位元組,>= 0;讀不到顯示記憶體(FR-003)或 machine 為 null 時為 NULL']
+  system_memory_total_bytes integer [note: '照 S3 machine.systemMemoryTotalBytes:位元組,>= 0;讀不到或 machine 為 null 時為 NULL']
+  probed_at datetime [note: '照 S3 machine.probedAt;不為 NULL 表示這一列有 machine(S1 startOllama、restartOllama 成功時一定有);in_progress、failed 時為 NULL']
+  num_parallel integer [note: '照 S3 tuning.numParallel.value:實際帶給遠端 Ollama 的值,>= 1;source 為 ollama_default 或 tuning 為 null 時為 NULL']
+  num_parallel_source tuning_source [note: '照 S3 tuning.numParallel.source;tuning 為 null 時為 NULL']
+  context_length integer [note: '照 S3 tuning.contextLength.value,>= 1;同上']
+  context_length_source tuning_source [note: '照 S3 tuning.contextLength.source;同上']
+  max_loaded_models integer [note: '照 S3 tuning.maxLoadedModels.value,>= 1;同上']
+  max_loaded_models_source tuning_source [note: '照 S3 tuning.maxLoadedModels.source;同上']
+  flash_attention boolean [note: '照 S3 tuning.flashAttention.value:開啟時為 true;source 為 ollama_default 或 tuning 為 null 時為 NULL']
+  flash_attention_source tuning_source [note: '照 S3 tuning.flashAttention.source;同上']
+  kv_cache_type kv_cache_type [note: '照 S3 tuning.kvCacheType.value;source 為 ollama_default 或 tuning 為 null 時為 NULL']
+  kv_cache_type_source tuning_source [note: '照 S3 tuning.kvCacheType.source;同上。五個 *_source 同時有值(tuning 不為 null)或同時為 NULL(tuning 為 null:in_progress、failed,或遠端 Ollama 已在執行而讀不到設定檔,Q2)']
+  result tuning_result [not null, note: '照 S3 result;開啟那一筆寫入時就是 applied,套用那一筆受理時是 in_progress']
+  reason_code varchar(64) [note: '照 S3 reasonCode,格式照 ReasonCode(^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH|HF)_[A-Z0-9_]+|AUTH_REQUIRED)$):fell_back_to_auto 與 in_progress 而 attempt 為 auto_fallback 時是第一次的失敗代碼;failed 時是最後一次的;其他為 NULL']
+  remote_stage script_stage [note: '照 S3 remoteStage:reason_code 為 COLAB_REMOTE_ERROR 而遠端有回報 stage 時有值,其他為 NULL']
+  message text [note: '照 S3 message:fell_back_to_auto 時是「手動設定沒有套用成功,已改回自動值」;failed 時說明重啟失敗;其他為 NULL']
+  indexes {
+    (session_name, at) [name: 'idx_session_tunings_session', note: 'getSessionRecord 依 at 排序列出 tunings;getSession 找目前生效的那一列與 lastApply']
+    (session_name, `CASE WHEN trigger = 'open' THEN 1 END`) [unique, name: 'uq_session_tunings_open', note: '每個工作階段最多一筆開啟時的紀錄;apply 的列運算式為 NULL,不互相衝突']
+    (session_name, `CASE WHEN result = 'in_progress' THEN 1 END`) [unique, name: 'uq_session_tunings_in_progress', note: '同一個工作階段同時最多一筆套用中;兩個分頁同時套用時後到的寫不進來(spec 邊界情況,對外回 TUNING_IN_PROGRESS)']
+  }
+  Note: '需求: FR-004、FR-005、FR-012、FR-013、FR-016。建表時加 CHECK:三組 requested_* 的範圍;num_parallel、context_length、max_loaded_models >= 1;vram_total_bytes、system_memory_total_bytes >= 0;flash_attention IN (0, 1);(trigger = \'apply\') = (attempt IS NOT NULL);(result = \'in_progress\') = (finished_at IS NULL)'
+}
+
+Table session_tuning_models {
+  tuning_id integer [not null, note: '屬於哪一次套用(session_tunings.id,trigger 為 apply)']
+  position integer [not null, note: '這個模型在重啟前 /api/ps 的順序(從 0 起);reloaded 與 notReloaded 都依它排序']
+  model varchar(200) [not null, note: '照 S3 NotReloadedModel.model 與 reloaded 的名稱:/api/ps 列出的模型名稱,例如 qwen2.5:7b']
+  reason not_reloaded_reason [note: '照 S3 NotReloadedModel.reason;NULL 表示已重新載入(列在 reloaded),有值表示沒有重新載入(列在 notReloaded)']
+  reason_code varchar(64) [note: '照 S3 NotReloadedModel.reasonCode:reason 為 PRELOAD_FAILED 時是 001 S1 預先載入的 OLLAMA_ 代碼;其他為 NULL']
+  indexes {
+    (tuning_id, position) [pk]
+  }
+  Note: '需求: FR-012、FR-016。處理完一個模型就寫一列;reloading_models 結束前列數可能少於重啟前的模型數(S3 notReloaded「reloading_models 結束後才確定」)。超出上限的模型(OVER_LIMIT)在重啟成功、開始重新載入時一次寫入'
+}
+
+Ref: session_transitions.session_name > sessions.name [delete: cascade]
+Ref: session_tunings.session_name > sessions.name [delete: cascade]
+Ref: session_tuning_models.tuning_id > session_tunings.id [delete: cascade]

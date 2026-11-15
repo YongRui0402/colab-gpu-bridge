@@ -110,3 +110,14 @@ tests/
 | Q13 | S3 | 套用到一半後端停機:a 恢復時以這次的覆蓋值呼叫一次 `startOllama`,這次記 `interrupted`(先採用);b 不碰遠端 | — | a(D24):spec 邊界情況改寫 |
 | Q14 | S3 | 重新載入細節:a `maxLoadedModels` null 時全部重新載入,單一模型載入失敗列進 `notReloaded`(先採用);b 載入失敗算套用失敗 | — | a(D25) |
 | Q15 | S3 | 套用前授權檢查:a 受理前檢查,未登入回 409 `AUTH_REQUIRED`(先採用);b 不檢查 | — | a(D26) |
+| Q16 | S2 | 審美方向:a 沿用 004(先採用);b 另訂 | — | a(分身決策紀錄 D27) |
+| Q17 | S2 | 原型用到、S3 平行時還沒定的欄位:a S3 照原型清單提供(先採用);b 原型照 S3 合約對齊 | S2 | b(D28):S2 照 `ui.openapi.yaml` 重做欄位、`applying_tuning`、`TuningResult`、`OLLAMA_RESTART_FAILED` |
+| Q18 | S2 | 忙碌什麼時候檢查:a 確認送出後由後端判斷(先採用);b 按鈕時先檢查一次 | — | a(D29):spec US3 驗收情境 3、4 改成「按套用並確認」 |
+| Q19 | S2 | 改回自動值也失敗時的結束原因與紀錄:a 新增結束原因、不追加紀錄(先採用);b 沿用 001 失聯原因 | S2 | a 的結束原因照 Q11 的 `OLLAMA_RESTART_FAILED`;紀錄照 Q12 追加 `failed`(D30) |
+| Q20 | S2 | 改回自動值時要不要顯示要求的手動值:a 不顯示(先採用);b 顯示 | S2 | b(D31):S3 合約已有 `TuningRecord.requested`;spec 關鍵實體補「要求的覆蓋值」 |
+| Q21 | S2 | 重啟進度要不要寫目標值:a 不寫(先採用);b 加欄位 | — | a(D32) |
+| Q22 | S4 | `end_reason` 要不要趁重建補 CHECK:a 補七個值(先採用);b 維持沒有 CHECK | S4 | b(分身決策紀錄 D33) |
+| Q23 | S4 | 類型覆蓋值清除時:a 刪掉那一列(先採用);b 固定一列改成 NULL | — | a(D34):research R9 修訂 |
+| Q24 | S4 | `interrupted` 那一筆算不算目前生效的設定:a 有讀到設定就算(先採用);b 只算 applied、fell_back_to_auto | — | a(D35):S3 `OllamaStatus.tuning` 描述已補 |
+| Q25 | S4 | state 與 step 的對應要不要寫成 CHECK:a 只寫 note、由 repos 保證(先採用);b 加跨欄位 CHECK | — | a(D36) |
+| Q26 | S4 | 表名 `runtime_type_tunings`,research R9「不需要重建」已不成立:a 照 S4 的表名、修 R9(先採用) | — | a(D37):research R9 修訂 |
