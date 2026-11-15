@@ -164,3 +164,24 @@ async def test_回應與片段不含轉發位址與機密_片段的主機都是�
     assert hosts == {"opencode": "http://{{host}}:11436/v1", "piModels": "http://{{host}}:11436/v1"}
     forbidden = ["49123", "127.0.0.1", "access_token", "refresh_token", "authorization"]
     assert [word for word in forbidden if word in response.text.lower()] == []
+
+
+# ---------------------------------------------------------------- US2-API-03
+
+
+async def test_就緒時附_pi_的_models_與_settings_片段並依套用的_context_算預留(ui_client: httpx.AsyncClient, fakes: Any) -> None:
+    # Arrange
+    ColabWorld(fakes)
+    set_default_catalog(fakes)
+    await open_ready(ui_client)
+
+    # Act
+    response = await ui_client.get("/api/connect")
+
+    # Assert
+    assert response.status_code == 200, response.text
+    body = response.json()
+    pi_models = json.loads(body["snippets"]["piModels"])
+    assert pi_models["providers"]["cgb"]["models"][0]["contextWindow"] == 4096
+    assert json.loads(body["snippets"]["piSettings"]) == {"compaction": {"reserveTokens": 1024}}
+    assert body["reserveTokens"] == 1024

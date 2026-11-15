@@ -41,3 +41,44 @@ def test_opencode_片段的單次回覆上限不超過_context_的一半() -> No
 
     # Assert
     assert outputs == [2048, 4095]
+
+
+# ---------------------------------------------------------------- US2-API-01
+
+
+def test_pi_的_models_片段用_completions_並關掉_developer_role_與_reasoning_effort() -> None:
+    # Act
+    snippet = json.loads(connect.pi_models_snippet(11436, ["qwen2.5-coder:7b"], 32768))
+
+    # Assert
+    provider = snippet["providers"]["cgb"]
+    assert provider["baseUrl"] == "http://{{host}}:11436/v1"
+    assert provider["api"] == "openai-completions"
+    assert provider["apiKey"] == "ollama"
+    assert provider["compat"] == {"supportsDeveloperRole": False, "supportsReasoningEffort": False}
+    assert provider["models"] == [
+        {
+            "id": "qwen2.5-coder:7b",
+            "name": "qwen2.5-coder:7b",
+            "reasoning": False,
+            "input": ["text"],
+            "contextWindow": 32768,
+            "maxTokens": 4096,
+        }
+    ]
+
+
+# ---------------------------------------------------------------- US2-API-02
+
+
+def test_pi_的單次回覆上限與壓縮預留隨_context_縮小且預留無條件捨去() -> None:
+    # Arrange
+    contexts = [4096, 16384, 32767]
+
+    # Act
+    max_tokens = [json.loads(connect.pi_models_snippet(11436, ["qwen2.5:3b"], context))["providers"]["cgb"]["models"][0]["maxTokens"] for context in contexts]
+    reserve_tokens = [json.loads(connect.pi_settings_snippet(context))["compaction"]["reserveTokens"] for context in contexts]
+
+    # Assert
+    assert max_tokens == [2048, 4096, 4096]
+    assert reserve_tokens == [1024, 4096, 8191]

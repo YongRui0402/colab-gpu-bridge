@@ -348,31 +348,31 @@
 
 ### E2 後端 UI API(FastAPI REST 與 SSE)
 
-- [ ] T031a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US2-API-01 的測試(以 port 11436、模型 `["qwen2.5-coder:7b"]`、context 32768 呼叫 `connect.pi_models_snippet(...)`;斷言 `providers.cgb.baseUrl` 是 `http://{{host}}:11436/v1`、`api` 是 `openai-completions`、`apiKey` 是 `ollama`、`compat` 是 `{"supportsDeveloperRole":false,"supportsReasoningEffort":false}`、模型項目是 `{"id":"qwen2.5-coder:7b","name":"qwen2.5-coder:7b","reasoning":false,"input":["text"],"contextWindow":32768,"maxTokens":4096}`),執行確認它因為「`api` 寫成 `openai-responses`;少了 `compat`,pi 送 developer role 給 Ollama」這類實作而失敗
+- [x] T031a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US2-API-01 的測試(以 port 11436、模型 `["qwen2.5-coder:7b"]`、context 32768 呼叫 `connect.pi_models_snippet(...)`;斷言 `providers.cgb.baseUrl` 是 `http://{{host}}:11436/v1`、`api` 是 `openai-completions`、`apiKey` 是 `ollama`、`compat` 是 `{"supportsDeveloperRole":false,"supportsReasoningEffort":false}`、模型項目是 `{"id":"qwen2.5-coder:7b","name":"qwen2.5-coder:7b","reasoning":false,"input":["text"],"contextWindow":32768,"maxTokens":4096}`),執行確認它因為「`api` 寫成 `openai-responses`;少了 `compat`,pi 送 developer role 給 Ollama」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-004、FR-005;`research.md` § R3
-- [ ] T031b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US2-API-01 通過的程式碼(把 T021b 的最小版 `pi_models_snippet` 補成完整的 `providers.cgb`:`baseUrl`、`api`、`apiKey`、`compat` 與 `models` 陣列);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
+- [x] T031b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US2-API-01 通過的程式碼(把 T021b 的最小版 `pi_models_snippet` 補成完整的 `providers.cgb`:`baseUrl`、`api`、`apiKey`、`compat` 與 `models` 陣列);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T031a)
   - 🧪 `testplan.md` § US2-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-004、FR-005;`research.md` § R3
-- [ ] T032a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US2-API-02 的測試(以 context 4096、16384、32767 各呼叫 `connect.pi_models_snippet(...)` 與 `connect.pi_settings_snippet(...)`;斷言 `maxTokens` 分別是 2048、4096、4096,`settings.json` 片段的 `compaction.reserveTokens` 分別是 1024、4096、8191),執行確認它因為「預留沒有無條件捨去;或 `maxTokens` 固定 4096」這類實作而失敗
+- [x] T032a [US2] 🔴 /tdd 紅燈:在 `tests/unit/test_connect.py` 寫 US2-API-02 的測試(以 context 4096、16384、32767 各呼叫 `connect.pi_models_snippet(...)` 與 `connect.pi_settings_snippet(...)`;斷言 `maxTokens` 分別是 2048、4096、4096,`settings.json` 片段的 `compaction.reserveTokens` 分別是 1024、4096、8191),執行確認它因為「預留沒有無條件捨去;或 `maxTokens` 固定 4096」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-005、FR-013;`plan.md` § 待決問題 Q15
-- [ ] T032b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US2-API-02 通過的程式碼(`maxTokens` 為 `min(4096, ⌊context ÷ 2⌋)`;新增 `pi_settings_snippet(context_length)` 回 `{"compaction":{"reserveTokens":⌊context ÷ 4⌋}}` 的 JSON 文字,`context_length` 為 None 時回 None);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T032a)
+- [x] T032b [US2] 🟢 /tdd 綠燈:在 `src/cgb/domain/connect.py` 只寫讓 US2-API-02 通過的程式碼(`maxTokens` 為 `min(4096, ⌊context ÷ 2⌋)`;新增 `pi_settings_snippet(context_length)` 回 `{"compaction":{"reserveTokens":⌊context ÷ 4⌋}}` 的 JSON 文字,`context_length` 為 None 時回 None);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T032a)
   - 🧪 `testplan.md` § US2-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-005、FR-013;`plan.md` § 待決問題 Q15
-- [ ] T033a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US2-API-03 的測試(工作階段就緒的預設資料;送 `GET /api/connect`;斷言 `snippets.piModels` 解析後的 `contextWindow` 是 4096、`snippets.piSettings` 解析後是 `{"compaction":{"reserveTokens":1024}}` 且 `reserveTokens` 欄位也是 1024),執行確認它因為「回應只給 opencode 的片段」這類實作而失敗
+- [x] T033a [US2] 🔴 /tdd 紅燈:在 `tests/integration/test_api_connect.py` 寫 US2-API-03 的測試(工作階段就緒的預設資料;送 `GET /api/connect`;斷言 `snippets.piModels` 解析後的 `contextWindow` 是 4096、`snippets.piSettings` 解析後是 `{"compaction":{"reserveTokens":1024}}` 且 `reserveTokens` 欄位也是 1024),執行確認它因為「回應只給 opencode 的片段」這類實作而失敗
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-004、FR-005、FR-013
-- [ ] T033b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py` 只寫讓 US2-API-03 通過的程式碼(`snippets.piModels` 與 `snippets.piSettings` 改用 `domain/connect.py` 的完整函式,`reserveTokens` 為 `⌊contextLength ÷ 4⌋`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T033a)
+- [x] T033b [US2] 🟢 /tdd 綠燈:在 `src/cgb/api/connect.py` 只寫讓 US2-API-03 通過的程式碼(`snippets.piModels` 與 `snippets.piSettings` 改用 `domain/connect.py` 的完整函式,`reserveTokens` 為 `⌊contextLength ÷ 4⌋`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T033a)
   - 🧪 `testplan.md` § US2-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`;`contracts/ui.openapi.yaml` § `components.schemas.ConnectSnippets`
   - 📎 `spec.md` § FR-004、FR-005、FR-013
-- [ ] T034 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T031b~T033b 記下的重構清單(範圍限 `src/cgb/domain/connect.py`、`src/cgb/api/connect.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/unit/test_connect.py`、`tests/integration/test_api_connect.py` 的斷言(依賴 T033b)
+- [x] T034 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T031b~T033b 記下的重構清單(範圍限 `src/cgb/domain/connect.py`、`src/cgb/api/connect.py`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/unit/test_connect.py`、`tests/integration/test_api_connect.py` 的斷言(依賴 T033b)
   - 🧪 `testplan.md` § US2-API-01~US2-API-03
   - 📎 `testplan.md` § 3.1
 

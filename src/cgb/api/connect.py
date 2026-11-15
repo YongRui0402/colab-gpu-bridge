@@ -20,7 +20,7 @@ def _snippets_of(port: int, models: list[str], context_length: int) -> dict[str,
     return {
         "opencode": snippets.opencode_snippet(port, models, context_length),
         "piModels": snippets.pi_models_snippet(port, models, context_length),
-        "piSettings": None,
+        "piSettings": snippets.pi_settings_snippet(context_length),
     }
 
 
@@ -64,6 +64,7 @@ async def get_connect_info(request: Request) -> JSONResponse:
             "contextLength": context_length,
             "shouldWarn": should_warn,
             "models": models,
+            "reserveTokens": snippets.reserve_tokens(context_length),
             "snippets": _snippets_of(state.public_ollama_port, models, context_length),
         }
     )
