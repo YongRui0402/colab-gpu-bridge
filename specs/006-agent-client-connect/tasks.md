@@ -235,47 +235,47 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器接真的後端。依賴 E2 節的 `src/cgb/api/connect.py`(T015b)與 E11 節的 `compose.yaml`(T023b)
 
-- [ ] T025a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-01 的測試(工作階段就緒的預設資料;從首頁導覽列點「連線設定」;斷言進到連線設定頁、opencode 分頁被選取、片段的 `baseURL` 是 `http://127.0.0.1:11436/v1`、片段列出 `qwen2.5-coder:7b` 與 `qwen2.5:3b`、下方寫著放進 `opencode.json` 與 `opencode -m cgb/<模型>`)(`tests/e2e/test_006_connect.py` 沿用 `tests/e2e/test_005_us1_tuning.py` 的做法:`e2e_servers`、`from e2e.test_us1_session import ColabWorld, world`,替身回報 T4 套用 context 4096;對 127.0.0.1:11434 不送任何請求),執行確認它因為「前端沒替換 `{{host}}`;導覽列沒有入口」這類實作而失敗
+- [x] T025a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-01 的測試(工作階段就緒的預設資料;從首頁導覽列點「連線設定」;斷言進到連線設定頁、opencode 分頁被選取、片段的 `baseURL` 是 `http://127.0.0.1:11436/v1`、片段列出 `qwen2.5-coder:7b` 與 `qwen2.5:3b`、下方寫著放進 `opencode.json` 與 `opencode -m cgb/<模型>`)(`tests/e2e/test_006_connect.py` 沿用 `tests/e2e/test_005_us1_tuning.py` 的做法:`e2e_servers`、`from e2e.test_us1_session import ColabWorld, world`,替身回報 T4 套用 context 4096;對 127.0.0.1:11434 不送任何請求),執行確認它因為「前端沒替換 `{{host}}`;導覽列沒有入口」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `prototype/connect.html` § `[data-state="normal"]`、`#tpl-snippets`、`[data-state="${state}"]`、`.topbar`、`.tabs`、`.tab`、`.snippet`、`.code`、`.howto`、`.facts`;`contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-001、NFR-002;`plan.md` § 待決問題 Q10、Q16
-- [ ] T025b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html`(新增,含 favicon;`#tpl-snippets` 與 `data-state` 區塊照 `prototype/connect.html`)、`src/cgb/static/js/connect.js`(新增:讀 `GET /api/connect`,依 `reason` 與 `contextLength` 決定顯示哪個 `data-state`,只把片段文字裡的 `{{host}}` 換成 `location.hostname`,分頁切換;欄位名稱照 `ConnectInfo`,不照原型的 `minContext`)、`src/cgb/static/style.css`(把 `prototype/style.css` 末尾「006 連線設定頁」整段搬進來,只用既有的 `var(--…)`,`plan.md` § 待決問題 Q27)與導覽列 `src/cgb/static/index.html`、`models.html`、`library.html`、`chat.html`、`usage.html`、`history.html`、`login.html`(各加 `<a href="connect.html">連線設定</a>`,排在「紀錄」之後,`connect.html` 自己的連結標 `aria-current="page"`)只寫讓 US1-AJ-01 通過的程式碼;執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T025a)
+- [x] T025b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html`(新增,含 favicon;`#tpl-snippets` 與 `data-state` 區塊照 `prototype/connect.html`)、`src/cgb/static/js/connect.js`(新增:讀 `GET /api/connect`,依 `reason` 與 `contextLength` 決定顯示哪個 `data-state`,只把片段文字裡的 `{{host}}` 換成 `location.hostname`,分頁切換;欄位名稱照 `ConnectInfo`,不照原型的 `minContext`)、`src/cgb/static/style.css`(把 `prototype/style.css` 末尾「006 連線設定頁」整段搬進來,只用既有的 `var(--…)`,`plan.md` § 待決問題 Q27)與導覽列 `src/cgb/static/index.html`、`models.html`、`library.html`、`chat.html`、`usage.html`、`history.html`、`login.html`(各加 `<a href="connect.html">連線設定</a>`,排在「紀錄」之後,`connect.html` 自己的連結標 `aria-current="page"`)只寫讓 US1-AJ-01 通過的程式碼;執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T025a)
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `prototype/connect.html` § `[data-state="normal"]`、`#tpl-snippets`、`[data-state="${state}"]`、`.topbar`、`.tabs`、`.tab`、`.snippet`、`.code`、`.howto`、`.facts`;`contracts/ui.openapi.yaml` § `paths./connect.get`、`components.schemas.ConnectInfo`
   - 📎 `spec.md` § FR-001、NFR-002;`plan.md` § 待決問題 Q10、Q16、Q27
-- [ ] T026a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-02 的測試(同 US1-AJ-01 的畫面;在 opencode 分頁按「複製」,先 `context.grant_permissions(["clipboard-read", "clipboard-write"])`;斷言按鈕文字變成「已複製」、讀回剪貼簿的內容和畫面上的片段文字完全相同),執行確認它因為「複製的是 `{{host}}` 還沒替換的原文;或只複製一部分」這類實作而失敗
+- [x] T026a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-02 的測試(同 US1-AJ-01 的畫面;在 opencode 分頁按「複製」,先 `context.grant_permissions(["clipboard-read", "clipboard-write"])`;斷言按鈕文字變成「已複製」、讀回剪貼簿的內容和畫面上的片段文字完全相同),執行確認它因為「複製的是 `{{host}}` 還沒替換的原文;或只複製一部分」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `prototype/connect.html` § `.btn-small`、`.snippet-head`
   - 📎 `spec.md` § FR-003
-- [ ] T026b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/js/connect.js` 只寫讓 US1-AJ-02 通過的程式碼(`[data-copy]` 通用的複製處理:複製畫面上已換好主機名稱的片段文字,按鈕文字變「已複製」兩秒後還原);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T026a)
+- [x] T026b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/js/connect.js` 只寫讓 US1-AJ-02 通過的程式碼(`[data-copy]` 通用的複製處理:複製畫面上已換好主機名稱的片段文字,按鈕文字變「已複製」兩秒後還原);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T026a)
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `prototype/connect.html` § `.btn-small`、`.snippet-head`
   - 📎 `spec.md` § FR-003
-- [ ] T027a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-03 的測試(沒有開工作階段;打開連線設定頁;斷言看到「目前沒有就緒的工作階段」的說明與回首頁的連結、畫面上沒有片段區塊),執行確認它因為「沒有工作階段時仍顯示空的片段」這類實作而失敗
+- [x] T027a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-03 的測試(沒有開工作階段;打開連線設定頁;斷言看到「目前沒有就緒的工作階段」的說明與回首頁的連結、畫面上沒有片段區塊),執行確認它因為「沒有工作階段時仍顯示空的片段」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `prototype/connect.html` § `[data-state="no-session"]`、`.empty-state`
   - 📎 `spec.md` § FR-012
-- [ ] T027b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US1-AJ-03 通過的程式碼(`reason` 為 `no_ready_session` 時顯示 `data-state="no-session"`,不渲染片段);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T027a)
+- [x] T027b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US1-AJ-03 通過的程式碼(`reason` 為 `no_ready_session` 時顯示 `data-state="no-session"`,不渲染片段);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T027a)
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `prototype/connect.html` § `[data-state="no-session"]`、`.empty-state`
   - 📎 `spec.md` § FR-012
-- [ ] T028a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-04 的測試(工作階段就緒,模型目錄是空的;打開連線設定頁;斷言看到「先到模型頁下載模型」的說明與模型頁的連結、畫面上沒有片段區塊),執行確認它因為「目錄空時顯示沒有模型的片段」這類實作而失敗
+- [x] T028a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-04 的測試(工作階段就緒,模型目錄是空的;打開連線設定頁;斷言看到「先到模型頁下載模型」的說明與模型頁的連結、畫面上沒有片段區塊),執行確認它因為「目錄空時顯示沒有模型的片段」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-04
   - ⚙ `prototype/connect.html` § `[data-state="empty-catalog"]`
   - 📎 `spec.md` § FR-012
-- [ ] T028b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US1-AJ-04 通過的程式碼(`reason` 為 `no_models` 時顯示 `data-state="empty-catalog"`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T028a)
+- [x] T028b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US1-AJ-04 通過的程式碼(`reason` 為 `no_models` 時顯示 `data-state="empty-catalog"`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T028a)
   - 🧪 `testplan.md` § US1-AJ-04
   - ⚙ `prototype/connect.html` § `[data-state="empty-catalog"]`
   - 📎 `spec.md` § FR-012
-- [ ] T029a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-05 的測試(工作階段就緒,context 4096;打開連線設定頁,依序看 opencode 分頁、pi 分頁與提醒;斷言分頁名稱、按鈕、使用方式、提醒與說明都是繁體中文、沒有簡體字,片段本身的鍵名照原文:opencode 的 `provider`、`baseURL`、`limit`,pi 的 `providers`、`baseUrl`(故事 1 的最小版本做得到的鍵;`contextWindow`、`reserveTokens` 由故事 2 的 US2-AJ-01 驗)),執行確認它因為「說明文字留英文原型字串;或把片段的鍵名也翻成中文」這類實作而失敗(現況沒有 pi 分頁與提醒的文字)
+- [x] T029a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US1-AJ-05 的測試(工作階段就緒,context 4096;打開連線設定頁,依序看 opencode 分頁、pi 分頁與提醒;斷言分頁名稱、按鈕、使用方式、提醒與說明都是繁體中文、沒有簡體字,片段本身的鍵名照原文:opencode 的 `provider`、`baseURL`、`limit`,pi 的 `providers`、`baseUrl`(故事 1 的最小版本做得到的鍵;`contextWindow`、`reserveTokens` 由故事 2 的 US2-AJ-01 驗)),執行確認它因為「說明文字留英文原型字串;或把片段的鍵名也翻成中文」這類實作而失敗(現況沒有 pi 分頁與提醒的文字)
   - 🧪 `testplan.md` § US1-AJ-05
   - ⚙ `prototype/connect.html` § `[data-state="normal"]`、`#tpl-snippets`
   - 📎 `spec.md` § NFR-002;`plan.md` § 待決問題 Q23
-- [ ] T029b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html`、`src/cgb/static/js/connect.js` 與 `src/cgb/api/connect.py` 只寫讓 US1-AJ-05 通過的程式碼(最小版本,`plan.md` § 待決問題 Q23:pi 分頁與提醒區塊的繁體中文文字照 `prototype/connect.html`,pi 分頁先只有 `models.json` 一段;`api/connect.py` 以 `contextLength` 不是 null 且小於 16384 算 `shouldWarn`、`recommendedContextLength` 先固定 16384;複製按鈕、`settings.json`、建議值與改法由故事 2、3 逼出);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T029a)
+- [x] T029b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html`、`src/cgb/static/js/connect.js` 與 `src/cgb/api/connect.py` 只寫讓 US1-AJ-05 通過的程式碼(最小版本,`plan.md` § 待決問題 Q23:pi 分頁與提醒區塊的繁體中文文字照 `prototype/connect.html`,pi 分頁先只有 `models.json` 一段;`api/connect.py` 以 `contextLength` 不是 null 且小於 16384 算 `shouldWarn`、`recommendedContextLength` 先固定 16384;複製按鈕、`settings.json`、建議值與改法由故事 2、3 逼出);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T029a)
   - 🧪 `testplan.md` § US1-AJ-05
   - ⚙ `prototype/connect.html` § `[data-state="normal"]`、`#tpl-snippets`
   - 📎 `spec.md` § NFR-002;`plan.md` § 待決問題 Q23
-- [ ] T030 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T025b~T029b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T029b)
+- [x] T030 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T025b~T029b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T029b)
   - 🧪 `testplan.md` § US1-AJ-01~US1-AJ-05
   - 📎 `testplan.md` § 2.4
 

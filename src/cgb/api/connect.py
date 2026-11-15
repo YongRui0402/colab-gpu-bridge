@@ -11,6 +11,9 @@ from cgb.domain.errors import ollama_error
 
 router = APIRouter()
 
+# coding agent 的建議下限(R4,info.x-recommendation-rule)
+RECOMMENDED_MIN_CONTEXT = 16384
+
 
 def _snippets_of(port: int, models: list[str], context_length: int) -> dict[str, str | None]:
     """`ConnectSnippets`:每一段交給 `domain/connect.py` 產生。"""
@@ -32,7 +35,8 @@ async def get_connect_info(request: Request) -> JSONResponse:
         "sessionState": session["state"],
         "reason": None,
         "contextLength": None,
-        "recommendedMinContextLength": 16384,
+        "recommendedMinContextLength": RECOMMENDED_MIN_CONTEXT,
+        # 建議值先固定為下限;依顯示記憶體估算由故事 3 的案例逼出(plan.md Q23)
         "recommendedContextLength": 16384,
         "shouldWarn": False,
         "models": [],
@@ -43,6 +47,8 @@ async def get_connect_info(request: Request) -> JSONResponse:
     if session["state"] != "ready":
         return JSONResponse({**info, "reason": "no_ready_session"})
     context_length = session["ollama"]["tuning"]["contextLength"]["value"]
+    # info.x-recommendation-rule:讀得到 context 且小於建議下限時提醒
+    should_warn = context_length is not None and context_length < RECOMMENDED_MIN_CONTEXT
     try:
         catalog = await services.catalog.list()
     except AdapterError as error:
@@ -51,11 +57,12 @@ async def get_connect_info(request: Request) -> JSONResponse:
     models = [item["name"] for item in catalog["items"]]
     # info.x-reason-rule (2):模型目錄是空的,`contextLength` 照實回
     if not models:
-        return JSONResponse({**info, "reason": "no_models", "contextLength": context_length})
+        return JSONResponse({**info, "reason": "no_models", "contextLength": context_length, "shouldWarn": should_warn})
     return JSONResponse(
         {
             **info,
             "contextLength": context_length,
+            "shouldWarn": should_warn,
             "models": models,
             "snippets": _snippets_of(state.public_ollama_port, models, context_length),
         }

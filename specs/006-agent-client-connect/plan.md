@@ -120,3 +120,5 @@ tests/
 | Q28 | tasks | G-03(串流延遲量測)只用測試行程內的假伺服器、不開 Colab:a 寫成 `tests/integration/test_006_g_03.py`、不標 `realrun`,進快速層,結果寫進 `measurements.md`(先採用);b 標 `realrun_local`,只在全部層跑 | — | a(D15) |
 | Q29 | implement T023a | testplan 寫 E11 用 PyYAML 讀 `compose.yaml`,但專案的依賴裡沒有 YAML 函式庫:a 加 `pyyaml` 當開發依賴;b 用標準函式庫照縮排讀出 `services.cgb.environment` 與 `ports`,不加套件 | — | b(D17):testplan、tasks 已改 |
 | Q30 | implement T019a | 001 的 `Catalog.list()` 讀不到遠端時沒有接 `AdapterError`,`GET /api/models` 回 500 而不是合約的 502/504:a 這一輪只在 `GET /api/connect` 接住轉成 502/504,`/api/models` 的落差列進完成報告留下一輪(先採用);b 這一輪一併修 `services/catalog.py` | — | a(D18) |
+| Q31 | implement T026b | 複製只用 `navigator.clipboard.writeText`,從區網其他機器以 `http://<IP>` 打開時不是安全環境,複製按鈕沒有反應:a 在故事 2 的複製綠燈(T036b)補原型的 `execCommand("copy")` 退路,完成報告列為未驗證(e2e 走 127.0.0.1 抓不到)(先採用);b 不補 | — | a(D19) |
+| Q32 | implement T029a | US1-AJ-05 寫「分頁名稱都是繁體中文」,原型的分頁名稱是工具原名:a testplan 改成「分頁名稱照工具原名」(先採用);b 分頁名稱改中文 | — | a(D19):testplan 已改 |
