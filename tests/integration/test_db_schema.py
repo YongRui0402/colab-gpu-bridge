@@ -13,11 +13,52 @@ from cgb.db.connection import connect
 from cgb.db.schema import create_schema
 
 
-def _insert_session(conn: sqlite3.Connection, name: str, state: str, active_slot: int | None) -> None:
+def _insert_session(
+    conn: sqlite3.Connection,
+    name: str,
+    state: str,
+    active_slot: int | None,
+    *,
+    runtime_type_gpu: str = "T4",
+    runtime_type_high_mem: int = 0,
+    step: str | None = None,
+    end_reason: str | None = None,
+    reason_code: str | None = None,
+    message: str | None = None,
+    opened_at: str = "2026-11-09T08:30:00Z",
+    ready_at: str | None = None,
+    ended_at: str | None = None,
+    last_request_at: str | None = None,
+    reconnect_started_at: str | None = None,
+    reconnect_deadline: str | None = None,
+    release_warning_reason_code: str | None = None,
+    release_warning_message: str | None = None,
+    release_warning_detected_at: str | None = None,
+) -> None:
+    """以 001 的 18 個欄位寫入一筆工作階段;舊庫(v0、v1)與新庫都寫得進去。"""
+    columns = {
+        "name": name,
+        "runtime_type_gpu": runtime_type_gpu,
+        "runtime_type_high_mem": runtime_type_high_mem,
+        "state": state,
+        "active_slot": active_slot,
+        "step": step,
+        "end_reason": end_reason,
+        "reason_code": reason_code,
+        "message": message,
+        "opened_at": opened_at,
+        "ready_at": ready_at,
+        "ended_at": ended_at,
+        "last_request_at": last_request_at,
+        "reconnect_started_at": reconnect_started_at,
+        "reconnect_deadline": reconnect_deadline,
+        "release_warning_reason_code": release_warning_reason_code,
+        "release_warning_message": release_warning_message,
+        "release_warning_detected_at": release_warning_detected_at,
+    }
     conn.execute(
-        "INSERT INTO sessions (name, runtime_type_gpu, runtime_type_high_mem, state, active_slot, opened_at)"
-        " VALUES (?, 'T4', 0, ?, ?, '2026-11-09T08:30:00Z')",
-        (name, state, active_slot),
+        f"INSERT INTO sessions ({', '.join(columns)}) VALUES ({', '.join('?' * len(columns))})",
+        tuple(columns.values()),
     )
 
 
@@ -139,8 +180,8 @@ def test_全新資料庫建出_user_version_為_1_且_download_jobs_有所屬工
     # Act
     create_schema(conn)
 
-    # Assert:則1 user_version 為 1
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    # Assert:則1 user_version 為 2(005 起全新庫直接建到第 2 版,plan.md Q41)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     # Assert:則2 session_name 為可為 NULL 的 TEXT
     session_name = [row for row in conn.execute("PRAGMA table_info(download_jobs)") if row["name"] == "session_name"]
     assert [(row["type"], row["notnull"]) for row in session_name] == [("TEXT", 0)]
@@ -253,8 +294,8 @@ def test_舊資料庫升級後保留三筆舊項目且下載項目表與全新�
 
     # Assert:則1 沒有丟出例外
     assert error is None
-    # Assert:則2 user_version 為 1
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    # Assert:則2 user_version 為 2(005 起 0 → 1 之後接著做 1 → 2,plan.md Q41)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     # Assert:則3 13 個舊欄位三筆都和寫入的相同;則4 三筆的 session_name 都是 NULL
     assert _legacy_job_rows(conn) == _LEGACY_JOBS
     assert [row[0] for row in conn.execute("SELECT session_name FROM download_jobs ORDER BY id")] == [None] * 3
@@ -364,9 +405,9 @@ def test_遷移中途失敗時整個還原_原例外往上丟_下次啟動可再
     except Exception as exc:  # noqa: BLE001
         retry_error = exc
 
-    # Assert:則8 第二次沒有丟出例外,之後 user_version 為 1
+    # Assert:則8 第二次沒有丟出例外,之後 user_version 為 2(005 起 0 → 1 之後接著做 1 → 2,plan.md Q41)
     assert retry_error is None
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     conn.close()
 
 
@@ -391,9 +432,9 @@ def test_升級過的資料庫再啟動一次不重跑遷移_項目的所屬工�
     except sqlite3.Error as exc:
         error = exc
 
-    # Assert:則1 沒有丟出例外;則2 user_version 為 1
+    # Assert:則1 沒有丟出例外;則2 user_version 為 2(005 起第二次啟動接著做 1 → 2,plan.md Q41)
     assert error is None
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     # Assert:則3 D 的 session_name 仍是 cgb-new;則4 download_jobs 有 4 筆
     assert conn.execute("SELECT session_name FROM download_jobs WHERE queue_position = 4").fetchone()[0] == "cgb-new"
     assert conn.execute("SELECT count(*) FROM download_jobs").fetchone()[0] == 4
@@ -412,8 +453,8 @@ def test_從沒開過工作階段的舊資料庫也升級_sessions_表在就是�
     # Act
     create_schema(conn)
 
-    # Assert:則1 user_version 為 1;則2 download_jobs 有 session_name
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    # Assert:則1 user_version 為 2(005 起 0 → 1 之後接著做 1 → 2,plan.md Q41);則2 download_jobs 有 session_name
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     assert "session_name" in [row["name"] for row in conn.execute("PRAGMA table_info(download_jobs)")]
     conn.close()
 
@@ -455,9 +496,9 @@ def test_舊資料庫有只差大小寫的排隊項目時留_id_最小的並把�
     # Assert:則4 不分大小寫的唯一索引建起來了
     indexes = {row["name"]: row["unique"] for row in conn.execute("PRAGMA index_list(download_jobs)")}
     assert indexes["uq_download_jobs_pending_model_ci"] == 1
-    # Assert:則5 日誌有一筆含被刪那一筆的名稱;則6 user_version 為 1
+    # Assert:則5 日誌有一筆含被刪那一筆的名稱;則6 user_version 為 2(005 起 0 → 1 之後接著做 1 → 2,plan.md Q41)
     assert any("qwen2.5:7b" in record.getMessage() for record in caplog.records)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     conn.close()
 
 
@@ -734,8 +775,8 @@ def test_舊資料庫有只差大小寫的精選名稱時留_id_最小的並把�
     assert rows == [(1, "qwen2.5:latest"), (2, "llama3.2:3b")]
     # Assert:則3 不分大小寫的唯一索引建起來了
     assert "uq_curated_models_name_ci" in [row["name"] for row in conn.execute("PRAGMA index_list(curated_models)")]
-    # Assert:則4 user_version 為 1
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    # Assert:則4 user_version 為 2(005 起 0 → 1 之後接著做 1 → 2,plan.md Q41)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     # Assert:則5 有一筆 WARNING 以上的日誌含被刪那一筆的名稱
     assert any(record.levelno >= logging.WARNING and "qwen2.5:Latest" in record.getMessage() for record in caplog.records)
     conn.close()
@@ -1044,8 +1085,8 @@ def test_後端重新啟動後精選清單_自動下載設定與自動下載結�
     ] == [("done", 1)]
     # Assert:則4 auto_download_items 仍有 cgb-a 的 1 列
     assert reopened.execute("SELECT count(*) FROM auto_download_items WHERE session_name = 'cgb-a'").fetchone()[0] == 1
-    # Assert:則5 user_version 為 1
-    assert reopened.execute("PRAGMA user_version").fetchone()[0] == 1
+    # Assert:則5 user_version 為 2(005 起全新庫直接建到第 2 版,plan.md Q41)
+    assert reopened.execute("PRAGMA user_version").fetchone()[0] == 2
     reopened.close()
 
 
@@ -1094,4 +1135,606 @@ def test_自動下載結果項目的大小_剩餘空間_顯存三欄可為空_�
     # Assert:則3 ② 讀回 (2019393189, 516912668, None)
     assert not full_rejected
     assert full_sizes == [(2019393189, 516912668, None)]
+    conn.close()
+
+
+_SCHEMA_V1 = Path(__file__).parent.parent / "fixtures" / "db" / "schema_v1.sql"
+
+
+def _build_v1(db_path: Path) -> sqlite3.Connection:
+    """以凍結的 004 DDL 建出 v1 舊庫,檔尾的 PRAGMA 把 `user_version` 設成 1(plan.md Q28、Q42)。"""
+    conn = connect(db_path)
+    conn.executescript(_SCHEMA_V1.read_text(encoding="utf-8"))
+    return conn
+
+
+# ---- 005 US1-DB-01
+
+# 「session_tunings 的欄名」:contracts/store.dbml § Table session_tunings,依宣告順序(testplan.md § 2.3 US1-DB-01 則3)
+_SESSION_TUNINGS_COLUMNS = [
+    "id", "session_name", "at", "finished_at", "trigger", "attempt",
+    "requested_num_parallel", "requested_context_length", "requested_max_loaded_models",
+    "gpu_name", "vram_total_bytes", "system_memory_total_bytes", "probed_at",
+    "num_parallel", "num_parallel_source", "context_length", "context_length_source",
+    "max_loaded_models", "max_loaded_models_source", "flash_attention", "flash_attention_source",
+    "kv_cache_type", "kv_cache_type_source", "result", "reason_code", "remote_stage", "message",
+]  # fmt: skip
+
+
+def test_全新資料庫建出_user_version_為_2_有三張設定表_開啟紀錄的欄位_索引與外鍵照規格_外鍵仍關閉(tmp_path: Path) -> None:
+    # Arrange:tmp_path 裡還沒有資料庫檔
+    conn = connect(tmp_path / "cgb.sqlite3")
+
+    # Act
+    create_schema(conn)
+
+    # Assert:則1 user_version 為 2
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    # Assert:則2 三張新表都建了
+    assert {"runtime_type_tunings", "session_tunings", "session_tuning_models"} <= _sqlite_master_names(conn)
+    # Assert:則3 session_tunings 的欄名依序照規格
+    assert [row["name"] for row in conn.execute("PRAGMA table_info(session_tunings)")] == _SESSION_TUNINGS_COLUMNS
+    # Assert:則4 一般索引與兩個部分唯一索引
+    indexes = {row["name"]: row["unique"] for row in conn.execute("PRAGMA index_list(session_tunings)")}
+    assert "idx_session_tunings_session" in indexes
+    assert (indexes.get("uq_session_tunings_open"), indexes.get("uq_session_tunings_in_progress")) == (1, 1)
+    # Assert:則5 只有一個外鍵,指向 sessions(name),刪除時 cascade
+    assert _foreign_key_list(conn, "session_tunings") == [("sessions", "session_name", "name", "CASCADE")]
+    # Assert:則6 同一條連線沒有開 foreign_keys
+    assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 0
+    conn.close()
+
+
+# 「開啟那一筆(A100)」:testplan.md § 2.3
+_OPEN_TUNING_A100 = {
+    "session_name": "cgb-a",
+    "at": "2026-11-15T08:00:00Z",
+    "finished_at": "2026-11-15T08:00:00Z",
+    "trigger": "open",
+    "attempt": None,
+    "requested_num_parallel": None,
+    "requested_context_length": None,
+    "requested_max_loaded_models": None,
+    "gpu_name": "NVIDIA A100-SXM4-40GB",
+    "vram_total_bytes": 42949672960,
+    "system_memory_total_bytes": 89120571392,
+    "probed_at": "2026-11-15T07:59:50Z",
+    "num_parallel": 8,
+    "num_parallel_source": "auto",
+    "context_length": 8192,
+    "context_length_source": "auto",
+    "max_loaded_models": 2,
+    "max_loaded_models_source": "auto",
+    "flash_attention": 1,
+    "flash_attention_source": "auto",
+    "kv_cache_type": "q8_0",
+    "kv_cache_type_source": "auto",
+    "result": "applied",
+    "reason_code": None,
+    "remote_stage": None,
+    "message": None,
+}
+
+
+def _insert_tuning(conn: sqlite3.Connection, **overrides: object) -> None:
+    """以「開啟那一筆(A100)」為底寫一筆 session_tunings,只換 overrides 給的欄位。"""
+    columns = {**_OPEN_TUNING_A100, **overrides}
+    conn.execute(
+        f"INSERT INTO session_tunings ({', '.join(columns)}) VALUES ({', '.join('?' * len(columns))})",
+        tuple(columns.values()),
+    )
+
+
+def _tuning_rejected(conn: sqlite3.Connection, **overrides: object) -> bool:
+    """寫一筆 session_tunings,被約束擋下時回 True。"""
+    try:
+        _insert_tuning(conn, **overrides)
+    except sqlite3.IntegrityError:
+        return True
+    return False
+
+
+# ---- 005 US1-DB-02
+
+
+def test_開啟那一筆的顯示記憶體以整數位元組存_量到的硬體與五項設定照原值讀回_一個工作階段只有一筆_開啟那一筆不帶_attempt(
+    tmp_path: Path,
+) -> None:
+    # Arrange:全新庫;cgb-a(A100,ready)、cgb-b(T4,ended)、cgb-c(L4,ended)
+    conn = connect(tmp_path / "cgb.sqlite3")
+    create_schema(conn)
+    _insert_session(conn, "cgb-a", "ready", 1, runtime_type_gpu="A100")
+    _insert_session(conn, "cgb-b", "ended", None, runtime_type_gpu="T4", end_reason="USER_ENDED")
+    _insert_session(conn, "cgb-c", "ended", None, runtime_type_gpu="L4", end_reason="USER_ENDED")
+
+    # Act:①寫入開啟那一筆(A100);②讀回
+    first_rejected = _tuning_rejected(conn)
+    row = conn.execute("SELECT * FROM session_tunings WHERE session_name = 'cgb-a'").fetchone()
+    types = tuple(conn.execute("SELECT typeof(vram_total_bytes), typeof(system_memory_total_bytes) FROM session_tunings").fetchone())
+    # Act:③ cgb-a 第二筆開啟;④ cgb-b 的開啟那一筆(T4);⑤ cgb-c 的開啟那一筆帶了 attempt
+    second_open_rejected = _tuning_rejected(conn, at="2026-11-15T08:10:00Z", finished_at="2026-11-15T08:10:00Z")
+    t4_rejected = _tuning_rejected(
+        conn,
+        session_name="cgb-b",
+        gpu_name="Tesla T4",
+        vram_total_bytes=16106127360,
+        num_parallel=2,
+        context_length=4096,
+        max_loaded_models=1,
+    )
+    attempt_rejected = _tuning_rejected(conn, session_name="cgb-c", attempt="requested")
+
+    # Assert:則1 ① 寫得進去
+    assert not first_rejected
+    # Assert:則2 讀回的兩個記憶體位元組數
+    assert (row["vram_total_bytes"], row["system_memory_total_bytes"]) == (42949672960, 89120571392)
+    # Assert:則3 兩欄的 typeof 都是 integer
+    assert types == ("integer", "integer")
+    # Assert:則4 GPU 名稱與量測時間
+    assert (row["gpu_name"], row["probed_at"]) == ("NVIDIA A100-SXM4-40GB", "2026-11-15T07:59:50Z")
+    # Assert:則5 五項設定
+    settings = ("num_parallel", "context_length", "max_loaded_models", "flash_attention", "kv_cache_type")
+    assert tuple(row[name] for name in settings) == (8, 8192, 2, 1, "q8_0")
+    # Assert:則6 五個來源都是 auto、result 為 applied
+    assert [row[f"{name}_source"] for name in settings] == ["auto"] * 5
+    assert row["result"] == "applied"
+    # Assert:則7 ③ 同一個工作階段第二筆開啟寫不進去
+    assert second_open_rejected
+    # Assert:則8 ④ 另一個工作階段的開啟那一筆寫得進去
+    assert not t4_rejected
+    # Assert:則9 ⑤ 開啟那一筆帶了 attempt 寫不進去
+    assert attempt_rejected
+    conn.close()
+
+
+# ---- 005 US1-DB-03
+
+_TUNING_VALUES = ("num_parallel", "context_length", "max_loaded_models", "flash_attention", "kv_cache_type")
+
+
+def test_讀不到顯示記憶體與讀不到設定檔時開啟那一筆寫得進去_範圍外與清單外的值寫不進去_外鍵未開不檢查參照(tmp_path: Path) -> None:
+    # Arrange:全新庫;cgb-a、cgb-b 與 cgb-c3~cgb-c9
+    conn = connect(tmp_path / "cgb.sqlite3")
+    create_schema(conn)
+    for name in ["cgb-a", "cgb-b", *(f"cgb-c{n}" for n in range(3, 10))]:
+        _insert_session(conn, name, "ended", None, end_reason="USER_ENDED")
+
+    # Act:① 讀不到顯示記憶體,五項都用 Ollama 的預設值
+    no_vram_rejected = _tuning_rejected(
+        conn,
+        gpu_name=None,
+        vram_total_bytes=None,
+        system_memory_total_bytes=13605273600,
+        **{name: None for name in _TUNING_VALUES},
+        **{f"{name}_source": "ollama_default" for name in _TUNING_VALUES},
+    )
+    no_vram = conn.execute("SELECT * FROM session_tunings WHERE session_name = 'cgb-a'").fetchone()
+    # Act:② 遠端 Ollama 已在執行而讀不到設定檔,五項與來源全部 NULL
+    no_tuning_rejected = _tuning_rejected(
+        conn,
+        session_name="cgb-b",
+        **{name: None for name in _TUNING_VALUES},
+        **{f"{name}_source": None for name in _TUNING_VALUES},
+    )
+    # Act:③~⑨ 各寫在還沒有開啟那一筆的 cgb-c3~cgb-c9
+    bad_values = [
+        {"vram_total_bytes": -1},
+        {"num_parallel": 0},
+        {"flash_attention": 2},
+        {"num_parallel_source": "default"},
+        {"kv_cache_type": "q4_0"},
+        {"trigger": "restart"},
+        {"result": None},
+    ]
+    bad_rejected = [_tuning_rejected(conn, session_name=f"cgb-c{n}", **bad) for n, bad in zip(range(3, 10), bad_values)]
+    # Act:⑩ sessions 沒有的工作階段
+    unknown_session_rejected = _tuning_rejected(conn, session_name="cgb-zzz")
+
+    # Assert:則1 ① 寫得進去;則2 顯示記憶體讀回 NULL
+    assert not no_vram_rejected
+    assert no_vram["vram_total_bytes"] is None
+    # Assert:則3 來源為 ollama_default、值為 NULL
+    assert (no_vram["num_parallel_source"], no_vram["num_parallel"]) == ("ollama_default", None)
+    # Assert:則4 ② 寫得進去
+    assert not no_tuning_rejected
+    # Assert:則5~則11 ③~⑨ 都寫不進去
+    assert bad_rejected == [True] * 7
+    # Assert:則12 ⑩ 寫得進去(foreign_keys 未開,不檢查參照)
+    assert not unknown_session_rejected
+    conn.close()
+
+
+# 「v1 舊庫資料」:testplan.md § 2.3。sessions 依 name 排序的 18 個欄位(001 的 name ~ release_warning_detected_at)
+_SESSION_COLUMNS = (
+    "name", "runtime_type_gpu", "runtime_type_high_mem", "state", "active_slot", "step", "end_reason", "reason_code",
+    "message", "opened_at", "ready_at", "ended_at", "last_request_at", "reconnect_started_at", "reconnect_deadline",
+    "release_warning_reason_code", "release_warning_message", "release_warning_detected_at",
+)  # fmt: skip
+_V1_SESSIONS = [
+    (
+        "cgb-live", "A100", 0, "ready", 1, None, None, None,
+        None, "2026-11-15T07:00:00Z", "2026-11-15T07:04:00Z", None, "2026-11-15T07:30:00Z", None, None,
+        None, None, None,
+    ),
+    (
+        "cgb-old1", "T4", 0, "ended", None, None, "USER_ENDED", None,
+        None, "2026-11-10T08:00:00Z", "2026-11-10T08:03:00Z", "2026-11-10T09:00:00Z", "2026-11-10T08:50:00Z", None, None,
+        None, None, None,
+    ),
+    (
+        "cgb-old2", "L4", 1, "lost", None, None, "RECONNECT_TIMEOUT", "TUNNEL_TIMEOUT",
+        "重連逾時", "2026-11-12T10:00:00Z", "2026-11-12T10:02:00Z", "2026-11-12T11:05:00Z", None,
+        "2026-11-12T11:00:00Z", "2026-11-12T11:05:00Z",
+        "COLAB_STOP_UNCONFIRMED", "無法確認已釋放", "2026-11-12T11:06:00Z",
+    ),
+]  # fmt: skip
+# session_transitions 依 id 排序的全部欄位
+_TRANSITION_COLUMNS = ("id", "session_name", "at", "state", "step", "end_reason", "reason_code")
+_V1_TRANSITIONS = [
+    (1, "cgb-old1", "2026-11-10T08:00:00Z", "opening", "allocating", None, None),
+    (2, "cgb-old1", "2026-11-10T08:03:00Z", "ready", None, None, None),
+    (3, "cgb-old1", "2026-11-10T09:00:00Z", "ended", None, "USER_ENDED", None),
+    (4, "cgb-old2", "2026-11-12T11:05:00Z", "lost", None, "RECONNECT_TIMEOUT", "TUNNEL_TIMEOUT"),
+    (5, "cgb-live", "2026-11-15T07:04:00Z", "ready", None, None, None),
+]
+
+
+def _insert_v1_data(conn: sqlite3.Connection) -> None:
+    """在 v1 舊庫以舊版欄位寫入「v1 舊庫資料」。"""
+    for values in _V1_SESSIONS:
+        row = dict(zip(_SESSION_COLUMNS, values))
+        _insert_session(conn, row.pop("name"), row.pop("state"), row.pop("active_slot"), **row)
+    conn.executemany(
+        f"INSERT INTO session_transitions ({', '.join(_TRANSITION_COLUMNS)}) VALUES ({', '.join('?' * 7)})", _V1_TRANSITIONS
+    )
+    _insert_job(conn, "qwen2.5:7b", None, 1, "completed", size_bytes=4683087332, session_name="cgb-live")
+    conn.execute("INSERT INTO auto_download_results (session_name, target_count, state) VALUES ('cgb-live', 1, 'done')")
+    conn.execute("INSERT INTO auto_download_items (session_name, position, model) VALUES ('cgb-live', 0, 'qwen2.5:7b')")
+    conn.execute("INSERT INTO curated_models (name, auto_download) VALUES ('qwen2.5:7b', 1)")
+
+
+def _open_v1_with_data(db_path: Path) -> sqlite3.Connection:
+    """建出 v1 舊庫、寫入「v1 舊庫資料」,關掉後以新的 connect 開同一個檔(後端啟動)。"""
+    old = _build_v1(db_path)
+    _insert_v1_data(old)
+    old.close()
+    return connect(db_path)
+
+
+def _rows(conn: sqlite3.Connection, table: str, columns: tuple[str, ...], order_by: str) -> list[tuple]:
+    return [tuple(row) for row in conn.execute(f"SELECT {', '.join(columns)} FROM {table} ORDER BY {order_by}")]
+
+
+def _count(conn: sqlite3.Connection, sql: str) -> int:
+    return conn.execute(sql).fetchone()[0]
+
+
+# ---- 005 US1-DB-04
+
+
+def test_v1_舊庫升級到第_2_版_工作階段_狀態變化紀錄_下載與自動下載_精選都照舊_不補設定紀錄(tmp_path: Path) -> None:
+    # Arrange:v1 舊庫寫入 v1 舊庫資料
+    conn = _open_v1_with_data(tmp_path / "cgb.sqlite3")
+
+    # Act
+    error: sqlite3.Error | None = None
+    try:
+        create_schema(conn)
+    except sqlite3.Error as exc:
+        error = exc
+
+    # Assert:則1 沒有丟出例外;則2 user_version 為 2
+    assert error is None
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    # Assert:則3 sessions 的 18 個欄位三筆都照舊
+    assert _rows(conn, "sessions", _SESSION_COLUMNS, "name") == _V1_SESSIONS
+    # Assert:則4 session_transitions 五筆都照舊(含 id)
+    assert _rows(conn, "session_transitions", _TRANSITION_COLUMNS, "id") == _V1_TRANSITIONS
+    # Assert:則5 download_jobs 那一筆仍屬於 cgb-live
+    assert [row[0] for row in conn.execute("SELECT session_name FROM download_jobs")] == ["cgb-live"]
+    # Assert:則6 自動下載結果與結果項目各仍有 cgb-live 的 1 筆
+    assert _count(conn, "SELECT count(*) FROM auto_download_results WHERE session_name = 'cgb-live'") == 1
+    assert _count(conn, "SELECT count(*) FROM auto_download_items WHERE session_name = 'cgb-live'") == 1
+    # Assert:則7 精選的自動下載仍是 1
+    assert _count(conn, "SELECT auto_download FROM curated_models WHERE name = 'qwen2.5:7b'") == 1
+    # Assert:則8、則9 不替既有的工作階段補設定紀錄,類型覆蓋值沒有列
+    assert _count(conn, "SELECT count(*) FROM session_tunings") == 0
+    assert _count(conn, "SELECT count(*) FROM runtime_type_tunings") == 0
+    # Assert:則10 沒有留下重建用的暫存表
+    assert _sqlite_master_names(conn).isdisjoint({"sessions_new", "session_transitions_new"})
+    conn.close()
+
+
+def _unique_index_columns(conn: sqlite3.Connection, table: str) -> list[list[str]]:
+    """table 每個 unique 為 1 的索引各含哪些欄位(index_info)。"""
+    return [
+        [info["name"] for info in conn.execute(f"PRAGMA index_info('{index['name']}')")]
+        for index in conn.execute(f"PRAGMA index_list({table})")
+        if index["unique"] == 1
+    ]
+
+
+# ---- 005 US1-DB-05
+
+
+def test_v1_舊庫重建後工作階段與狀態變化紀錄的表和全新庫相同_索引重建_其他表的外鍵仍指向_sessions_序號接續(tmp_path: Path) -> None:
+    # Arrange:v1 舊庫寫入 v1 舊庫資料後跑過 create_schema;另開一個全新庫
+    conn = _open_v1_with_data(tmp_path / "cgb.sqlite3")
+    create_schema(conn)
+    fresh = connect(tmp_path / "fresh.sqlite3")
+    create_schema(fresh)
+
+    # Act
+    session_index_names = {row["name"] for row in conn.execute("PRAGMA index_list(sessions)")}
+    transition_index_names = {row["name"] for row in conn.execute("PRAGMA index_list(session_transitions)")}
+    foreign_key_tables = {
+        table: [(row["table"], row["on_delete"]) for row in conn.execute(f"PRAGMA foreign_key_list({table})")]
+        for table in ("session_transitions", "download_jobs", "auto_download_results")
+    }
+    violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+    new_id = conn.execute(
+        "INSERT INTO session_transitions (session_name, at, state) VALUES ('cgb-live', '2026-11-15T08:00:00Z', 'ready')"
+    ).lastrowid
+
+    # Assert:則1、則2 兩張表的欄位定義與全新庫完全相同
+    assert _table_info(conn, "sessions") == _table_info(fresh, "sessions") != []
+    assert _table_info(conn, "session_transitions") == _table_info(fresh, "session_transitions") != []
+    # Assert:則3 sessions 的兩個索引重建了;則4 active_slot 仍是唯一
+    assert {"idx_sessions_opened_at", "idx_sessions_state"} <= session_index_names
+    assert ["active_slot"] in _unique_index_columns(conn, "sessions")
+    # Assert:則5 session_transitions 的索引重建了
+    assert "idx_session_transitions_session" in transition_index_names
+    # Assert:則6~則8 三張表的外鍵仍指向 sessions
+    assert foreign_key_tables["session_transitions"] == [("sessions", "CASCADE")]
+    assert [table for table, _ in foreign_key_tables["download_jobs"]] == ["sessions"]
+    assert [table for table, _ in foreign_key_tables["auto_download_results"]] == ["sessions"]
+    # Assert:則9 沒有參照不到的列
+    assert violations == []
+    # Assert:則10 新的狀態變化紀錄序號接著最大的 id
+    assert new_id == 6
+    conn.close()
+    fresh.close()
+
+
+# ---- 005 US1-DB-06
+
+
+def test_連線開了外鍵時不遷移_丟出含_foreign_keys_的例外_狀態變化紀錄與下載佇列一筆都沒少(tmp_path: Path) -> None:
+    # Arrange:v1 舊庫寫入 v1 舊庫資料;開檔後先開外鍵
+    db_path = tmp_path / "cgb.sqlite3"
+    conn = _open_v1_with_data(db_path)
+    conn.execute("PRAGMA foreign_keys = ON")
+
+    # Act:呼叫 create_schema;關掉後以新的 connect(外鍵為 0)讀回
+    error: Exception | None = None
+    try:
+        create_schema(conn)
+    except Exception as exc:  # noqa: BLE001 - 要確認丟出了例外與它的訊息
+        error = exc
+    conn.close()
+    reopened = connect(db_path)
+
+    # Assert:則1 丟出例外,訊息含 foreign_keys
+    assert error is not None and "foreign_keys" in str(error)
+    # Assert:則2 user_version 仍是 1
+    assert reopened.execute("PRAGMA user_version").fetchone()[0] == 1
+    # Assert:則3 狀態變化紀錄仍有 5 筆
+    assert _count(reopened, "SELECT count(*) FROM session_transitions") == 5
+    # Assert:則4 下載佇列仍有 cgb-live 的 1 筆
+    assert _count(reopened, "SELECT count(*) FROM download_jobs WHERE session_name = 'cgb-live'") == 1
+    # Assert:則5 自動下載結果仍有 1 筆
+    assert _count(reopened, "SELECT count(*) FROM auto_download_results") == 1
+    # Assert:則6 沒有建出 session_tunings
+    assert "session_tunings" not in _sqlite_master_names(reopened)
+    reopened.close()
+
+
+def _deny_user_version_2(action: int, arg1: str | None, arg2: str | None, *_: object) -> int:
+    """1 → 2 的最後一步是設 user_version = 2;只擋這一句,0 → 1 設的 1 與讀取照常(testplan.md § 2.3)。"""
+    if action == sqlite3.SQLITE_PRAGMA and arg1 == "user_version" and arg2 == "2":
+        return sqlite3.SQLITE_DENY
+    return sqlite3.SQLITE_OK
+
+
+# ---- 005 US1-DB-07
+
+
+def test_v1_升級中途失敗時整個還原_原例外往上丟_沒有留下新表與暫存表_下次啟動可再升級(tmp_path: Path) -> None:
+    # Arrange:v1 舊庫寫入 v1 舊庫資料;開檔後拒絕設 user_version = 2
+    conn = _open_v1_with_data(tmp_path / "cgb.sqlite3")
+    conn.set_authorizer(_deny_user_version_2)
+
+    # Act:第一次呼叫
+    error: Exception | None = None
+    try:
+        create_schema(conn)
+    except Exception as exc:  # noqa: BLE001 - 要確認丟出的是 sqlite3.DatabaseError
+        error = exc
+
+    # Assert:則1 丟出 sqlite3.DatabaseError(含子類);則2 user_version 仍是 1
+    assert isinstance(error, sqlite3.DatabaseError)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    # Assert:則3 沒有三張新表;則4 沒有重建用的暫存表
+    names = _sqlite_master_names(conn)
+    assert names.isdisjoint({"runtime_type_tunings", "session_tunings", "session_tuning_models"})
+    assert names.isdisjoint({"sessions_new", "session_transitions_new"})
+    # Assert:則5 sessions 仍是舊的 CHECK,applying_tuning 寫不進去
+    assert _rejected(conn, "UPDATE sessions SET state = 'applying_tuning' WHERE name = 'cgb-live'")
+    # Assert:則6 狀態變化紀錄五筆照舊;則7 舊的兩個索引仍在
+    assert _rows(conn, "session_transitions", _TRANSITION_COLUMNS, "id") == _V1_TRANSITIONS
+    assert {"idx_sessions_state", "idx_session_transitions_session"} <= names
+
+    # Act:放行後第二次呼叫
+    conn.set_authorizer(None)
+    retry_error: Exception | None = None
+    try:
+        create_schema(conn)
+    except Exception as exc:  # noqa: BLE001
+        retry_error = exc
+
+    # Assert:則8 第二次沒有丟出例外,之後 user_version 為 2
+    assert retry_error is None
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    conn.close()
+
+
+def _open_v0_with_data(db_path: Path) -> sqlite3.Connection:
+    """v0 舊庫(004 之前)寫入 cgb-old(ended)、一筆狀態變化紀錄與一筆排隊中的下載,關掉後以新的 connect 開同一個檔。"""
+    old = _build_v0(db_path)
+    _insert_session(old, "cgb-old", "ended", None, end_reason="USER_ENDED")
+    old.execute(
+        "INSERT INTO session_transitions (session_name, at, state, end_reason)"
+        " VALUES ('cgb-old', '2026-11-09T09:00:00Z', 'ended', 'USER_ENDED')"
+    )
+    _insert_job(old, "qwen2.5:7b", "qwen2.5:7b", 1, "queued")
+    old.close()
+    return connect(db_path)
+
+
+# ---- 005 US1-DB-08
+
+
+def test_v0_舊庫一次啟動就升到第_2_版_下載項目有所屬工作階段_工作階段收得下套用設定的狀態(tmp_path: Path) -> None:
+    # Arrange:v0 舊庫寫入 cgb-old、一筆狀態變化紀錄與一筆排隊中的下載
+    conn = _open_v0_with_data(tmp_path / "cgb.sqlite3")
+
+    # Act:只呼叫一次
+    error: sqlite3.Error | None = None
+    try:
+        create_schema(conn)
+    except sqlite3.Error as exc:
+        error = exc
+
+    # Assert:則1 沒有丟出例外;則2 user_version 為 2
+    assert error is None
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    # Assert:則3 download_jobs 有 session_name;則4 有 session_tunings
+    assert "session_name" in [row["name"] for row in conn.execute("PRAGMA table_info(download_jobs)")]
+    assert "session_tunings" in _sqlite_master_names(conn)
+    # Assert:則5 工作階段寫得進套用設定中與重啟遠端 Ollama 的步驟
+    assert not _rejected(
+        conn, "UPDATE sessions SET state = 'applying_tuning', step = 'restarting_ollama' WHERE name = 'cgb-old'"
+    )
+    # Assert:則6 狀態變化紀錄仍有 1 筆
+    assert _count(conn, "SELECT count(*) FROM session_transitions") == 1
+    conn.close()
+
+
+# ---- 005 US1-DB-09
+
+
+def test_v0_舊庫升到第_2_版失敗時停在第_1_版_下次啟動只再做_1_到_2(tmp_path: Path) -> None:
+    # Arrange:v0 舊庫寫入同 US1-DB-08 的資料;開檔後拒絕設 user_version = 2
+    conn = _open_v0_with_data(tmp_path / "cgb.sqlite3")
+    conn.set_authorizer(_deny_user_version_2)
+
+    # Act:第一次呼叫
+    error: Exception | None = None
+    try:
+        create_schema(conn)
+    except Exception as exc:  # noqa: BLE001 - 要確認丟出的是 sqlite3.DatabaseError
+        error = exc
+
+    # Assert:則1 丟出 sqlite3.DatabaseError(含子類);則2 user_version 停在 1
+    assert isinstance(error, sqlite3.DatabaseError)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    # Assert:則3 0 → 1 已 commit,download_jobs 有 session_name;則4 沒有 session_tunings
+    assert "session_name" in [row["name"] for row in conn.execute("PRAGMA table_info(download_jobs)")]
+    assert "session_tunings" not in _sqlite_master_names(conn)
+
+    # Act:放行後第二次呼叫
+    conn.set_authorizer(None)
+    retry_error: Exception | None = None
+    try:
+        create_schema(conn)
+    except Exception as exc:  # noqa: BLE001
+        retry_error = exc
+
+    # Assert:則5 第二次沒有丟出例外,之後 user_version 為 2
+    assert retry_error is None
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    # Assert:則6 download_jobs 沒有再重建一次:session_name 仍是 NULL、pending_model 照舊
+    assert [tuple(row) for row in conn.execute("SELECT session_name, pending_model FROM download_jobs")] == [
+        (None, "qwen2.5:7b")
+    ]
+    conn.close()
+
+
+# ---- 005 US1-DB-10
+
+
+def test_已是第_2_版的庫重新啟動不重跑遷移_開啟那一筆還在_比第_2_版新的庫不動也不降版(tmp_path: Path) -> None:
+    # Arrange:情況 A 全新庫有 cgb-a(ready)與開啟那一筆(A100)
+    db_path = tmp_path / "cgb.sqlite3"
+    conn = connect(db_path)
+    create_schema(conn)
+    _insert_session(conn, "cgb-a", "ready", 1, runtime_type_gpu="A100")
+    _insert_tuning(conn)
+    # Arrange:情況 B 另一個全新庫,user_version 改成 3(用舊版後端開新版的資料庫)
+    newer = connect(tmp_path / "newer.sqlite3")
+    create_schema(newer)
+    newer.execute("PRAGMA user_version = 3")
+    sessions_sql = newer.execute("SELECT sql FROM sqlite_master WHERE name = 'sessions'").fetchone()[0]
+
+    # Act:A 關掉後以新的 connect 開同一個檔再跑 create_schema(後端重新啟動)
+    conn.close()
+    conn = connect(db_path)
+    restart_error: sqlite3.Error | None = None
+    try:
+        create_schema(conn)
+    except sqlite3.Error as exc:
+        restart_error = exc
+    # Act:B 呼叫 create_schema
+    newer_error: sqlite3.Error | None = None
+    try:
+        create_schema(newer)
+    except sqlite3.Error as exc:
+        newer_error = exc
+
+    # Assert:則1 A 沒有丟出例外;則2 開啟那一筆仍在、值照舊;則3 user_version 為 2
+    assert restart_error is None
+    assert [tuple(row) for row in conn.execute("SELECT vram_total_bytes, num_parallel FROM session_tunings")] == [
+        (42949672960, 8)
+    ]
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    # Assert:則4 B 沒有丟出例外;則5 user_version 仍是 3;則6 sessions 的 DDL 沒變
+    assert newer_error is None
+    assert newer.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert newer.execute("SELECT sql FROM sqlite_master WHERE name = 'sessions'").fetchone()[0] == sessions_sql
+    conn.close()
+    newer.close()
+
+
+# ---- 005 US1-DB-11
+
+
+def test_v1_舊庫有清單外的結束原因時照樣升級_結束原因照原值保留(tmp_path: Path) -> None:
+    # Arrange:v1 舊庫寫入 v1 舊庫資料,另寫 cgb-odd 與它的狀態變化紀錄,結束原因都是清單外的 SESSION_EXPIRED
+    db_path = tmp_path / "cgb.sqlite3"
+    old = _build_v1(db_path)
+    _insert_v1_data(old)
+    _insert_session(old, "cgb-odd", "ended", None, end_reason="SESSION_EXPIRED")
+    old.execute(
+        "INSERT INTO session_transitions (session_name, at, state, end_reason)"
+        " VALUES ('cgb-odd', '2026-11-13T09:00:00Z', 'ended', 'SESSION_EXPIRED')"
+    )
+    old.close()
+    conn = connect(db_path)
+
+    # Act
+    error: sqlite3.Error | None = None
+    try:
+        create_schema(conn)
+    except sqlite3.Error as exc:
+        error = exc
+
+    # Assert:則1 沒有丟出例外;則2 user_version 為 2
+    assert error is None
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    # Assert:則3 cgb-odd 的結束原因照原值
+    assert conn.execute("SELECT end_reason FROM sessions WHERE name = 'cgb-odd'").fetchone()[0] == "SESSION_EXPIRED"
+    # Assert:則4 它的狀態變化紀錄的結束原因照原值
+    assert [row[0] for row in conn.execute("SELECT end_reason FROM session_transitions WHERE session_name = 'cgb-odd'")] == [
+        "SESSION_EXPIRED"
+    ]
     conn.close()
