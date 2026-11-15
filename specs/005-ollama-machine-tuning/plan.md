@@ -121,3 +121,30 @@ tests/
 | Q24 | S4 | `interrupted` 那一筆算不算目前生效的設定:a 有讀到設定就算(先採用);b 只算 applied、fell_back_to_auto | — | a(D35):S3 `OllamaStatus.tuning` 描述已補 |
 | Q25 | S4 | state 與 step 的對應要不要寫成 CHECK:a 只寫 note、由 repos 保證(先採用);b 加跨欄位 CHECK | — | a(D36) |
 | Q26 | S4 | 表名 `runtime_type_tunings`,research R9「不需要重建」已不成立:a 照 S4 的表名、修 R9(先採用) | — | a(D37):research R9 修訂 |
+| Q27 | testplan | E5 遠端腳本怎麼測:a 腳本的 port、pid 檔、狀態檔、log 路徑可由環境變數覆寫(預設值不變),整合測試在桌機以假 `nvidia-smi` 與臨時 `ollama serve`(隨機 port、暫存目錄)真的跑 start/restart 腳本(先採用);b 只測純函式,腳本整體只在 Colab 實跑 | — | a(分身決策紀錄 D38) |
+| Q28 | testplan | E4 舊庫 fixture:a 把改 schema 之前的現行 DDL 凍結成 `tests/fixtures/db/schema_v1.sql`(先採用);b 用 `create_schema` 建再降版 | — | a(D39) |
+| Q29 | testplan | Colab 實跑怎麼排:a 一台 T4 量 SC-002、SC-003、SC-004,一台 A100 量 SC-001,每台 30 分鐘內,開跑前先問本人(先採用);b 每個 SC 各開一台 | — | a(D40) |
+| Q30 | testplan | E5 接臨時 `ollama serve` 的案例怎麼標:a 新增 `realrun_local` marker,快速層排除、全部層另外跑(先採用);b 沿用 `realrun` | — | a(分身決策紀錄 D41) |
+| Q31 | testplan | 〔E2 端點節〕`domain/tuning.py` 的介面:a `auto_tier(vram_total_bytes)`、`parse_overrides(body)`(不符丟 `ApiError(400, code)`)、`resolve(vram_total_bytes, overrides)`(先採用);b 另取 | — | a(分身決策紀錄 D42) |
+| Q32 | testplan | 〔E2 端點節〕E2 整合案例要先有 E5 的共用件(`start_ollama`/`restart_ollama` 簽章、`AdapterError.remote_stage`、`FakeColabControl.restart_ollama`、`ColabWorld` 結果):a tasks 排成兩節之前的共用任務(先採用);b E2 等 E5 做完 | — | a(D42) |
+| Q33 | testplan | 〔E2 端點節〕合約矛盾:停機恢復時 `startOllama` 又失敗,那一筆結果:a `interrupted`(先採用,store.dbml 寫法);b `failed`(ui.openapi x-applying-state (4) 原寫法) | — | a(D43):`ui.openapi.yaml` `info.x-applying-state` (4) 已改 |
+| Q34 | testplan | 〔E2 端點節〕套用時 `DOWNLOAD_IN_PROGRESS` 的訊息與 001 取消下載不同:a `ApiError` 加 `message` 參數覆寫(先採用);b 新代碼 | — | a(D42) |
+| Q35 | testplan | 〔E2 端點節〕套用中相容端點 503 的說明:a `_STATE_DESCRIPTIONS` 補「工作階段正在套用 Ollama 設定」(先採用);b 沿用「尚未就緒」 | — | a(D42) |
+| Q36 | testplan | 〔E2 端點節〕「排隊中的項目不擋、套用期間暫停、回到就緒照常開始」沒有 E2 案例:a 這一節不測,之後補讓佇列停住的 helper(先採用);b 現在做 helper | — | a(D42):列入 testplan 不在本次範疇 |
+| Q37 | testplan | 〔E2 端點節〕就緒後帳號變未登入的觸發:a 套用前照 `openSession` 呼叫 `auth.check()`,測試以 `get_usage.raises("AUTH_REQUIRED")` 觸發(先採用);b 只看快取 | — | a(D42) |
+| Q38 | testplan | 〔E2 端點節〕後端停機時停在重啟中的套用工作:a lifespan 結束時直接取消(先採用);b 等 180 秒硬時限 | — | a(D42) |
+| Q39 | testplan | 〔E2 端點節〕套用成功時類型覆蓋值的 `updatedAt`:a 等於 `lastApply.finishedAt`(先採用);b 另取當下 | — | a(D42) |
+| Q40 | testplan | 〔E4 端點節〕`foreign_keys` 開著時遷移丟的例外:a 自訂;b `RuntimeError`,訊息含 `foreign_keys`(先採用);c `sqlite3.DatabaseError` | — | b(D44) |
+| Q41 | testplan | 〔E4 端點節〕004 `test_db_schema.py` 8 處斷言 `user_version == 1` 會變紅:a tasks 排回歸調整改成 2(先採用);b 改成 `>= 1` | — | a(D44) |
+| Q42 | testplan | 〔E4 端點節〕`schema_v1.sql` 最後要不要寫 `PRAGMA user_version = 1;`:a 寫(先採用);b helper 另外設 | — | a(D44) |
+| Q43 | testplan | 〔E4 端點節〕從 v1 建舊庫的 helper:a 004 的 `_open_db` 加 `kind="from_v1"`(先採用);b 新 helper | — | a(D44) |
+| Q44 | testplan | 〔E4 端點節〕新表的列舉欄位(`trigger`、`attempt`、`result`、`*_source`、`kv_cache_type`、`remote_stage`、`reason`、`gpu`)要不要寫成 `CHECK IN`:a 寫(先採用);b 只由 repos 保證 | — | a(D44):新表沒有舊資料,不同於 Q22、Q25 |
+| Q45 | testplan | 〔E5 端點節〕Q27 以外再開放覆寫 `CGB_INSTALL_COMMAND`、`CGB_SERVE_PGREP_PATTERN`、`CGB_PROBE_TIMEOUT_SECONDS`、`CGB_STOP_SECONDS`、`CGB_VERIFY_SECONDS`(預設不變):a 開放(先採用);b 只開放 Q27 的四項 | — | a(D45) |
+| Q46 | testplan | 〔E5 端點節〕port 怎麼覆寫:a 腳本從 `OLLAMA_HOST` 組 version URL(先採用);b 另立 `CGB_OLLAMA_PORT` | — | a(D45) |
+| Q47 | testplan | 〔E5 端點節〕沒有 `/usr/local/bin/ollama` 時:a `pytest.skip`(先採用);b 另立 marker | — | a(D45) |
+| Q48 | testplan | 〔E5 端點節〕`nvidia-smi` 10 秒逾時與 NFR-001 的 5 秒衝突:a 維持 10 秒,NFR-001 只管正常回應(先採用);b 縮到 4 秒 | — | a(D45):spec NFR-001 已改寫 |
+| Q49 | testplan | 〔E5 端點節〕覆蓋值字串的嚴格程度:a `^[0-9]+$` 再比範圍(先採用);b Python `int()` | — | a(D45) |
+| Q50 | testplan | 〔E5 端點節〕新啟動而 `tuning` 為 null:a 歸 `COLAB_BAD_RESPONSE`(先採用);b 接受 | — | a(D45) |
+| Q51 | testplan | 〔E5 端點節〕轉接層命名:a 照現有 `ColabControl`,`start_ollama(name, overrides)`、`restart_ollama(name, overrides)`,`CliTimeouts.restart_ollama=180`(先採用);b 另訂型別 | — | a(D45):testplan 受測操作表的 `ColabCli` 指同一個轉接層 |
+| Q52 | testplan | 〔E5 端點節〕預設路徑、URL 與秒數由誰驗:a G-02 在 Colab 實跑時驗(先採用);b 靜態測試讀常數 | — | a(D45) |
+| Q53 | testplan | 〔E5 端點節〕pid 檔裡的 pid 被重用:a 照合約不另檢查(先採用);b 先確認 `/proc/<pid>/cmdline` | — | a(D45) |

@@ -68,7 +68,7 @@ info:
     (4)後端在這個狀態停機(spec 邊界情況):恢復時照 001 的恢復流程判斷工作階段(被收回就是 `lost`);接回同一個工作階段時,
     以這一次要求的覆蓋值(已在改回自動值那一次時是三個 null)呼叫一次 S1 `startOllama`:遠端 Ollama 已在回應時回報執行環境上的設定檔(Q2,D13),
     沒有在執行時以那組設定啟動,結果寫進 `Session.ollama`(讀不到設定時 `status` 為 `unknown`),不重新載入模型,接著回到就緒;
-    這一次套用記為 `interrupted`,不寫入類型覆蓋值。`startOllama` 失敗時照 `info.x-apply-flow` (5) 處理。
+    這一次套用記為 `interrupted`,不寫入類型覆蓋值。`startOllama` 失敗時照 `info.x-apply-flow` (5) 結束工作階段,這一次套用仍記為 `interrupted`(不是 `failed`,plan Q33,與 store.dbml 一致)。
   x-apply-flow: >-
     `applyTuning` 受理之後的流程(FR-012–FR-016、NFR-002,research.md R1、R8,Q1、Q4):
     (1)`state` 改為 `applying_tuning`、`step` 為 `restarting_ollama`,在紀錄追加一筆 `trigger` 為 `apply`、`result` 為 `in_progress` 的 `TuningRecord`
