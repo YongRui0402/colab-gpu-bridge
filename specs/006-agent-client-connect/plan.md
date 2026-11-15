@@ -107,3 +107,6 @@ tests/
 | Q15 | S4 | pi 的 `maxTokens` 固定 4096 時,context 4096 會等於 context:a 改成 `min(4096, ⌊context ÷ 2⌋)`,和 opencode 一致;b 維持固定 4096(原型先採用) | — | a(D12):research R3 與 `ui.openapi.yaml` 已改,原型的假資料不改 |
 | Q16 | S4 | 原型由前端組片段、欄位名稱(`minContext`、`suggestedContext`)和 S3 合約不同:a 實作照 S3 合約與 Q10(後端產生片段、前端換主機名稱,欄位名稱照 `ConnectInfo`),原型只當畫面與 `data-state` 的依據(先採用);b 改合約照原型 | — | a(D12) |
 | Q17 | S4 | context 太小時仍顯示片段:a 仍顯示,不擋複製(先採用);b 提醒時隱藏片段 | — | a(D12) |
+| Q18 | testplan | 001 有三處把 `/v1` 當成白名單外的例子,開放後會失敗:`tests/integration/test_ollama_compat.py` 的 `test_白名單外的路徑回_404_不轉送`(參數 `POST /v1/chat/completions`)、同檔閒置案例的 `GET /v1/models`、`tests/e2e/test_locale.py` 的 `oc_unlisted`:a 改用仍不開放的 `/v1/completions`(閒置案例與 `oc_unlisted` 照 OpenAI 格式讀 `error.message`),在 006 US1-OC-05 的綠燈一起改(先採用);b 刪掉,由 US1-OC-05 取代 | — | a(D13) |
+| Q19 | testplan | 假 Ollama 伺服器沒有 SSE 的回覆型別:a 在 `tests/fakes/ollama_server.py` 新增 `SseReply`(`events` 清單、每段間隔、`then` 可為 `end`/`disconnect`/`hang`),由 US1-OC-02 的紅燈任務建立(先採用);b 用 `NdjsonReply` 硬塞 | — | a(D13) |
+| Q20 | testplan | G-01、G-02 本機實跑怎麼接:a 用 `live_servers` 起本系統,替身 `FakeTunnel` 回報的 `baseUrl` 指向臨時 serve、`FakeColabControl` 回報 context 10240,模型目錄由臨時 serve 的 `/api/tags` 讀(先採用);b 用 `docker compose` 起整個系統 | — | a(D13) |
