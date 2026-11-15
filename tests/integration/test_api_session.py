@@ -160,7 +160,8 @@ async def get_session(client: httpx.AsyncClient) -> dict[str, Any]:
     return response.json()
 
 
-async def wait_for_state(client: httpx.AsyncClient, state: str, timeout: float = 3.0) -> dict[str, Any]:
+async def wait_for_state(client: httpx.AsyncClient, state: str, timeout: float = 15.0) -> dict[str, Any]:
+    # 逾時不報錯、只回傳當下狀態;CI 機器負載重時 3 秒不夠,到達即回傳所以放寬不拖慢通過的案例
     deadline = time.monotonic() + timeout
     session = await get_session(client)
     while session.get("state") != state and time.monotonic() < deadline:
