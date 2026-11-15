@@ -164,17 +164,22 @@ class DownloadsService:
         """加入佇列(enqueueDownloads):以 manifest 的精確大小記下每一筆,再在背景依序下載。"""
         # 沒有就緒的工作階段時不加入,免得使用者以為在下載
         base_url = self._lifecycle.require_ready_base_url()
+        # 請求開始時固定工作階段身分:取大小期間若結束或換成另一個,寫入前要能發現
+        session_name = self._session_name()
         models = await self._checked(models)
         sized = await self._sized(models)
         # 檢查條件與試算相同,只差空間不足時回錯誤(使用者故事 3 驗收情境 12)
         if not (await self._estimate(sized))["fits"]:
             raise ApiError(409, "DISK_SPACE_INSUFFICIENT")
+        # 最後一次 `await` 之後、寫入之前沒有 `await`:仍須是原本那個就緒的工作階段,否則不寫入也不下載
+        if self._lifecycle.ready_base_url() != base_url or self._session_name() != session_name:
+            raise ApiError(503, "NO_READY_SESSION")
         try:
             ids = self._repo.enqueue_many(
                 sized, origin="user",
                 preload_on_complete=False,
                 added_at=iso(self._state.clock.now()),
-                session_name=self._session_name(),
+                session_name=session_name,
             )
         except QueueConflict as conflict:
             # 另一個請求在這個請求取 manifest 時先把同一個模型加進佇列:整批已撤回(research.md R2)
@@ -184,16 +189,22 @@ class DownloadsService:
         self.kick(base_url)
         return {"jobs": [self.job_payload(row) for row in self._repo.all() if row["id"] in ids]}
 
-    def enqueue_auto(self, sized: list[tuple[str, int]], session_name: str, base_url: str) -> None:
-        """自動下載排入(`origin` 為 `auto`),每一筆推 `download.updated`,接著開始下載。"""
+    def enqueue_auto(self, sized: list[tuple[str, int]], session_name: str, base_url: str) -> list[str]:
+        """自動下載排入(`origin` 為 `auto`),每一筆推 `download.updated`,接著開始下載。
+
+        判定期間使用者可能已手動加入同一個模型:最後寫入時再濾一次佇列裡的(不分大小寫),其餘照常排入。
+        回傳實際排入的模型名稱。"""
+        queued = _key_set(row["model"] for row in self.pending())
+        sized = [(model, size) for model, size in sized if match_key(model) not in queued]
         if not sized:
-            return
+            return []
         ids = self._repo.enqueue_many(
             sized, origin="auto", preload_on_complete=False, added_at=iso(self._state.clock.now()), session_name=session_name
         )
         for job_id in ids:
             self._publish(job_id)
         self.kick(base_url)
+        return [model for model, _ in sized]
 
     def remove(self, job_id: int) -> None:
         """移除一筆(removeDownload):排隊中的取消,正在下載的不能取消。"""

@@ -7,6 +7,7 @@ E2 不重算設定(contracts/ui.openapi.yaml § `info.x-tuning-rule` (2)):替身
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import timedelta
 from typing import Any
 
@@ -16,6 +17,7 @@ import pytest
 from cgb.app import AppPair
 from cgb.db.connection import connect
 from cgb.domain.session_state import parse_iso
+from conftest import TEST_TIMEOUTS
 from integration.test_api_recovery import reset_calls, running
 from integration.test_api_events import next_session_update, sse_events
 from integration.test_api_session import T4, error_code, T4_STARTED, ColabWorld, open_ready, ui_client, wait_for_state, wait_until  # noqa: F401
@@ -269,6 +271,8 @@ async def test_遠端_Ollama_已在執行而讀不到設定時照常就緒_設�
 # ---- 005 US1-API-06
 
 
+# 這個案例把假時鐘推進 30 秒;開啟總時限(測試預設 3 秒)也走假時鐘,不放寬的話負載重時會先逾時而開啟失敗
+@pytest.mark.parametrize("test_timeouts", [replace(TEST_TIMEOUTS, open_total=300.0)])
 async def test_開啟時那一筆設定在遠端啟動完才記下_含量到的硬體與來源(
     ui_client: httpx.AsyncClient, fakes: Any, fake_clock: Any
 ) -> None:
@@ -292,6 +296,7 @@ async def test_開啟時那一筆設定在遠端啟動完才記下_含量到的�
     tunings = record.get("tunings") or []
     only = tunings[0] if len(tunings) == 1 else {}
     at = parse_iso(only["at"]) if only.get("at") else None
+    assert session.get("state") == "ready"
     assert len(tunings) == 1
     assert (only.get("trigger"), only.get("result")) == ("open", "applied")
     assert at is not None and accepted_at + timedelta(seconds=30) <= at <= ready_seen_at
