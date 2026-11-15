@@ -53,6 +53,7 @@
 
 - **FR-004**:連線設定畫面必須產生一段 pi 的模型設定片段:位址指向本系統相容端點的 `/v1`、使用 OpenAI Chat Completions 的介面,並列出模型目錄裡每一個模型。
 - **FR-005**:pi 片段的每個模型必須帶上目前工作階段套用的 context 長度。
+- **FR-013**:pi 片段必須另附一段 pi 的 `settings.json` 設定,把自動壓縮預留的 token 數調到不超過 context 長度的四分之一;讀不到 context 長度時不附。
 
 **非功能需求**:
 
@@ -128,6 +129,7 @@
 - coding agent 的 context 建議下限定為 16384;實際值由 technical-research 依 opencode 與 pi 的提示詞長度修正。
 - 支援工具呼叫與否取決於模型本身;本系統只原樣轉送,不替模型補工具呼叫。
 - pi 在桌機沒有安裝;驗證時裝在暫存 `HOME`,不動使用者的環境。
+- 片段裡的模型標成不使用推理模式;會輸出大量思考內容的模型(例如 `qwen3`)接 coding agent 會很慢,這一輪不特別處理,原樣轉送。
 
 ## 釐清紀錄
 
@@ -137,3 +139,4 @@
 - 問:「輕鬆接上」做到哪裡? → 答:開放 `/v1/chat/completions`、`/v1/models`,UI 產生可直接貼上的 opencode 與 pi 片段,不動使用者的設定檔(分身代答,D1)
 - 問:T4 的 context 4096 對 coding agent 太小怎麼辦? → 答:不改 005 的級距,連線畫面提醒並給建議值(分身代答,D2)
 - 問:怎樣算接上了? → 答:本機臨時 `ollama serve` 讓 opencode 與 pi 各完成一次工具呼叫;Colab T4 上 opencode 跑一次,併進 005 G-04(分身代答,D3)
+- 問:(technical-research 實測)pi 預設預留 16384 token 給自動壓縮,context 小時每回合都壓縮怎麼辦? → 答:pi 片段另附 `settings.json`,把預留調到不超過 context 的四分之一(FR-013;實測 R3)
