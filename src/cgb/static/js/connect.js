@@ -3,8 +3,9 @@ import { request } from "./api.js";
 import { startHeader } from "./header.js";
 import { showState } from "./view.js";
 
-// 片段文字裡的 `{{host}}` 換成目前網址的主機名稱;片段本身由後端產生(info.x-snippet-rule;plan.md Q10、Q16)
-const withHost = (text) => text.replaceAll("{{host}}", location.hostname);
+// 片段文字裡的 `{{host}}` 換成目前網址的主機名稱;片段本身由後端產生(info.x-snippet-rule;plan.md Q10、Q16)。
+// 沒有附的片段(null)照樣回 null
+const withHost = (text) => (text === null ? null : text.replaceAll("{{host}}", location.hostname));
 
 // token 數加千分位,和其他頁的寫法一樣(view.js 的 tuningValue)
 const tokens = (n) => n.toLocaleString("zh-TW");
@@ -23,11 +24,26 @@ function selectTab(root, tab) {
   });
 }
 
+// 寫進剪貼簿;從區網其他機器以 `http://<IP>` 打開時不是安全環境,`navigator.clipboard` 不存在或丟錯,
+// 改用暫時的 textarea 選取後 `execCommand("copy")`(plan.md Q31;e2e 走 127.0.0.1 驗不到這條退路)
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+  }
+}
+
 // `[data-copy]` 通用的複製處理:複製畫面上已換好主機名稱的那一段片段文字,按鈕文字變「已複製」兩秒後還原(FR-003)
 function bindCopy(root) {
   root.querySelectorAll("[data-copy]").forEach((button) => {
     button.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(root.querySelector(`[data-code="${button.dataset.copy}"]`).textContent);
+      await copyText(root.querySelector(`[data-code="${button.dataset.copy}"]`).textContent);
       button.textContent = "已複製";
       button.classList.add("copied");
       setTimeout(() => {
@@ -40,7 +56,11 @@ function bindCopy(root) {
 
 function render(root, info) {
   root.replaceChildren(document.getElementById("tpl-snippets").content.cloneNode(true));
-  const code = { opencode: withHost(info.snippets.opencode), "pi-models": withHost(info.snippets.piModels) };
+  const code = {
+    opencode: withHost(info.snippets.opencode),
+    "pi-models": withHost(info.snippets.piModels),
+    "pi-settings": withHost(info.snippets.piSettings),
+  };
   const set = (field, text) => {
     root.querySelectorAll(`[data-field="${field}"]`).forEach((el) => {
       el.textContent = text;
@@ -55,9 +75,14 @@ function render(root, info) {
   set("context", tokens(info.contextLength));
   set("count", `${info.models.length} 個(模型目錄裡的全部)`);
   set("opencode-cmd", `opencode -m cgb/${info.models[0]}`);
+  set("pi-cmd", `pi --model cgb/${info.models[0]}`);
   set("current", tokens(info.contextLength));
   set("min", tokens(info.recommendedMinContextLength));
   show("low-notice", info.shouldWarn);
+  // `snippets.piSettings` 為 null(讀不到 context)時,settings.json 那段與它的步驟都不顯示(FR-013)
+  const hasPiSettings = code["pi-settings"] !== null;
+  show("pi-settings", hasPiSettings);
+  show("pi-settings-step", hasPiSettings);
   root.querySelectorAll("[data-code]").forEach((el) => {
     el.textContent = code[el.dataset.code] ?? "";
   });

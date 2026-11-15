@@ -90,12 +90,23 @@
         <div class="snippet">
           <div class="snippet-head">
             <h3>models.json</h3>
+            <button type="button" class="btn btn-primary btn-small" data-copy="pi-models">複製</button>
           </div>
           <pre class="code" data-code="pi-models"></pre>
+        </div>
+        <div class="snippet" data-part="pi-settings">
+          <div class="snippet-head">
+            <h3>settings.json</h3>
+            <button type="button" class="btn btn-primary btn-small" data-copy="pi-settings">複製</button>
+          </div>
+          <p class="muted">pi 預設預留 16384 token 給自動壓縮;context 較小時每回合都會壓縮,所以把預留調成 context 的四分之一。</p>
+          <pre class="code" data-code="pi-settings"></pre>
         </div>
         <h3>使用方式</h3>
         <ol class="howto">
           <li>把 <span class="mono">models.json</span> 的片段放進 <span class="mono">~/.pi/agent/models.json</span>(已經有檔案的話,把 <span class="mono">cgb</span> 這一段合併進 <span class="mono">providers</span>)。</li>
+          <li data-part="pi-settings-step">把 <span class="mono">settings.json</span> 的片段放進 <span class="mono">~/.pi/agent/settings.json</span>(已經有檔案的話,合併進去)。</li>
+          <li>執行 <span class="mono" data-field="pi-cmd"></span> 選用 Colab 上的模型。</li>
         </ol>
       </div>
     </div>

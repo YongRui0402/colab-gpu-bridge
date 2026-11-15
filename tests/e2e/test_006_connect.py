@@ -160,3 +160,59 @@ def test_連線設定頁的說明都是繁體中文_片段的鍵名照原文(pag
     assert "limit" in opencode["provider"]["cgb"]["models"][CODER_7B]
     assert opencode["provider"]["cgb"]["options"]["baseURL"] == "http://127.0.0.1:11436/v1"
     assert pi_models["providers"]["cgb"]["baseUrl"] == "http://127.0.0.1:11436/v1"
+
+
+# ---- 006 US2-AJ-01
+
+
+def test_pi_分頁有_models_json_與_settings_json_兩段各能複製_位址換好主機名稱並寫明放哪裡(page: Page, e2e_servers: Any, world: ColabWorld) -> None:
+    # Arrange
+    ready_with_default_models(page, world)
+    page.goto("/connect.html")
+    shown = snippets(page)
+    expect(shown.locator('[data-code="opencode"]')).to_contain_text("http://127.0.0.1:11436/v1")
+
+    # Act
+    shown.locator('.tab[data-tab="pi"]').click()
+
+    # Assert
+    pi = shown.locator('[data-panel="pi"]')
+    expect(pi).to_be_visible()
+    # 則1:models.json 與 settings.json 兩段都看得到,各有自己的「複製」
+    heads = pi.locator(".snippet:visible .snippet-head")
+    expect(heads.locator("h3")).to_have_text(["models.json", "settings.json"])
+    for head in heads.all():
+        expect(head.locator("button")).to_have_text("複製")
+    expect(pi.locator('.code[data-code="pi-settings"]')).to_be_visible()
+    # 則2:models.json 的 baseUrl 換成目前網址的主機名稱
+    pi_models = json.loads(pi.locator('[data-code="pi-models"]').inner_text())
+    assert pi_models["providers"]["cgb"]["baseUrl"] == "http://127.0.0.1:11436/v1"
+    # 則3:使用方式寫著兩個檔放哪裡,以及怎麼選用模型
+    howto = pi.locator(".howto")
+    expect(howto).to_contain_text("~/.pi/agent/models.json")
+    expect(howto).to_contain_text("~/.pi/agent/settings.json")
+    expect(howto).to_contain_text(f"pi --model cgb/{CODER_7B}")
+
+
+# ---- 006 US2-AJ-02
+
+
+def test_按_settings_json_那段的複製後剪貼簿的內容和畫面上的_settings_json_片段完全相同(page: Page, context: BrowserContext, e2e_servers: Any, world: ColabWorld) -> None:
+    # Arrange
+    context.grant_permissions(["clipboard-read", "clipboard-write"])
+    ready_with_default_models(page, world)
+    page.goto("/connect.html")
+    shown = snippets(page)
+    expect(shown.locator('[data-code="opencode"]')).to_contain_text("http://127.0.0.1:11436/v1")
+    shown.locator('.tab[data-tab="pi"]').click()
+    settings = shown.locator('[data-code="pi-settings"]')
+    expect(settings).to_contain_text("reserveTokens")
+    button = shown.locator('[data-copy="pi-settings"]')
+
+    # Act
+    button.click()
+
+    # Assert
+    expect(button).to_have_text("已複製")
+    copied = page.evaluate("navigator.clipboard.readText()")
+    assert copied == settings.text_content()

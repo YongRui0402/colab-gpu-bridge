@@ -380,23 +380,23 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器接真的後端
 
-- [ ] T035a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US2-AJ-01 的測試(工作階段就緒的預設資料;打開連線設定頁,切到 pi 分頁;斷言看到 `models.json` 與 `settings.json` 兩段、各有「複製」,`models.json` 的 `baseUrl` 是 `http://127.0.0.1:11436/v1`,下方寫著放進 `~/.pi/agent/models.json`、`~/.pi/agent/settings.json` 與 `pi --model cgb/<模型>`),執行確認它因為「pi 分頁只有 `models.json`;或主機名稱沒替換」這類實作而失敗
+- [x] T035a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US2-AJ-01 的測試(工作階段就緒的預設資料;打開連線設定頁,切到 pi 分頁;斷言看到 `models.json` 與 `settings.json` 兩段、各有「複製」,`models.json` 的 `baseUrl` 是 `http://127.0.0.1:11436/v1`,下方寫著放進 `~/.pi/agent/models.json`、`~/.pi/agent/settings.json` 與 `pi --model cgb/<模型>`),執行確認它因為「pi 分頁只有 `models.json`;或主機名稱沒替換」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-01
   - ⚙ `prototype/connect.html` § `[data-state="pi"]`;`contracts/ui.openapi.yaml` § `paths./connect.get`
   - 📎 `spec.md` § FR-004、FR-013、NFR-002
-- [ ] T035b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US2-AJ-01 通過的程式碼(pi 分頁補上 `settings.json` 一段與使用方式,每段各有 `data-copy`;`snippets.piSettings` 為 null 時整段不顯示);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T035a)
+- [x] T035b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/connect.html` 與 `src/cgb/static/js/connect.js` 只寫讓 US2-AJ-01 通過的程式碼(pi 分頁補上 `settings.json` 一段與使用方式,每段各有 `data-copy`;`snippets.piSettings` 為 null 時整段不顯示);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T035a)
   - 🧪 `testplan.md` § US2-AJ-01
   - ⚙ `prototype/connect.html` § `[data-state="pi"]`;`contracts/ui.openapi.yaml` § `paths./connect.get`
   - 📎 `spec.md` § FR-004、FR-013、NFR-002
-- [ ] T036a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US2-AJ-02 的測試(同 US2-AJ-01 的畫面;按 `settings.json` 那段的「複製」;斷言讀回剪貼簿的內容和畫面上的 `settings.json` 片段完全相同);T026b 的 `[data-copy]` 通用複製處理依按鈕的 `data-copy` 取對應片段,T035b 補上 `settings.json` 的按鈕後這個案例會被滿足:先執行確認通過,再暫時讓所有複製按鈕都複製第一段片段,確認斷言失敗後撤回
+- [x] T036a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_006_connect.py` 寫 US2-AJ-02 的測試(同 US2-AJ-01 的畫面;按 `settings.json` 那段的「複製」;斷言讀回剪貼簿的內容和畫面上的 `settings.json` 片段完全相同);T026b 的 `[data-copy]` 通用複製處理依按鈕的 `data-copy` 取對應片段,T035b 補上 `settings.json` 的按鈕後這個案例會被滿足:先執行確認通過,再暫時讓所有複製按鈕都複製第一段片段,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-02
   - ⚙ `prototype/connect.html` § `.btn-small`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q25
-- [ ] T036b [US2] 🟢 /tdd 綠燈:US2-AJ-02 由 T026b 的 `[data-copy]` 通用複製處理滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/connect.js` 只寫讓 US2-AJ-02 通過的程式碼(依賴 T036a)
+- [x] T036b [US2] 🟢 /tdd 綠燈:US2-AJ-02 由 T026b 的 `[data-copy]` 通用複製處理滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/connect.js` 只寫讓 US2-AJ-02 通過的程式碼(依賴 T036a)
   - 🧪 `testplan.md` § US2-AJ-02
   - ⚙ `prototype/connect.html` § `.btn-small`
   - 📎 `spec.md` § FR-013
-- [ ] T037 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T035b~T036b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T036b)
+- [x] T037 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T035b~T036b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T036b)
   - 🧪 `testplan.md` § US2-AJ-01~US2-AJ-02
   - 📎 `testplan.md` § 3.2
 
