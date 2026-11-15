@@ -165,3 +165,11 @@ tests/
 | Q68 | implement T024b | E2 的 T024b、T030b 改了任務清單以外的 `src/cgb/api/history.py` 與 `src/cgb/services/session_lifecycle.py`(照 ⚙ 錨點與合約,SSE 與 GET 才一致):a 追認,把兩個檔補進 tasks.md 的清單(先採用);b 改回照清單的寫法 | — | a(D51):tasks.md 已補 |
 | Q69 | implement T028a | US1-API-08 則5 因替身還沒有 `restart_ollama`,改成斷言 `world.calls("restart_ollama") == []`,目前一定成立:a US3-CLI-01 做出替身後改回 `restart_ollama.call_count == 0`(先採用);b 維持 | — | a(D51):US3 E2 交辦時一併交代 |
 | Q70 | implement T001 | testplan 快速層沒有排除會呼叫真的 `colab` 的 `test_啟動_Ollama_的命令列真的_colab_解讀得了`(CI 已排除):a testplan 的快速層指令補上(先採用);b 不補 | — | a(D51):testplan 已補 |
+| Q71 | implement T063b | `start_ollama.py`、`restart_ollama.py` 的 `main()` 改成只在 `__main__` 執行(import 時不在桌機上跑):a 保留,G-02 實跑確認(先採用);b 撤回 | — | a(D52) |
+| Q72 | implement T064b | 覆蓋值格式用 `re.match(r"^[0-9]+$")`,結尾多一個換行的 `"4\n"` 會被接受:a 改成 `fullmatch`(先採用);b 維持 | — | a(D52):已改,US2-CLI-11 加 `4\n` 案例 |
+| Q73 | implement T078b | `restartSession` 補 `SESSION_ENDING`、`AUTH_REQUIRED`,授權檢查排在 `NO_ACTIVE_SESSION` 之前:a 維持(先採用);b 移進 RuntimeSwitch | — | a(D52) |
+| Q74 | implement T075b | 本文 `"tuning": null` 當成沒帶:a 維持(先採用);b 回 400 `INVALID_REQUEST_BODY` | — | a(D52) |
+| Q75 | implement T076a | `ColabWorld` 沒設 `list_local_models`,變更類型會 500,E2 在測試檔加 `without_local_models`:a testplan § 3.2 的 helper 清單補上(先採用);b 不補 | — | a(D52):testplan 已補 |
+| Q76 | implement T095a | 跨端點驗收四個紅燈一次寫完,只有缺區塊的逾時紅燈;另外三支各做一次對照組:a 追認(先採用);b 重做 | — | a(D52) |
+| Q77 | implement T095b | 637098a 修掉從 51effd3 起跑測試會對 127.0.0.1:11434 送請求的問題;為了不再犯,在 `tests/conftest.py` 加 autouse 守門:a 加(先採用);b 不加 | — | a(D52):已加,對照組確認會讓測試失敗 |
+| Q78 | implement T095b | `test_reopen_after_end.py` 斷言開啟請求本文只有 `runtimeType`,前端現在一律帶 `tuning`:a 追認、改斷言(先採用);b 前端都沒填時不帶 `tuning` | — | a(D52) |

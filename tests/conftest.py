@@ -59,6 +59,46 @@ _CLOCK_POLL_SECONDS = 0.005
 # ---------------------------------------------------------------- 收集順序
 
 
+# ---------------------------------------------------------------- P6 守門(005 plan Q77)
+# 桌機 127.0.0.1:11434 是使用者自己的 Ollama,測試一律不連過去。任何往那裡的連線都擋下並記下來,
+# 由 `_no_local_ollama` 讓那個測試失敗:只擋不記的話,程式接住連線錯誤後可能往別的路走(例如去安裝),看不出來。
+_P6_PORT = 11434
+_P6_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
+_p6_hits: list[tuple[str, int]] = []
+_original_connect = socket.socket.connect
+_original_connect_ex = socket.socket.connect_ex
+
+
+def _is_local_ollama(address: object) -> bool:
+    return isinstance(address, tuple) and len(address) >= 2 and address[1] == _P6_PORT and address[0] in _P6_HOSTS
+
+
+def _guarded_connect(self: socket.socket, address: object) -> None:
+    if _is_local_ollama(address):
+        _p6_hits.append(address[:2])  # type: ignore[index]
+        raise ConnectionRefusedError("P6 守門:測試不連使用者自己的 Ollama(127.0.0.1:11434)")
+    _original_connect(self, address)  # type: ignore[arg-type]
+
+
+def _guarded_connect_ex(self: socket.socket, address: object) -> int:
+    if _is_local_ollama(address):
+        _p6_hits.append(address[:2])  # type: ignore[index]
+        return 111  # ECONNREFUSED
+    return _original_connect_ex(self, address)  # type: ignore[arg-type]
+
+
+socket.socket.connect = _guarded_connect  # type: ignore[method-assign]
+socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign]
+
+
+@pytest.fixture(autouse=True)
+def _no_local_ollama() -> Iterator[None]:
+    before = len(_p6_hits)
+    yield
+    if len(_p6_hits) > before:
+        pytest.fail(f"P6:這個測試連了使用者自己的 Ollama {_p6_hits[before:]},測試一律不碰 127.0.0.1:11434")
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """`tests/e2e/` 的測試排到最後。
 

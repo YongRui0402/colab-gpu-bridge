@@ -251,6 +251,7 @@ E2 不重算設定(`info.x-tuning-rule` (2)):替身回報的 `tuning` 就是測�
 - `tuning_body(np, ctx, mlm)` 回 `{"numParallel": np, "contextLength": ctx, "maxLoadedModels": mlm}`;`NONE3 = tuning_body(None, None, None)`。
 - `open_with(client, runtime_type, tuning)` 送 `POST /api/session`,本文 `{"runtimeType": runtime_type, "tuning": tuning}`,回傳回應(不等就緒)。
 - `overrides(client)` 回 `GET /api/tuning/overrides` 的 `items` 轉成以 `gpu` 為鍵的 dict;`remember(client, gpu, tuning)` 以 `open_with` 開那一種類型到就緒再 `DELETE /api/session` 等 `ended`,讓那種類型記住 `tuning`,回傳那一次受理時的 `fake_clock.now()`。
+- `without_local_models(fakes)`:讓 `remote_ollama.list_local_models` 回空清單;變更類型的案例(US2-API-11、13、14、15)先呼叫它,否則 `ColabWorld` 沒有設定這個方法,變更類型時會回 500(plan.md Q75)。
 - `log_out(fakes)`:`fakes.colab.get_usage.raises("AUTH_REQUIRED")`,照 001 `test_沒有授權時開啟要先登入_不呼叫_CLI_開機` 讓授權檢查判成未登入。
 
 類型覆蓋值的寫入時機照 Q9(受理時寫、開啟失敗不還原)、清除照 Q8、Q23(三個 null 開啟時清除,`updatedAt` 變成 null)。範圍檢查的每個邊界在單元案例 US2-API-16~22 驗;整合案例只驗 api 有接上同一個檢查、檢查的順序,以及被擋下時沒有寫入、沒有開啟。

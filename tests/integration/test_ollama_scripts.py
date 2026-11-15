@@ -849,6 +849,8 @@ BAD_OVERRIDES = {
     "num-parallel-abc": ("CGB_TUNE_NUM_PARALLEL", "abc"),
     "num-parallel-4.0": ("CGB_TUNE_NUM_PARALLEL", "4.0"),
     "num-parallel-space-4": ("CGB_TUNE_NUM_PARALLEL", " 4"),
+    # plan Q72:`$` 會吃掉結尾一個換行,要整串比對
+    "num-parallel-4-newline": ("CGB_TUNE_NUM_PARALLEL", "4\n"),
     "num-parallel-minus-1": ("CGB_TUNE_NUM_PARALLEL", "-1"),
     "context-length-2047": ("CGB_TUNE_CONTEXT_LENGTH", "2047"),
     "max-loaded-models-5": ("CGB_TUNE_MAX_LOADED_MODELS", "5"),

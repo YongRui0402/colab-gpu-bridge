@@ -121,7 +121,7 @@ def read_running_tuning():
 
 # 覆蓋值的範圍(spec FR-017,含上下限;共用約定 11)
 TUNE_RANGES = {"numParallel": (1, 32), "contextLength": (2048, 131072), "maxLoadedModels": (1, 4)}
-DIGITS = re.compile(r"^[0-9]+$")
+DIGITS = re.compile(r"[0-9]+")
 
 
 def invalid_override():
@@ -131,7 +131,7 @@ def invalid_override():
         if not text:
             continue
         low, high = TUNE_RANGES[key]
-        if not (DIGITS.match(text) and low <= int(text) <= high):
+        if not (DIGITS.fullmatch(text) and low <= int(text) <= high):
             return f"{name} must be an integer between {low} and {high}"
     return None
 
