@@ -10,6 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from cgb.api import auth, chat, curated, downloads, events, history, huggingface, library, models, session, settings, tuning, usage
+from cgb.api import connect as connect_api  # `connect` 是下面資料庫的連線函式
 from cgb.db.connection import connect
 from cgb.db.schema import create_schema
 from cgb.domain.errors import ApiError
@@ -33,6 +34,7 @@ from cgb.services.recovery import Recovery
 from cgb.services.runtime_switch import RuntimeSwitch
 from cgb.services.session_lifecycle import SessionLifecycle
 from cgb.services.settings import SettingsService
+from cgb.services.tuning import TuningService
 from cgb.services.usage import UsageService
 
 # Q87:SSH 私鑰路徑由 CGB_SSH_IDENTITY_PATH 指定(deploy/compose.yaml)
@@ -56,6 +58,7 @@ class Services:
     usage: UsageService
     settings: SettingsService
     idle: IdleMonitor
+    tuning: TuningService
 
 
 def install(app: FastAPI) -> None:
@@ -96,7 +99,9 @@ def install(app: FastAPI) -> None:
             usage=usage_service,
             settings=settings_service,
             idle=idle,
+            tuning=TuningService(state, repo, lifecycle, tunings_repo, events, auth_service, downloads_service, idle),
         )
+        lifecycle.tuning = app.state.services.tuning
         # FR-001:工作階段結束類的狀態一寫入就清空下載佇列(research.md R1,清除只掛在這一處)
         repo.listeners.append(downloads_service.clear_if_session_over)
         repo.listeners.append(auto_download.clear_if_session_over)
@@ -118,6 +123,7 @@ def install(app: FastAPI) -> None:
             yield
         finally:
             await chat_client.aclose()
+            await app.state.services.tuning.shutdown()
             await idle.stop()
             await usage_service.stop()
             await monitor.stop()
@@ -145,3 +151,4 @@ def install(app: FastAPI) -> None:
     app.include_router(settings.router, prefix="/api")
     app.include_router(chat.router, prefix="/api")
     app.include_router(tuning.router, prefix="/api")
+    app.include_router(connect_api.router, prefix="/api")

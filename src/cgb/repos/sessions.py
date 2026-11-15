@@ -44,6 +44,10 @@ class SessionsRepo:
         if before != after:
             self._changed()
 
+    def notify(self) -> None:
+        """`sessions` 沒有變、但從它推出的 `Session`(例如 `ollama.lastApply`)變了時,通知一次(推送 session.updated 用)。"""
+        self._changed()
+
     def _changed(self) -> None:
         for listener in list(self.listeners):
             listener()
@@ -68,7 +72,7 @@ class SessionsRepo:
     def latest_unfinished(self) -> dict[str, Any] | None:
         """後端啟動時找最後一筆未結束的工作階段(research.md R10)。"""
         row = self._conn.execute(
-            "SELECT * FROM sessions WHERE state IN ('opening', 'ready', 'reconnecting')"
+            "SELECT * FROM sessions WHERE state IN ('opening', 'ready', 'applying_tuning', 'reconnecting')"
             " ORDER BY opened_at DESC, rowid DESC LIMIT 1"
         ).fetchone()
         return dict(row) if row is not None else None

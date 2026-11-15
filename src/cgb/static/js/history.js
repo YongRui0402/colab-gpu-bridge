@@ -11,6 +11,7 @@ const END_REASON = {
   OPEN_FAILED: { text: "開啟失敗", cls: "pill-danger" },
   RECLAIMED_BY_COLAB: { text: "被 Colab 收回", cls: "pill-danger" },
   RECONNECT_TIMEOUT: { text: "重連逾時", cls: "pill-danger" },
+  OLLAMA_RESTART_FAILED: { text: "重啟 Ollama 失敗", cls: "pill-danger" },
 };
 
 const dateTime = (iso) => {

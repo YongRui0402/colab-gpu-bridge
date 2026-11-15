@@ -364,8 +364,8 @@ async def test_後端重新啟動接回時照紀錄顯示設定_不重新量測�
     assert ollama.get("tuning") == before["tuning"]
     assert ollama.get("status") == "applied"
     assert fakes.colab.start_ollama.call_count == 0
-    # `restart_ollama` 到故事 3(US3-CLI-01)才有;在那之前看替身背後的呼叫紀錄
-    assert world.calls("restart_ollama") == []
+    # 接回不重啟遠端 Ollama:替身的 `restart_ollama` 一次都沒被呼叫(005 plan Q69;`reset_calls` 已把重啟前的呼叫清掉)
+    assert fakes.colab.restart_ollama.call_count == 0
     assert len(record.get("tunings") or []) == 1
 
 

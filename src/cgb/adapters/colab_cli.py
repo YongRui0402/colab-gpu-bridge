@@ -72,6 +72,8 @@ TUNING_SOURCES = frozenset({"auto", "manual", "ollama_default"})
 INT_TUNING_KEYS = ("numParallel", "contextLength", "maxLoadedModels")
 # `OllamaStarted.machine` 從結果行原樣交出的欄位
 MACHINE_FIELDS = ("gpuName", "vramTotalBytes", "systemMemoryTotalBytes")
+# `StoppedBy` 的列舉
+STOPPED_BY = frozenset({"pid_file", "pgrep", "not_running"})
 # `GpuType`;CLI 對認不得的 GPU 名稱不報錯、直接當成 A100,所以只有這幾個值能放進命令列
 GPU_TYPES = frozenset({"T4", "L4", "G4", "A100", "H100"})
 
@@ -84,6 +86,7 @@ class CliTimeouts:
     version: float = 10.0
     new: float = 300.0
     start_ollama: float = 300.0
+    restart_ollama: float = 180.0
     probe_resources: float = 90.0
     stop: float = 60.0
     usage: float = 60.0
@@ -183,15 +186,11 @@ class ColabControl:
 
     async def start_ollama(self, name: str, overrides: dict[str, int | None]) -> dict[str, Any]:
         check_overrides(overrides)
-        stdout, stderr = await self._exec_script(
-            self.timeouts.start_ollama,
-            "-s", name, "-f", str(SCRIPTS / "start_ollama.py"), "--timeout", "240", *START_OLLAMA_ENV,
-            *tune_env(overrides),
-        )  # fmt: skip
+        stdout, stderr = await self._exec_ollama_script(
+            name, "start_ollama.py", self.timeouts.start_ollama, "240", overrides
+        )
         # 安裝程式等其他輸出一律忽略,取最後一個結果行(共用約定 5)
-        if not any(line.startswith(RESULT_PREFIX) for line in stdout.splitlines()) and TRACEBACK in stderr:
-            last = masked_last_line(stderr)
-            raise AdapterError("COLAB_REMOTE_ERROR", f"執行環境上的初始化腳本發生錯誤:{last}", last)
+        raise_script_traceback(stdout, stderr, "初始化腳本")
         result = result_line(stdout)
         raise_script_failure(result, "在執行環境上啟動 Ollama 失敗")
         if not is_started_result(result):
@@ -200,12 +199,27 @@ class ColabControl:
         return {
             "ollamaVersion": result["ollamaVersion"],
             "alreadyRunning": result["alreadyRunning"],
-            "machine": {
-                "gpuName": result["gpuName"],
-                "vramTotalBytes": result["vramTotalBytes"],
-                "systemMemoryTotalBytes": result["systemMemoryTotalBytes"],
-                "probedAt": datetime.now(UTC).isoformat(),
-            },
+            "machine": machine_of(result),
+            "tuning": result["tuning"],
+        }
+
+    async def restart_ollama(self, name: str, overrides: dict[str, int | None]) -> dict[str, Any]:
+        check_overrides(overrides)
+        # 腳本、時限與 `--timeout 120` 都和 start_ollama 不同;`OLLAMA_HOST`、`OLLAMA_ORIGINS` 再帶一次,不依賴 kernel 留著開啟時的值
+        stdout, stderr = await self._exec_ollama_script(
+            name, "restart_ollama.py", self.timeouts.restart_ollama, "120", overrides
+        )
+        raise_script_traceback(stdout, stderr, "重啟腳本")
+        result = result_line(stdout)
+        # stop、start、verify 都帶 `remoteStage`,由呼叫者改用自動值重試(Q4、Q10)
+        raise_script_failure(result, "在執行環境上重啟 Ollama 失敗")
+        if not is_restarted_result(result):
+            raise AdapterError("COLAB_BAD_RESPONSE", "執行環境上的重啟腳本回報的結果格式不符")
+        # 硬體與設定原樣交出;probedAt 是轉接層收到結果的時間(同 start_ollama)
+        return {
+            "ollamaVersion": result["ollamaVersion"],
+            "stoppedBy": result["stoppedBy"],
+            "machine": machine_of(result),
             "tuning": result["tuning"],
         }
 
@@ -265,6 +279,16 @@ class ColabControl:
             raise AdapterError("COLAB_TIMEOUT", f"Colab CLI 在 {timeout:g} 秒內沒有回應") from None
         return stdout.decode(errors="replace"), stderr.decode(errors="replace"), process.returncode
 
+    async def _exec_ollama_script(
+        self, name: str, script: str, timeout: float, exec_timeout: str, overrides: dict[str, int | None]
+    ) -> tuple[str, str]:
+        """`start_ollama`、`restart_ollama` 共用:上傳 `script`,帶 `OLLAMA_HOST`、`OLLAMA_ORIGINS` 與三個 `CGB_TUNE_*`。"""
+        return await self._exec_script(
+            timeout,
+            "-s", name, "-f", str(SCRIPTS / script), "--timeout", exec_timeout, *START_OLLAMA_ENV,
+            *tune_env(overrides),
+        )  # fmt: skip
+
     async def _exec_script(self, timeout: float, *args: str) -> tuple[str, str]:
         """`colab exec <args>`;遇到 `Connection was lost` 以同一個命令列重跑一次,仍是就歸成 COLAB_UNREACHABLE。"""
         stdout, stderr, returncode = await self._run("exec", *args, timeout=timeout)
@@ -303,6 +327,11 @@ def is_int_at_least(value: Any, minimum: int) -> bool:
     return value is None or (isinstance(value, int) and not isinstance(value, bool) and value >= minimum)
 
 
+def machine_of(result: dict[str, Any]) -> dict[str, Any]:
+    """`OllamaStarted.machine`、`OllamaRestarted.machine`:結果行量到的硬體原樣交出;probedAt 是轉接層收到結果的時間。"""
+    return {**{key: result[key] for key in MACHINE_FIELDS}, "probedAt": datetime.now(UTC).isoformat()}
+
+
 def is_applied_tuning(tuning: Any) -> bool:
     """`AppliedTuning`:五項都有,`source` 在 `TuningSource` 的列舉裡,`value` 的型別對。"""
     if not isinstance(tuning, dict):
@@ -318,19 +347,38 @@ def is_applied_tuning(tuning: Any) -> bool:
     )
 
 
+def has_machine(result: dict[str, Any]) -> bool:
+    """結果行有 `MACHINE_FIELDS` 三個鍵,型別對(`gpuName` 是字串或 null,兩個容量是非負整數或 null)。"""
+    if not all(key in result for key in MACHINE_FIELDS):
+        return False
+    if not (result["gpuName"] is None or isinstance(result["gpuName"], str)):
+        return False
+    return is_int_at_least(result["vramTotalBytes"], 0) and is_int_at_least(result["systemMemoryTotalBytes"], 0)
+
+
 def is_started_result(result: dict[str, Any]) -> bool:
     """`ok` 為 true 的 `StartOllamaScriptResult`;只有已在執行(讀不到設定檔)時 `tuning` 可以是 null(Q50)。"""
     if not (isinstance(result.get("ollamaVersion"), str) and isinstance(result.get("alreadyRunning"), bool)):
         return False
-    if not all(key in result for key in (*MACHINE_FIELDS, "tuning")):
-        return False
-    if not (result["gpuName"] is None or isinstance(result["gpuName"], str)):
-        return False
-    if not (is_int_at_least(result["vramTotalBytes"], 0) and is_int_at_least(result["systemMemoryTotalBytes"], 0)):
+    if not (has_machine(result) and "tuning" in result):
         return False
     if result["tuning"] is None:
         return result["alreadyRunning"]
     return is_applied_tuning(result["tuning"])
+
+
+def is_restarted_result(result: dict[str, Any]) -> bool:
+    """`ok` 為 true 的 `RestartOllamaScriptResult`;重啟後一定有設定,`tuning` 不得是 null(後端會把它寫進紀錄)。"""
+    if not (isinstance(result.get("ollamaVersion"), str) and result.get("stoppedBy") in STOPPED_BY):
+        return False
+    return has_machine(result) and is_applied_tuning(result.get("tuning"))
+
+
+def raise_script_traceback(stdout: str, stderr: str, script: str) -> None:
+    """腳本丟出例外、沒有留下結果行(stderr 有 traceback)時丟 COLAB_REMOTE_ERROR,不帶 `remoteStage`;安裝程式等其他輸出一律忽略(共用約定 5)。"""
+    if not any(line.startswith(RESULT_PREFIX) for line in stdout.splitlines()) and TRACEBACK in stderr:
+        last = masked_last_line(stderr)
+        raise AdapterError("COLAB_REMOTE_ERROR", f"執行環境上的{script}發生錯誤:{last}", last)
 
 
 def raise_script_failure(result: dict[str, Any], message: str) -> None:

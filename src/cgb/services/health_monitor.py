@@ -67,6 +67,11 @@ class HealthMonitor:
             return
         except AdapterError:
             pass
+        # 等檢查的期間狀態可能被改走(例如受理了套用而進入 applying_tuning,Ollama 暫停回應是預期的):
+        # 不是原來那個就緒的工作階段就不重連,免得關掉套用正在用的通道、把狀態寫回 ready
+        latest = self._repo.latest()
+        if latest is None or latest["name"] != name or latest["state"] != "ready":
+            return
         await self._reconnect(name)
 
     async def _reconnect(self, name: str) -> None:

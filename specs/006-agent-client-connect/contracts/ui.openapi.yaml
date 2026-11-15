@@ -1,0 +1,196 @@
+openapi: 3.1.0
+info:
+  title: 後端 UI API(連線設定:給 opencode 與 pi 的連線資訊與設定片段)
+  version: 0.6.0
+  description: >-
+    S3(E2 後端 UI API)依 006 的 spec.md、research.md(R2、R3、R4、R5、R7)、plan.md(含待決問題 Q1~Q6 的決定)、
+    S1 的 `ollama-compat.openapi.yaml` 與 S2 的 `deploy/compose.yaml`(`CGB_PUBLIC_OLLAMA_PORT`)產出。
+
+    **本檔只收 006 這一輪新增的操作 `getConnectInfo`(`GET /api/connect`)與它用到的 components;
+    其他操作(工作階段、模型目錄、下載、對話、精選清單、用量與設定等)、`Session` 等 schema、事件與錯誤代碼的對應,一律以
+    `specs/005-ollama-machine-tuning/contracts/ui.openapi.yaml` 為準**(更早的操作在 001~004 的同名檔)。
+    本操作不改變任何既有操作的請求、回應或前提。
+
+    編號的出處:`x-requirements` 與沒有標前綴的 `FR-0xx`、`NFR-0xx`、`SC-0xx` 都是 006 spec.md 的編號;`R<n>` 指 006 research.md,`Q<n>` 指 006 plan.md 的待決問題;
+    `S1` 是 006 的 `ollama-compat.openapi.yaml`。
+
+    呼叫者:本系統前端 UI(瀏覽器),家中區網(含 VPN 連回)的任何裝置都能呼叫,不需要登入(001 的 NFR-009);
+    UI 的靜態檔與本 API 同一個來源,所以 `servers` 只寫相對路徑 `/api`。錯誤本文一律是 `Error`(`{code, message}`,`message` 是給使用者看的繁體中文)。
+
+    機密:片段不含 token、執行環境的遠端位址與轉發位址;pi 片段的 `apiKey` 是固定字串 `ollama`(本系統不驗證,R3),不是機密。
+    本操作只讀本系統的工作階段狀態與遠端 Ollama 的模型清單,不對桌機 127.0.0.1:11434 送任何請求,也不讀寫使用者自己的 opencode、pi 設定檔(FR-003)。
+  x-snippet-rule: >-
+    片段由後端產生,前端只做一件事:把片段文字裡的 `{{host}}` 換成目前網址的主機名稱(R7)。後端不知道使用者是用哪個主機名稱連進來的,所以位址一律寫成
+    `http://{{host}}:<ollamaPort>/v1`。
+    (1)`snippets.opencode`:可合併進 `opencode.json` 的 JSON 文字(R2),`provider.cgb` 有 `npm`(`@ai-sdk/openai-compatible`)、`name`(`colab-gpu-bridge`)、
+    `options.baseURL`、`models`;`models` 每個模型一個鍵(鍵與 `name` 都是 Ollama 的模型名稱),`contextLength` 不是 null 時每個模型帶
+    `limit.context`(等於 `contextLength`)與 `limit.output`(`min(4096, ⌊contextLength ÷ 2⌋)`),是 null 時不寫 `limit`(FR-002、FR-008)。不帶 API key。
+    (2)`snippets.piModels`:`~/.pi/agent/models.json` 的 JSON 文字(R3),`providers.cgb` 有 `baseUrl`、`api`(`openai-completions`)、`apiKey`(`ollama`)、
+    `compat`(`supportsDeveloperRole`、`supportsReasoningEffort` 都是 false)與 `models` 陣列(每個模型 `id`、`name`、`reasoning` false、`input` `["text"]`、
+    `maxTokens` 為 `min(4096, ⌊contextLength ÷ 2⌋)`,`contextLength` 是 null 時為 4096(Q15);`contextLength` 不是 null 時多 `contextWindow`)(FR-004、FR-005)。
+    (3)`snippets.piSettings`:`~/.pi/agent/settings.json` 的 JSON 文字 `{"compaction": {"reserveTokens": <reserveTokens>}}`,`contextLength` 為 null 時為 null、不附(FR-013)。
+    (4)片段的鍵名照各工具的原文,說明文字由前端放(NFR-002);片段都是縮排 2 格的 JSON,模型順序照模型目錄。
+  x-recommendation-rule: >-
+    建議值與提醒(FR-006、FR-007,R4、R5):`recommendedMinContextLength` 固定 16384;`shouldWarn` 在 `contextLength` 不是 null 且小於它時為 true,
+    `contextLength` 為 null 時為 false(讀不到時不提醒,畫面改說明原因,FR-008)。
+    `recommendedContextLength`:目前機器的顯示記憶體 ≥ 12 GiB 時 32768,否則 16384;讀不到顯示記憶體時 16384;最後不超過 005 的覆蓋範圍上限 131072。
+    這個估算只對 7B 級模型準,由前端在畫面上註明。
+  x-reason-rule: >-
+    沒有可顯示的片段時回 200 並以 `reason` 說明原因,不回錯誤(FR-012);依序判斷,第一個符合的成立:
+    (1)沒有就緒的工作階段(含 `none`、開啟中、套用設定中、重連中、已結束)→ `no_ready_session`,`models` 為空、`contextLength` 為 null、`snippets` 為 null;
+    (2)模型目錄是空的(執行環境剛開好)→ `no_models`,`models` 為空、`snippets` 為 null,`contextLength` 照實回;
+    (3)都沒有 → `reason` 為 null,`snippets` 有值。
+    `ollamaPort`、`basePath`、`recommendedMinContextLength`、`recommendedContextLength`、`sessionState` 在任何情況都回。
+servers:
+  - url: /api
+    description: 與 UI 靜態檔同一個來源;port 沿用 001(8780)
+paths:
+  /connect:
+    get:
+      operationId: getConnectInfo
+      summary: 連線設定頁要的資訊:相容端點的 port、目前 context、建議值、模型清單與設定片段
+      description: >-
+        FR-001~FR-008、FR-012、FR-013:連線設定頁開啟時讀一次(工作階段或模型目錄變化時再讀,觸發時機由 UI 決定,事件沿用 005 的 `session.updated` 與 001 的 `models.updated`)。
+        `ollamaPort` 是相容端點在主機上的 port(部署時由 `CGB_PUBLIC_OLLAMA_PORT` 傳進來,沒設時是容器內的 11434,R7),`basePath` 固定 `/v1`(S1);
+        前端用目前網址的主機名稱組出 `http://<主機名稱>:<ollamaPort>/v1`。
+        `contextLength` 取自目前工作階段 `Session.ollama.tuning.contextLength.value`(005,實際套用的值,不是覆蓋值);
+        遠端 Ollama 的設定讀不到(`ollama.status` 為 `unknown` 或 `pending`)時為 null(FR-008)。
+        模型清單取自模型目錄(001 `listCatalog`,只含下載完成的模型),所以工作階段就緒時會讀一次遠端 Ollama,讀不到回 502 或 504(與 `listCatalog` 同一組代碼)。
+        沒有就緒的工作階段或模型目錄是空的時,回 200 與 `reason`(見 `info.x-reason-rule`);片段的格式見 `info.x-snippet-rule`,建議值見 `info.x-recommendation-rule`。
+        這個操作不改變工作階段、不計入閒置(不算是對遠端 Ollama 的使用者請求,照 001 `listCatalog`)。
+      x-requirements: [FR-001, FR-002, FR-004, FR-005, FR-006, FR-007, FR-008, FR-012, FR-013]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段(沒有時回 `reason`)
+      x-timeout: 遠端 Ollama 的 tags 10 秒(照 001 `listCatalog`)
+      responses:
+        '200':
+          description: 連線資訊;`reason` 非 null 時 `snippets` 為 null
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectInfo'
+              examples:
+                ready:
+                  summary: 就緒、context 偏小
+                  value:
+                    ollamaPort: 11436
+                    basePath: /v1
+                    sessionState: ready
+                    reason: null
+                    contextLength: 8192
+                    recommendedMinContextLength: 16384
+                    recommendedContextLength: 32768
+                    shouldWarn: true
+                    models: ['qwen2.5-coder:7b']
+                    reserveTokens: 2048
+                    snippets:
+                      opencode: "{\n  \"provider\": {\n    \"cgb\": {\n      \"npm\": \"@ai-sdk/openai-compatible\",\n      \"name\": \"colab-gpu-bridge\",\n      \"options\": { \"baseURL\": \"http://{{host}}:11436/v1\" },\n      \"models\": {\n        \"qwen2.5-coder:7b\": { \"name\": \"qwen2.5-coder:7b\", \"limit\": { \"context\": 8192, \"output\": 4096 } }\n      }\n    }\n  }\n}"
+                      piModels: "{\n  \"providers\": {\n    \"cgb\": {\n      \"baseUrl\": \"http://{{host}}:11436/v1\",\n      \"api\": \"openai-completions\",\n      \"apiKey\": \"ollama\",\n      \"compat\": { \"supportsDeveloperRole\": false, \"supportsReasoningEffort\": false },\n      \"models\": [\n        { \"id\": \"qwen2.5-coder:7b\", \"name\": \"qwen2.5-coder:7b\", \"reasoning\": false, \"input\": [\"text\"], \"contextWindow\": 8192, \"maxTokens\": 4096 }\n      ]\n    }\n  }\n}"
+                      piSettings: "{\n  \"compaction\": { \"reserveTokens\": 2048 }\n}"
+                noSession:
+                  summary: 沒有就緒的工作階段
+                  value:
+                    ollamaPort: 11436
+                    basePath: /v1
+                    sessionState: none
+                    reason: no_ready_session
+                    contextLength: null
+                    recommendedMinContextLength: 16384
+                    recommendedContextLength: 16384
+                    shouldWarn: false
+                    models: []
+                    reserveTokens: null
+                    snippets: null
+        '502':
+          description: 經通道連不到遠端 Ollama,或模型清單的回應格式不對
+          x-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 遠端 Ollama 在逾時內沒有回應
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    ConnectInfo:
+      type: object
+      required: [ollamaPort, basePath, sessionState, reason, contextLength, recommendedMinContextLength, recommendedContextLength, shouldWarn, models, reserveTokens, snippets]
+      properties:
+        ollamaPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          description: 相容端點在主機上的 port(`CGB_PUBLIC_OLLAMA_PORT`,R7)
+        basePath:
+          type: string
+          enum: [/v1]
+          description: 相容端點的 OpenAI 相容路徑前綴(S1)
+        sessionState:
+          type: string
+          enum: [none, opening, ready, applying_tuning, reconnecting, ending, ended, open_failed, lost]
+          description: 目前工作階段的狀態,值照 005 的 `SessionState`
+        reason:
+          type: [string, 'null']
+          enum: [no_ready_session, no_models, null]
+          description: 沒有可顯示的片段的原因,判斷順序見 `info.x-reason-rule`;null 代表片段可用
+        contextLength:
+          type: [integer, 'null']
+          minimum: 2048
+          maximum: 131072
+          description: 目前工作階段實際套用的 context 長度(token);讀不到或沒有就緒的工作階段時為 null(FR-008)
+        recommendedMinContextLength:
+          type: integer
+          enum: [16384]
+          description: coding agent 的建議下限(token,R4)
+        recommendedContextLength:
+          type: integer
+          minimum: 16384
+          maximum: 131072
+          description: 建議值(token),算法見 `info.x-recommendation-rule`
+        shouldWarn:
+          type: boolean
+          description: 是否顯示 context 太小的提醒(FR-006)
+        models:
+          type: array
+          description: 模型目錄裡的 Ollama 模型名稱(含版本),順序照模型目錄;`reason` 非 null 時為空
+          items:
+            type: string
+        reserveTokens:
+          type: [integer, 'null']
+          minimum: 0
+          description: pi 自動壓縮預留的 token 數,`⌊contextLength ÷ 4⌋`(FR-013);`contextLength` 為 null 時為 null
+        snippets:
+          oneOf:
+            - $ref: '#/components/schemas/ConnectSnippets'
+            - type: 'null'
+          description: 設定片段;`reason` 非 null 時為 null(FR-012)
+    ConnectSnippets:
+      type: object
+      required: [opencode, piModels, piSettings]
+      description: 片段文字裡的 `{{host}}` 由前端換成目前網址的主機名稱,格式見 `info.x-snippet-rule`
+      properties:
+        opencode:
+          type: string
+          description: 可合併進 `opencode.json` 的 JSON 文字(FR-001、FR-002)
+        piModels:
+          type: string
+          description: pi `models.json` 的 JSON 文字(FR-004、FR-005)
+        piSettings:
+          type: [string, 'null']
+          description: pi `settings.json` 的 JSON 文字(FR-013);`contextLength` 為 null 時為 null
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE, OLLAMA_TIMEOUT]
+          description: 只列本檔操作會回的代碼,狀態碼與代碼的對應照 001 `listCatalog`,其他操作的代碼以 005 的 `ui.openapi.yaml` 為準
+        message:
+          type: string
+          description: 給使用者看的繁體中文說明(取自後端固定的訊息表,不帶底層例外或對方的網址)

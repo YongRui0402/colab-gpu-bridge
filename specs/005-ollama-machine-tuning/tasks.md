@@ -918,154 +918,154 @@
 
 > E5 節最前面的 T100b 做出 `plan.md` § 待決問題 Q32 的共用件(`restart_ollama(name, overrides)`、`CliTimeouts.restart_ollama`、`FakeColabControl.restart_ollama`、`ColabWorld.restart_result`),E2 節等它的綠燈完成才開始(Q55)。檔案範圍與護欄同故事 1 的 E5 節。pgrep 的案例一律設 `CGB_SERVE_PGREP_PATTERN=^<暫存資料夾>/oldbin/ollama serve`,沒有任何案例以預設的 `^ollama serve` 執行 `pgrep`,桌機上使用者自己的 `ollama serve` 不會被比對到、也不會收到訊號(`testplan.md` § 4.1);`restart_ollama.py` 從故事 2 的 T063b 的最小版本擴充
 
-- [ ] T100a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-01 的測試(依序呼叫 `restart_ollama` 帶 `{"numParallel": 4, "contextLength": None, "maxLoadedModels": None}` 與 `AUTO`(FR-013 改回自動值);分隔註解寫 `# ---- 005 US3-CLI-01`);同一個任務在檔內新增 `testplan.md` § 4.1 的 `RESTART_OLLAMA_SCRIPT`、`restart_argv`、`RESTARTED_T4_P4`;另把 `restart_argv(np="4")` 交給真的 `colab` CLI 以暫存 `HOME`、未授權解析一次(同 T002a,加進快速層的 `--deselect`),這一步會在本機執行 `colab`,執行前先停下問使用者本人(`plan.md` § 待決問題 Q56),執行確認它因為「沿用 `start_ollama` 的腳本路徑或 `--timeout 240`」這類實作而失敗
+- [x] T100a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-01 的測試(依序呼叫 `restart_ollama` 帶 `{"numParallel": 4, "contextLength": None, "maxLoadedModels": None}` 與 `AUTO`(FR-013 改回自動值);分隔註解寫 `# ---- 005 US3-CLI-01`);同一個任務在檔內新增 `testplan.md` § 4.1 的 `RESTART_OLLAMA_SCRIPT`、`restart_argv`、`RESTARTED_T4_P4`;另把 `restart_argv(np="4")` 交給真的 `colab` CLI 以暫存 `HOME`、未授權解析一次(同 T002a,加進快速層的 `--deselect`),這一步會在本機執行 `colab`,執行前先停下問使用者本人(`plan.md` § 待決問題 Q56),執行確認它因為「沿用 `start_ollama` 的腳本路徑或 `--timeout 240`」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`
   - 📎 `spec.md` § FR-012、FR-013;`plan.md` § 待決問題 Q32、Q51
-- [ ] T100b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`tests/fakes/adapters.py`、`tests/integration/test_api_session.py` 只寫讓 US3-CLI-01 通過的程式碼;新增 `ColabControl.restart_ollama(name, overrides)`:`restart_ollama.py`、`--timeout 120`、帶齊三個 `CGB_TUNE_*`、經 `_exec_script`,`CliTimeouts` 加 `restart_ollama`(預設 180 秒);`plan.md` § 待決問題 Q32 的共用件也在這個任務做:`tests/fakes/adapters.py` 的 `FakeColabControl.METHODS` 加 `restart_ollama`(照真 adapter 綁定參數,`tests/integration/test_fake_signatures.py` 照原樣回歸),`tests/integration/test_api_session.py` 的 `ColabWorld` 新增 `_restart_ollama` 回 `self.restart_result`、記 `("restart_ollama", name)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T100a)
+- [x] T100b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`tests/fakes/adapters.py`、`tests/integration/test_api_session.py` 只寫讓 US3-CLI-01 通過的程式碼;新增 `ColabControl.restart_ollama(name, overrides)`:`restart_ollama.py`、`--timeout 120`、帶齊三個 `CGB_TUNE_*`、經 `_exec_script`,`CliTimeouts` 加 `restart_ollama`(預設 180 秒);`plan.md` § 待決問題 Q32 的共用件也在這個任務做:`tests/fakes/adapters.py` 的 `FakeColabControl.METHODS` 加 `restart_ollama`(照真 adapter 綁定參數,`tests/integration/test_fake_signatures.py` 照原樣回歸),`tests/integration/test_api_session.py` 的 `ColabWorld` 新增 `_restart_ollama` 回 `self.restart_result`、記 `("restart_ollama", name)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T100a)
   - 🧪 `testplan.md` § US3-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`
   - 📎 `spec.md` § FR-012、FR-013;`plan.md` § 待決問題 Q32、Q51
-- [ ] T101a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-02 的測試(呼叫 `restart_ollama(name="cgb-test-0001", overrides={"numParallel": 4, "contextLength": None, "maxLoadedModels": None})`;分隔註解寫 `# ---- 005 US3-CLI-02`),執行確認它因為「照 `OllamaStarted` 的形狀回傳,少了 `stoppedBy`、多了 `alreadyRunning`」這類實作而失敗
+- [x] T101a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-02 的測試(呼叫 `restart_ollama(name="cgb-test-0001", overrides={"numParallel": 4, "contextLength": None, "maxLoadedModels": None})`;分隔註解寫 `# ---- 005 US3-CLI-02`),執行確認它因為「照 `OllamaStarted` 的形狀回傳,少了 `stoppedBy`、多了 `alreadyRunning`」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.StoppedBy`、`components.schemas.MachineProbe`
   - 📎 `spec.md` § FR-012
-- [ ] T101b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-02 通過的程式碼;回 `OllamaRestarted`(`stoppedBy`、`machine`、`tuning`,沒有 `alreadyRunning`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T101a)
+- [x] T101b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-02 通過的程式碼;回 `OllamaRestarted`(`stoppedBy`、`machine`、`tuning`,沒有 `alreadyRunning`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T101a)
   - 🧪 `testplan.md` § US3-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.StoppedBy`、`components.schemas.MachineProbe`
   - 📎 `spec.md` § FR-012
-- [ ] T102a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-03 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-03`),執行確認它因為「只把 `verify` 帶出 `remoteStage`,`stop` 被當成別的錯,呼叫者不改用自動值重試(plan.md Q4)」這類實作而失敗
+- [x] T102a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-03 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-03`),執行確認它因為「只把 `verify` 帶出 `remoteStage`,`stop` 被當成別的錯,呼叫者不改用自動值重試(plan.md Q4)」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-03
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`、`components.schemas.ScriptStage`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q4
-- [ ] T102b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-03 通過的程式碼;`stage` 為 `stop`、`start`、`verify` 時都帶 `remote_stage`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T102a)
+- [x] T102b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-03 通過的程式碼;`stage` 為 `stop`、`start`、`verify` 時都帶 `remote_stage`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T102a)
   - 🧪 `testplan.md` § US3-CLI-03
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`、`components.schemas.ScriptStage`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q4
-- [ ] T103a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-04 的測試(劇本一呼叫 `restart_ollama` 帶平行數 4;劇本二呼叫 `restart_ollama` 帶 `{"numParallel": 33, "contextLength": None, "maxLoadedModels": None}`;分隔註解寫 `# ---- 005 US3-CLI-04`),執行確認它因為「範圍檢查只寫在 `start_ollama`,`restart_ollama` 把 33 送到遠端」這類實作而失敗
+- [x] T103a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-04 的測試(劇本一呼叫 `restart_ollama` 帶平行數 4;劇本二呼叫 `restart_ollama` 帶 `{"numParallel": 33, "contextLength": None, "maxLoadedModels": None}`;分隔註解寫 `# ---- 005 US3-CLI-04`),執行確認它因為「範圍檢查只寫在 `start_ollama`,`restart_ollama` 把 33 送到遠端」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-04
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017、FR-013
-- [ ] T103b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-04 通過的程式碼;重啟也在呼叫 `colab` 之前檢查範圍,和 `start_ollama` 共用同一段檢查,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T103a)
+- [x] T103b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-04 通過的程式碼;重啟也在呼叫 `colab` 之前檢查範圍,和 `start_ollama` 共用同一段檢查,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T103a)
   - 🧪 `testplan.md` § US3-CLI-04
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-017、FR-013
-- [ ] T104a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-05 的測試(各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-05`);T100b 讓 `restart_ollama` 經 `_exec_script`(`Connection was lost` 以同一組參數重跑一次,`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟不走 `_exec_script`,`Connection was lost` 直接失敗、套用變成結束工作階段」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T104a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-05 的測試(各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-05`);T100b 讓 `restart_ollama` 經 `_exec_script`(`Connection was lost` 以同一組參數重跑一次,`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟不走 `_exec_script`,`Connection was lost` 直接失敗、套用變成結束工作階段」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-CLI-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、邊界情況(重啟時 colab exec 斷線)
-- [ ] T104b [US3] 🟢 /tdd 綠燈:US3-CLI-05 由 T100b 讓 `restart_ollama` 經 `_exec_script`(`Connection was lost` 以同一組參數重跑一次,`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-05 通過的程式碼(依賴 T104a)
+- [x] T104b [US3] 🟢 /tdd 綠燈:US3-CLI-05 由 T100b 讓 `restart_ollama` 經 `_exec_script`(`Connection was lost` 以同一組參數重跑一次,`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-05 通過的程式碼(依賴 T104a)
   - 🧪 `testplan.md` § US3-CLI-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、邊界情況(重啟時 colab exec 斷線)
-- [ ] T105a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-06 的測試(各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-06`);T100b 讓 `restart_ollama` 用 `CliTimeouts.restart_ollama`(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟沿用 `start_ollama` 的 300 秒時限(`CliTimeouts` 沒有 `restart_ollama`,縮短的設定沒有作用)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T105a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-06 的測試(各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-06`);T100b 讓 `restart_ollama` 用 `CliTimeouts.restart_ollama`(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟沿用 `start_ollama` 的 300 秒時限(`CliTimeouts` 沒有 `restart_ollama`,縮短的設定沒有作用)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-CLI-06
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q51
-- [ ] T105b [US3] 🟢 /tdd 綠燈:US3-CLI-06 由 T100b 讓 `restart_ollama` 用 `CliTimeouts.restart_ollama`(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-06 通過的程式碼(依賴 T105a)
+- [x] T105b [US3] 🟢 /tdd 綠燈:US3-CLI-06 由 T100b 讓 `restart_ollama` 用 `CliTimeouts.restart_ollama`(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-06 通過的程式碼(依賴 T105a)
   - 🧪 `testplan.md` § US3-CLI-06
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q51
-- [ ] T106a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-07 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-07`);T100b 讓 `restart_ollama` 經 `_exec_script` 的失敗分類與 stderr 遮罩(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟自己解析輸出,只認 `CGB-RESULT`,其他失敗一律歸 `COLAB_REMOTE_ERROR`,呼叫者照 Q10 改回自動值又重啟一次(執行環境已不在或未授權時白跑)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T106a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-07 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-07`);T100b 讓 `restart_ollama` 經 `_exec_script` 的失敗分類與 stderr 遮罩(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重啟自己解析輸出,只認 `CGB-RESULT`,其他失敗一律歸 `COLAB_REMOTE_ERROR`,呼叫者照 Q10 改回自動值又重啟一次(執行環境已不在或未授權時白跑)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-CLI-07
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、NFR-003;`plan.md` § 待決問題 Q10
-- [ ] T106b [US3] 🟢 /tdd 綠燈:US3-CLI-07 由 T100b 讓 `restart_ollama` 經 `_exec_script` 的失敗分類與 stderr 遮罩(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-07 通過的程式碼(依賴 T106a)
+- [x] T106b [US3] 🟢 /tdd 綠燈:US3-CLI-07 由 T100b 讓 `restart_ollama` 經 `_exec_script` 的失敗分類與 stderr 遮罩(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-07 通過的程式碼(依賴 T106a)
   - 🧪 `testplan.md` § US3-CLI-07
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-013、NFR-003;`plan.md` § 待決問題 Q10
-- [ ] T107a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-08 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-08`),執行確認它因為「照 `start_ollama` 的寬鬆規則接受 `tuning` 為 null,重啟後後端寫進一筆沒有設定的紀錄」這類實作而失敗
+- [x] T107a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US3-CLI-08 的測試(每種各呼叫一次 `restart_ollama` 帶平行數 4;分隔註解寫 `# ---- 005 US3-CLI-08`),執行確認它因為「照 `start_ollama` 的寬鬆規則接受 `tuning` 為 null,重啟後後端寫進一筆沒有設定的紀錄」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-08
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`、`components.schemas.StoppedBy`
   - 📎 `spec.md` § FR-012
-- [ ] T107b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-08 通過的程式碼;重啟的結果 `tuning` 不得為 null、`stoppedBy` 要在列舉裡,不符歸 `COLAB_BAD_RESPONSE`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T107a)
+- [x] T107b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US3-CLI-08 通過的程式碼;重啟的結果 `tuning` 不得為 null、`stoppedBy` 要在列舉裡,不符歸 `COLAB_BAD_RESPONSE`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T107a)
   - 🧪 `testplan.md` § US3-CLI-08
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaInput`、`components.schemas.OllamaRestarted`、`components.schemas.Error`、`components.schemas.StoppedBy`
   - 📎 `spec.md` § FR-012
-- [ ] T108a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-09 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-09`),執行確認它因為「只對 pid 送訊號、不送行程群組,載入模型的子行程留著佔顯示記憶體(research.md R1)」這類實作而失敗
+- [x] T108a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-09 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-09`),執行確認它因為「只對 pid 送訊號、不送行程群組,載入模型的子行程留著佔顯示記憶體(research.md R1)」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q53
-- [ ] T108b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-09 通過的程式碼;對 pid 檔那個 pid 的行程群組送 SIGTERM(`os.killpg`),`stoppedBy` 為 `pid_file`;pid 被重用不另檢查,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T108a)
+- [x] T108b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-09 通過的程式碼;對 pid 檔那個 pid 的行程群組送 SIGTERM(`os.killpg`),`stoppedBy` 為 `pid_file`;pid 被重用不另檢查,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T108a)
   - 🧪 `testplan.md` § US3-CLI-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q53
-- [ ] T109a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-10 的測試(每種各 `box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-10`),執行確認它因為「pid 檔不在就直接啟動新的,舊的佔著 port,新的起不來、回報 `verify`」這類實作而失敗
+- [x] T109a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-10 的測試(每種各 `box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-10`),執行確認它因為「pid 檔不在就直接啟動新的,舊的佔著 port,新的起不來、回報 `verify`」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-10
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q5、Q45
-- [ ] T109b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-10 通過的程式碼;pid 檔不在或內容不是數字時以 `pgrep -f`(`CGB_SERVE_PGREP_PATTERN`,預設 `^ollama serve`)找 pid,再停整個行程群組,`stoppedBy` 為 `pgrep`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T109a)
+- [x] T109b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-10 通過的程式碼;pid 檔不在或內容不是數字時以 `pgrep -f`(`CGB_SERVE_PGREP_PATTERN`,預設 `^ollama serve`)找 pid,再停整個行程群組,`stoppedBy` 為 `pgrep`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T109a)
   - 🧪 `testplan.md` § US3-CLI-10
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q5、Q45
-- [ ] T110a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-11 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-11`),執行確認它因為「找不到要停的行程就回報 `stage: "stop"`,Ollama 自己掛掉時無法以重啟救回」這類實作而失敗
+- [x] T110a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-11 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-11`),執行確認它因為「找不到要停的行程就回報 `stage: "stop"`,Ollama 自己掛掉時無法以重啟救回」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-11
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012
-- [ ] T110b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-11 通過的程式碼;找不到要停的行程不算失敗,`stoppedBy` 為 `none`,照常啟動,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T110a)
+- [x] T110b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-11 通過的程式碼;找不到要停的行程不算失敗,`stoppedBy` 為 `none`,照常啟動,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T110a)
   - 🧪 `testplan.md` § US3-CLI-11
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012
-- [ ] T111a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-12 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-12`),執行確認它因為「送了 SIGTERM 就不再確認,忽略 SIGTERM 的成員留在執行環境上」這類實作而失敗
+- [x] T111a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-12 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-12`),執行確認它因為「送了 SIGTERM 就不再確認,忽略 SIGTERM 的成員留在執行環境上」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-12
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q45
-- [ ] T111b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-12 通過的程式碼;`CGB_STOP_SECONDS`(預設 10)內行程群組沒結束就送 SIGKILL,確認都結束才往下,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T111a)
+- [x] T111b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-12 通過的程式碼;`CGB_STOP_SECONDS`(預設 10)內行程群組沒結束就送 SIGKILL,確認都結束才往下,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T111a)
   - 🧪 `testplan.md` § US3-CLI-12
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-012;`research.md` § R1;`plan.md` § 待決問題 Q45
-- [ ] T112a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-13 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-13`),執行確認它因為「不確認舊的已停止回應就啟動,新的 bind 失敗、回報成 `verify`」這類實作而失敗
+- [x] T112a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-13 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-13`),執行確認它因為「不確認舊的已停止回應就啟動,新的 bind 失敗、回報成 `verify`」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-13
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013;`research.md` § R1
-- [ ] T112b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-13 通過的程式碼;確認舊的已停止回應 `/api/version` 才啟動新的,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T112a)
+- [x] T112b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-13 通過的程式碼;確認舊的已停止回應 `/api/version` 才啟動新的,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T112a)
   - 🧪 `testplan.md` § US3-CLI-13
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013;`research.md` § R1
-- [ ] T113a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-14 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-14`),執行確認它因為「啟動丟出的 `OSError` 沒接住,變成沒有結果行的 traceback(轉接層歸成 `remoteStage` 為 null)」這類實作而失敗
+- [x] T113a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-14 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-14`),執行確認它因為「啟動丟出的 `OSError` 沒接住,變成沒有結果行的 traceback(轉接層歸成 `remoteStage` 為 null)」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-14
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T113b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-14 通過的程式碼;啟動丟出的 `OSError` 回 `stage: start`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T113a)
+- [x] T113b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-14 通過的程式碼;啟動丟出的 `OSError` 回 `stage: start`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T113a)
   - 🧪 `testplan.md` § US3-CLI-14
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T114a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-15 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-15`),執行確認它因為「驗證失敗時寫了狀態檔或留著舊的」這類實作而失敗
+- [x] T114a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-15 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-15`),執行確認它因為「驗證失敗時寫了狀態檔或留著舊的」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-15
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T114b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-15 通過的程式碼;驗證失敗時不寫狀態檔、刪掉舊的,並停掉新起的那一個,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T114a)
+- [x] T114b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-15 通過的程式碼;驗證失敗時不寫狀態檔、刪掉舊的,並停掉新起的那一個,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T114a)
   - 🧪 `testplan.md` § US3-CLI-15
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T115a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-16 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-16`),執行確認它因為「先停舊的才檢查覆蓋值,使用者打錯一個值,已載入的模型就被清掉、還要改回自動值重啟一次」這類實作而失敗
+- [x] T115a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-16 的測試(`box.run([restart_ollama.py])`;分隔註解寫 `# ---- 005 US3-CLI-16`),執行確認它因為「先停舊的才檢查覆蓋值,使用者打錯一個值,已載入的模型就被清掉、還要改回自動值重啟一次」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-16
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-017、FR-013
-- [ ] T115b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-16 通過的程式碼;停舊的之前先檢查三個 `CGB_TUNE_*`,不符回 `stage: input`、不碰舊的 serve,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T115a)
+- [x] T115b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-16 通過的程式碼;停舊的之前先檢查三個 `CGB_TUNE_*`,不符回 `stage: input`、不碰舊的 serve,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T115a)
   - 🧪 `testplan.md` § US3-CLI-16
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-017、FR-013
-- [ ] T116a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-17 的測試(同一個 kernel 以同一組環境連跑兩次 `restart_ollama.py`(`Connection was lost` 的重跑);分隔註解寫 `# ---- 005 US3-CLI-17`),執行確認它因為「第二次讀到的 pid 檔還是第一次之前的舊 pid(第一次沒寫回),停不到第一次起的 serve,新的起不來」這類實作而失敗
+- [x] T116a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-17 的測試(同一個 kernel 以同一組環境連跑兩次 `restart_ollama.py`(`Connection was lost` 的重跑);分隔註解寫 `# ---- 005 US3-CLI-17`),執行確認它因為「第二次讀到的 pid 檔還是第一次之前的舊 pid(第一次沒寫回),停不到第一次起的 serve,新的起不來」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-17
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013、邊界情況(重啟時 colab exec 斷線)
-- [ ] T116b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-17 通過的程式碼;新的 serve 起來就寫回 pid 檔,重跑時停得到上一次起的那一個,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T116a)
+- [x] T116b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-17 通過的程式碼;新的 serve 起來就寫回 pid 檔,重跑時停得到上一次起的那一個,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T116a)
   - 🧪 `testplan.md` § US3-CLI-17
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013、邊界情況(重啟時 colab exec 斷線)
-- [ ] T117a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-18 的測試(同一個 kernel 依序跑兩步:`restart_ollama.py` 帶 `CGB_TUNE_NUM_PARALLEL=4`;再以三個 `CGB_TUNE_*` 都是空字串跑一次(FR-013 改回自動值);分隔註解寫 `# ---- 005 US3-CLI-18`),執行確認它因為「第一步失敗後 pid 檔指著已結束的 pid,第二步 `os.killpg` 丟例外變成 traceback,改回自動值也失敗、工作階段被結束」這類實作而失敗
+- [x] T117a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-18 的測試(同一個 kernel 依序跑兩步:`restart_ollama.py` 帶 `CGB_TUNE_NUM_PARALLEL=4`;再以三個 `CGB_TUNE_*` 都是空字串跑一次(FR-013 改回自動值);分隔註解寫 `# ---- 005 US3-CLI-18`),執行確認它因為「第一步失敗後 pid 檔指著已結束的 pid,第二步 `os.killpg` 丟例外變成 traceback,改回自動值也失敗、工作階段被結束」這類實作而失敗
   - 🧪 `testplan.md` § US3-CLI-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T117b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-18 通過的程式碼;pid 指著已結束的行程時(`ProcessLookupError`)當成已停止,不丟例外,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T117a)
+- [x] T117b [US3] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/restart_ollama.py` 只寫讓 US3-CLI-18 通過的程式碼;pid 指著已結束的行程時(`ProcessLookupError`)當成已停止,不丟例外,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T117a)
   - 🧪 `testplan.md` § US3-CLI-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-013
-- [ ] T118 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T100b~T117b 記下的重構清單(範圍限 `src/cgb/adapters/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_colab_cli.py`、`tests/integration/test_ollama_scripts.py` 的斷言(依賴 T117b)
+- [x] T118 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T100b~T117b 記下的重構清單(範圍限 `src/cgb/adapters/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_colab_cli.py`、`tests/integration/test_ollama_scripts.py` 的斷言(依賴 T117b)
   - 🧪 `testplan.md` § US3-CLI-01~US3-CLI-18
   - 📎 `testplan.md` § 4.1
-- [ ] T119 [US3] 📏 量測:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-19(標 `realrun_local`),照案例起好舊的 serve、pid 檔指著它、量到 15360 MiB,`CGB_STOP_SECONDS`、`CGB_VERIFY_SECONDS` 都不設(用預設 10、60);情況 A 以 `CGB_TUNE_NUM_PARALLEL=4` 連續重啟 5 次、記每次從開始到結果行的時間與 `ok`,情況 B 跑一次 US3-CLI-18 的兩步(新設定起不來、等滿 60 秒,再改回自動值)、記兩步合計的時間,和門檻(A 的 5 次都 ≤ 90 秒且 `ok` 都是 true、B ≤ 180 秒,SC-004,只含遠端腳本)比較,結果寫進 `specs/005-ollama-machine-tuning/measurements.md`;serve 是 `box` 起的臨時 `ollama serve`(`free_loopback_port()`、暫存 `HOME` 與 `OLLAMA_MODELS`,不 pull 任何模型),腳本裡的 socket 守門只放行那個 port,不對 127.0.0.1:11434 送請求;停止靠 pid 檔,不以預設樣式執行 `pgrep`;不執行 `colab`、不花 compute units;紀錄只寫 pytest 暫存資料夾;約 2 分鐘;收尾照 `box` 確認行程與行程群組都已結束;Colab 上含 `colab exec` 來回的時間由 G-04 量;判定者:腳本;樣本:一次實跑,A 5 次、B 1 次(未用於調整)
+- [x] T119 [US3] 📏 量測:在 `tests/integration/test_ollama_scripts.py` 寫 US3-CLI-19(標 `realrun_local`),照案例起好舊的 serve、pid 檔指著它、量到 15360 MiB,`CGB_STOP_SECONDS`、`CGB_VERIFY_SECONDS` 都不設(用預設 10、60);情況 A 以 `CGB_TUNE_NUM_PARALLEL=4` 連續重啟 5 次、記每次從開始到結果行的時間與 `ok`,情況 B 跑一次 US3-CLI-18 的兩步(新設定起不來、等滿 60 秒,再改回自動值)、記兩步合計的時間,和門檻(A 的 5 次都 ≤ 90 秒且 `ok` 都是 true、B ≤ 180 秒,SC-004,只含遠端腳本)比較,結果寫進 `specs/005-ollama-machine-tuning/measurements.md`;serve 是 `box` 起的臨時 `ollama serve`(`free_loopback_port()`、暫存 `HOME` 與 `OLLAMA_MODELS`,不 pull 任何模型),腳本裡的 socket 守門只放行那個 port,不對 127.0.0.1:11434 送請求;停止靠 pid 檔,不以預設樣式執行 `pgrep`;不執行 `colab`、不花 compute units;紀錄只寫 pytest 暫存資料夾;約 2 分鐘;收尾照 `box` 確認行程與行程群組都已結束;Colab 上含 `colab exec` 來回的時間由 G-04 量;判定者:腳本;樣本:一次實跑,A 5 次、B 1 次(未用於調整)
   - 🧪 `testplan.md` § US3-CLI-19
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/restart-ollama.post`、`components.schemas.RestartOllamaScriptResult`
   - 📎 `spec.md` § NFR-002、SC-004
@@ -1074,279 +1074,279 @@
 
 > 依賴 E5 節的 US3-CLI-01 綠燈(T100b)完成才開始(`plan.md` § 待決問題 Q32、Q55)。測試寫進新檔 `tests/integration/test_api_tuning_apply.py`;套用的流程與時機照 `contracts/ui.openapi.yaml` 的 `info.x-apply-flow`、`info.x-applying-state` 與 `contracts/store.dbml` 的寫入時機,每支測試 1 秒內結束,閒置與時間的案例以 `fake_clock` 推進。001 的閒置、健康檢查與恢復測試照原樣回歸。「套用時排隊中的項目不擋、套用期間暫停、回到就緒照常開始」這一輪不測(`plan.md` § 待決問題 Q36,`testplan.md` § 7)
 
-- [ ] T120a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-01 的測試(`apply(ui_client, tuning_body(4, None, None))`;`wait_applied(ui_client)`,`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-01`);同一個任務在這個新檔新增 `testplan.md` § 4.2 的 `LLAMA`、`A100_RESTARTED_4`、`AUTO_RESTARTED`、`apply_ready`、`apply`、`wait_applied`、`remote_error`、`restart_overrides`、`preloaded`、`fallback_split`,執行確認它因為「路由 `await` 整個重啟才回應(202 時已是 `ready`)」這類實作而失敗
+- [x] T120a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-01 的測試(`apply(ui_client, tuning_body(4, None, None))`;`wait_applied(ui_client)`,`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-01`);同一個任務在這個新檔新增 `testplan.md` § 4.2 的 `LLAMA`、`A100_RESTARTED_4`、`AUTO_RESTARTED`、`apply_ready`、`apply`、`wait_applied`、`remote_error`、`restart_overrides`、`preloaded`、`fallback_split`,執行確認它因為「路由 `await` 整個重啟才回應(202 時已是 `ready`)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012、FR-010、使用者故事 3 驗收情境 1、使用者故事 3 獨立測試;`research.md` § R1、R8;`plan.md` § 待決問題 Q7、Q12
-- [ ] T120b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/api/__init__.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py`、`src/cgb/repos/tunings.py` 只寫讓 US3-API-01 通過的程式碼;新增 `applyTuning`(`src/cgb/api/tuning.py`,在 `src/cgb/api/__init__.py` 註冊):受理後立即回 202,`state` 改 `applying_tuning`、`step` 為 `restarting_ollama`,追加一筆 `trigger` 為 `apply`、`result` 為 `in_progress` 的紀錄,在背景呼叫 `restart_ollama`、依序重新載入、回到 `ready` 並把那一筆改成 `applied`(`info.x-apply-flow`);`applying_tuning` 加進同一個概念的每一份清單:`src/cgb/domain/session_state.py` 的 `ACTIVE_STATES`、`src/cgb/repos/sessions.py` 第 71 行進行中的查詢(畫面的狀態與步驟標籤由跨端點驗收的 T163b 加),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T120a、T100b)
+- [x] T120b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/api/__init__.py`、`src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py`、`src/cgb/repos/tunings.py` 只寫讓 US3-API-01 通過的程式碼;新增 `applyTuning`(`src/cgb/api/tuning.py`,在 `src/cgb/api/__init__.py` 註冊):受理後立即回 202,`state` 改 `applying_tuning`、`step` 為 `restarting_ollama`,追加一筆 `trigger` 為 `apply`、`result` 為 `in_progress` 的紀錄,在背景呼叫 `restart_ollama`、依序重新載入、回到 `ready` 並把那一筆改成 `applied`(`info.x-apply-flow`);`applying_tuning` 加進同一個概念的每一份清單:`src/cgb/domain/session_state.py` 的 `ACTIVE_STATES`、`src/cgb/repos/sessions.py` 第 71 行進行中的查詢(畫面的狀態與步驟標籤由跨端點驗收的 T163b 加),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T120a、T100b)
   - 🧪 `testplan.md` § US3-API-01
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012、FR-010、使用者故事 3 驗收情境 1、使用者故事 3 獨立測試;`research.md` § R1、R8;`plan.md` § 待決問題 Q7、Q12
-- [ ] T121a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-02 的測試(`apply`(`tuning_body(4, None, None)`);等 `restart_gate` 被走到時 `GET /api/session`;放行,等 `preload_gate` 被走到時 `GET /api/session`;放行,讀 SSE 直到 `state` 為 `ready` 的 `session.updated`(最多 1 秒);分隔註解寫 `# ---- 005 US3-API-02`),執行確認它因為「只在受理與完成時各推一次,`step` 從 `restarting_ollama` 直接跳到 `ready`」這類實作而失敗
+- [x] T121a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-02 的測試(`apply`(`tuning_body(4, None, None)`);等 `restart_gate` 被走到時 `GET /api/session`;放行,等 `preload_gate` 被走到時 `GET /api/session`;放行,讀 SSE 直到 `state` 為 `ready` 的 `session.updated`(最多 1 秒);分隔註解寫 `# ---- 005 US3-API-02`),執行確認它因為「只在受理與完成時各推一次,`step` 從 `restarting_ollama` 直接跳到 `ready`」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015、FR-012、使用者故事 3 驗收情境 1;`plan.md` § 待決問題 Q21
-- [ ] T121b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-02 通過的程式碼;`step` 依序推 `restarting_ollama`、`reloading_models` 的 `session.updated`,重新載入每個模型後推 `models.updated`;重啟成功時就把量到的硬體與新設定寫進 `in_progress` 那一筆,目前生效的設定也取它(analysis A2、D48),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T121a)
+- [x] T121b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-02 通過的程式碼;`step` 依序推 `restarting_ollama`、`reloading_models` 的 `session.updated`,重新載入每個模型後推 `models.updated`;重啟成功時就把量到的硬體與新設定寫進 `in_progress` 那一筆,目前生效的設定也取它(analysis A2、D48),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T121a)
   - 🧪 `testplan.md` § US3-API-02
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`、`operations.sendModelsUpdated`
   - 📎 `spec.md` § FR-015、FR-012、使用者故事 3 驗收情境 1;`plan.md` § 待決問題 Q21
-- [ ] T122a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-03 的測試(`apply`(`tuning_body(4, None, None)`);等閘門被走到時 `GET /api/tuning/overrides`;放行,`wait_applied`,再 `GET /api/tuning/overrides` 與 `GET /api/session`;`DELETE /api/session` 等 `ended`,送 `POST /api/session`(`{"runtimeType": A100}`,不帶 `tuning`)等 `ready`;分隔註解寫 `# ---- 005 US3-API-03`),執行確認它因為「照 `openSession` 的做法在受理時就寫入,重啟失敗時記住的已經是失敗的值」這類實作而失敗
+- [x] T122a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-03 的測試(`apply`(`tuning_body(4, None, None)`);等閘門被走到時 `GET /api/tuning/overrides`;放行,`wait_applied`,再 `GET /api/tuning/overrides` 與 `GET /api/session`;`DELETE /api/session` 等 `ended`,送 `POST /api/session`(`{"runtimeType": A100}`,不帶 `tuning`)等 `ready`;分隔註解寫 `# ---- 005 US3-API-03`),執行確認它因為「照 `openSession` 的做法在受理時就寫入,重啟失敗時記住的已經是失敗的值」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-014、FR-018、使用者故事 3 驗收情境 5;`plan.md` § 待決問題 Q39
-- [ ] T122b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/repos/tunings.py` 只寫讓 US3-API-03 通過的程式碼;套用成功才寫這種類型的覆蓋值,`updatedAt` 等於 `lastApply.finishedAt`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T122a)
+- [x] T122b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/repos/tunings.py` 只寫讓 US3-API-03 通過的程式碼;套用成功才寫這種類型的覆蓋值,`updatedAt` 等於 `lastApply.finishedAt`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T122a)
   - 🧪 `testplan.md` § US3-API-03
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-014、FR-018、使用者故事 3 驗收情境 5;`plan.md` § 待決問題 Q39
-- [ ] T123a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-04 的測試(`apply`(`NONE3`),`wait_applied`,`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-04`),執行確認它因為「寫入時把三個 null 當成「沒有要記的值」而跳過,記住的 4/16384/2 留著」這類實作而失敗
+- [x] T123a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-04 的測試(`apply`(`NONE3`),`wait_applied`,`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-04`),執行確認它因為「寫入時把三個 null 當成「沒有要記的值」而跳過,記住的 4/16384/2 留著」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-014、FR-009(info.x-tuning-rule (3));`plan.md` § 待決問題 Q23
-- [ ] T123b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/repos/tunings.py` 只寫讓 US3-API-04 通過的程式碼;三個 null 套用成功時清除這種類型的覆蓋值(刪掉那一列),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T123a)
+- [x] T123b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/repos/tunings.py` 只寫讓 US3-API-04 通過的程式碼;三個 null 套用成功時清除這種類型的覆蓋值(刪掉那一列),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T123a)
   - 🧪 `testplan.md` § US3-API-04
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-014、FR-009(info.x-tuning-rule (3));`plan.md` § 待決問題 Q23
-- [ ] T124a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-05 的測試(`apply`(`NONE3`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-05`);T120b 每次套用都呼叫 `restart_ollama`(`src/cgb/services/tuning.py`),不和目前生效的設定比較已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「和目前生效的設定相同就直接回 200、不重啟(合約寫明「和目前生效的設定相同也照常重啟」,使用者用它重啟卡住的 Ollama)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T124a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-05 的測試(`apply`(`NONE3`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-05`);T120b 每次套用都呼叫 `restart_ollama`(`src/cgb/services/tuning.py`),不和目前生效的設定比較已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「和目前生效的設定相同就直接回 200、不重啟(合約寫明「和目前生效的設定相同也照常重啟」,使用者用它重啟卡住的 Ollama)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012
-- [ ] T124b [US3] 🟢 /tdd 綠燈:US3-API-05 由 T120b 每次套用都呼叫 `restart_ollama`(`src/cgb/services/tuning.py`),不和目前生效的設定比較滿足,確認 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-05 通過的程式碼(依賴 T124a)
+- [x] T124b [US3] 🟢 /tdd 綠燈:US3-API-05 由 T120b 每次套用都呼叫 `restart_ollama`(`src/cgb/services/tuning.py`),不和目前生效的設定比較滿足,確認 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-05 通過的程式碼(依賴 T124a)
   - 🧪 `testplan.md` § US3-API-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012
-- [ ] T125a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-06 的測試(`apply`(`tuning_body(4, None, None)`);等 `restart_ollama.call_count` 為 2 時 `GET /api/session`;`fallback_gate.release()`,`wait_applied`,`GET /api/session`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-06`),執行確認它因為「改回自動值時帶記住的 2 而不是三個 null」這類實作而失敗
+- [x] T125a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-06 的測試(`apply`(`tuning_body(4, None, None)`);等 `restart_ollama.call_count` 為 2 時 `GET /api/session`;`fallback_gate.release()`,`wait_applied`,`GET /api/session`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-06`),執行確認它因為「改回自動值時帶記住的 2 而不是三個 null」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-013、FR-014、使用者故事 3 驗收情境 6、使用者故事 3 獨立測試;`plan.md` § 待決問題 Q10、Q20
-- [ ] T125b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-06 通過的程式碼;`COLAB_REMOTE_ERROR` 時改以三個 null 再呼叫一次 `restart_ollama`,成功時那一筆記 `fell_back_to_auto`(`requested` 保留這次的值)、不寫類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T125a)
+- [x] T125b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-06 通過的程式碼;`COLAB_REMOTE_ERROR` 時改以三個 null 再呼叫一次 `restart_ollama`,成功時那一筆記 `fell_back_to_auto`(`requested` 保留這次的值)、不寫類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T125a)
   - 🧪 `testplan.md` § US3-API-06
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-013、FR-014、使用者故事 3 驗收情境 6、使用者故事 3 獨立測試;`plan.md` § 待決問題 Q10、Q20
-- [ ] T126a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-07 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-07`),執行確認它因為「只有 `remoteStage` 為 `start`、`verify` 才改回自動值(Q4 已決定 `stop` 也重試)」這類實作而失敗
+- [x] T126a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-07 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-07`),執行確認它因為「只有 `remoteStage` 為 `start`、`verify` 才改回自動值(Q4 已決定 `stop` 也重試)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-013(COLAB_REMOTE_ERROR、COLAB_INVALID_TUNING);`plan.md` § 待決問題 Q4、Q10
-- [ ] T126b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-07 通過的程式碼;`COLAB_INVALID_TUNING` 與 `remoteStage` 為 `stop` 的 `COLAB_REMOTE_ERROR` 也改回自動值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T126a)
+- [x] T126b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-07 通過的程式碼;`COLAB_INVALID_TUNING` 與 `remoteStage` 為 `stop` 的 `COLAB_REMOTE_ERROR` 也改回自動值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T126a)
   - 🧪 `testplan.md` § US3-API-07
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-013(COLAB_REMOTE_ERROR、COLAB_INVALID_TUNING);`plan.md` § 待決問題 Q4、Q10
-- [ ] T127a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-08 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`,`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-08`),執行確認它因為「所有失敗都改回自動值再試(多一次 `colab exec`,還要等第二次逾時)」這類實作而失敗
+- [x] T127a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-08 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`,`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-08`),執行確認它因為「所有失敗都改回自動值再試(多一次 `colab exec`,還要等第二次逾時)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-013、邊界情況(colab exec 斷線)、使用者故事 3 驗收情境 7;`plan.md` § 待決問題 Q10、Q11
-- [ ] T127b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-08 通過的程式碼;其他失敗(逾時、斷線重跑後仍失敗、`COLAB_UNREACHABLE` 等)不改回自動值,直接照 `info.x-apply-flow` (5) 標成 `lost`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T127a)
+- [x] T127b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-08 通過的程式碼;其他失敗(逾時、斷線重跑後仍失敗、`COLAB_UNREACHABLE` 等)不改回自動值,直接照 `info.x-apply-flow` (5) 標成 `lost`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T127a)
   - 🧪 `testplan.md` § US3-API-08
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-013、邊界情況(colab exec 斷線)、使用者故事 3 驗收情境 7;`plan.md` § 待決問題 Q10、Q11
-- [ ] T128a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-09 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;`GET /api/session`、`GET /api/sessions/{name}`、`GET /api/downloads`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-09`),執行確認它因為「紀錄的是第一次的失敗(`verify`),UI 說不出最後停在哪」這類實作而失敗
+- [x] T128a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-09 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;`GET /api/session`、`GET /api/sessions/{name}`、`GET /api/downloads`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-09`),執行確認它因為「紀錄的是第一次的失敗(`verify`),UI 說不出最後停在哪」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-013、使用者故事 3 驗收情境 7;`plan.md` § 待決問題 Q11、Q12、Q19
-- [ ] T128b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-09 通過的程式碼;改回自動值也失敗時標成 `lost`、`endReason` 為 `OLLAMA_RESTART_FAILED`、釋放執行環境、清空下載佇列,那一筆記 `failed` 與最後一次失敗的階段,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T128a)
+- [x] T128b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-09 通過的程式碼;改回自動值也失敗時標成 `lost`、`endReason` 為 `OLLAMA_RESTART_FAILED`、釋放執行環境、清空下載佇列,那一筆記 `failed` 與最後一次失敗的階段,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T128a)
   - 🧪 `testplan.md` § US3-API-09
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § FR-013、使用者故事 3 驗收情境 7;`plan.md` § 待決問題 Q11、Q12、Q19
-- [ ] T129a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-10 的測試(各 `apply`(`tuning_body(4, None, None)`),`wait_applied`;`GET /api/session`、`GET /api/auth`;分隔註解寫 `# ---- 005 US3-API-10`),執行確認它因為「被 Colab 收回也標成 `OLLAMA_RESTART_FAILED`,UI 叫使用者「重新開啟」而不是說明被收回」這類實作而失敗
+- [x] T129a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-10 的測試(各 `apply`(`tuning_body(4, None, None)`),`wait_applied`;`GET /api/session`、`GET /api/auth`;分隔註解寫 `# ---- 005 US3-API-10`),執行確認它因為「被 Colab 收回也標成 `OLLAMA_RESTART_FAILED`,UI 叫使用者「重新開啟」而不是說明被收回」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-013、info.x-apply-flow (5)(COLAB_NOT_FOUND、AUTH_REQUIRED);`plan.md` § 待決問題 Q11
-- [ ] T129b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-10 通過的程式碼;`COLAB_NOT_FOUND` 照 001 標成 `lost`、`endReason` 為 `RECLAIMED_BY_COLAB`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T129a)
+- [x] T129b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-10 通過的程式碼;`COLAB_NOT_FOUND` 照 001 標成 `lost`、`endReason` 為 `RECLAIMED_BY_COLAB`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T129a)
   - 🧪 `testplan.md` § US3-API-10
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-013、info.x-apply-flow (5)(COLAB_NOT_FOUND、AUTH_REQUIRED);`plan.md` § 待決問題 Q11
-- [ ] T130a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-11 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`,`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-11`),執行確認它因為「失聯後的釋放沒有接住 `AdapterError`,例外讓套用的工作中止,`state` 停在 `applying_tuning`、使用者以為還在套用,執行環境繼續扣 compute units」這類實作而失敗
+- [x] T130a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-11 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`,`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-11`),執行確認它因為「失聯後的釋放沒有接住 `AdapterError`,例外讓套用的工作中止,`state` 停在 `applying_tuning`、使用者以為還在套用,執行環境繼續扣 compute units」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-013(釋放不了寫 releaseWarning)
-- [ ] T130b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-11 通過的程式碼;失聯後的釋放失敗時接住 `AdapterError`、寫 `releaseWarning`,`state` 不停在 `applying_tuning`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T130a)
+- [x] T130b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-11 通過的程式碼;失聯後的釋放失敗時接住 `AdapterError`、寫 `releaseWarning`,`state` 不停在 `applying_tuning`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T130a)
   - 🧪 `testplan.md` § US3-API-11
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-013(釋放不了寫 releaseWarning)
-- [ ] T131a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-12 的測試(`apply`(`tuning_body(4, None, None)`);`GET /api/session`;放行 `gate`,等那一筆不是 `downloading`(最多 1 秒),`GET /api/downloads`;分隔註解寫 `# ---- 005 US3-API-12`),執行確認它因為「套用前呼叫下載佇列的 `interrupt()`,下載被標成失敗」這類實作而失敗
+- [x] T131a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-12 的測試(`apply`(`tuning_body(4, None, None)`);`GET /api/session`;放行 `gate`,等那一筆不是 `downloading`(最多 1 秒),`GET /api/downloads`;分隔註解寫 `# ---- 005 US3-API-12`),執行確認它因為「套用前呼叫下載佇列的 `interrupt()`,下載被標成失敗」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 3、使用者故事 3 獨立測試(applyTuning 的 DOWNLOAD_IN_PROGRESS);`research.md` § R10;`plan.md` § 待決問題 Q34
-- [ ] T131b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/domain/errors.py` 只寫讓 US3-API-12 通過的程式碼;有模型正在下載時回 409 `DOWNLOAD_IN_PROGRESS`,`ApiError` 加 `message` 參數覆寫成「有模型正在下載,下載完才能套用」,不中斷下載,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T131a)
+- [x] T131b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/domain/errors.py` 只寫讓 US3-API-12 通過的程式碼;有模型正在下載時回 409 `DOWNLOAD_IN_PROGRESS`,`ApiError` 加 `message` 參數覆寫成「有模型正在下載,下載完才能套用」,不中斷下載,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T131a)
   - 🧪 `testplan.md` § US3-API-12
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 3、使用者故事 3 獨立測試(applyTuning 的 DOWNLOAD_IN_PROGRESS);`research.md` § R10;`plan.md` § 待決問題 Q34
-- [ ] T132a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-13 的測試(`bridge.ui.post("/api/session/tuning", json=tuning_body(4, None, None))`;放行 `gate`,讀完那一條串流;分隔註解寫 `# ---- 005 US3-API-13`),執行確認它因為「只看 UI 對話自己的計數,相容端點的請求進行中照樣重啟(或反過來)」這類實作而失敗
+- [x] T132a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-13 的測試(`bridge.ui.post("/api/session/tuning", json=tuning_body(4, None, None))`;放行 `gate`,讀完那一條串流;分隔註解寫 `# ---- 005 US3-API-13`),執行確認它因為「只看 UI 對話自己的計數,相容端點的請求進行中照樣重啟(或反過來)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 4(applyTuning 的 REQUESTS_IN_PROGRESS);`research.md` § R10
-- [ ] T132b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/api/chat.py`、`src/cgb/domain/errors.py`、`tests/e2e/test_locale.py` 只寫讓 US3-API-13 通過的程式碼;UI 對話與相容端點各記進行中的請求數,有任何一個在進行就回 409 `REQUESTS_IN_PROGRESS`;新代碼加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T132a)
+- [x] T132b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/ollama_compat/forward.py`、`src/cgb/api/chat.py`、`src/cgb/domain/errors.py`、`tests/e2e/test_locale.py` 只寫讓 US3-API-13 通過的程式碼;UI 對話與相容端點各記進行中的請求數,有任何一個在進行就回 409 `REQUESTS_IN_PROGRESS`;新代碼加進 `src/cgb/domain/errors.py` 的 `MESSAGES`,同一個任務在 `tests/e2e/test_locale.py` 的 `API_ERRORS` 加同一個代碼,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T132a)
   - 🧪 `testplan.md` § US3-API-13
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-011、使用者故事 3 驗收情境 4(applyTuning 的 REQUESTS_IN_PROGRESS);`research.md` § R10
-- [ ] T133a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-14 的測試(`apply`(`tuning_body(4, None, None)`);分隔註解寫 `# ---- 005 US3-API-14`),執行確認它因為「只判斷 `state != "none"`,開啟中或重連中也受理,`restart_ollama` 對還沒裝好或連不到的執行環境執行」這類實作而失敗
+- [x] T133a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-14 的測試(`apply`(`tuning_body(4, None, None)`);分隔註解寫 `# ---- 005 US3-API-14`),執行確認它因為「只判斷 `state != "none"`,開啟中或重連中也受理,`restart_ollama` 對還沒裝好或連不到的執行環境執行」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § 邊界情況(非就緒時按套用)(applyTuning 的 NO_READY_SESSION)
-- [ ] T133b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-14 通過的程式碼;工作階段不是 `ready` 時回 503 `NO_READY_SESSION`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T133a)
+- [x] T133b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-14 通過的程式碼;工作階段不是 `ready` 時回 503 `NO_READY_SESSION`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T133a)
   - 🧪 `testplan.md` § US3-API-14
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § 邊界情況(非就緒時按套用)(applyTuning 的 NO_READY_SESSION)
-- [ ] T134a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-15 的測試(以 `asyncio.gather` 同時送 `apply(tuning_body(4, None, None))` 與 `apply(tuning_body(16, None, None))`;等閘門被走到後再送一次 `apply(tuning_body(8, None, None))`;放行閘門,`wait_applied`;分隔註解寫 `# ---- 005 US3-API-15`),執行確認它因為「先檢查、`await` 讀 `/api/ps` 之後才改狀態,兩個分頁都通過、遠端重啟兩次」這類實作而失敗
+- [x] T134a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-15 的測試(以 `asyncio.gather` 同時送 `apply(tuning_body(4, None, None))` 與 `apply(tuning_body(16, None, None))`;等閘門被走到後再送一次 `apply(tuning_body(8, None, None))`;放行閘門,`wait_applied`;分隔註解寫 `# ---- 005 US3-API-15`),執行確認它因為「先檢查、`await` 讀 `/api/ps` 之後才改狀態,兩個分頁都通過、遠端重啟兩次」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § 邊界情況(兩個分頁同時套用)、FR-012(applyTuning 的 TUNING_IN_PROGRESS)
-- [ ] T134b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/domain/errors.py`、`tests/e2e/test_locale.py` 只寫讓 US3-API-15 通過的程式碼;通過檢查的同一步(沒有 `await`)就改成 `applying_tuning`;已在套用時回 409 `TUNING_IN_PROGRESS`,新代碼加進 `MESSAGES` 與 `tests/e2e/test_locale.py` 的 `API_ERRORS`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T134a)
+- [x] T134b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/domain/errors.py`、`tests/e2e/test_locale.py` 只寫讓 US3-API-15 通過的程式碼;通過檢查的同一步(沒有 `await`)就改成 `applying_tuning`;已在套用時回 409 `TUNING_IN_PROGRESS`,新代碼加進 `MESSAGES` 與 `tests/e2e/test_locale.py` 的 `API_ERRORS`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T134a)
   - 🧪 `testplan.md` § US3-API-15
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § 邊界情況(兩個分頁同時套用)、FR-012(applyTuning 的 TUNING_IN_PROGRESS)
-- [ ] T135a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-16 的測試(`apply`(`tuning_body(4, None, None)`);`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-16`),執行確認它因為「套用前沒有檢查授權,重啟一半才 `AUTH_REQUIRED` 而失聯(Q15 已決定受理前擋下)」這類實作而失敗
+- [x] T135a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-16 的測試(`apply`(`tuning_body(4, None, None)`);`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-16`),執行確認它因為「套用前沒有檢查授權,重啟一半才 `AUTH_REQUIRED` 而失聯(Q15 已決定受理前擋下)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § (applyTuning 的 AUTH_REQUIRED);`plan.md` § 待決問題 Q15、Q37
-- [ ] T135b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/services/auth.py` 只寫讓 US3-API-16 通過的程式碼;受理前照 `openSession` 呼叫 `auth.check()`,未登入回 409 `AUTH_REQUIRED`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T135a)
+- [x] T135b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py`、`src/cgb/services/auth.py` 只寫讓 US3-API-16 通過的程式碼;受理前照 `openSession` 呼叫 `auth.check()`,未登入回 409 `AUTH_REQUIRED`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T135a)
   - 🧪 `testplan.md` § US3-API-16
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § (applyTuning 的 AUTH_REQUIRED);`plan.md` § 待決問題 Q15、Q37
-- [ ] T136a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-17 的測試(`apply`(那一組本文);`GET /api/session`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-17`),執行確認它因為「套用的路由沒有呼叫 `tuning.parse_overrides`,範圍外的值交給轉接層,遠端回 `COLAB_INVALID_TUNING` 後改回自動值重啟(使用者看到「已改回自動值」而不是範圍說明)」這類實作而失敗
+- [x] T136a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-17 的測試(`apply`(那一組本文);`GET /api/session`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-17`),執行確認它因為「套用的路由沒有呼叫 `tuning.parse_overrides`,範圍外的值交給轉接層,遠端回 `COLAB_INVALID_TUNING` 後改回自動值重啟(使用者看到「已改回自動值」而不是範圍說明)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-017(applyTuning 的 INVALID_REQUEST_BODY、INVALID_NUM_PARALLEL、INVALID_CONTEXT_LENGTH、INVALID_MAX_LOADED_MODELS);`plan.md` § 待決問題 Q31
-- [ ] T136b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/tuning.py`、`src/cgb/domain/tuning.py` 只寫讓 US3-API-17 通過的程式碼;`applyTuning` 先呼叫 `tuning.parse_overrides`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T136a)
+- [x] T136b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/tuning.py`、`src/cgb/domain/tuning.py` 只寫讓 US3-API-17 通過的程式碼;`applyTuning` 先呼叫 `tuning.parse_overrides`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T136a)
   - 🧪 `testplan.md` § US3-API-17
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-017(applyTuning 的 INVALID_REQUEST_BODY、INVALID_NUM_PARALLEL、INVALID_CONTEXT_LENGTH、INVALID_MAX_LOADED_MODELS);`plan.md` § 待決問題 Q31
-- [ ] T137a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-18 的測試((a)送 `apply(tuning_body(33, None, None))`;(b)送 `apply(tuning_body(4, None, None))`;(c)送 `apply(tuning_body(4, None, None))`;分隔註解寫 `# ---- 005 US3-API-18`),執行確認它因為「檢查順序和合約 (1)~(6) 不同:先擋 `TUNING_IN_PROGRESS` 再驗本文,UI 收不到範圍說明」這類實作而失敗
+- [x] T137a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-18 的測試((a)送 `apply(tuning_body(33, None, None))`;(b)送 `apply(tuning_body(4, None, None))`;(c)送 `apply(tuning_body(4, None, None))`;分隔註解寫 `# ---- 005 US3-API-18`),執行確認它因為「檢查順序和合約 (1)~(6) 不同:先擋 `TUNING_IN_PROGRESS` 再驗本文,UI 收不到範圍說明」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-011、FR-017(applyTuning 的檢查順序)
-- [ ] T137b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/tuning.py`、`src/cgb/services/tuning.py` 只寫讓 US3-API-18 通過的程式碼;檢查順序照 `paths./session/tuning.post` 的 (1)~(6):本文 → 套用中 → 就緒 → 授權 → 下載 → 請求,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T137a)
+- [x] T137b [US3] 🟢 /tdd 綠燈:在 `src/cgb/api/tuning.py`、`src/cgb/services/tuning.py` 只寫讓 US3-API-18 通過的程式碼;檢查順序照 `paths./session/tuning.post` 的 (1)~(6):本文 → 套用中 → 就緒 → 授權 → 下載 → 請求,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T137a)
   - 🧪 `testplan.md` § US3-API-18
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-011、FR-017(applyTuning 的檢查順序)
-- [ ] T138a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-19 的測試(`apply`(`tuning_body(None, None, 1)`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-19`),執行確認它因為「重啟前讀到幾個就全部重新載入(讓 Ollama 自己換出,分身 D6 已否決)」這類實作而失敗
+- [x] T138a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-19 的測試(`apply`(`tuning_body(None, None, 1)`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-19`),執行確認它因為「重啟前讀到幾個就全部重新載入(讓 Ollama 自己換出,分身 D6 已否決)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`components.schemas.NotReloadedModel`
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 9;`research.md` § R8
-- [ ] T138b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-19 通過的程式碼;依重啟前 `/api/ps` 的順序重新載入,載到新的 `maxLoadedModels` 為止,其餘列進 `notReloaded`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T138a)
+- [x] T138b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-19 通過的程式碼;依重啟前 `/api/ps` 的順序重新載入,載到新的 `maxLoadedModels` 為止,其餘列進 `notReloaded`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T138a)
   - 🧪 `testplan.md` § US3-API-19
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`components.schemas.NotReloadedModel`
   - 📎 `spec.md` § FR-012、使用者故事 3 驗收情境 9;`research.md` § R8
-- [ ] T139a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-20 的測試(`apply`(`tuning_body(None, None, 2)`);等 `first_gate` 被走到時記下 `preload.call_count`;放行,`wait_applied`;分隔註解寫 `# ---- 005 US3-API-20`);T138b 逐一 `await` 預先載入(`src/cgb/services/tuning.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「以 `asyncio.gather` 同時送預先載入,兩個模型同時爭顯示記憶體(research R8)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T139a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-20 的測試(`apply`(`tuning_body(None, None, 2)`);等 `first_gate` 被走到時記下 `preload.call_count`;放行,`wait_applied`;分隔註解寫 `# ---- 005 US3-API-20`);T138b 逐一 `await` 預先載入(`src/cgb/services/tuning.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「以 `asyncio.gather` 同時送預先載入,兩個模型同時爭顯示記憶體(research R8)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012(依 /api/ps 的順序);`research.md` § R8
-- [ ] T139b [US3] 🟢 /tdd 綠燈:US3-API-20 由 T138b 逐一 `await` 預先載入(`src/cgb/services/tuning.py`)滿足,確認 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-20 通過的程式碼(依賴 T139a)
+- [x] T139b [US3] 🟢 /tdd 綠燈:US3-API-20 由 T138b 逐一 `await` 預先載入(`src/cgb/services/tuning.py`)滿足,確認 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-20 通過的程式碼(依賴 T139a)
   - 🧪 `testplan.md` § US3-API-20
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012(依 /api/ps 的順序);`research.md` § R8
-- [ ] T140a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-21 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-21`),執行確認它因為「`maxLoadedModels.value` 為 None 時寫成 `models[:None or 0]`,一個都不載入」這類實作而失敗
+- [x] T140a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-21 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-21`),執行確認它因為「`maxLoadedModels.value` 為 None 時寫成 `models[:None or 0]`,一個都不載入」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q14
-- [ ] T140b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-21 通過的程式碼;`maxLoadedModels.value` 為 None 時全部重新載入,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T140a)
+- [x] T140b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-21 通過的程式碼;`maxLoadedModels.value` 為 None 時全部重新載入,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T140a)
   - 🧪 `testplan.md` § US3-API-21
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q14
-- [ ] T141a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-22 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-22`),執行確認它因為「預先載入失敗讓整次套用算失敗(改回自動值或失聯)」這類實作而失敗
+- [x] T141a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-22 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-22`),執行確認它因為「預先載入失敗讓整次套用算失敗(改回自動值或失聯)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`、`components.schemas.NotReloadedModel`
   - 📎 `spec.md` § FR-012、FR-014;`plan.md` § 待決問題 Q14
-- [ ] T141b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-22 通過的程式碼;單一模型預先載入失敗時列進 `notReloaded`,套用仍算成功、照常寫類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T141a)
+- [x] T141b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-22 通過的程式碼;單一模型預先載入失敗時列進 `notReloaded`,套用仍算成功、照常寫類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T141a)
   - 🧪 `testplan.md` § US3-API-22
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`、`components.schemas.NotReloadedModel`
   - 📎 `spec.md` § FR-012、FR-014;`plan.md` § 待決問題 Q14
-- [ ] T142a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-23 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-23`),執行確認它因為「讀 `/api/ps` 的 `AdapterError` 沒接住,受理時回 500 或套用的工作中止、`state` 停在 `applying_tuning`」這類實作而失敗
+- [x] T142a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-23 的測試(`apply`(`tuning_body(4, None, None)`),`wait_applied`;分隔註解寫 `# ---- 005 US3-API-23`),執行確認它因為「讀 `/api/ps` 的 `AdapterError` 沒接住,受理時回 500 或套用的工作中止、`state` 停在 `applying_tuning`」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012(info.x-apply-flow (1) 讀不到當作沒有已載入的模型)
-- [ ] T142b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-23 通過的程式碼;讀 `/api/ps` 丟 `AdapterError` 時當作沒有已載入的模型,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T142a)
+- [x] T142b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-23 通過的程式碼;讀 `/api/ps` 丟 `AdapterError` 時當作沒有已載入的模型,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T142a)
   - 🧪 `testplan.md` § US3-API-23
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § FR-012(info.x-apply-flow (1) 讀不到當作沒有已載入的模型)
-- [ ] T143a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-24 的測試(`fake_clock.set(t + 50 秒)`,`apply`(`tuning_body(4, None, None)`);等閘門被走到,`fake_clock.set(t + 120 秒)`,`states_for(client, 0.3)`;放行,`wait_applied`,記下 `back_at = fake_clock.now()`,`GET /api/session`,再 `states_for(client, 0.3)`;分隔註解寫 `# ---- 005 US3-API-24`),執行確認它因為「`IdleMonitor` 只比 deadline、不看 `state`,套用到一半被 `IDLE_TIMEOUT` 結束」這類實作而失敗
+- [x] T143a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-24 的測試(`fake_clock.set(t + 50 秒)`,`apply`(`tuning_body(4, None, None)`);等閘門被走到,`fake_clock.set(t + 120 秒)`,`states_for(client, 0.3)`;放行,`wait_applied`,記下 `back_at = fake_clock.now()`,`GET /api/session`,再 `states_for(client, 0.3)`;分隔註解寫 `# ---- 005 US3-API-24`),執行確認它因為「`IdleMonitor` 只比 deadline、不看 `state`,套用到一半被 `IDLE_TIMEOUT` 結束」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § 邊界情況(重啟期間閒置倒數暫停);`research.md` § R10
-- [ ] T143b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/services/tuning.py` 只寫讓 US3-API-24 通過的程式碼;`applying_tuning` 時暫停閒置倒數,回到 `ready` 時重設,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T143a)
+- [x] T143b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/idle_monitor.py`、`src/cgb/services/tuning.py` 只寫讓 US3-API-24 通過的程式碼;`applying_tuning` 時暫停閒置倒數,回到 `ready` 時重設,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T143a)
   - 🧪 `testplan.md` § US3-API-24
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § 邊界情況(重啟期間閒置倒數暫停);`research.md` § R10
-- [ ] T144a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-25 的測試(`bridge.ui.post("/api/session/tuning", ...)`;等閘門被走到後,記下時間送 `bridge.ollama.post("/api/generate", json={"model": "qwen2.5:7b", "prompt": "hi"})`;再送 `bridge.ui.post("/api/chat", ...)` 與 `bridge.ui.post("/api/downloads", json={"models": ["qwen2.5:0.5b"]})`;分隔註解寫 `# ---- 005 US3-API-25`),執行確認它因為「相容端點只看有沒有 `base_url`(套用中仍在),把請求轉到正在重啟的遠端 Ollama」這類實作而失敗
+- [x] T144a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-25 的測試(`bridge.ui.post("/api/session/tuning", ...)`;等閘門被走到後,記下時間送 `bridge.ollama.post("/api/generate", json={"model": "qwen2.5:7b", "prompt": "hi"})`;再送 `bridge.ui.post("/api/chat", ...)` 與 `bridge.ui.post("/api/downloads", json={"models": ["qwen2.5:0.5b"]})`;分隔註解寫 `# ---- 005 US3-API-25`),執行確認它因為「相容端點只看有沒有 `base_url`(套用中仍在),把請求轉到正在重啟的遠端 Ollama」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § 使用者故事 3 驗收情境 8、FR-012(info.x-applying-state (2));`plan.md` § 待決問題 Q35
-- [ ] T144b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py` 只寫讓 US3-API-25 通過的程式碼;套用中回 001 工作階段未就緒的錯誤、不排隊,`_STATE_DESCRIPTIONS` 補 `applying_tuning`「工作階段正在套用 Ollama 設定」,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T144a)
+- [x] T144b [US3] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py` 只寫讓 US3-API-25 通過的程式碼;套用中回 001 工作階段未就緒的錯誤、不排隊,`_STATE_DESCRIPTIONS` 補 `applying_tuning`「工作階段正在套用 Ollama 設定」,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T144a)
   - 🧪 `testplan.md` § US3-API-25
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § 使用者故事 3 驗收情境 8、FR-012(info.x-applying-state (2));`plan.md` § 待決問題 Q35
-- [ ] T145a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-26 的測試(`apply`(`tuning_body(4, None, None)`);閘門被走到後送 `DELETE /api/session`,等 0.2 秒記下 `stop_session.call_count`;放行閘門(重啟成功),`wait_for_state(ui_client, "ended")`;分隔註解寫 `# ---- 005 US3-API-26`),執行確認它因為「套用中 `DELETE` 回 409 `NO_ACTIVE_SESSION`(結束的前提只認 `opening`、`ready`、`reconnecting`)」這類實作而失敗
+- [x] T145a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-26 的測試(`apply`(`tuning_body(4, None, None)`);閘門被走到後送 `DELETE /api/session`,等 0.2 秒記下 `stop_session.call_count`;放行閘門(重啟成功),`wait_for_state(ui_client, "ended")`;分隔註解寫 `# ---- 005 US3-API-26`),執行確認它因為「套用中 `DELETE` 回 409 `NO_ACTIVE_SESSION`(結束的前提只認 `opening`、`ready`、`reconnecting`)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § info.x-applying-state (3)、FR-014;`plan.md` § 待決問題 Q12
-- [ ] T145b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/services/tuning.py` 只寫讓 US3-API-26 通過的程式碼;`endSession` 在 `applying_tuning` 也受理:停止套用、等進行中的 `colab exec` 結束再照 001 結束,那一筆記 `interrupted`、不寫類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T145a)
+- [x] T145b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/session_lifecycle.py`、`src/cgb/services/tuning.py` 只寫讓 US3-API-26 通過的程式碼;`endSession` 在 `applying_tuning` 也受理:停止套用、等進行中的 `colab exec` 結束再照 001 結束,那一筆記 `interrupted`、不寫類型覆蓋值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T145a)
   - 🧪 `testplan.md` § US3-API-26
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`、`paths./tuning/overrides.get`、`components.schemas.RuntimeTypeTuningOverrideList`
   - 📎 `spec.md` § info.x-applying-state (3)、FR-014;`plan.md` § 待決問題 Q12
-- [ ] T146a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-27 的測試(以同一個 SQLite 檔跑第二個 app,`wait_until` `state` 不是 `applying_tuning` 且 `resuming` 為 false(最多 1 秒);`GET /api/session`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-27`),執行確認它因為「恢復時看到 `applying_tuning` 不認得,照 001 當成未結束卻不接回、停在 `applying_tuning`」這類實作而失敗
+- [x] T146a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-27 的測試(以同一個 SQLite 檔跑第二個 app,`wait_until` `state` 不是 `applying_tuning` 且 `resuming` 為 false(最多 1 秒);`GET /api/session`、`GET /api/tuning/overrides`;分隔註解寫 `# ---- 005 US3-API-27`),執行確認它因為「恢復時看到 `applying_tuning` 不認得,照 001 當成未結束卻不接回、停在 `applying_tuning`」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § 邊界情況(後端在重啟到一半停機);`plan.md` § 待決問題 Q13、Q24、Q38
-- [ ] T146b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/tuning.py`、`src/cgb/api/__init__.py` 只寫讓 US3-API-27 通過的程式碼;恢復時看到 `applying_tuning`,以這次要求的值呼叫一次 `start_ollama`(已在執行就讀它的設定)、不呼叫 `restart_ollama`,那一筆記 `interrupted`、回到 `ready`;lifespan 結束時直接取消停在重啟中的套用工作,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T146a)
+- [x] T146b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/tuning.py`、`src/cgb/api/__init__.py` 只寫讓 US3-API-27 通過的程式碼;恢復時看到 `applying_tuning`,以這次要求的值呼叫一次 `start_ollama`(已在執行就讀它的設定)、不呼叫 `restart_ollama`,那一筆記 `interrupted`、回到 `ready`;lifespan 結束時直接取消停在重啟中的套用工作,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T146a)
   - 🧪 `testplan.md` § US3-API-27
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § 邊界情況(後端在重啟到一半停機);`plan.md` § 待決問題 Q13、Q24、Q38
-- [ ] T147a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-28 的測試(跑第二個 app,`wait_for_state(client, "lost")`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US3-API-28`),執行確認它因為「被收回時只改 `sessions`,套用那一筆永遠停在 `in_progress`(UI 一直顯示套用中)」這類實作而失敗
+- [x] T147a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-28 的測試(跑第二個 app,`wait_for_state(client, "lost")`;`GET /api/session`、`GET /api/sessions/{name}`;分隔註解寫 `# ---- 005 US3-API-28`),執行確認它因為「被收回時只改 `sessions`,套用那一筆永遠停在 `in_progress`(UI 一直顯示套用中)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § 邊界情況(後端在重啟到一半停機)、info.x-applying-state (4);`plan.md` § 待決問題 Q13、Q33
-- [ ] T147b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/tuning.py` 只寫讓 US3-API-28 通過的程式碼;恢復時被 Colab 收回或 `start_ollama` 又失敗,那一筆記 `interrupted`(store.dbml 的寫入時機)、`endReason` 照 `info.x-apply-flow` (5),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T147a)
+- [x] T147b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/recovery.py`、`src/cgb/services/tuning.py` 只寫讓 US3-API-28 通過的程式碼;恢復時被 Colab 收回或 `start_ollama` 又失敗,那一筆記 `interrupted`(store.dbml 的寫入時機)、`endReason` 照 `info.x-apply-flow` (5),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T147a)
   - 🧪 `testplan.md` § US3-API-28
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`、`paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § 邊界情況(後端在重啟到一半停機)、info.x-applying-state (4);`plan.md` § 待決問題 Q13、Q33
-- [ ] T148a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-29 的測試(跑第二個 app,等 `state` 為 `ready`;`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-29`),執行確認它因為「目前生效的設定只找 `result` 為 `applied` 的最新一筆(顯示 4,但遠端其實是自動值 8)」這類實作而失敗
+- [x] T148a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-29 的測試(跑第二個 app,等 `state` 為 `ready`;`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-29`),執行確認它因為「目前生效的設定只找 `result` 為 `applied` 的最新一筆(顯示 4,但遠端其實是自動值 8)」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § 使用者故事 3 驗收情境 5(故事 1)、FR-013;`plan.md` § 待決問題 Q24
-- [ ] T148b [US3] 🟢 /tdd 綠燈:在 `src/cgb/repos/tunings.py`、`src/cgb/api/session.py` 只寫讓 US3-API-29 通過的程式碼;目前生效的設定取最新一筆有讀到設定的紀錄(含 `interrupted`,以及重啟成功、重新載入中的 `in_progress`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T148a)
+- [x] T148b [US3] 🟢 /tdd 綠燈:在 `src/cgb/repos/tunings.py`、`src/cgb/api/session.py` 只寫讓 US3-API-29 通過的程式碼;目前生效的設定取最新一筆有讀到設定的紀錄(含 `interrupted`,以及重啟成功、重新載入中的 `in_progress`),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T148a)
   - 🧪 `testplan.md` § US3-API-29
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.Session`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § 使用者故事 3 驗收情境 5(故事 1)、FR-013;`plan.md` § 待決問題 Q24
-- [ ] T149a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-30 的測試(`apply(tuning_body(4, None, None))`、`wait_applied`;`apply(tuning_body(8, None, None))`、`wait_applied`;`GET /api/sessions/{name}`、`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-30`);T120b 每次套用追加一筆紀錄(`src/cgb/repos/tunings.py`),不更新開啟那一筆已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「套用時更新開啟那一筆而不是追加」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T149a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-30 的測試(`apply(tuning_body(4, None, None))`、`wait_applied`;`apply(tuning_body(8, None, None))`、`wait_applied`;`GET /api/sessions/{name}`、`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-30`);T120b 每次套用追加一筆紀錄(`src/cgb/repos/tunings.py`),不更新開啟那一筆已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「套用時更新開啟那一筆而不是追加」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-API-30
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-016、使用者故事 3 驗收情境 10、FR-015
-- [ ] T149b [US3] 🟢 /tdd 綠燈:US3-API-30 由 T120b 每次套用追加一筆紀錄(`src/cgb/repos/tunings.py`),不更新開啟那一筆滿足,確認 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-30 通過的程式碼(依賴 T149a)
+- [x] T149b [US3] 🟢 /tdd 綠燈:US3-API-30 由 T120b 每次套用追加一筆紀錄(`src/cgb/repos/tunings.py`),不更新開啟那一筆滿足,確認 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-30 通過的程式碼(依賴 T149a)
   - 🧪 `testplan.md` § US3-API-30
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`
   - 📎 `spec.md` § FR-016、使用者故事 3 驗收情境 10、FR-015
-- [ ] T150a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-33 的測試(送 `POST /api/session/restart`(`{"runtimeType": L4}`);放行閘門,`wait_applied`,`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-33`),執行確認它因為「`restartSession` 的前提只擋 `ending`,套用中就結束了執行環境、開一台 L4,套用的工作接著對已不在的執行環境重新載入」這類實作而失敗
+- [x] T150a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-33 的測試(送 `POST /api/session/restart`(`{"runtimeType": L4}`);放行閘門,`wait_applied`,`GET /api/session`;分隔註解寫 `# ---- 005 US3-API-33`),執行確認它因為「`restartSession` 的前提只擋 `ending`,套用中就結束了執行環境、開一台 L4,套用的工作接著對已不在的執行環境重新載入」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-33
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`
   - 📎 `spec.md` § 邊界情況(兩個分頁同時套用)、info.x-applying-state (3)(restartSession 的 TUNING_IN_PROGRESS)
-- [ ] T150b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/api/session.py` 只寫讓 US3-API-33 通過的程式碼;`restartSession` 在 `applying_tuning` 時回 409 `TUNING_IN_PROGRESS`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T150a)
+- [x] T150b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/runtime_switch.py`、`src/cgb/api/session.py` 只寫讓 US3-API-33 通過的程式碼;`restartSession` 在 `applying_tuning` 時回 409 `TUNING_IN_PROGRESS`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T150a)
   - 🧪 `testplan.md` § US3-API-33
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/restart.post`
   - 📎 `spec.md` § 邊界情況(兩個分頁同時套用)、info.x-applying-state (3)(restartSession 的 TUNING_IN_PROGRESS)
-- [ ] T151a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-34 的測試(送 `POST /api/session`(`{"runtimeType": T4}`);放行閘門,`wait_applied`;分隔註解寫 `# ---- 005 US3-API-34`);T120b 把 `applying_tuning` 加進 `ACTIVE_STATES` 與 `src/cgb/repos/sessions.py` 的進行中查詢(`openSession` 因此回 409 `SESSION_ALREADY_ACTIVE`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`active_slot` 或「已有工作階段」的判斷沒有涵蓋 `applying_tuning`,套用中可以再開一台(同時兩台在扣 compute units)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T151a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-34 的測試(送 `POST /api/session`(`{"runtimeType": T4}`);放行閘門,`wait_applied`;分隔註解寫 `# ---- 005 US3-API-34`);T120b 把 `applying_tuning` 加進 `ACTIVE_STATES` 與 `src/cgb/repos/sessions.py` 的進行中查詢(`openSession` 因此回 409 `SESSION_ALREADY_ACTIVE`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`active_slot` 或「已有工作階段」的判斷沒有涵蓋 `applying_tuning`,套用中可以再開一台(同時兩台在扣 compute units)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-API-34
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`
   - 📎 `spec.md` § info.x-applying-state (1)(openSession 的 SESSION_ALREADY_ACTIVE)
-- [ ] T151b [US3] 🟢 /tdd 綠燈:US3-API-34 由 T120b 把 `applying_tuning` 加進 `ACTIVE_STATES` 與 `src/cgb/repos/sessions.py` 的進行中查詢(`openSession` 因此回 409 `SESSION_ALREADY_ACTIVE`)滿足,確認 `src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US3-API-34 通過的程式碼(依賴 T151a)
+- [x] T151b [US3] 🟢 /tdd 綠燈:US3-API-34 由 T120b 把 `applying_tuning` 加進 `ACTIVE_STATES` 與 `src/cgb/repos/sessions.py` 的進行中查詢(`openSession` 因此回 409 `SESSION_ALREADY_ACTIVE`)滿足,確認 `src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/domain/session_state.py`、`src/cgb/repos/sessions.py` 只寫讓 US3-API-34 通過的程式碼(依賴 T151a)
   - 🧪 `testplan.md` § US3-API-34
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`components.schemas.OpenSessionInput`
   - 📎 `spec.md` § info.x-applying-state (1)(openSession 的 SESSION_ALREADY_ACTIVE)
-- [ ] T152a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-31 的測試(`apply`(`tuning_body(4, None, None)`);等 `preload_gate` 被走到,`GET /api/sessions/{name}`;放行,`wait_applied`;分隔註解寫 `# ---- 005 US3-API-31`),執行確認它因為「重啟成功後另外以 `clock.sleep` 等 `tunnel_ready` 或健康檢查一輪(15~30 秒)才切步驟,超出 90 秒」這類實作而失敗
+- [x] T152a [US3] 🔴 /tdd 紅燈:在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-31 的測試(`apply`(`tuning_body(4, None, None)`);等 `preload_gate` 被走到,`GET /api/sessions/{name}`;放行,`wait_applied`;分隔註解寫 `# ---- 005 US3-API-31`),執行確認它因為「重啟成功後另外以 `clock.sleep` 等 `tunnel_ready` 或健康檢查一輪(15~30 秒)才切步驟,超出 90 秒」這類實作而失敗
   - 🧪 `testplan.md` § US3-API-31
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § NFR-002、SC-004、FR-015
-- [ ] T152b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-31 通過的程式碼;重啟成功就直接切到 `reloading_models`,不另等健康檢查或通道,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T152a)
+- [x] T152b [US3] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-31 通過的程式碼;重啟成功就直接切到 `reloading_models`,不另等健康檢查或通道,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T152a)
   - 🧪 `testplan.md` § US3-API-31
   - ⚙ `contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`、`components.schemas.SessionRecordDetail`、`components.schemas.TuningRecord`、`paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § NFR-002、SC-004、FR-015
-- [ ] T153a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-32 的測試(連續送 10 次 `apply(tuning_body(4, None, None))`;之後先放行對話、讀完串流,再放行下載,等那一筆不是 `downloading`(最多 1 秒);分隔註解寫 `# ---- 005 US3-API-32`);T131b、T132b 的忙碌檢查(`src/cgb/services/tuning.py`;被擋下時不留任何旗標)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「被擋下時留了一個「準備套用」的旗標,第 2 次起回 `TUNING_IN_PROGRESS` 或把相容端點當成未就緒」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T153a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_api_tuning_apply.py` 寫 US3-API-32 的測試(連續送 10 次 `apply(tuning_body(4, None, None))`;之後先放行對話、讀完串流,再放行下載,等那一筆不是 `downloading`(最多 1 秒);分隔註解寫 `# ---- 005 US3-API-32`);T131b、T132b 的忙碌檢查(`src/cgb/services/tuning.py`;被擋下時不留任何旗標)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「被擋下時留了一個「準備套用」的旗標,第 2 次起回 `TUNING_IN_PROGRESS` 或把相容端點當成未就緒」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-API-32
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § SC-006、FR-011
-- [ ] T153b [US3] 🟢 /tdd 綠燈:US3-API-32 由 T131b、T132b 的忙碌檢查(`src/cgb/services/tuning.py`;被擋下時不留任何旗標)滿足,確認 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-32 通過的程式碼(依賴 T153a)
+- [x] T153b [US3] 🟢 /tdd 綠燈:US3-API-32 由 T131b、T132b 的忙碌檢查(`src/cgb/services/tuning.py`;被擋下時不留任何旗標)滿足,確認 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/services/tuning.py`、`src/cgb/api/tuning.py` 只寫讓 US3-API-32 通過的程式碼(依賴 T153a)
   - 🧪 `testplan.md` § US3-API-32
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session/tuning.post`、`components.schemas.TuningOverrides`
   - 📎 `spec.md` § SC-006、FR-011
-- [ ] T154 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T120b~T153b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/repos/`、`src/cgb/api/`、`src/cgb/domain/`、`src/cgb/ollama_compat/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_tuning_apply.py` 的斷言(依賴 T153b)
+- [x] T154 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T120b~T153b 記下的重構清單(範圍限 `src/cgb/services/`、`src/cgb/repos/`、`src/cgb/api/`、`src/cgb/domain/`、`src/cgb/ollama_compat/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_api_tuning_apply.py` 的斷言(依賴 T153b)
   - 🧪 `testplan.md` § US3-API-01~US3-API-30、US3-API-33~US3-API-34、US3-API-31~US3-API-32
   - 📎 `testplan.md` § 4.2
 
@@ -1354,63 +1354,63 @@
 
 > 只驗套用在資料庫這一側的事實;DDL 已由故事 1 的 T038b、T041b、T042b 照 `contracts/store.dbml` 建出,這一節都是對照組;「套用那一筆」「改成成功」照 `testplan.md` § 4.3
 
-- [ ] T155a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-01 的測試(每種情況依序執行:①`UPDATE sessions SET state = 'applying_tuning', step = 'restarting_ollama' WHERE name = 'cgb-a'`;②`INSERT INTO session_transitions (session_name, at, state, step) VALUES ('cgb-a', '2026-11-15T09:00:00Z', 'applying_tuning', 'restarting_ollama')`;③`UPDATE sessions SET step = 'reloading_models' WHERE name = 'cgb-a'`;④`session_transitions` 再寫一筆 `('cgb-a', '2026-11-15T09:00:45Z', 'applying_tuning', 'reloading_models')`;⑤`INSERT INTO sessions (name, runtime_type_gpu, runtime_type_high_mem, state, active_slot, step, opened_at) VALUES ('cgb-b', 'T4', 0, 'opening', 1, 'allocating', '2026-11-15T09:01:00Z')`;⑥`UPDATE sessions SET state = 'applying' WHERE name = 'cgb-a'`;⑦`UPDATE sessions SET step = 'restarting' WHERE name = 'cgb-a'`;⑧`session_transitions` 寫一筆 `state='applying_tuning'`、`step='reloading'`;分隔註解寫 `# ---- 005 US3-DB-01`);US1 的 T038b(全新庫)與 T042b(重建 `sessions_new`、`session_transitions_new`)照 `contracts/store.dbml` 收下 `applying_tuning` 與兩個新 step(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`sessions` 只在全新庫的 DDL 加了 `applying_tuning`,遷移時 `sessions_new` 照抄 001 的 CHECK,升級過的使用者一套用就寫不進去」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T155a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-01 的測試(每種情況依序執行:①`UPDATE sessions SET state = 'applying_tuning', step = 'restarting_ollama' WHERE name = 'cgb-a'`;②`INSERT INTO session_transitions (session_name, at, state, step) VALUES ('cgb-a', '2026-11-15T09:00:00Z', 'applying_tuning', 'restarting_ollama')`;③`UPDATE sessions SET step = 'reloading_models' WHERE name = 'cgb-a'`;④`session_transitions` 再寫一筆 `('cgb-a', '2026-11-15T09:00:45Z', 'applying_tuning', 'reloading_models')`;⑤`INSERT INTO sessions (name, runtime_type_gpu, runtime_type_high_mem, state, active_slot, step, opened_at) VALUES ('cgb-b', 'T4', 0, 'opening', 1, 'allocating', '2026-11-15T09:01:00Z')`;⑥`UPDATE sessions SET state = 'applying' WHERE name = 'cgb-a'`;⑦`UPDATE sessions SET step = 'restarting' WHERE name = 'cgb-a'`;⑧`session_transitions` 寫一筆 `state='applying_tuning'`、`step='reloading'`;分隔註解寫 `# ---- 005 US3-DB-01`);US1 的 T038b(全新庫)與 T042b(重建 `sessions_new`、`session_transitions_new`)照 `contracts/store.dbml` 收下 `applying_tuning` 與兩個新 step(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`sessions` 只在全新庫的 DDL 加了 `applying_tuning`,遷移時 `sessions_new` 照抄 001 的 CHECK,升級過的使用者一套用就寫不進去」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-DB-01
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-012、FR-015、使用者故事 3 驗收情境 8
-- [ ] T155b [US3] 🟢 /tdd 綠燈:US3-DB-01 由 US1 的 T038b(全新庫)與 T042b(重建 `sessions_new`、`session_transitions_new`)照 `contracts/store.dbml` 收下 `applying_tuning` 與兩個新 step(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-01 通過的程式碼(依賴 T155a)
+- [x] T155b [US3] 🟢 /tdd 綠燈:US3-DB-01 由 US1 的 T038b(全新庫)與 T042b(重建 `sessions_new`、`session_transitions_new`)照 `contracts/store.dbml` 收下 `applying_tuning` 與兩個新 step(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-01 通過的程式碼(依賴 T155a)
   - 🧪 `testplan.md` § US3-DB-01
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-012、FR-015、使用者故事 3 驗收情境 8
-- [ ] T156a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-02 的測試(呼叫 `create_schema(conn)`,再讀 `cgb-odd` 的 `sessions.step` 與它的 `session_transitions.step`;分隔註解寫 `# ---- 005 US3-DB-02`);US1 的 T042b 照 `contracts/store.dbml` 只寫 note、不加 state 與 step 的跨欄位 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重建時把 state 與 step 的對應寫成跨欄位 CHECK(例如 `step IS NULL OR state IN ('opening', 'applying_tuning')`,或逐一列出兩組對應;Q25 定為只寫 note),既有資料只要有一筆不合,`INSERT ... SELECT` 就丟 `IntegrityError`、整個遷移 rollback,之後每次啟動都失敗、後端起不來」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T156a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-02 的測試(呼叫 `create_schema(conn)`,再讀 `cgb-odd` 的 `sessions.step` 與它的 `session_transitions.step`;分隔註解寫 `# ---- 005 US3-DB-02`);US1 的 T042b 照 `contracts/store.dbml` 只寫 note、不加 state 與 step 的跨欄位 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「重建時把 state 與 step 的對應寫成跨欄位 CHECK(例如 `step IS NULL OR state IN ('opening', 'applying_tuning')`,或逐一列出兩組對應;Q25 定為只寫 note),既有資料只要有一筆不合,`INSERT ... SELECT` 就丟 `IntegrityError`、整個遷移 rollback,之後每次啟動都失敗、後端起不來」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-DB-02
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q25
-- [ ] T156b [US3] 🟢 /tdd 綠燈:US3-DB-02 由 US1 的 T042b 照 `contracts/store.dbml` 只寫 note、不加 state 與 step 的跨欄位 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-02 通過的程式碼(依賴 T156a)
+- [x] T156b [US3] 🟢 /tdd 綠燈:US3-DB-02 由 US1 的 T042b 照 `contracts/store.dbml` 只寫 note、不加 state 與 step 的跨欄位 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-02 通過的程式碼(依賴 T156a)
   - 🧪 `testplan.md` § US3-DB-02
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-015;`plan.md` § 待決問題 Q25
-- [ ] T157a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-03 的測試(每種情況依序執行:①寫入「套用那一筆」;②再寫一筆 `cgb-a` 的套用、`result='in_progress'`、`at='2026-11-15T09:00:01Z'`、`requested_num_parallel=8`;③寫一筆 `cgb-b` 的套用、`result='in_progress'`;④把 ① 改成成功;⑤再寫一筆 `cgb-a` 的套用、`at='2026-11-15T09:10:00Z'`、`requested_num_parallel=8`、`result='in_progress'`;⑥把 ⑤ 照「改成成功」改,但 `num_parallel=8`、`finished_at='2026-11-15T09:11:00Z'`;⑦讀 `SELECT trigger, result, requested_num_parallel FROM session_tunings WHERE session_name = 'cgb-a' ORDER BY at, id`;分隔註解寫 `# ---- 005 US3-DB-03`);US1 的 T038b、T041b 建出 `uq_session_tunings_in_progress`(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「沒建 `uq_session_tunings_in_progress`,兩個分頁同時套用時兩筆 `in_progress` 都寫得進去,兩個流程同時重啟遠端 Ollama」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T157a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-03 的測試(每種情況依序執行:①寫入「套用那一筆」;②再寫一筆 `cgb-a` 的套用、`result='in_progress'`、`at='2026-11-15T09:00:01Z'`、`requested_num_parallel=8`;③寫一筆 `cgb-b` 的套用、`result='in_progress'`;④把 ① 改成成功;⑤再寫一筆 `cgb-a` 的套用、`at='2026-11-15T09:10:00Z'`、`requested_num_parallel=8`、`result='in_progress'`;⑥把 ⑤ 照「改成成功」改,但 `num_parallel=8`、`finished_at='2026-11-15T09:11:00Z'`;⑦讀 `SELECT trigger, result, requested_num_parallel FROM session_tunings WHERE session_name = 'cgb-a' ORDER BY at, id`;分隔註解寫 `# ---- 005 US3-DB-03`);US1 的 T038b、T041b 建出 `uq_session_tunings_in_progress`(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「沒建 `uq_session_tunings_in_progress`,兩個分頁同時套用時兩筆 `in_progress` 都寫得進去,兩個流程同時重啟遠端 Ollama」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-DB-03
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-016、使用者故事 3 驗收情境 10、邊界情況(兩個分頁同時按套用)
-- [ ] T157b [US3] 🟢 /tdd 綠燈:US3-DB-03 由 US1 的 T038b、T041b 建出 `uq_session_tunings_in_progress`(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-03 通過的程式碼(依賴 T157a)
+- [x] T157b [US3] 🟢 /tdd 綠燈:US3-DB-03 由 US1 的 T038b、T041b 建出 `uq_session_tunings_in_progress`(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-03 通過的程式碼(依賴 T157a)
   - 🧪 `testplan.md` § US3-DB-03
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-016、使用者故事 3 驗收情境 10、邊界情況(兩個分頁同時按套用)
-- [ ] T158a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-04 的測試(每種情況依「套用那一筆」的欄位依序寫入,全部寫在 `cgb-a`、`at` 每句加 1 秒;除了 ⑨,`result` 都不是 `in_progress`,寫不寫得進去不受 `uq_session_tunings_in_progress` 影響:①`result='applied'`、`finished_at` 有值;②`result='fell_back_to_auto'`、`attempt='auto_fallback'`、`finished_at` 有值;③`result='failed'`、`finished_at` 有值;④`result='interrupted'`、`finished_at` 有值、`probed_at`、五項值與來源照「改成成功」(後端恢復時讀到的設定,Q13、Q24);⑤`result='interrupted'`、`finished_at` 有值,硬體與五項值都是 NULL;⑥`result='success'`;⑦`result='fallback'`;⑧`result` NULL;⑨`result='in_progress'`、`finished_at` 有值;⑩`result='applied'`、`finished_at` NULL;⑪`result='applied'`、`finished_at` 有值、`attempt` NULL;⑫`result='applied'`、`finished_at` 有值、`attempt='auto'`;分隔註解寫 `# ---- 005 US3-DB-04`);US1 的 T038b 照 `contracts/store.dbml` 寫 `result` 等列舉欄位的 `CHECK IN`(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`result` 的 CHECK 照 Q12 的另一個選項只列 `applied`、`fell_back_to_auto`,受理時的 `in_progress`、失聯的 `failed`、中斷的 `interrupted` 寫不進去,套用一開始就失敗」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T158a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-04 的測試(每種情況依「套用那一筆」的欄位依序寫入,全部寫在 `cgb-a`、`at` 每句加 1 秒;除了 ⑨,`result` 都不是 `in_progress`,寫不寫得進去不受 `uq_session_tunings_in_progress` 影響:①`result='applied'`、`finished_at` 有值;②`result='fell_back_to_auto'`、`attempt='auto_fallback'`、`finished_at` 有值;③`result='failed'`、`finished_at` 有值;④`result='interrupted'`、`finished_at` 有值、`probed_at`、五項值與來源照「改成成功」(後端恢復時讀到的設定,Q13、Q24);⑤`result='interrupted'`、`finished_at` 有值,硬體與五項值都是 NULL;⑥`result='success'`;⑦`result='fallback'`;⑧`result` NULL;⑨`result='in_progress'`、`finished_at` 有值;⑩`result='applied'`、`finished_at` NULL;⑪`result='applied'`、`finished_at` 有值、`attempt` NULL;⑫`result='applied'`、`finished_at` 有值、`attempt='auto'`;分隔註解寫 `# ---- 005 US3-DB-04`);US1 的 T038b 照 `contracts/store.dbml` 寫 `result` 等列舉欄位的 `CHECK IN`(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`result` 的 CHECK 照 Q12 的另一個選項只列 `applied`、`fell_back_to_auto`,受理時的 `in_progress`、失聯的 `failed`、中斷的 `interrupted` 寫不進去,套用一開始就失敗」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-DB-04
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-016、FR-013;`plan.md` § 待決問題 Q44
-- [ ] T158b [US3] 🟢 /tdd 綠燈:US3-DB-04 由 US1 的 T038b 照 `contracts/store.dbml` 寫 `result` 等列舉欄位的 `CHECK IN`(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-04 通過的程式碼(依賴 T158a)
+- [x] T158b [US3] 🟢 /tdd 綠燈:US3-DB-04 由 US1 的 T038b 照 `contracts/store.dbml` 寫 `result` 等列舉欄位的 `CHECK IN`(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-04 通過的程式碼(依賴 T158a)
   - 🧪 `testplan.md` § US3-DB-04
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-016、FR-013;`plan.md` § 待決問題 Q44
-- [ ] T159a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-05 的測試(每種情況依序寫入套用的列(`result` 不是 `in_progress` 的都帶 `finished_at`):①`cgb-a`:`result='fell_back_to_auto'`、`attempt='auto_fallback'`、`requested_num_parallel=32`、`requested_context_length=131072`、`requested_max_loaded_models=4`、`reason_code='COLAB_REMOTE_ERROR'`、`remote_stage='verify'`、`message='手動設定沒有套用成功,已改回自動值'`、`num_parallel=8`、五個 `*_source` 為 `auto`、其他五項值與硬體照「改成成功」;②`cgb-b`:`result='failed'`、`attempt='auto_fallback'`、`reason_code='COLAB_INVALID_TUNING'`、`remote_stage='start'`,硬體與五項值、五個來源都是 NULL;③`cgb-c`:三個 `requested_*` 都是 NULL(全部改回自動);④~⑧ 都寫在 `cgb-d`、`result='failed'`、帶 `finished_at`(不是 `in_progress`,前一句沒被擋時不會讓下一句撞到唯一索引):④`requested_num_parallel=33`;⑤`requested_context_length=2047`;⑥`requested_max_loaded_models=5`;⑦`remote_stage='unknown'`;⑧`remote_stage='Verify'`;分隔註解寫 `# ---- 005 US3-DB-05`);US1 的 T038b 照 `contracts/store.dbml` 建出三個 `requested_*` 與它們的範圍 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`session_tunings` 只存實際套用的值,沒有 `requested_*`,改回自動值的那一筆讀不出使用者要求的 32、131072、4(Q20 定為紀錄要顯示)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T159a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-05 的測試(每種情況依序寫入套用的列(`result` 不是 `in_progress` 的都帶 `finished_at`):①`cgb-a`:`result='fell_back_to_auto'`、`attempt='auto_fallback'`、`requested_num_parallel=32`、`requested_context_length=131072`、`requested_max_loaded_models=4`、`reason_code='COLAB_REMOTE_ERROR'`、`remote_stage='verify'`、`message='手動設定沒有套用成功,已改回自動值'`、`num_parallel=8`、五個 `*_source` 為 `auto`、其他五項值與硬體照「改成成功」;②`cgb-b`:`result='failed'`、`attempt='auto_fallback'`、`reason_code='COLAB_INVALID_TUNING'`、`remote_stage='start'`,硬體與五項值、五個來源都是 NULL;③`cgb-c`:三個 `requested_*` 都是 NULL(全部改回自動);④~⑧ 都寫在 `cgb-d`、`result='failed'`、帶 `finished_at`(不是 `in_progress`,前一句沒被擋時不會讓下一句撞到唯一索引):④`requested_num_parallel=33`;⑤`requested_context_length=2047`;⑥`requested_max_loaded_models=5`;⑦`remote_stage='unknown'`;⑧`remote_stage='Verify'`;分隔註解寫 `# ---- 005 US3-DB-05`);US1 的 T038b 照 `contracts/store.dbml` 建出三個 `requested_*` 與它們的範圍 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`session_tunings` 只存實際套用的值,沒有 `requested_*`,改回自動值的那一筆讀不出使用者要求的 32、131072、4(Q20 定為紀錄要顯示)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-DB-05
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-016、FR-013、FR-017
-- [ ] T159b [US3] 🟢 /tdd 綠燈:US3-DB-05 由 US1 的 T038b 照 `contracts/store.dbml` 建出三個 `requested_*` 與它們的範圍 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-05 通過的程式碼(依賴 T159a)
+- [x] T159b [US3] 🟢 /tdd 綠燈:US3-DB-05 由 US1 的 T038b 照 `contracts/store.dbml` 建出三個 `requested_*` 與它們的範圍 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-05 通過的程式碼(依賴 T159a)
   - 🧪 `testplan.md` § US3-DB-05
   - ⚙ `contracts/store.dbml` § `Table session_tunings`
   - 📎 `spec.md` § FR-016、FR-013、FR-017
-- [ ] T160a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-06 的測試(每種情況讀 `PRAGMA table_info(session_tuning_models)`、`PRAGMA foreign_key_list(session_tuning_models)`,再依序寫入 `(tuning_id, position, model, reason, reason_code)`:①`(X, 0, 'qwen2.5:7b', NULL, NULL)`;②`(X, 1, 'llama3.2:3b', 'OVER_LIMIT', NULL)`;③`(X, 2, 'gemma3:1b', 'PRELOAD_FAILED', 'OLLAMA_SERVER_ERROR')`;④`(Y, 0, 'qwen2.5:7b', NULL, NULL)`;⑤`(X, 1, 'phi4:14b', NULL, NULL)`;⑥`(X, 3, 'phi4:14b', 'over_limit', NULL)`;⑦`(X, 4, 'phi4:14b', 'SKIPPED', NULL)`;⑧`(X, 5, NULL, NULL, NULL)`;⑨`(X, NULL, 'phi4:14b', NULL, NULL)`(⑥~⑧ 各用不同的 `position`,被擋只會是因為 CHECK 或 NOT NULL);最後讀 `SELECT position, model, reason FROM session_tuning_models WHERE tuning_id = X ORDER BY position`;分隔註解寫 `# ---- 005 US3-DB-06`);US1 的 T038b 照 `contracts/store.dbml` 建出 `session_tuning_models`(`reason` 可為空、外鍵指到 `session_tunings`,`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`reason` 設成 NOT NULL,只記得下沒有重新載入的模型,紀錄頁的「已重新載入」永遠是空的(FR-012 要依 `/api/ps` 順序重新載入,S3 `reloaded`)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T160a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-06 的測試(每種情況讀 `PRAGMA table_info(session_tuning_models)`、`PRAGMA foreign_key_list(session_tuning_models)`,再依序寫入 `(tuning_id, position, model, reason, reason_code)`:①`(X, 0, 'qwen2.5:7b', NULL, NULL)`;②`(X, 1, 'llama3.2:3b', 'OVER_LIMIT', NULL)`;③`(X, 2, 'gemma3:1b', 'PRELOAD_FAILED', 'OLLAMA_SERVER_ERROR')`;④`(Y, 0, 'qwen2.5:7b', NULL, NULL)`;⑤`(X, 1, 'phi4:14b', NULL, NULL)`;⑥`(X, 3, 'phi4:14b', 'over_limit', NULL)`;⑦`(X, 4, 'phi4:14b', 'SKIPPED', NULL)`;⑧`(X, 5, NULL, NULL, NULL)`;⑨`(X, NULL, 'phi4:14b', NULL, NULL)`(⑥~⑧ 各用不同的 `position`,被擋只會是因為 CHECK 或 NOT NULL);最後讀 `SELECT position, model, reason FROM session_tuning_models WHERE tuning_id = X ORDER BY position`;分隔註解寫 `# ---- 005 US3-DB-06`);US1 的 T038b 照 `contracts/store.dbml` 建出 `session_tuning_models`(`reason` 可為空、外鍵指到 `session_tunings`,`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`reason` 設成 NOT NULL,只記得下沒有重新載入的模型,紀錄頁的「已重新載入」永遠是空的(FR-012 要依 `/api/ps` 順序重新載入,S3 `reloaded`)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-DB-06
   - ⚙ `contracts/store.dbml` § `Table session_tuning_models`
   - 📎 `spec.md` § FR-012、FR-016、使用者故事 3 驗收情境 9
-- [ ] T160b [US3] 🟢 /tdd 綠燈:US3-DB-06 由 US1 的 T038b 照 `contracts/store.dbml` 建出 `session_tuning_models`(`reason` 可為空、外鍵指到 `session_tunings`,`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-06 通過的程式碼(依賴 T160a)
+- [x] T160b [US3] 🟢 /tdd 綠燈:US3-DB-06 由 US1 的 T038b 照 `contracts/store.dbml` 建出 `session_tuning_models`(`reason` 可為空、外鍵指到 `session_tunings`,`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-06 通過的程式碼(依賴 T160a)
   - 🧪 `testplan.md` § US3-DB-06
   - ⚙ `contracts/store.dbml` § `Table session_tuning_models`
   - 📎 `spec.md` § FR-012、FR-016、使用者故事 3 驗收情境 9
-- [ ] T161a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-07 的測試(每種情況依序執行:①`UPDATE sessions SET state = 'lost', active_slot = NULL, step = NULL, end_reason = 'OLLAMA_RESTART_FAILED', reason_code = 'COLAB_INVALID_TUNING', message = '遠端 Ollama 重啟失敗,可以重新開啟一個工作階段', ended_at = '2026-11-15T09:03:00Z' WHERE name = 'cgb-a'`;②`INSERT INTO session_transitions (session_name, at, state, step, end_reason, reason_code) VALUES ('cgb-a', '2026-11-15T09:03:00Z', 'lost', NULL, 'OLLAMA_RESTART_FAILED', 'COLAB_INVALID_TUNING')`;③插入 `sessions` 一筆 `cgb-new`(`opening`,`active_slot=1`);分隔註解寫 `# ---- 005 US3-DB-07`);US1 的 T042b 重建時不補 `end_reason` 的 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「趁重建替 `end_reason` 補了 CHECK,卻照 001 的六個值列,`OLLAMA_RESTART_FAILED` 寫不進去,改回自動值也失敗時結束工作階段那一步丟 `IntegrityError`,工作階段卡在 `applying_tuning`、執行環境沒有釋放(FR-013)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T161a [US3] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US3-DB-07 的測試(每種情況依序執行:①`UPDATE sessions SET state = 'lost', active_slot = NULL, step = NULL, end_reason = 'OLLAMA_RESTART_FAILED', reason_code = 'COLAB_INVALID_TUNING', message = '遠端 Ollama 重啟失敗,可以重新開啟一個工作階段', ended_at = '2026-11-15T09:03:00Z' WHERE name = 'cgb-a'`;②`INSERT INTO session_transitions (session_name, at, state, step, end_reason, reason_code) VALUES ('cgb-a', '2026-11-15T09:03:00Z', 'lost', NULL, 'OLLAMA_RESTART_FAILED', 'COLAB_INVALID_TUNING')`;③插入 `sessions` 一筆 `cgb-new`(`opening`,`active_slot=1`);分隔註解寫 `# ---- 005 US3-DB-07`);US1 的 T042b 重建時不補 `end_reason` 的 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「趁重建替 `end_reason` 補了 CHECK,卻照 001 的六個值列,`OLLAMA_RESTART_FAILED` 寫不進去,改回自動值也失敗時結束工作階段那一步丟 `IntegrityError`,工作階段卡在 `applying_tuning`、執行環境沒有釋放(FR-013)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US3-DB-07
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-013、使用者故事 3 驗收情境 7;`plan.md` § 待決問題 Q22
-- [ ] T161b [US3] 🟢 /tdd 綠燈:US3-DB-07 由 US1 的 T042b 重建時不補 `end_reason` 的 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-07 通過的程式碼(依賴 T161a)
+- [x] T161b [US3] 🟢 /tdd 綠燈:US3-DB-07 由 US1 的 T042b 重建時不補 `end_reason` 的 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US3-DB-07 通過的程式碼(依賴 T161a)
   - 🧪 `testplan.md` § US3-DB-07
   - ⚙ `contracts/store.dbml` § `Table sessions`、`Table session_transitions`
   - 📎 `spec.md` § FR-013、使用者故事 3 驗收情境 7;`plan.md` § 待決問題 Q22
-- [ ] T162 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T155b~T161b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T161b)
+- [x] T162 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T155b~T161b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T161b)
   - 🧪 `testplan.md` § US3-DB-01~US3-DB-07
   - 📎 `testplan.md` § 4.3
 
@@ -1418,55 +1418,55 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(Playwright)接測試行程內真的後端(`tests/e2e/conftest.py` 的 `e2e_servers`,UI 127.0.0.1:8781),轉接層用替身;e2e 用固定 port,同一時間只跑一份
 
-- [ ] T163a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-01 的測試(使用者在設定卡把平行數改成 4,按「套用並重啟 Ollama」並在確認視窗按確認;分隔註解寫 `# ---- 005 US3-AJ-01`),執行確認它因為「確認視窗少了重新載入的說明;重啟中仍顯示就緒;回到就緒後仍顯示舊設定」這類實作而失敗
+- [x] T163a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-01 的測試(使用者在設定卡把平行數改成 4,按「套用並重啟 Ollama」並在確認視窗按確認;分隔註解寫 `# ---- 005 US3-AJ-01`),執行確認它因為「確認視窗少了重新載入的說明;重啟中仍顯示就緒;回到就緒後仍顯示舊設定」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/index.html` § `[data-state="edit-tuning"]`、`#et-fields`、`#apply`、`#edit-clear`、`[data-state="confirm-apply"]`、`#ca-rows`、`#ca-effects`、`#confirm-apply`、`[data-state="restarting"]`、`[data-state="reloading"]`、`[data-state="${view}"]`、`[data-state="ready-manual"]`;`contracts/ui.openapi.yaml` § `paths./session/tuning.post`
   - 📎 `spec.md` § FR-010、FR-012、FR-015;`research.md` § R11;`plan.md` § 待決問題 Q18、Q21、Q57
-- [ ] T163b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js`、`src/cgb/static/js/header.js` 只寫讓 US3-AJ-01 通過的程式碼;設定卡可修改三項並按「套用並重啟 Ollama」,確認視窗寫出會重啟、要重新載入、這段時間無法對話與送請求;套用中照 001 開啟步驟的方式依序顯示「重啟 Ollama」「重新載入模型」(`[data-apply-steps]`、`[data-apply-elapsed]` 寫進目前的畫面);`applying_tuning` 與 `restarting_ollama`、`reloading_models` 加進 `src/cgb/static/js/session.js` 與 `src/cgb/static/js/header.js` 的狀態與步驟標籤,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T163a)
+- [x] T163b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js`、`src/cgb/static/js/header.js` 只寫讓 US3-AJ-01 通過的程式碼;設定卡可修改三項並按「套用並重啟 Ollama」,確認視窗寫出會重啟、要重新載入、這段時間無法對話與送請求;套用中照 001 開啟步驟的方式依序顯示「重啟 Ollama」「重新載入模型」(`[data-apply-steps]`、`[data-apply-elapsed]` 寫進目前的畫面);`applying_tuning` 與 `restarting_ollama`、`reloading_models` 加進 `src/cgb/static/js/session.js` 與 `src/cgb/static/js/header.js` 的狀態與步驟標籤,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T163a)
   - 🧪 `testplan.md` § US3-AJ-01
   - ⚙ `prototype/index.html` § `[data-state="edit-tuning"]`、`#et-fields`、`#apply`、`#edit-clear`、`[data-state="confirm-apply"]`、`#ca-rows`、`#ca-effects`、`#confirm-apply`、`[data-state="restarting"]`、`[data-state="reloading"]`、`[data-state="${view}"]`、`[data-state="ready-manual"]`;`contracts/ui.openapi.yaml` § `paths./session/tuning.post`
   - 📎 `spec.md` § FR-010、FR-012、FR-015;`research.md` § R11;`plan.md` § 待決問題 Q18、Q21、Q57
-- [ ] T164a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-02 的測試(使用者改平行數並按套用並確認;分隔註解寫 `# ---- 005 US3-AJ-02`),執行確認它因為「擋下後下載被中斷;沒有說明原因」這類實作而失敗
+- [x] T164a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-02 的測試(使用者改平行數並按套用並確認;分隔註解寫 `# ---- 005 US3-AJ-02`),執行確認它因為「擋下後下載被中斷;沒有說明原因」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/index.html` § `[data-state="apply-blocked-download"]`、`#blocked-download-text`、`[data-state="${state}"]`、`[data-state="apply-blocked-request"]`、`#blocked-request-text`、`[data-state="apply-conflict"]`、`[data-state="apply-not-ready"]`、`[data-state="apply-auth-required"]`、`[data-state="apply-invalid"]`、`#apply-invalid-note`;`contracts/ui.openapi.yaml` § `paths./session/tuning.post`
   - 📎 `spec.md` § FR-011;`plan.md` § 待決問題 Q57
-- [ ] T164b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US3-AJ-02 通過的程式碼;套用回 409、503、400 時依代碼顯示對應的說明(`[data-error-message]` 寫進那一個狀態),不改工作階段與下載;`apply-blocked-request`、`apply-conflict`、`apply-not-ready`、`apply-auth-required`、`apply-invalid` 沒有案例斷言,完成報告列為未直接驗證,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T164a)
+- [x] T164b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US3-AJ-02 通過的程式碼;套用回 409、503、400 時依代碼顯示對應的說明(`[data-error-message]` 寫進那一個狀態),不改工作階段與下載;`apply-blocked-request`、`apply-conflict`、`apply-not-ready`、`apply-auth-required`、`apply-invalid` 沒有案例斷言,完成報告列為未直接驗證,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T164a)
   - 🧪 `testplan.md` § US3-AJ-02
   - ⚙ `prototype/index.html` § `[data-state="apply-blocked-download"]`、`#blocked-download-text`、`[data-state="${state}"]`、`[data-state="apply-blocked-request"]`、`#blocked-request-text`、`[data-state="apply-conflict"]`、`[data-state="apply-not-ready"]`、`[data-state="apply-auth-required"]`、`[data-state="apply-invalid"]`、`#apply-invalid-note`;`contracts/ui.openapi.yaml` § `paths./session/tuning.post`
   - 📎 `spec.md` § FR-011;`plan.md` § 待決問題 Q57
-- [ ] T165a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-03 的測試(使用者把平行數改成 16 並套用確認;分隔註解寫 `# ---- 005 US3-AJ-03`),執行確認它因為「失敗後直接結束工作階段;改回自動值後仍顯示 16」這類實作而失敗
+- [x] T165a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-03 的測試(使用者把平行數改成 16 並套用確認;分隔註解寫 `# ---- 005 US3-AJ-03`),執行確認它因為「失敗後直接結束工作階段;改回自動值後仍顯示 16」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/index.html` § `[data-state="fallback-restarting"]`、`#fb-note`、`[data-state="ready-fallback"]`、`#t-fallback`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q20
-- [ ] T165b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js` 只寫讓 US3-AJ-03 通過的程式碼;改回自動值的重啟中顯示 `fallback-restarting`,回到就緒後設定卡說明「手動設定沒有套用成功,已改回自動值」並列出要求的值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T165a)
+- [x] T165b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js` 只寫讓 US3-AJ-03 通過的程式碼;改回自動值的重啟中顯示 `fallback-restarting`,回到就緒後設定卡說明「手動設定沒有套用成功,已改回自動值」並列出要求的值,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T165a)
   - 🧪 `testplan.md` § US3-AJ-03
   - ⚙ `prototype/index.html` § `[data-state="fallback-restarting"]`、`#fb-note`、`[data-state="ready-fallback"]`、`#t-fallback`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q20
-- [ ] T166a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-04 的測試(使用者把同時載入模型數改成 1 並套用確認;分隔註解寫 `# ---- 005 US3-AJ-04`),執行確認它因為「全部重新載入;沒有列出沒重新載入的模型」這類實作而失敗
+- [x] T166a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-04 的測試(使用者把同時載入模型數改成 1 並套用確認;分隔註解寫 `# ---- 005 US3-AJ-04`),執行確認它因為「全部重新載入;沒有列出沒重新載入的模型」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-04
   - ⚙ `prototype/index.html` § `[data-state="ready-not-reloaded"]`、`#t-not-reloaded`、`[data-state="ready-preload-failed"]`、`#t-preload-failed`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q57
-- [ ] T166b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US3-AJ-04 通過的程式碼;回到就緒後列出沒有重新載入的模型;預先載入失敗的說明照原型 `ready-preload-failed`(沒有案例斷言,完成報告列為未直接驗證),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T166a)
+- [x] T166b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js` 只寫讓 US3-AJ-04 通過的程式碼;回到就緒後列出沒有重新載入的模型;預先載入失敗的說明照原型 `ready-preload-failed`(沒有案例斷言,完成報告列為未直接驗證),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T166a)
   - 🧪 `testplan.md` § US3-AJ-04
   - ⚙ `prototype/index.html` § `[data-state="ready-not-reloaded"]`、`#t-not-reloaded`、`[data-state="ready-preload-failed"]`、`#t-preload-failed`
   - 📎 `spec.md` § FR-012;`plan.md` § 待決問題 Q57
-- [ ] T167a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-05 的測試(使用者套用確認;分隔註解寫 `# ---- 005 US3-AJ-05`),執行確認它因為「兩次失敗後工作階段停在套用中;結束原因顯示成一般的失聯」這類實作而失敗
+- [x] T167a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-05 的測試(使用者套用確認;分隔註解寫 `# ---- 005 US3-AJ-05`),執行確認它因為「兩次失敗後工作階段停在套用中;結束原因顯示成一般的失聯」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-05
   - ⚙ `prototype/index.html` § `[data-state="lost-restart"]`、`#lr-message`、`#lr-requested`、`#lr-stage`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q19
-- [ ] T167b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/history.js` 只寫讓 US3-AJ-05 通過的程式碼;`OLLAMA_RESTART_FAILED` 加進 `src/cgb/static/js/session.js` 的結束原因與畫面對應,以及 `src/cgb/static/js/history.js` 的結束原因標籤;畫面顯示「重啟 Ollama 失敗」、要求的值與失敗的階段,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T167a)
+- [x] T167b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/history.js` 只寫讓 US3-AJ-05 通過的程式碼;`OLLAMA_RESTART_FAILED` 加進 `src/cgb/static/js/session.js` 的結束原因與畫面對應,以及 `src/cgb/static/js/history.js` 的結束原因標籤;畫面顯示「重啟 Ollama 失敗」、要求的值與失敗的階段,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T167a)
   - 🧪 `testplan.md` § US3-AJ-05
   - ⚙ `prototype/index.html` § `[data-state="lost-restart"]`、`#lr-message`、`#lr-requested`、`#lr-stage`
   - 📎 `spec.md` § FR-013;`plan.md` § 待決問題 Q19
-- [ ] T168a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-06 的測試(使用者到紀錄頁點這一筆;分隔註解寫 `# ---- 005 US3-AJ-06`),執行確認它因為「只留最後一筆;套用的紀錄沒有要求的值」這類實作而失敗
+- [x] T168a [US3] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us3_apply.py` 寫 US3-AJ-06 的測試(使用者到紀錄頁點這一筆;分隔註解寫 `# ---- 005 US3-AJ-06`),執行確認它因為「只留最後一筆;套用的紀錄沒有要求的值」這類實作而失敗
   - 🧪 `testplan.md` § US3-AJ-06
   - ⚙ `prototype/history.html` § `[data-state="tuning-log"]`、`#d-body`、`.tuning-table`;`contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`
   - 📎 `spec.md` § FR-016;`plan.md` § 待決問題 Q20
-- [ ] T168b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/history.html`、`src/cgb/static/js/history.js`、`src/cgb/static/js/view.js` 只寫讓 US3-AJ-06 通過的程式碼;紀錄頁的明細依時間列出開啟與每一次套用,套用的那幾筆寫出要求的值與結果,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T168a)
+- [x] T168b [US3] 🟢 /tdd 綠燈:在 `src/cgb/static/history.html`、`src/cgb/static/js/history.js`、`src/cgb/static/js/view.js` 只寫讓 US3-AJ-06 通過的程式碼;紀錄頁的明細依時間列出開啟與每一次套用,套用的那幾筆寫出要求的值與結果,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T168a)
   - 🧪 `testplan.md` § US3-AJ-06
   - ⚙ `prototype/history.html` § `[data-state="tuning-log"]`、`#d-body`、`.tuning-table`;`contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`
   - 📎 `spec.md` § FR-016;`plan.md` § 待決問題 Q20
-- [ ] T169 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T163b~T168b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T168b)
+- [x] T169 [US3] 🔵 /tdd 重構:在全部測試綠燈下整理 T163b~T168b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T168b)
   - 🧪 `testplan.md` § US3-AJ-01~US3-AJ-06
   - 📎 `testplan.md` § 4.4
 
@@ -1552,15 +1552,15 @@
 
 > 不開 Colab;替身的 token 與轉發位址是已知的假值,測試行程內攔截所有對外連線,不對 127.0.0.1:11434 送任何請求
 
-- [ ] T174a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_005_g_05.py` 寫 G-05 的測試(依序開啟(帶覆蓋值)、讀工作階段狀態與紀錄、套用並重啟、讓重啟失敗一次;分隔註解寫 `# ---- 005 G-05`),執行確認它因為「錯誤訊息或設定紀錄夾帶 `colab exec` 的命令列與 token;測試或程式連到使用者自己的 Ollama」這類實作而失敗
+- [x] T174a [G] 🔴 /tdd 紅燈:在 `tests/integration/test_005_g_05.py` 寫 G-05 的測試(依序開啟(帶覆蓋值)、讀工作階段狀態與紀錄、套用並重啟、讓重啟失敗一次;分隔註解寫 `# ---- 005 G-05`),執行確認它因為「錯誤訊息或設定紀錄夾帶 `colab exec` 的命令列與 token;測試或程式連到使用者自己的 Ollama」這類實作而失敗
   - 🧪 `testplan.md` § G-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./sessions/{name}.get`、`paths./session/tuning.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § NFR-003
-- [ ] T174b [G] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/logging_setup.py` 只寫讓 G-05 通過的程式碼;錯誤訊息、紀錄與日誌不帶 `colab exec` 的命令列、token 與轉發位址,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T174a)
+- [x] T174b [G] 🟢 /tdd 綠燈:在 `src/cgb/services/tuning.py`、`src/cgb/services/session_lifecycle.py`、`src/cgb/logging_setup.py` 只寫讓 G-05 通過的程式碼;錯誤訊息、紀錄與日誌不帶 `colab exec` 的命令列、token 與轉發位址,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T174a)
   - 🧪 `testplan.md` § G-05
   - ⚙ `contracts/ui.openapi.yaml` § `paths./session.post`、`paths./session.get`、`paths./sessions/{name}.get`、`paths./session/tuning.post`;`contracts/ui-events.asyncapi.yaml` § `operations.sendSessionUpdated`
   - 📎 `spec.md` § NFR-003
-- [ ] T175 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T174b~T174b 記下的重構清單(範圍限 `src/cgb/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_005_g_05.py` 的斷言(依賴 T174b)
+- [x] T175 [G] 🔵 /tdd 重構:在全部測試綠燈下整理 T174b~T174b 記下的重構清單(範圍限 `src/cgb/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_005_g_05.py` 的斷言(依賴 T174b)
   - 🧪 `testplan.md` § G-05
   - 📎 `testplan.md` § 5.2
 

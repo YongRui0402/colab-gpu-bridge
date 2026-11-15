@@ -107,9 +107,25 @@ class RemoteOllama:
 
     async def preload(self, *, base_url: str, model: str) -> dict[str, Any]:
         """預先載入(FR-015):`POST /api/generate` 只帶 `model` 與 `keep_alive: -1`(plan.md Q4),不帶 `prompt`。"""
-        async with self._client(base_url, httpx.Timeout(PRELOAD_TIMEOUT)) as client:
-            response = await client.post("/api/generate", json={"model": model, "keep_alive": -1})
-        return response.json()
+        try:
+            async with self._client(base_url, httpx.Timeout(PRELOAD_TIMEOUT)) as client:
+                response = await client.post("/api/generate", json={"model": model, "keep_alive": -1})
+        except httpx.TimeoutException as error:
+            raise AdapterError("OLLAMA_TIMEOUT", f"{PRELOAD_TIMEOUT:g} 秒內沒有收到遠端 Ollama 的回應") from error
+        except httpx.TransportError as error:
+            raise AdapterError("OLLAMA_UNREACHABLE", f"連不到遠端 Ollama:{type(error).__name__}") from error
+        except httpx.DecodingError as error:
+            raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的回應本文無法解壓") from error
+        if response.status_code != 200:
+            code = _STATUS_CODES.get(response.status_code, "OLLAMA_BAD_RESPONSE")
+            raise AdapterError(code, f"遠端 Ollama 回了 {response.status_code}")
+        try:
+            body = response.json()
+        except ValueError as error:
+            raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的預先載入回應不是 JSON") from error
+        if not isinstance(body, dict):
+            raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的預先載入回應不是 JSON 物件")
+        return body
 
     async def pull_model(self, *, base_url: str, model: str) -> AsyncIterator[dict[str, Any]]:
         """`POST /api/pull`(串流);逐行產出帶 `total` 的進度行,最後產出 `{"status":"success"}`。

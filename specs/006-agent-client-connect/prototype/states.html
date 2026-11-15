@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>狀態總覽|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body class="states-page">
+  <header class="topbar">
+    <span class="brand">Colab GPU 橋接 · 006 狀態總覽</span>
+    <nav>
+      <a href="index.html">開啟原型</a>
+      <button type="button" onclick="Proto.reset()">重設假資料</button>
+    </nav>
+  </header>
+  <main>
+    <p class="muted">只收 006 新增的連線設定頁,以及它連過去的工作階段頁一小段(其餘照 005)。每一格讀的是那個狀態自己的假資料,不會改到「開啟原型」裡的資料。「開啟原型」預設是 T4 自動套用 4096 的樣子:先看到提醒,到工作階段頁套用並重啟後回來,提醒就消失。</p>
+    <section>
+      <h2 class="states-heading"><a href="connect.html">連線設定</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="connect.html?state=normal" title="連線設定:opencode 分頁" loading="lazy"></iframe>
+          <figcaption>opencode 分頁:context 32768,一鍵複製後按鈕變「已複製」,下方是放哪個檔、怎麼選模型(FR-001、FR-002、FR-003,US1 情境 1、2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="connect.html?state=pi" title="連線設定:pi 分頁" loading="lazy"></iframe>
+          <figcaption>pi 分頁:models.json 與 settings.json 兩段各自一鍵複製(FR-004、FR-005、FR-013,US2 情境 1、2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="connect.html?state=low-context" title="連線設定:context 太小" loading="lazy"></iframe>
+          <figcaption>context 太小:目前 4096、建議 32768,說明開啟前覆蓋與套用並重啟,連到工作階段頁(FR-006、FR-007,US3 情境 1)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="connect.html?state=unknown-context" title="連線設定:讀不到目前設定" loading="lazy"></iframe>
+          <figcaption>讀不到目前設定:片段不帶 context、pi 不附 settings.json,說明原因(FR-008、FR-013,US3 情境 3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="connect.html?state=no-session" title="連線設定:沒有就緒的工作階段" loading="lazy"></iframe>
+          <figcaption>沒有就緒的工作階段:說明與開啟連結,不顯示片段(FR-012)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="connect.html?state=empty-catalog" title="連線設定:模型目錄是空的" loading="lazy"></iframe>
+          <figcaption>模型目錄是空的:說明與下載模型連結,不顯示片段(FR-012,US1 情境 3)</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2 class="states-heading"><a href="index.html">工作階段(提醒連過去的位置)</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="index.html?state=normal" title="工作階段:改 context 長度" loading="lazy"></iframe>
+          <figcaption>改 context 長度:目前值、顯示記憶體、套用並重啟(FR-006、FR-007)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=applying" title="工作階段:套用中" loading="lazy"></iframe>
+          <figcaption>套用中:重啟遠端 Ollama(FR-006)</figcaption>
+        </figure>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

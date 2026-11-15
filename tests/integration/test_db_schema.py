@@ -1946,3 +1946,396 @@ def test_後端重新啟動後記住的類型覆蓋值都還在_不重跑遷移(
     # Assert:則3 user_version 為 2
     assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     conn.close()
+
+
+# ---- 005 US3-DB-01
+
+
+def _open_db_with_cgb_a(tmp_path: Path, kind: str) -> sqlite3.Connection:
+    """情況 A(`fresh`)、情況 B(`from_v1`);`sessions` 先有 `cgb-a`(A100,`ready`,`active_slot=1`)與它的開啟那一筆。"""
+    conn = _open_db(tmp_path, kind)
+    _insert_session(conn, "cgb-a", "ready", 1, runtime_type_gpu="A100")
+    _insert_tuning(conn)
+    return conn
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_工作階段與狀態變化紀錄收得下套用設定的狀態與兩個重啟步驟_狀態與步驟打錯的值與占用中的名額寫不進去(
+    tmp_path: Path, kind: str
+) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2;cgb-a 為 ready、active_slot=1
+    conn = _open_db_with_cgb_a(tmp_path, kind)
+    insert_transition = (
+        "INSERT INTO session_transitions (session_name, at, state, step) VALUES ('cgb-a', ?, ?, ?)"
+    )
+
+    # Act:①~⑧ 依序執行
+    first_rejected = _rejected(
+        conn, "UPDATE sessions SET state = 'applying_tuning', step = 'restarting_ollama' WHERE name = 'cgb-a'"
+    )
+    state_after_first = conn.execute("SELECT state FROM sessions WHERE name = 'cgb-a'").fetchone()[0]
+    second_rejected = _rejected(conn, insert_transition, ("2026-11-15T09:00:00Z", "applying_tuning", "restarting_ollama"))
+    third_rejected = _rejected(conn, "UPDATE sessions SET step = 'reloading_models' WHERE name = 'cgb-a'")
+    step_after_third = conn.execute("SELECT step FROM sessions WHERE name = 'cgb-a'").fetchone()[0]
+    fourth_rejected = _rejected(conn, insert_transition, ("2026-11-15T09:00:45Z", "applying_tuning", "reloading_models"))
+    fifth_rejected = _rejected(
+        conn,
+        "INSERT INTO sessions (name, runtime_type_gpu, runtime_type_high_mem, state, active_slot, step, opened_at)"
+        " VALUES ('cgb-b', 'T4', 0, 'opening', 1, 'allocating', '2026-11-15T09:01:00Z')",
+    )
+    sixth_rejected = _rejected(conn, "UPDATE sessions SET state = 'applying' WHERE name = 'cgb-a'")
+    seventh_rejected = _rejected(conn, "UPDATE sessions SET step = 'restarting' WHERE name = 'cgb-a'")
+    eighth_rejected = _rejected(conn, insert_transition, ("2026-11-15T09:00:50Z", "applying_tuning", "reloading"))
+
+    # Assert:則1 ① 成功,state 為 applying_tuning
+    assert first_rejected is False
+    assert state_after_first == "applying_tuning"
+    # Assert:則2 ② 寫得進去
+    assert second_rejected is False
+    # Assert:則3 ③ 成功,step 為 reloading_models
+    assert third_rejected is False
+    assert step_after_third == "reloading_models"
+    # Assert:則4 ④ 寫得進去
+    assert fourth_rejected is False
+    # Assert:則5 ⑤ 丟 IntegrityError(active_slot 已被套用中的 cgb-a 占用)
+    assert fifth_rejected is True
+    # Assert:則6 ⑥ 丟 IntegrityError
+    assert sixth_rejected is True
+    # Assert:則7 ⑦ 丟 IntegrityError
+    assert seventh_rejected is True
+    # Assert:則8 ⑧ 丟 IntegrityError
+    assert eighth_rejected is True
+    conn.close()
+
+
+# ---- 005 US3-DB-02
+
+
+def test_v1_舊庫有_state_與_step_對不上的列時照樣升級_step_照原值保留(tmp_path: Path) -> None:
+    # Arrange:v1 舊庫寫入 v1 舊庫資料,另寫 cgb-odd(ended 卻有 step='connecting')與它 ready 卻帶 step='verifying' 的狀態變化紀錄
+    db_path = tmp_path / "cgb.sqlite3"
+    old = _build_v1(db_path)
+    _insert_v1_data(old)
+    _insert_session(old, "cgb-odd", "ended", None, step="connecting", end_reason="USER_ENDED")
+    old.execute(
+        "INSERT INTO session_transitions (session_name, at, state, step)"
+        " VALUES ('cgb-odd', '2026-11-13T09:00:00Z', 'ready', 'verifying')"
+    )
+    old.close()
+    conn = connect(db_path)
+
+    # Act
+    error: sqlite3.Error | None = None
+    try:
+        create_schema(conn)
+    except sqlite3.Error as exc:
+        error = exc
+
+    # Assert:則1 沒有丟出例外;則2 user_version 為 2
+    assert error is None
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    # Assert:則3 sessions 的 cgb-odd 的 step 照原值
+    assert conn.execute("SELECT step FROM sessions WHERE name = 'cgb-odd'").fetchone()[0] == "connecting"
+    # Assert:則4 session_transitions 那一筆的 step 照原值
+    assert [row[0] for row in conn.execute("SELECT step FROM session_transitions WHERE session_name = 'cgb-odd'")] == [
+        "verifying"
+    ]
+    conn.close()
+
+
+# ---- 005 US3-DB-03
+
+# 「套用那一筆」:testplan.md § 4.3;硬體、五項值與來源、reason_code、remote_stage、message 都是 NULL
+_APPLY_TUNING = {
+    **{name: None for name in _OPEN_TUNING_A100},
+    "session_name": "cgb-a",
+    "at": "2026-11-15T09:00:00Z",
+    "trigger": "apply",
+    "attempt": "requested",
+    "requested_num_parallel": 4,
+    "result": "in_progress",
+}
+
+# 「改成成功」:對套用那一筆 UPDATE 的欄位(testplan.md § 4.3)
+_APPLIED_VALUES = {
+    "result": "applied",
+    "finished_at": "2026-11-15T09:01:10Z",
+    "gpu_name": "NVIDIA A100-SXM4-40GB",
+    "vram_total_bytes": 42949672960,
+    "system_memory_total_bytes": 89120571392,
+    "probed_at": "2026-11-15T09:00:40Z",
+    "num_parallel": 4,
+    "num_parallel_source": "manual",
+    "context_length": 8192,
+    "context_length_source": "auto",
+    "max_loaded_models": 2,
+    "max_loaded_models_source": "auto",
+    "flash_attention": 1,
+    "flash_attention_source": "auto",
+    "kv_cache_type": "q8_0",
+    "kv_cache_type_source": "auto",
+}
+
+
+def _insert_apply(conn: sqlite3.Connection, **overrides: object) -> int:
+    """以「套用那一筆」為底寫一筆 session_tunings,只換 overrides 給的欄位,回新列的 id。"""
+    columns = {**_APPLY_TUNING, **overrides}
+    cursor = conn.execute(
+        f"INSERT INTO session_tunings ({', '.join(columns)}) VALUES ({', '.join('?' * len(columns))})",
+        tuple(columns.values()),
+    )
+    return cursor.lastrowid
+
+
+def _mark_applied(conn: sqlite3.Connection, tuning_id: int, **overrides: object) -> bool:
+    """把那一列照「改成成功」UPDATE,只換 overrides 給的欄位;被約束擋下時回 True。"""
+    values = {**_APPLIED_VALUES, **overrides}
+    assignments = ", ".join(f"{name} = ?" for name in values)
+    return _rejected(conn, f"UPDATE session_tunings SET {assignments} WHERE id = ?", (*values.values(), tuning_id))
+
+
+def _apply_rejected(conn: sqlite3.Connection, **overrides: object) -> bool:
+    """寫一筆套用那一筆,被約束擋下時回 True。"""
+    try:
+        _insert_apply(conn, **overrides)
+    except sqlite3.IntegrityError:
+        return True
+    return False
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_同一個工作階段同時只有一筆套用中_別的工作階段不受影響_成功後可再套用_每次套用各留一筆(
+    tmp_path: Path, kind: str
+) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2;cgb-a 有開啟那一筆;另有 cgb-b(T4,ended)
+    conn = _open_db_with_cgb_a(tmp_path, kind)
+    _insert_session(conn, "cgb-b", "ended", None, end_reason="USER_ENDED")
+
+    # Act:①~⑦ 依序執行
+    first_rejected = _apply_rejected(conn)
+    first_id = conn.execute("SELECT id FROM session_tunings WHERE trigger = 'apply'").fetchone()[0]
+    second_rejected = _apply_rejected(conn, at="2026-11-15T09:00:01Z", requested_num_parallel=8)
+    third_rejected = _apply_rejected(conn, session_name="cgb-b")
+    fourth_rejected = _mark_applied(conn, first_id)
+    fifth_rejected = _apply_rejected(conn, at="2026-11-15T09:10:00Z", requested_num_parallel=8)
+    fifth_id = conn.execute("SELECT id FROM session_tunings WHERE at = '2026-11-15T09:10:00Z'").fetchone()[0]
+    sixth_rejected = _mark_applied(conn, fifth_id, num_parallel=8, finished_at="2026-11-15T09:11:00Z")
+    seventh = [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT trigger, result, requested_num_parallel FROM session_tunings"
+            " WHERE session_name = 'cgb-a' ORDER BY at, id"
+        )
+    ]
+
+    # Assert:則1 ① 寫得進去
+    assert first_rejected is False
+    # Assert:則2 ② 丟 IntegrityError
+    assert second_rejected is True
+    # Assert:則3 ③ 寫得進去
+    assert third_rejected is False
+    # Assert:則4 ④ 成功
+    assert fourth_rejected is False
+    # Assert:則5 ⑤ 寫得進去
+    assert fifth_rejected is False
+    # Assert:則6 ⑥ 成功
+    assert sixth_rejected is False
+    # Assert:則7 ⑦ 讀到開啟、兩次套用
+    assert seventh == [("open", "applied", None), ("apply", "applied", 4), ("apply", "applied", 8)]
+    conn.close()
+
+
+# ---- 005 US3-DB-04
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_套用結果收五種值_attempt_與完成時間依規則對應_清單外的結果_缺完成時間與缺_attempt_的列寫不進去(
+    tmp_path: Path, kind: str
+) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2;cgb-a 有開啟那一筆
+    conn = _open_db_with_cgb_a(tmp_path, kind)
+    done = "2026-11-15T09:01:10Z"
+    restarted = {k: v for k, v in _APPLIED_VALUES.items() if k != "result"}
+    no_hardware = {k: None for k in restarted if k != "finished_at"}
+    cases = [
+        {"result": "applied", "finished_at": done},  # ①
+        {"result": "fell_back_to_auto", "attempt": "auto_fallback", "finished_at": done},  # ②
+        {"result": "failed", "finished_at": done},  # ③
+        {"result": "interrupted", **restarted},  # ④ 後端恢復時讀到的設定(Q13、Q24)
+        {"result": "interrupted", "finished_at": done, **no_hardware},  # ⑤ 還沒重啟成功就被結束
+        {"result": "success", "finished_at": done},  # ⑥
+        {"result": "fallback", "finished_at": done},  # ⑦
+        {"result": None, "finished_at": done},  # ⑧
+        {"result": "in_progress", "finished_at": done},  # ⑨
+        {"result": "applied", "finished_at": None},  # ⑩
+        {"result": "applied", "finished_at": done, "attempt": None},  # ⑪
+        {"result": "applied", "finished_at": done, "attempt": "auto"},  # ⑫
+    ]
+
+    # Act:①~⑫ 依序寫入,at 每句加 1 秒
+    rejected = [
+        _apply_rejected(conn, at=f"2026-11-15T09:00:{second:02d}Z", **case) for second, case in enumerate(cases, start=1)
+    ]
+
+    # Assert:則1~5 ①~⑤ 寫得進去;則6~12 ⑥~⑫ 丟 IntegrityError
+    assert rejected == [False] * 5 + [True] * 7
+    conn.close()
+
+
+# ---- 005 US3-DB-05
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_改回自動值那一筆仍留著要求的覆蓋值_全部改回自動時三個要求可為空_要求的範圍與失敗階段寫錯的值寫不進去(
+    tmp_path: Path, kind: str
+) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2;cgb-a 有開啟那一筆;另有 cgb-b~cgb-d
+    conn = _open_db_with_cgb_a(tmp_path, kind)
+    for name in ("cgb-b", "cgb-c", "cgb-d"):
+        _insert_session(conn, name, "ended", None, end_reason="USER_ENDED")
+    done = "2026-11-15T09:01:10Z"
+    failed_cgb_d = {"session_name": "cgb-d", "result": "failed", "finished_at": done}
+
+    # Act:①~⑧ 依序寫入
+    first_rejected = _apply_rejected(
+        conn,
+        **{
+            **_APPLIED_VALUES,
+            "result": "fell_back_to_auto",
+            "attempt": "auto_fallback",
+            "requested_num_parallel": 32,
+            "requested_context_length": 131072,
+            "requested_max_loaded_models": 4,
+            "reason_code": "COLAB_REMOTE_ERROR",
+            "remote_stage": "verify",
+            "message": "手動設定沒有套用成功,已改回自動值",
+            "num_parallel": 8,
+            "num_parallel_source": "auto",
+        },
+    )
+    first = conn.execute(
+        "SELECT requested_num_parallel, requested_context_length, requested_max_loaded_models,"
+        " num_parallel, remote_stage FROM session_tunings WHERE trigger = 'apply'"
+    ).fetchone()
+    second_rejected = _apply_rejected(
+        conn,
+        session_name="cgb-b",
+        result="failed",
+        attempt="auto_fallback",
+        finished_at=done,
+        reason_code="COLAB_INVALID_TUNING",
+        remote_stage="start",
+    )
+    third_rejected = _apply_rejected(
+        conn, session_name="cgb-c", result="applied", finished_at=done, requested_num_parallel=None
+    )
+    fourth_rejected = _apply_rejected(conn, **failed_cgb_d, requested_num_parallel=33)
+    fifth_rejected = _apply_rejected(conn, **failed_cgb_d, requested_context_length=2047)
+    sixth_rejected = _apply_rejected(conn, **failed_cgb_d, requested_max_loaded_models=5)
+    seventh_rejected = _apply_rejected(conn, **failed_cgb_d, remote_stage="unknown")
+    eighth_rejected = _apply_rejected(conn, **failed_cgb_d, remote_stage="Verify")
+
+    # Assert:則1 ① 寫得進去
+    assert first_rejected is False
+    # Assert:則2 ① 讀回要求的三個值
+    assert tuple(first)[:3] == (32, 131072, 4)
+    # Assert:則3 ① 讀回的 num_parallel 為 8
+    assert first["num_parallel"] == 8
+    # Assert:則4 ① 讀回的 remote_stage 為 verify
+    assert first["remote_stage"] == "verify"
+    # Assert:則5 ② 寫得進去;則6 ③ 寫得進去
+    assert (second_rejected, third_rejected) == (False, False)
+    # Assert:則7~11 ④~⑧ 丟 IntegrityError
+    assert [fourth_rejected, fifth_rejected, sixth_rejected, seventh_rejected, eighth_rejected] == [True] * 5
+    conn.close()
+
+
+# ---- 005 US3-DB-06
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_重新載入與沒有重新載入的模型依套用與位置記錄_沒重新載入的才有原因_同一次套用同一位置只有一筆(
+    tmp_path: Path, kind: str
+) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2;cgb-a 有兩筆照「改成成功」的套用 X、Y
+    conn = _open_db_with_cgb_a(tmp_path, kind)
+    tuning_x = _insert_apply(conn, **_APPLIED_VALUES)
+    tuning_y = _insert_apply(conn, **{**_APPLIED_VALUES, "at": "2026-11-15T09:10:00Z"})
+    insert_model = (
+        "INSERT INTO session_tuning_models (tuning_id, position, model, reason, reason_code) VALUES (?, ?, ?, ?, ?)"
+    )
+
+    # Act:讀 table_info 與 foreign_key_list,再依序寫入 ①~⑨
+    table_info = list(conn.execute("PRAGMA table_info(session_tuning_models)"))
+    foreign_keys = _foreign_key_list(conn, "session_tuning_models")
+    rejected = [
+        _rejected(conn, insert_model, row)
+        for row in [
+            (tuning_x, 0, "qwen2.5:7b", None, None),  # ①
+            (tuning_x, 1, "llama3.2:3b", "OVER_LIMIT", None),  # ②
+            (tuning_x, 2, "gemma3:1b", "PRELOAD_FAILED", "OLLAMA_SERVER_ERROR"),  # ③
+            (tuning_y, 0, "qwen2.5:7b", None, None),  # ④
+            (tuning_x, 1, "phi4:14b", None, None),  # ⑤ 同一次套用同一位置
+            (tuning_x, 3, "phi4:14b", "over_limit", None),  # ⑥
+            (tuning_x, 4, "phi4:14b", "SKIPPED", None),  # ⑦
+            (tuning_x, 5, None, None, None),  # ⑧
+            (tuning_x, None, "phi4:14b", None, None),  # ⑨
+        ]
+    ]
+    last = [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT position, model, reason FROM session_tuning_models WHERE tuning_id = ? ORDER BY position", (tuning_x,)
+        )
+    ]
+
+    # Assert:則1 主鍵依序為 tuning_id、position
+    assert [(row["name"], row["pk"]) for row in table_info if row["pk"] != 0] == [("tuning_id", 1), ("position", 2)]
+    # Assert:則2 外鍵指到 session_tunings(id),刪除時 cascade
+    assert foreign_keys == [("session_tunings", "tuning_id", "id", "CASCADE")]
+    # Assert:則3 ①~④ 寫得進去;則4~8 ⑤~⑨ 丟 IntegrityError
+    assert rejected == [False] * 4 + [True] * 5
+    # Assert:則9 X 的三筆照位置讀回
+    assert last == [(0, "qwen2.5:7b", None), (1, "llama3.2:3b", "OVER_LIMIT"), (2, "gemma3:1b", "PRELOAD_FAILED")]
+    conn.close()
+
+
+# ---- 005 US3-DB-07
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_改回自動值也失敗而結束的工作階段收得下_OLLAMA_RESTART_FAILED_結束後名額釋放_可開新的工作階段(
+    tmp_path: Path, kind: str
+) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2;cgb-a 為 applying_tuning、step=restarting_ollama、active_slot=1
+    conn = _open_db_with_cgb_a(tmp_path, kind)
+    conn.execute("UPDATE sessions SET state = 'applying_tuning', step = 'restarting_ollama' WHERE name = 'cgb-a'")
+
+    # Act:①~③ 依序執行
+    first_rejected = _rejected(
+        conn,
+        "UPDATE sessions SET state = 'lost', active_slot = NULL, step = NULL, end_reason = 'OLLAMA_RESTART_FAILED',"
+        " reason_code = 'COLAB_INVALID_TUNING', message = '遠端 Ollama 重啟失敗,可以重新開啟一個工作階段',"
+        " ended_at = '2026-11-15T09:03:00Z' WHERE name = 'cgb-a'",
+    )
+    ended = conn.execute("SELECT end_reason, reason_code FROM sessions WHERE name = 'cgb-a'").fetchone()
+    second_rejected = _rejected(
+        conn,
+        "INSERT INTO session_transitions (session_name, at, state, step, end_reason, reason_code)"
+        " VALUES ('cgb-a', '2026-11-15T09:03:00Z', 'lost', NULL, 'OLLAMA_RESTART_FAILED', 'COLAB_INVALID_TUNING')",
+    )
+    third_rejected = _rejected(
+        conn,
+        "INSERT INTO sessions (name, runtime_type_gpu, runtime_type_high_mem, state, active_slot, opened_at)"
+        " VALUES ('cgb-new', 'T4', 0, 'opening', 1, '2026-11-15T09:04:00Z')",
+    )
+
+    # Assert:則1 ① 成功
+    assert first_rejected is False
+    # Assert:則2 讀回 end_reason;則3 讀回 reason_code
+    assert tuple(ended) == ("OLLAMA_RESTART_FAILED", "COLAB_INVALID_TUNING")
+    # Assert:則4 ② 寫得進去
+    assert second_rejected is False
+    # Assert:則5 ③ 寫得進去(結束後 active_slot 已釋放)
+    assert third_rejected is False
+    conn.close()

@@ -80,8 +80,14 @@ class Recovery:
         name = unfinished["name"]
         if name not in listed_names(listed):
             # 資料庫說還在、Colab 帳號下已經沒有:被收回(不照資料庫標成就緒)
+            if unfinished["state"] == "applying_tuning":
+                self._lifecycle.tuning.mark_interrupted(name)
             self._repo.update(name, **reclaimed_fields(iso(self._state.clock.now())))
             return None
         await self._state.tunnel.cleanup_residual(key_path=self._key_path)
         await self._lifecycle.open_tunnel(name)
+        if unfinished["state"] == "applying_tuning":
+            # 套用到一半停機:讀回(或以這次要求的設定啟動)遠端 Ollama,這一次套用記為中斷(`info.x-applying-state` (4))
+            if not await self._lifecycle.tuning.recover(name):
+                return None
         return name

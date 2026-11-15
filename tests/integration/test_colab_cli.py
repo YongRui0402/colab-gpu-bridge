@@ -1503,3 +1503,275 @@ async def test_遠端腳本回報覆蓋值不符時是_COLAB_INVALID_TUNING_沒�
     # Assert
     assert code_of(error) == "COLAB_INVALID_TUNING"
     assert remote_stage_of(error) is None
+
+
+# ---- 005 US3-CLI-01
+
+# 重啟腳本在後端本機的路徑,和 `start_ollama.py` 不同(合約 § `paths./exec/restart-ollama.post` 的 `x-argv`)
+RESTART_OLLAMA_SCRIPT = str(files("cgb.adapters.scripts") / "restart_ollama.py")
+
+# 合約 `x-stdout` 的成功範例:T4、平行數 4(manual)、其餘兩項依 15 GiB 級距(auto)
+RESTARTED_T4_P4 = {
+    "ok": True,
+    "ollamaVersion": "0.40.15",
+    "stoppedBy": "pid_file",
+    "gpuName": "Tesla T4",
+    "vramTotalBytes": 16106127360,
+    "systemMemoryTotalBytes": 13605855232,
+    "tuning": {
+        "numParallel": {"value": 4, "source": "manual"},
+        "contextLength": {"value": 4096, "source": "auto"},
+        "maxLoadedModels": {"value": 1, "source": "auto"},
+        "flashAttention": {"value": True, "source": "auto"},
+        "kvCacheType": {"value": "q8_0", "source": "auto"},
+    },
+}
+
+
+def restart_argv(np="", cl="", ml=""):
+    """重啟的命令列:`--timeout 120`、`OLLAMA_HOST`、`OLLAMA_ORIGINS` 再帶一次,後面接三個 `--env CGB_TUNE_*`。"""
+    return [
+        "exec", "-s", "cgb-test-0001", "-f", RESTART_OLLAMA_SCRIPT, "--timeout", "120",
+        "--env", "OLLAMA_HOST=127.0.0.1:11434", "--env", "OLLAMA_ORIGINS=*",
+        "--env", f"CGB_TUNE_NUM_PARALLEL={np}",
+        "--env", f"CGB_TUNE_CONTEXT_LENGTH={cl}",
+        "--env", f"CGB_TUNE_MAX_LOADED_MODELS={ml}",
+    ]  # fmt: skip
+
+
+async def test_套用覆蓋值與改回自動值的重啟各執行一次_命令列都帶齊三個_CGB_TUNE_(fake_cli):
+    # Arrange
+    restarted = {"stdout": result(**RESTARTED_T4_P4)}
+    fake_cli.script({"colab": {shlex.join(argv): restarted for argv in (restart_argv(np="4"), restart_argv())}})
+    colab = ColabControl()
+
+    # Act
+    await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=AUTO))
+
+    # Assert
+    assert [call["argv"] for call in fake_cli.calls("colab")] == [restart_argv(np="4"), restart_argv()]
+
+
+async def test_重啟_Ollama_的命令列真的_colab_解讀得了(tmp_path):
+    """Q56:重啟的命令列(含空值的 `--env CGB_TUNE_*=`)讓真的 `colab` 0.7.5 解讀一次;會在本機執行 `colab`(快速層排除,執行前先問本人)。"""
+    # Act
+    real = run_real_colab_without_auth(restart_argv(np="4"), tmp_path / "real-home")
+
+    # Assert
+    assert [marker for marker in ARGUMENT_ERRORS if marker in real.stderr + real.stdout] == []
+    # 同 `start_ollama` 的那一支:參數被接受之後,`colab exec` 先查工作階段(空的 HOME 裡沒有),再要求授權
+    assert "not found" in real.stdout or "To authorize colab-cli, visit this URL" in real.stderr
+
+
+# ---- 005 US3-CLI-02
+
+
+async def test_重啟_Ollama_交出停掉舊_serve_的方式與這次重啟量到的硬體與設定(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): {"stdout": result(**RESTARTED_T4_P4)}}})
+    before = datetime.now(UTC)
+
+    # Act
+    restarted = await failure_of_or_result(
+        ColabControl().restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4)
+    )
+    after = datetime.now(UTC)
+
+    # Assert
+    assert isinstance(restarted, dict), f"回了錯誤:{restarted!r}"
+    machine = restarted.get("machine") or {}
+    assert restarted.get("ollamaVersion") == "0.40.15"
+    assert restarted.get("stoppedBy") == "pid_file"
+    assert "alreadyRunning" not in restarted
+    assert machine.get("vramTotalBytes") == 16106127360
+    probed_at = datetime.fromisoformat(machine.get("probedAt") or "1970-01-01")
+    assert probed_at.tzinfo is not None and before <= probed_at <= after
+    assert restarted.get("tuning") == RESTARTED_T4_P4["tuning"]
+
+
+# ---- 005 US3-CLI-03
+
+RESTART_FAILURES = [
+    {
+        "stdout": result(
+            ok=False,
+            stage="stop",
+            stoppedBy="not_running",
+            detail="127.0.0.1:11434 still responding after 10 seconds",
+        ),
+        "exit": 0,
+    },
+    {
+        "stdout": result(
+            ok=False, stage="start", stoppedBy="pid_file", detail="[Errno 2] No such file or directory: 'ollama'"
+        ),
+        "exit": 0,
+    },
+    {
+        "stdout": result(
+            ok=False, stage="verify", stoppedBy="pid_file", detail="no response from /api/version within 60 seconds"
+        ),
+        "exit": 0,
+    },
+    {
+        "stderr": f'Traceback (most recent call last):\n  File "<x>"\nValueError: see {FAKE_ENDPOINT}/x\n',
+        "exit": 0,
+    },
+]
+
+
+async def test_重啟失敗時停止_啟動_驗證三個階段都帶出遠端階段_丟出例外時階段是_None(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): RESTART_FAILURES}})
+    colab = ColabControl()
+
+    # Act
+    stop, start, verify, traceback = [
+        await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+        for _ in RESTART_FAILURES
+    ]
+
+    # Assert
+    assert (code_of(stop), remote_stage_of(stop)) == ("COLAB_REMOTE_ERROR", "stop")
+    assert (code_of(start), remote_stage_of(start)) == ("COLAB_REMOTE_ERROR", "start")
+    assert (code_of(verify), remote_stage_of(verify)) == ("COLAB_REMOTE_ERROR", "verify")
+    assert "stop" in stop.message and "still responding after 10 seconds" in stop.message
+    assert (code_of(traceback), remote_stage_of(traceback)) == ("COLAB_REMOTE_ERROR", None)
+
+
+# ---- 005 US3-CLI-04
+
+
+async def test_重啟的覆蓋值不符時是_COLAB_INVALID_TUNING_遠端拒絕或呼叫前就擋下都沒有遠端階段(fake_cli):
+    # Arrange
+    rejected = result(ok=False, stage="input", detail="CGB_TUNE_NUM_PARALLEL must be an integer between 1 and 32")
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): {"stdout": rejected, "exit": 0}}})
+    colab = ColabControl()
+
+    # Act
+    rejected_by_remote = await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    before = len(fake_cli.calls("colab"))
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="33")): {"stdout": result(**RESTARTED_T4_P4)}}})
+    out_of_range = await failure_of_or_result(
+        colab.restart_ollama(name="cgb-test-0001", overrides={**NUM_PARALLEL_4, "numParallel": 33})
+    )
+
+    # Assert
+    assert (code_of(rejected_by_remote), remote_stage_of(rejected_by_remote)) == ("COLAB_INVALID_TUNING", None)
+    assert code_of(out_of_range) == "COLAB_INVALID_TUNING"
+    assert len(fake_cli.calls("colab")) == before
+
+
+# ---- 005 US3-CLI-05
+
+
+async def test_重啟遇到連線中斷時以同一組參數重跑一次_仍中斷才是_COLAB_UNREACHABLE(fake_cli):
+    # Arrange
+    argv = shlex.join(restart_argv(np="4"))
+    fake_cli.script({"colab": {argv: [CONNECTION_LOST, {"stdout": result(**RESTARTED_T4_P4)}]}})
+    colab = ColabControl()
+
+    # Act
+    recovered = await failure_of_or_result(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    recovered_argvs = [call["argv"] for call in fake_cli.calls("colab")]
+    fake_cli.script({"colab": {argv: CONNECTION_LOST}})
+    before = len(fake_cli.calls("colab"))
+    lost = await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+
+    # Assert
+    assert isinstance(recovered, dict), f"回了錯誤:{recovered!r}"
+    assert recovered_argvs == [restart_argv(np="4"), restart_argv(np="4")]
+    assert code_of(lost) == "COLAB_UNREACHABLE"
+    assert len(fake_cli.calls("colab")) - before == 2
+
+
+# ---- 005 US3-CLI-06
+
+
+async def test_重啟找不到_colab_或逾時時有各自的錯誤_逾時整組終止且不重跑(fake_cli, tmp_path, monkeypatch):
+    # Arrange
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    short = ColabControl(timeouts=CliTimeouts(restart_ollama=SHORT))
+
+    # Act
+    with monkeypatch.context() as no_colab:
+        no_colab.setenv("PATH", str(empty_bin))
+        not_installed = await failure_of(ColabControl().restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): HANGS_WITH_CHILD}})
+    hang, hang_elapsed = await timed(short.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    hang_left = processes_still_present(fake_and_child_pids(fake_cli))
+
+    # Assert
+    assert code_of(not_installed) == "COLAB_NOT_INSTALLED"
+    assert code_of(hang) == "COLAB_TIMEOUT" and SHORT <= hang_elapsed <= 1.5
+    assert len(fake_cli.calls("colab")) == 1
+    assert hang_left == []
+
+
+# ---- 005 US3-CLI-07
+
+RESTART_CLI_FAILURES = {
+    "a-not-found": (RUNTIME_GONE, "COLAB_NOT_FOUND"),
+    "b-auth-prompt": (AUTH_PROMPT, "AUTH_REQUIRED"),
+    "c-unauthorized": (
+        {"stderr": f"requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: {FAKE_ENDPOINT}/x\n", "exit": 1},
+        "AUTH_REQUIRED",
+    ),
+    "d-max-retries": ({"stderr": "error: Max retries exceeded\n", "exit": 1}, "COLAB_UNREACHABLE"),
+    "e-exec-timeout": ({"stderr": "TimeoutError: exec timed out\n", "exit": 1}, "COLAB_TIMEOUT"),
+    "f-crash": ({"stderr": f"boom at {FAKE_ENDPOINT}/y\n", "exit": 3}, "COLAB_FAILED"),
+}
+
+
+async def test_重啟的_colab_失敗照_001_分類_不是遠端階段的錯_message_不含轉發位址(fake_cli):
+    # Arrange
+    colab = ColabControl()
+    failures = {}
+
+    # Act
+    for case, (entry, _) in RESTART_CLI_FAILURES.items():
+        fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): entry}})
+        before = len(fake_cli.calls("colab"))
+        error = await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+        failures[case] = (error, len(fake_cli.calls("colab")) - before)
+
+    # Assert
+    assert {case: code_of(error) for case, (error, _) in failures.items()} == {
+        case: code for case, (_, code) in RESTART_CLI_FAILURES.items()
+    }
+    assert failures["a-not-found"][1] == 1
+    assert failures["f-crash"][0].stderr_last_line == "boom at <網址>"
+    assert [case for case, (error, _) in failures.items() if FAKE_ENDPOINT in error.message] == []
+
+
+# ---- 005 US3-CLI-08
+
+BAD_RESTART_RESULTS = {
+    "a-no-result-line": {"stdout": "", "exit": 0},
+    "b-no-stopped-by": {
+        "stdout": result(**{k: v for k, v in RESTARTED_T4_P4.items() if k != "stoppedBy"}),
+        "exit": 0,
+    },
+    "c-stopped-by-pkill": {"stdout": result(**{**RESTARTED_T4_P4, "stoppedBy": "pkill"}), "exit": 0},
+    "d-null-tuning": {"stdout": result(**{**RESTARTED_T4_P4, "tuning": None}), "exit": 0},
+}
+
+
+async def test_重啟的結果行缺鍵_停止方式不在列舉裡或設定是_null_時都是_COLAB_BAD_RESPONSE(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): list(BAD_RESTART_RESULTS.values())}})
+    colab = ColabControl()
+
+    # Act
+    errors = [
+        await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+        for _ in BAD_RESTART_RESULTS
+    ]
+
+    # Assert
+    assert dict(zip(BAD_RESTART_RESULTS, map(code_of, errors), strict=True)) == dict.fromkeys(
+        BAD_RESTART_RESULTS, "COLAB_BAD_RESPONSE"
+    )
+    assert [e for e in errors if isinstance(e, (KeyError, TypeError, ValueError))] == []

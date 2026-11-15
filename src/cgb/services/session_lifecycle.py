@@ -9,7 +9,7 @@ from cgb.adapters.errors import AdapterError
 from cgb.domain.errors import ApiError, reason_message
 from cgb.domain.session_state import ACTIVE_STATES, TERMINAL_STATES, iso, listed_names, release_warning_fields, session_payload
 from cgb.repos.sessions import ActiveSessionExists, SessionsRepo
-from cgb.repos.tunings import TuningsRepo, machine_of, tuning_of
+from cgb.repos.tunings import TuningsRepo, machine_of, record_of, tuning_of
 from cgb.services.auth import AuthService
 
 # 本機轉發的 port(contracts/tunnel.openapi.yaml § OpenTunnelInput.localPort 預設)
@@ -62,6 +62,8 @@ class SessionLifecycle:
         self.idle: Any = None
         # 最後讀到的用量(`UsageService`);重連中或失聯時提示餘額可能已經歸零(spec 邊界情況)
         self.usage: Any = None
+        # 套用 Ollama 設定的用例(`TuningService`);組裝時設定。結束時要先停下進行中的套用
+        self.tuning: Any = None
         # 後端重新啟動後正在接回的工作階段名稱(`Recovery` 設定);UI 依此顯示「接回中」(Q117、Q167;合約沒有這個欄位)
         self.resuming: str | None = None
 
@@ -80,15 +82,17 @@ class SessionLifecycle:
 
     def _ollama_status(self, name: str) -> dict[str, Any]:
         """`Session.ollama`(contracts/ui.openapi.yaml § OllamaStatus):照紀錄裡 `startOllama` 回報的硬體與設定,不重算。"""
-        record = self._tunings.latest(name)
+        record = self._tunings.effective(name)
+        last_apply = self._tunings.latest_apply(name)
+        last_apply = record_of(last_apply) if last_apply is not None else None
         if record is None:
             # 沒有紀錄:還沒走完 `starting_ollama` 是 `pending`;已經走過(005 之前開、升級後接回)是 `unknown`
             status = "unknown" if self._passed_starting_ollama(name) else "pending"
-            return {"status": status, "machine": None, "tuning": None, "lastApply": None}
+            return {"status": status, "machine": None, "tuning": None, "lastApply": last_apply}
         tuning = tuning_of(record)
         # 遠端 Ollama 在執行、但讀不到它套用的設定(OllamaStatus.status 的 `unknown`)
         status = "applied" if tuning is not None else "unknown"
-        return {"status": status, "machine": machine_of(record), "tuning": tuning, "lastApply": None}
+        return {"status": status, "machine": machine_of(record), "tuning": tuning, "lastApply": last_apply}
 
     def _passed_starting_ollama(self, name: str) -> bool:
         return any(t["state"] == "ready" or t["step"] in _AFTER_STARTING_OLLAMA for t in self._repo.transitions(name))
@@ -247,7 +251,7 @@ class SessionLifecycle:
         )
         if allocated:
             # FR-007:已配置的執行環境要釋放(stop_session 自己會回讀確認)
-            await self._release(name)
+            await self.release(name)
         else:
             # FR-007:回讀 Colab 帳號,確認沒有遺留
             after = await self._state.colab.list_sessions()
@@ -262,7 +266,7 @@ class SessionLifecycle:
             **release_warning_fields(reason_code, now),
         )
 
-    async def _release(self, name: str) -> None:
+    async def release(self, name: str) -> None:
         try:
             await self._state.colab.stop_session(name=name)
             # FR-006、FR-007:釋放後以 `colab sessions` 確認(含 `colab ssh` 意外開出、已交給 stop 的那台)
@@ -319,6 +323,9 @@ class SessionLifecycle:
 
     async def _run_end(self, name: str, end_reason: str) -> None:
         await self._stop_opening(name)
+        if self.tuning is not None:
+            # 套用中結束:停止套用,等進行中的 `colab exec` 結束再往下(`info.x-applying-state` (3))
+            await self.tuning.stop(name)
         # 先關通道再釋放:串流斷掉時不會被當成非預期的斷線
         await self._state.tunnel.close_tunnel(session_name=name)
         now = iso(self._state.clock.now())

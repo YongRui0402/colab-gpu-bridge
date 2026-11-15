@@ -45,3 +45,12 @@
 - **G-03 開啟 48.5 秒,門檻 ≤ 004 的 56.7 + 5.0 秒:過**
 - **G-02 自動值 / 平行 1 = 0.593,門檻 ≤ 0.85;size_vram = size True;flash attention True;KV q8_0 True:過**
 - 其他:{}
+
+## US3-CLI-19(T119)遠端重啟占用的時間
+
+- 日期:2026-11-16;`tests/integration/test_ollama_scripts.py::test_量測_遠端重啟占用的時間_套用在_90_秒內_改回自動值兩步合計在_180_秒內`(`realrun_local`)
+- 條件:臨時 `ollama serve`(`free_loopback_port()`、暫存 `HOME` 與 `OLLAMA_MODELS`,不 pull 模型)、假 `nvidia-smi` 量到 15360 MiB、pid 檔指著舊的 serve;`CGB_STOP_SECONDS`、`CGB_VERIFY_SECONDS` 不設(預設 10、60);只含遠端腳本,不含 `colab exec` 來回(由 G-04 量);不執行 `colab`、不花 compute units;不對 127.0.0.1:11434 送請求,停止靠 pid 檔
+- 情況 A(`CGB_TUNE_NUM_PARALLEL=4` 連續重啟 5 次):4.1、4.1、4.0、4.1、4.1 秒;`ok` 都是 true
+- 情況 B(新設定起不來、等滿 60 秒,再改回自動值):第一步 60.1 秒(`stage` 為 `verify`)、第二步 4.1 秒,合計 64.2 秒
+- **則1 A 的 5 次都 ≤ 90 秒:過(最大 4.1 秒);則2 B 合計 ≤ 180 秒:過(64.2 秒);則3 A 的 5 次 `ok` 都是 true:過**
+- 判定者:腳本;樣本:一次實跑,A 5 次、B 1 次(未用於調整);收尾 `box` 確認行程與行程群組都已結束
