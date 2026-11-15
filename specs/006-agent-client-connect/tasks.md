@@ -47,93 +47,93 @@
 
 > 新案例的測試在 `tests/integration/test_006_v1.py`,沿用 001 的 `bridge` fixture;`SseReply` 由 T003a 建立,T007a、T008a、T011a 用它
 
-- [ ] T001a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-05 的測試(工作階段就緒,依序送 `POST /v1/completions`、`POST /v1/embeddings`、`GET /v1/responses`;沿用 `tests/integration/test_ollama_compat.py` 的 `bridge` fixture,以 `from integration.test_ollama_compat import bridge` 匯入),執行確認它因為「白名單用 `/v1/` 前綴整段放行;或 404 本文用原生格式」這類實作而失敗
+- [x] T001a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-05 的測試(工作階段就緒,依序送 `POST /v1/completions`、`POST /v1/embeddings`、`GET /v1/responses`;沿用 `tests/integration/test_ollama_compat.py` 的 `bridge` fixture,以 `from integration.test_ollama_compat import bridge` 匯入),執行確認它因為「白名單用 `/v1/` 前綴整段放行;或 404 本文用原生格式」這類實作而失敗
   - 🧪 `testplan.md` § US1-OC-05
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/{path}.get`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § FR-011;`research.md` § R6
-- [ ] T001b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/forward.py`(新增 `openai_error(message, status, code, type_)`,本文 `{"error": {"message", "type", "code"}}`)與 `src/cgb/ollama_compat/routes.py`(新增 `V1_WHITELIST`,現在是空集合,後面的任務才加入路徑;`/v1/` 底下不在 `V1_WHITELIST` 的路徑,不論方法與工作階段狀態都回 404 `unsupported_path`、`type` 為 `invalid_request_error`,`message` 說明只開放 `/v1/chat/completions` 與 `/v1/models`;`/api/*` 與其他路徑的原生格式不動)只寫讓 US1-OC-05 通過的程式碼;同一個任務依 `plan.md` § 待決問題 Q18 改寫三處 001 舊測試,改用仍不開放的 `/v1/completions`:`tests/integration/test_ollama_compat.py` 的 `test_白名單外的路徑回_404_不轉送`(參數 `POST /v1/chat/completions` 改 `POST /v1/completions`,`/v1/` 路徑改讀 `error.message`)、同檔 `test_被擋下與白名單外的請求也重設閒置計時` 的 `GET /v1/models`(改 `GET /v1/completions`)、`tests/e2e/test_locale.py` 的 `oc_unlisted`(改 `/v1/completions`、讀 `error.message`);執行全部測試確認都通過;看到要整理的地方記進重構清單、不留 skip(依賴 T001a)
+- [x] T001b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/forward.py`(新增 `openai_error(message, status, code, type_)`,本文 `{"error": {"message", "type", "code"}}`)與 `src/cgb/ollama_compat/routes.py`(新增 `V1_WHITELIST`,現在是空集合,後面的任務才加入路徑;`/v1/` 底下不在 `V1_WHITELIST` 的路徑,不論方法與工作階段狀態都回 404 `unsupported_path`、`type` 為 `invalid_request_error`,`message` 說明只開放 `/v1/chat/completions` 與 `/v1/models`;`/api/*` 與其他路徑的原生格式不動)只寫讓 US1-OC-05 通過的程式碼;同一個任務依 `plan.md` § 待決問題 Q18 改寫三處 001 舊測試,改用仍不開放的 `/v1/completions`:`tests/integration/test_ollama_compat.py` 的 `test_白名單外的路徑回_404_不轉送`(參數 `POST /v1/chat/completions` 改 `POST /v1/completions`,`/v1/` 路徑改讀 `error.message`)、同檔 `test_被擋下與白名單外的請求也重設閒置計時` 的 `GET /v1/models`(改 `GET /v1/completions`)、`tests/e2e/test_locale.py` 的 `oc_unlisted`(改 `/v1/completions`、讀 `error.message`);執行全部測試確認都通過;看到要整理的地方記進重構清單、不留 skip(依賴 T001a)
   - 🧪 `testplan.md` § US1-OC-05
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/{path}.get`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § FR-011;`plan.md` § 待決問題 Q18、Q22;`research.md` § R6
-- [ ] T002a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-01 的測試(假 Ollama 的 `/v1/chat/completions` 回 `JsonReply` 一則 `chat.completion`;送 `stream:false` 的請求,帶 `Authorization: Bearer ollama`;斷言回 200、本文與假 Ollama 回的相同、假 Ollama 收到的路徑與本文),執行確認它因為「白名單沒加 `/v1/chat/completions` 回 404;或轉成原生 `/api/chat`」這類實作而失敗
+- [x] T002a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-01 的測試(假 Ollama 的 `/v1/chat/completions` 回 `JsonReply` 一則 `chat.completion`;送 `stream:false` 的請求,帶 `Authorization: Bearer ollama`;斷言回 200、本文與假 Ollama 回的相同、假 Ollama 收到的路徑與本文),執行確認它因為「白名單沒加 `/v1/chat/completions` 回 404;或轉成原生 `/api/chat`」這類實作而失敗
   - 🧪 `testplan.md` § US1-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionPassthrough`
   - 📎 `spec.md` § FR-009;`research.md` § R1
-- [ ] T002b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py` 只寫讓 US1-OC-01 通過的程式碼(`V1_WHITELIST` 加 `/v1/chat/completions`,放行後走既有的 `forward()` 原樣轉送);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T002a)
+- [x] T002b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py` 只寫讓 US1-OC-01 通過的程式碼(`V1_WHITELIST` 加 `/v1/chat/completions`,放行後走既有的 `forward()` 原樣轉送);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T002a)
   - 🧪 `testplan.md` § US1-OC-01
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionPassthrough`
   - 📎 `spec.md` § FR-009;`research.md` § R1
-- [ ] T003a [US1] 🔴 /tdd 紅燈:在 `tests/fakes/ollama_server.py` 新增 `SseReply`(`events` 清單、每段間隔 `interval`、`then` 為 `end`/`disconnect`/`hang`,逐段以 `data: ` 行加空行送出;同時更新該檔開頭的說明,`plan.md` § 待決問題 Q19),再在 `tests/integration/test_006_v1.py` 寫 US1-OC-02 的測試(三段 `chat.completion.chunk`,第二段的 delta 帶完整的 `tool_calls`,最後 `data: [DONE]`;送 `stream:true`,帶 `tools` 與 `stream_options.include_usage`;斷言 `Content-Type` 是 `text/event-stream`、收到的本文與假 Ollama 送的位元組完全相同、假 Ollama 收到的本文含 `tools` 與 `stream_options`);`forward()` 已逐段原樣轉送,T002b 開放路徑後這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/ollama_compat/forward.py` 把 SSE 當成 NDJSON 逐行解析改寫(或轉送時去掉 `tools`),確認斷言失敗後撤回
+- [x] T003a [US1] 🔴 /tdd 紅燈:在 `tests/fakes/ollama_server.py` 新增 `SseReply`(`events` 清單、每段間隔 `interval`、`then` 為 `end`/`disconnect`/`hang`,逐段以 `data: ` 行加空行送出;同時更新該檔開頭的說明,`plan.md` § 待決問題 Q19),再在 `tests/integration/test_006_v1.py` 寫 US1-OC-02 的測試(三段 `chat.completion.chunk`,第二段的 delta 帶完整的 `tool_calls`,最後 `data: [DONE]`;送 `stream:true`,帶 `tools` 與 `stream_options.include_usage`;斷言 `Content-Type` 是 `text/event-stream`、收到的本文與假 Ollama 送的位元組完全相同、假 Ollama 收到的本文含 `tools` 與 `stream_options`);`forward()` 已逐段原樣轉送,T002b 開放路徑後這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/ollama_compat/forward.py` 把 SSE 當成 NDJSON 逐行解析改寫(或轉送時去掉 `tools`),確認斷言失敗後撤回
   - 🧪 `testplan.md` § US1-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionStream`、`components.schemas.ChatCompletionRequest`
   - 📎 `spec.md` § FR-009;`research.md` § R1;`plan.md` § 待決問題 Q19、Q25
-- [ ] T003b [US1] 🟢 /tdd 綠燈:US1-OC-02 由 T002b 開放路徑、既有的 `forward()` 原樣轉送滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-02 通過的程式碼(依賴 T003a)
+- [x] T003b [US1] 🟢 /tdd 綠燈:US1-OC-02 由 T002b 開放路徑、既有的 `forward()` 原樣轉送滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-02 通過的程式碼(依賴 T003a)
   - 🧪 `testplan.md` § US1-OC-02
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionStream`、`components.schemas.ChatCompletionRequest`
   - 📎 `spec.md` § FR-009;`research.md` § R1
-- [ ] T004a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-03 的測試(假 Ollama 的 `/v1/models` 回 `{"object":"list","data":[{"id":"qwen2.5:3b","object":"model"}]}`;送 `GET /v1/models`;斷言回 200、本文相同),執行確認它因為「只開了 `/v1/chat/completions`,`/v1/models` 仍回 404」這類實作而失敗
+- [x] T004a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-03 的測試(假 Ollama 的 `/v1/models` 回 `{"object":"list","data":[{"id":"qwen2.5:3b","object":"model"}]}`;送 `GET /v1/models`;斷言回 200、本文相同),執行確認它因為「只開了 `/v1/chat/completions`,`/v1/models` 仍回 404」這類實作而失敗
   - 🧪 `testplan.md` § US1-OC-03
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/models.get`、`components.schemas.ModelListPassthrough`
   - 📎 `spec.md` § FR-009;`research.md` § R1
-- [ ] T004b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py` 只寫讓 US1-OC-03 通過的程式碼(`V1_WHITELIST` 加 `/v1/models`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T004a)
+- [x] T004b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py` 只寫讓 US1-OC-03 通過的程式碼(`V1_WHITELIST` 加 `/v1/models`);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T004a)
   - 🧪 `testplan.md` § US1-OC-03
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/models.get`、`components.schemas.ModelListPassthrough`
   - 📎 `spec.md` § FR-009;`research.md` § R1
-- [ ] T005a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-04 的測試(沒有開工作階段;送 `POST /v1/chat/completions`;斷言 1 秒內回 503、本文是 `{"error":{"message":…,"type":"service_unavailable","code":"no_ready_session"}}` 且 `message` 含「沒有可用的工作階段」、假 Ollama 沒收到任何請求),執行確認它因為「`/v1` 也回原生的 `{"error":"..."}` 字串;或排隊等工作階段」這類實作而失敗
+- [x] T005a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-04 的測試(沒有開工作階段;送 `POST /v1/chat/completions`;斷言 1 秒內回 503、本文是 `{"error":{"message":…,"type":"service_unavailable","code":"no_ready_session"}}` 且 `message` 含「沒有可用的工作階段」、假 Ollama 沒收到任何請求),執行確認它因為「`/v1` 也回原生的 `{"error":"..."}` 字串;或排隊等工作階段」這類實作而失敗
   - 🧪 `testplan.md` § US1-OC-04
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § FR-010;`research.md` § R6
-- [ ] T005b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py` 只寫讓 US1-OC-04 通過的程式碼(`/v1/` 路徑沒有就緒的工作階段時改回 `openai_error(no_ready_session_message(...), 503, "no_ready_session", "service_unavailable")`,`message` 沿用既有的 `no_ready_session_message`;原生路徑的 503 不動);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T005a)
+- [x] T005b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/routes.py` 只寫讓 US1-OC-04 通過的程式碼(`/v1/` 路徑沒有就緒的工作階段時改回 `openai_error(no_ready_session_message(...), 503, "no_ready_session", "service_unavailable")`,`message` 沿用既有的 `no_ready_session_message`;原生路徑的 503 不動);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T005a)
   - 🧪 `testplan.md` § US1-OC-04
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § FR-010;`research.md` § R6
-- [ ] T006a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-06 的測試(工作階段就緒,假 Ollama 已停止,通道的 `baseUrl` 連不上;送 `POST /v1/chat/completions`;斷言回 502、`error.code` 是 `ollama_unreachable`、`message` 不含轉發位址),執行確認它因為「連不上時回原生格式,或 `message` 帶出 `baseUrl`」這類實作而失敗
+- [x] T006a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-06 的測試(工作階段就緒,假 Ollama 已停止,通道的 `baseUrl` 連不上;送 `POST /v1/chat/completions`;斷言回 502、`error.code` 是 `ollama_unreachable`、`message` 不含轉發位址),執行確認它因為「連不上時回原生格式,或 `message` 帶出 `baseUrl`」這類實作而失敗
   - 🧪 `testplan.md` § US1-OC-06
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § FR-010;`research.md` § R6
-- [ ] T006b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-06 通過的程式碼(`forward()` 接到 `httpx.ConnectError` 時,請求路徑在 `/v1/` 底下改回 `openai_error(UNREACHABLE_MESSAGE, 502, "ollama_unreachable", "api_error")`,`message` 不帶轉發位址;原生路徑的 502 不動);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T006a)
+- [x] T006b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-06 通過的程式碼(`forward()` 接到 `httpx.ConnectError` 時,請求路徑在 `/v1/` 底下改回 `openai_error(UNREACHABLE_MESSAGE, 502, "ollama_unreachable", "api_error")`,`message` 不帶轉發位址;原生路徑的 502 不動);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T006a)
   - 🧪 `testplan.md` § US1-OC-06
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § FR-010;`research.md` § R6
-- [ ] T007a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-07 的測試(假 Ollama 回 `SseReply`,送完第一段後 `then="disconnect"`;送 `stream:true`;斷言收到第一段之後多一段 `data: {"error":{"message":…,"type":"api_error","code":"stream_interrupted"}}`,再一段 `data: [DONE]`,連線正常結束、用戶端讀得完本文),執行確認它因為「SSE 中途斷線沿用 `StreamAborted` 直接斷線,用戶端看不到原因」這類實作而失敗
+- [x] T007a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-07 的測試(假 Ollama 回 `SseReply`,送完第一段後 `then="disconnect"`;送 `stream:true`;斷言收到第一段之後多一段 `data: {"error":{"message":…,"type":"api_error","code":"stream_interrupted"}}`,再一段 `data: [DONE]`,連線正常結束、用戶端讀得完本文),執行確認它因為「SSE 中途斷線沿用 `StreamAborted` 直接斷線,用戶端看不到原因」這類實作而失敗
   - 🧪 `testplan.md` § US1-OC-07
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionStream`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001;`plan.md` § 待決問題 Q4;`research.md` § R1
-- [ ] T007b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-07 通過的程式碼(`_relay` 遇到 `Content-Type` 為 `text/event-stream` 的回應中途斷線時,不再丟 `StreamAborted`,改補 `data: {"error":{…}}` 與 `data: [DONE]`,前一段沒有以空行結尾時先補空行;補段的代碼用對照表依原因決定:連線非預期中斷是 `stream_interrupted`、工作階段被結束是 `no_ready_session`,`type` 都是 `api_error`,`_relay` 兩種原因共用同一個出口,T008 靠它);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T007a)
+- [x] T007b [US1] 🟢 /tdd 綠燈:在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-07 通過的程式碼(`_relay` 遇到 `Content-Type` 為 `text/event-stream` 的回應中途斷線時,不再丟 `StreamAborted`,改補 `data: {"error":{…}}` 與 `data: [DONE]`,前一段沒有以空行結尾時先補空行;補段的代碼用對照表依原因決定:連線非預期中斷是 `stream_interrupted`、工作階段被結束是 `no_ready_session`,`type` 都是 `api_error`,`_relay` 兩種原因共用同一個出口,T008 靠它);執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T007a)
   - 🧪 `testplan.md` § US1-OC-07
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionStream`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001;`plan.md` § 待決問題 Q4;`research.md` § R1
-- [ ] T008a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-08 的測試(假 Ollama 回 `SseReply`,送完第一段後 `then="hang"`;送 `stream:true`,收到第一段後 `DELETE /api/session`;斷言第一段之後多一段 `error.code` 為 `no_ready_session` 的 `data:` 段與 `data: [DONE]`);`_relay` 的 SSE 補段出口已由 T007b 做到(兩種原因共用同一個代碼對照表),這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/ollama_compat/forward.py` 在 `ended` 時不補 SSE 的錯誤段,確認斷言失敗後撤回
+- [x] T008a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-08 的測試(假 Ollama 回 `SseReply`,送完第一段後 `then="hang"`;送 `stream:true`,收到第一段後 `DELETE /api/session`;斷言第一段之後多一段 `error.code` 為 `no_ready_session` 的 `data:` 段與 `data: [DONE]`);`_relay` 的 SSE 補段出口已由 T007b 做到(兩種原因共用同一個代碼對照表),這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/ollama_compat/forward.py` 在 `ended` 時不補 SSE 的錯誤段,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US1-OC-08
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionStream`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001;`plan.md` § 待決問題 Q4、Q25
-- [ ] T008b [US1] 🟢 /tdd 綠燈:US1-OC-08 由 T007b 滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-08 通過的程式碼(依賴 T008a)
+- [x] T008b [US1] 🟢 /tdd 綠燈:US1-OC-08 由 T007b 滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-08 通過的程式碼(依賴 T008a)
   - 🧪 `testplan.md` § US1-OC-08
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionStream`、`components.schemas.OpenAIError`、`components.schemas.Error`
   - 📎 `spec.md` § NFR-001;`plan.md` § 待決問題 Q4
-- [ ] T009a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-09 的測試(假 Ollama 的 `/v1/chat/completions` 回 404 `{"error":{"message":"model \"nope\" not found","type":"api_error"}}`;送 `model:"nope"`;斷言回 404、本文與假 Ollama 回的完全相同);既有的 `forward()` 對遠端的 4xx 原樣傳回狀態碼與本文,T002b 開放路徑後這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/ollama_compat/forward.py` 把遠端的 404 改寫成本系統自己的 OpenAI 格式,確認斷言失敗後撤回
+- [x] T009a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-09 的測試(假 Ollama 的 `/v1/chat/completions` 回 404 `{"error":{"message":"model \"nope\" not found","type":"api_error"}}`;送 `model:"nope"`;斷言回 404、本文與假 Ollama 回的完全相同);既有的 `forward()` 對遠端的 4xx 原樣傳回狀態碼與本文,T002b 開放路徑後這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/ollama_compat/forward.py` 把遠端的 404 改寫成本系統自己的 OpenAI 格式,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US1-OC-09
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionPassthrough`
   - 📎 `spec.md` § FR-009;`plan.md` § 待決問題 Q25
-- [ ] T009b [US1] 🟢 /tdd 綠燈:US1-OC-09 由既有的 `forward()` 與 T002b 滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-09 通過的程式碼(依賴 T009a)
+- [x] T009b [US1] 🟢 /tdd 綠燈:US1-OC-09 由既有的 `forward()` 與 T002b 滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-09 通過的程式碼(依賴 T009a)
   - 🧪 `testplan.md` § US1-OC-09
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionPassthrough`
   - 📎 `spec.md` § FR-009
-- [ ] T010a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-10 的測試(沒有開工作階段;依序送 `POST /api/generate`、`POST /api/pull`、`GET /api/me`;斷言三個的本文 `error` 仍是字串,狀態碼分別是 503、403、404);既有的 `routes.ollama_endpoint` 與 `forward.ollama_error` 對原生路徑維持字串格式,T001b、T005b 只讓 `/v1/` 路徑改格式,這個案例會被滿足:先執行確認通過,再暫時讓 `ollama_error()` 一律回 OpenAI 格式,確認斷言失敗後撤回;本案例的規格錨點是 001 的 `contracts/ollama-compat.openapi.yaml` § `paths`,不在本 spec package,所以沒有 ⚙
+- [x] T010a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-10 的測試(沒有開工作階段;依序送 `POST /api/generate`、`POST /api/pull`、`GET /api/me`;斷言三個的本文 `error` 仍是字串,狀態碼分別是 503、403、404);既有的 `routes.ollama_endpoint` 與 `forward.ollama_error` 對原生路徑維持字串格式,T001b、T005b 只讓 `/v1/` 路徑改格式,這個案例會被滿足:先執行確認通過,再暫時讓 `ollama_error()` 一律回 OpenAI 格式,確認斷言失敗後撤回;本案例的規格錨點是 001 的 `contracts/ollama-compat.openapi.yaml` § `paths`,不在本 spec package,所以沒有 ⚙
   - 🧪 `testplan.md` § US1-OC-10
   - 📎 `spec.md` § FR-010、FR-011;`plan.md` § 待決問題 Q25
-- [ ] T010b [US1] 🟢 /tdd 綠燈:US1-OC-10 由既有的 `ollama_error()` 與 T001b、T005b 只改 `/v1/` 路徑滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py`、`src/cgb/ollama_compat/routes.py` 只寫讓 US1-OC-10 通過的程式碼(依賴 T010a)
+- [x] T010b [US1] 🟢 /tdd 綠燈:US1-OC-10 由既有的 `ollama_error()` 與 T001b、T005b 只改 `/v1/` 路徑滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py`、`src/cgb/ollama_compat/routes.py` 只寫讓 US1-OC-10 通過的程式碼(依賴 T010a)
   - 🧪 `testplan.md` § US1-OC-10
   - 📎 `spec.md` § FR-010、FR-011
-- [ ] T011a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-11 的測試(假 Ollama 回 `SseReply`,每 0.1 秒送一段、共 10 段;送 `stream:true`,記下每一段到達用戶端的時間;斷言每一段比假 Ollama 送出晚不超過 0.5 秒、第一段在最後一段送出之前就到達);既有的 `_relay` 逐段傳回、不緩衝,這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/ollama_compat/forward.py` 先 `await upstream.aread()` 整段收完再送出,確認斷言失敗後撤回
+- [x] T011a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_006_v1.py` 寫 US1-OC-11 的測試(假 Ollama 回 `SseReply`,每 0.1 秒送一段、共 10 段;送 `stream:true`,記下每一段到達用戶端的時間;斷言每一段比假 Ollama 送出晚不超過 0.5 秒、第一段在最後一段送出之前就到達);既有的 `_relay` 逐段傳回、不緩衝,這個案例會被滿足:先執行確認通過,再暫時讓 `src/cgb/ollama_compat/forward.py` 先 `await upstream.aread()` 整段收完再送出,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US1-OC-11
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionStream`
   - 📎 `spec.md` § NFR-001、SC-003;`plan.md` § 待決問題 Q25
-- [ ] T011b [US1] 🟢 /tdd 綠燈:US1-OC-11 由既有的 `_relay` 逐段傳回滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-11 通過的程式碼(依賴 T011a)
+- [x] T011b [US1] 🟢 /tdd 綠燈:US1-OC-11 由既有的 `_relay` 逐段傳回滿足,確認不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/ollama_compat/forward.py` 只寫讓 US1-OC-11 通過的程式碼(依賴 T011a)
   - 🧪 `testplan.md` § US1-OC-11
   - ⚙ `contracts/ollama-compat.openapi.yaml` § `paths./v1/chat/completions.post`、`components.schemas.ChatCompletionStream`
   - 📎 `spec.md` § NFR-001、SC-003
-- [ ] T012 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T001b~T011b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_006_v1.py`、`tests/integration/test_ollama_compat.py`、`tests/e2e/test_locale.py` 的斷言(依賴 T011b)
+- [x] T012 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T001b~T011b 記下的重構清單(範圍限 `src/cgb/ollama_compat/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_006_v1.py`、`tests/integration/test_ollama_compat.py`、`tests/e2e/test_locale.py` 的斷言(依賴 T011b)
   - 🧪 `testplan.md` § US1-OC-01~US1-OC-11
   - 📎 `testplan.md` § 2.1
 

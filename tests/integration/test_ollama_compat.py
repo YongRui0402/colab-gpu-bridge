@@ -230,7 +230,7 @@ async def test_沒有工作階段時管理操作仍回_403_不回_503(bridge: Br
 # ---------------------------------------------------------------- US2-OC-06
 
 
-@pytest.mark.parametrize(("method", "path"), [("POST", "/v1/chat/completions"), ("GET", "/api/me")])
+@pytest.mark.parametrize(("method", "path"), [("POST", "/v1/completions"), ("GET", "/api/me")])
 async def test_白名單外的路徑回_404_不轉送(bridge: Bridge, method: str, path: str) -> None:
     # Arrange
     await bridge.ready()
@@ -242,6 +242,8 @@ async def test_白名單外的路徑回_404_不轉送(bridge: Bridge, method: st
     # Assert
     assert response.status_code == 404
     error = response.json().get("error") if response.headers.get("content-type", "").startswith("application/json") else None
+    if path.startswith("/v1/"):
+        error = error.get("message") if isinstance(error, dict) else None  # /v1 是 OpenAI 格式(006 Q18)
     assert isinstance(error, str) and has_cjk(error), response.text
     assert bridge.server.requests == []
 
@@ -707,12 +709,12 @@ async def test_被擋下與白名單外的請求也重設閒置計時(make_app: 
         await set_idle_timeout(ui, 1)
         t = parse_iso((await open_ready(ui))["readyAt"])
 
-        # Act:T+20 秒送 POST /api/pull(被擋下),T+40 秒送 GET /v1/models(白名單外)
+        # Act:T+20 秒送 POST /api/pull(被擋下),T+40 秒送 GET /v1/completions(白名單外)
         fake_clock.set(t + timedelta(seconds=20))
         pulled = await ollama.post("/api/pull", json={"model": MODEL})
         after_pull = (await get_session(ui)).get("idle") or {}
         fake_clock.set(t + timedelta(seconds=40))
-        unlisted = await ollama.get("/v1/models")
+        unlisted = await ollama.get("/v1/completions")
         after_unlisted = (await get_session(ui)).get("idle") or {}
 
     # Assert:則1

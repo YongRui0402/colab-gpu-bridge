@@ -1054,7 +1054,7 @@ def oc_managed(w: World) -> str:
 
 def oc_unlisted(w: World) -> str:
     w.start()
-    return httpx.get(f"{OLLAMA_URL}/v1/models").json()["error"]
+    return httpx.get(f"{OLLAMA_URL}/v1/completions").json()["error"]["message"]
 
 
 def oc_no_ready_session(w: World) -> str:

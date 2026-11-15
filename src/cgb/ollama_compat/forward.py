@@ -44,11 +44,15 @@ STREAM_INTERRUPTED_MESSAGE = "串流中斷:與 Colab 執行環境的連線中斷
 # 工作階段在請求進行中被結束,使用者結束或變更執行階段類型(NO_READY_SESSION)
 SESSION_ENDED_MESSAGE = "工作階段已結束,這次回應中斷"
 NDJSON = "application/x-ndjson"
+SSE = "text/event-stream"
+# `/v1` 串流補的那一段 `error.code`,依原因而定(contracts/ollama-compat.openapi.yaml § Error);`type` 一律是 `api_error`
+SSE_ERROR_CODES = {STREAM_INTERRUPTED_MESSAGE: "stream_interrupted", SESSION_ENDED_MESSAGE: "no_ready_session"}
+V1_PREFIX = "/v1/"  # OpenAI 相容路徑的前綴:本系統自己產生的錯誤,這個前綴底下用 OpenAI 格式,其餘用原生格式
 UNREACHABLE_MESSAGE = "連不到 Colab 上的模型服務,工作階段可能正在重連,請稍後再試"
 
 
 class StreamAborted(Exception):
-    """非 NDJSON 的回應中途斷了,無法補行:讓連線直接中斷,呼叫者收到不完整的本文。"""
+    """非 NDJSON 也非 SSE 的回應中途斷了,無法補行:讓連線直接中斷,呼叫者收到不完整的本文。"""
 
 
 def ollama_error(message: str, status_code: int) -> JSONResponse:
@@ -56,10 +60,24 @@ def ollama_error(message: str, status_code: int) -> JSONResponse:
     return JSONResponse({"error": message}, status_code=status_code)
 
 
+def openai_error(message: str, status_code: int, code: str, type_: str) -> JSONResponse:
+    """本系統自己產生的 `/v1` 錯誤:本文是 OpenAI 格式 `{"error": {"message", "type", "code"}}`(schema `OpenAIError`)。"""
+    return JSONResponse({"error": {"message": message, "type": type_, "code": code}}, status_code=status_code)
+
+
 def error_line(message: str, *, after: bytes) -> bytes:
     """NDJSON 最後補的 `OllamaError` 一行;前一段沒有以換行結尾時先補換行。"""
     line = (json.dumps({"error": message}, ensure_ascii=False) + "\n").encode()
     return line if after.endswith(b"\n") or not after else b"\n" + line
+
+
+def sse_error_events(message: str, *, after: bytes) -> bytes:
+    """SSE 最後補的錯誤段與 `[DONE]`;前一段沒有以空行結尾時先補空行。"""
+    error = {"message": message, "type": "api_error", "code": SSE_ERROR_CODES[message]}
+    events = f"data: {json.dumps({'error': error}, ensure_ascii=False)}\n\ndata: [DONE]\n\n".encode()
+    if not after or after.endswith(b"\n\n"):
+        return events
+    return (b"\n" if after.endswith(b"\n") else b"\n\n") + events
 
 
 async def cancel_and_reap(pending: "asyncio.Future[bytes]") -> None:
@@ -73,10 +91,11 @@ async def cancel_and_reap(pending: "asyncio.Future[bytes]") -> None:
 
 
 async def _relay(upstream: httpx.Response, ended: asyncio.Event, on_interrupted: Callable[[], None]) -> AsyncIterator[bytes]:
-    """逐段傳回。工作階段被結束時不再等遠端,補一行「已結束」;非預期的斷線才通知呼叫端並補「串流中斷」。"""
+    """逐段傳回。工作階段被結束時不再等遠端,補一行(SSE 補一段加 `[DONE]`)「已結束」;非預期的斷線才通知呼叫端並補「串流中斷」。"""
     chunks = upstream.aiter_raw()
     ended_wait = asyncio.ensure_future(ended.wait())
     last = b""
+    tail = b""  # 送出去的最後兩個位元組,判斷 SSE 的前一段有沒有以空行結尾
     next_chunk: asyncio.Future[bytes] | None = None
     try:
         while True:
@@ -99,12 +118,17 @@ async def _relay(upstream: httpx.Response, ended: asyncio.Event, on_interrupted:
                     message = STREAM_INTERRUPTED_MESSAGE
                 break
             last = chunk or last
+            tail = (tail + chunk)[-2:]
             yield chunk
     finally:
         ended_wait.cancel()
         if next_chunk is not None:
             await cancel_and_reap(next_chunk)
-    if not upstream.headers.get("content-type", "").startswith(NDJSON):
+    content_type = upstream.headers.get("content-type", "")
+    if content_type.startswith(SSE):
+        yield sse_error_events(message, after=tail)
+        return
+    if not content_type.startswith(NDJSON):
         raise StreamAborted(message)
     yield error_line(message, after=last)
 
@@ -124,6 +148,8 @@ async def forward(
         upstream = await client.send(upstream_request, stream=True)
     except httpx.ConnectError:
         # OLLAMA_UNREACHABLE:還沒收到任何 HTTP 回應;說明不帶轉發位址與例外原文(NFR-003、NFR-010)
+        if request.url.path.startswith(V1_PREFIX):
+            return openai_error(UNREACHABLE_MESSAGE, 502, "ollama_unreachable", "api_error")
         return ollama_error(UNREACHABLE_MESSAGE, 502)
     return StreamingResponse(
         _relay(upstream, target.ended, on_interrupted),

@@ -12,6 +12,9 @@
 - `JsonReply`:一個 JSON(或原樣的 bytes)本文
 - `NdjsonReply`:chunked 逐行送出;項目是 `Gate` 就等測試放行再送下一行;
   `then` 決定送完之後:`"end"` 正常結束、`"disconnect"` 不送結尾的 chunk 直接斷線、`"hang"` 不結束也不斷線
+- `SseReply`:chunked 的 `text/event-stream`(006 plan.md Q19),`events` 的每一項送成 `data: <內容>` 加一個空行:
+  項目是 dict 就 `json.dumps`、是 str 就原樣當內容(例如 `"[DONE]"`)、是 bytes 就整段原樣送出、是 `Gate` 就等測試放行;
+  `interval` 是每段之間的間隔秒數;`then` 同 `NdjsonReply`(`"end"`/`"disconnect"`/`"hang"`)
 - `DisconnectReply`:讀完請求後不回任何位元組就斷線
 - `HangReply`:讀完請求後不回應,直到 `release` 的閘門放行(之後送 `after`,沒有就斷線)或伺服器關閉(斷線)
 
@@ -66,6 +69,16 @@ class NdjsonReply:
 
 
 @dataclass
+class SseReply:
+    events: list[Any]
+    status: int = 200
+    interval: float = 0.0  # 每段送出之後等幾秒再送下一段
+    then: Literal["end", "disconnect", "hang"] = "end"
+    headers: dict[str, str | None] = field(default_factory=dict)  # 值為 None 的標頭不送
+    release: Gate | None = None  # then="hang" 時,放行後正常結束
+
+
+@dataclass
 class DisconnectReply:
     pass
 
@@ -76,7 +89,7 @@ class HangReply:
     after: "JsonReply | NdjsonReply | None" = None
 
 
-Reply = JsonReply | NdjsonReply | DisconnectReply | HangReply
+Reply = JsonReply | NdjsonReply | SseReply | DisconnectReply | HangReply
 
 
 @dataclass
@@ -258,6 +271,8 @@ def _make_handler(server: FakeOllamaServer) -> type[BaseHTTPRequestHandler]:
                 self._send_json(reply.status, reply.body, reply.headers)
             elif isinstance(reply, NdjsonReply):
                 self._send_ndjson(reply)
+            elif isinstance(reply, SseReply):
+                self._send_sse(reply)
             elif isinstance(reply, DisconnectReply):
                 self._cut()
             elif isinstance(reply, HangReply):
@@ -300,6 +315,42 @@ def _make_handler(server: FakeOllamaServer) -> type[BaseHTTPRequestHandler]:
                     continue
                 line = item if isinstance(item, bytes) else (json.dumps(item) + "\n").encode()
                 self._chunk(line)
+            if reply.then == "disconnect":
+                self._cut()
+                return
+            if reply.then == "hang":
+                gate = reply.release or Gate()
+                if not gate.pass_sync(self._abort):
+                    self._cut()
+                    return
+            self.wfile.write(b"0\r\n\r\n")
+            self.wfile.flush()
+
+        def _send_sse(self, reply: SseReply) -> None:
+            self.send_response(reply.status)
+            content_type = reply.headers.get("Content-Type", "text/event-stream")
+            if content_type is not None:
+                self.send_header("Content-Type", content_type)
+            self.send_header("Transfer-Encoding", "chunked")
+            for key, value in reply.headers.items():
+                if key.lower() != "content-type" and value is not None:
+                    self.send_header(key, value)
+            self.end_headers()
+            self.wfile.flush()
+            for index, item in enumerate(reply.events):
+                if isinstance(item, Gate):
+                    if not item.pass_sync(self._abort):
+                        self._cut()
+                        return
+                    continue
+                if index > 0 and reply.interval > 0 and self._abort.wait(reply.interval):
+                    self._cut()
+                    return
+                if isinstance(item, bytes):
+                    self._chunk(item)
+                else:
+                    content = item if isinstance(item, str) else json.dumps(item)
+                    self._chunk(f"data: {content}\n\n".encode())
             if reply.then == "disconnect":
                 self._cut()
                 return
