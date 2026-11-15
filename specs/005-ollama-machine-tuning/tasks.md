@@ -50,146 +50,146 @@
 
 > E5 節最前面的 T002b、T003b 做出 `plan.md` § 待決問題 Q32 的共用件(`start_ollama(name, overrides)` 的簽章、`AdapterError.remote_stage`、`ColabWorld.start_result`),E2 節等它們的綠燈完成才開始(Q55);E4 節和 E5 平行。E5 只改 `src/cgb/adapters/`、`tests/integration/test_colab_cli.py` 與新檔 `tests/integration/test_ollama_scripts.py`;遠端腳本的測試整檔標 `realrun_local`(T001),照 `testplan.md` § 5.0 只照 P5、P6 與臨時 Ollama 的護欄:port 由 `free_loopback_port()` 取(避開 11434~11436 與 8780),`HOME`、`OLLAMA_MODELS`、pid 檔、狀態檔與 log 都在 pytest 暫存資料夾,不對 127.0.0.1:11434 送任何請求,不執行 `colab`,收尾確認行程與行程群組都已結束
 
-- [ ] T002a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-01 的測試(呼叫 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-01`);同一個任務在檔內新增 `testplan.md` § 2.1 的 `AUTO`、`start_argv`、`result`、`TUNING_AUTO_40G`、`TUNING_DEFAULT`;另把 `start_argv()` 交給真的 `colab` CLI 以暫存 `HOME`、未授權解析一次(照 001 `test_create_session_command_line_is_accepted_by_real_cli` 的 `run_real_colab_without_auth`,斷言沒有參數錯誤;這支加進快速層的 `--deselect`),這一步會在本機執行 `colab`,執行前先停下問使用者本人(`plan.md` § 待決問題 Q56),執行確認它因為「沒有覆蓋值時省略 `--env CGB_TUNE_*`,kernel 留著上一次的值被腳本讀到(合約共用約定 10、research.md R7)」這類實作而失敗
+- [x] T002a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-01 的測試(呼叫 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-01`);同一個任務在檔內新增 `testplan.md` § 2.1 的 `AUTO`、`start_argv`、`result`、`TUNING_AUTO_40G`、`TUNING_DEFAULT`;另把 `start_argv()` 交給真的 `colab` CLI 以暫存 `HOME`、未授權解析一次(照 001 `test_create_session_command_line_is_accepted_by_real_cli` 的 `run_real_colab_without_auth`,斷言沒有參數錯誤;這支加進快速層的 `--deselect`),這一步會在本機執行 `colab`,執行前先停下問使用者本人(`plan.md` § 待決問題 Q56),執行確認它因為「沒有覆蓋值時省略 `--env CGB_TUNE_*`,kernel 留著上一次的值被腳本讀到(合約共用約定 10、research.md R7)」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`
   - 📎 `spec.md` § FR-002、FR-003;`plan.md` § 待決問題 Q32、Q51
-- [ ] T002b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/services/session_lifecycle.py`、`tests/integration/test_colab_cli.py`、`tests/integration/test_api_session.py`、`tests/realrun/test_host_adapter.py` 只寫讓 US1-CLI-01 通過的程式碼;`ColabControl.start_ollama(name, overrides)` 每次都帶齊 `--env CGB_TUNE_NUM_PARALLEL=`、`--env CGB_TUNE_CONTEXT_LENGTH=`、`--env CGB_TUNE_MAX_LOADED_MODELS=`(None 代成空字串,合約共用約定 10),仍經 `_exec_script`;唯一的呼叫端 `src/cgb/services/session_lifecycle.py` 的 `colab.start_ollama(name=name)` 改成帶三個 None 的 `overrides`;同一個任務把 `tests/integration/test_colab_cli.py` 用 `START_OLLAMA_ARGV` 的 001 測試改成 `start_argv()`、呼叫改帶 `overrides=AUTO`(`start_ollama_script`、`test_start_ollama_reads_the_last_result_line`、`test_start_ollama_waits_up_to_240_seconds_on_the_remote`、`test_start_ollama_passes_ollama_environment_verbatim`、`test_start_ollama_retries_once_with_same_arguments_after_connection_lost`、`test_remote_traceback_without_result_is_remote_error_with_masked_url`、`test_exec_times_out_without_retry_and_ends_cli_with_its_children`、`test_start_ollama_network_failures_are_told_apart_without_retry`、`test_start_ollama_without_valid_authorization_is_auth_required_without_retry`、`CALLS_THAT_CRASH`、`test_start_ollama_on_runtime_that_is_gone_is_not_found_without_retry`、`test_start_ollama_result_not_ok_is_remote_error_with_stage_and_detail`、`start_ollama_argv`);`plan.md` § 待決問題 Q32 的共用件也在這個任務做:`tests/integration/test_api_session.py` 的 `ColabWorld._start_ollama` 改回 `self.start_result`(預設 `T4_STARTED`,定義在同一檔,`plan.md` § 待決問題 Q59),仍記 `("start_ollama", name)`,`FakeColabControl` 照真 adapter 綁定新簽章(`tests/integration/test_fake_signatures.py` 照原樣回歸);`tests/realrun/test_host_adapter.py` 的 `START_OLLAMA_ENV` 補三個 `CGB_TUNE_*`(realrun,這個任務不執行它,`plan.md` § 待決問題 Q63),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T002a)
+- [x] T002b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`src/cgb/services/session_lifecycle.py`、`tests/integration/test_colab_cli.py`、`tests/integration/test_api_session.py`、`tests/realrun/test_host_adapter.py` 只寫讓 US1-CLI-01 通過的程式碼;`ColabControl.start_ollama(name, overrides)` 每次都帶齊 `--env CGB_TUNE_NUM_PARALLEL=`、`--env CGB_TUNE_CONTEXT_LENGTH=`、`--env CGB_TUNE_MAX_LOADED_MODELS=`(None 代成空字串,合約共用約定 10),仍經 `_exec_script`;唯一的呼叫端 `src/cgb/services/session_lifecycle.py` 的 `colab.start_ollama(name=name)` 改成帶三個 None 的 `overrides`;同一個任務把 `tests/integration/test_colab_cli.py` 用 `START_OLLAMA_ARGV` 的 001 測試改成 `start_argv()`、呼叫改帶 `overrides=AUTO`(`start_ollama_script`、`test_start_ollama_reads_the_last_result_line`、`test_start_ollama_waits_up_to_240_seconds_on_the_remote`、`test_start_ollama_passes_ollama_environment_verbatim`、`test_start_ollama_retries_once_with_same_arguments_after_connection_lost`、`test_remote_traceback_without_result_is_remote_error_with_masked_url`、`test_exec_times_out_without_retry_and_ends_cli_with_its_children`、`test_start_ollama_network_failures_are_told_apart_without_retry`、`test_start_ollama_without_valid_authorization_is_auth_required_without_retry`、`CALLS_THAT_CRASH`、`test_start_ollama_on_runtime_that_is_gone_is_not_found_without_retry`、`test_start_ollama_result_not_ok_is_remote_error_with_stage_and_detail`、`start_ollama_argv`);`plan.md` § 待決問題 Q32 的共用件也在這個任務做:`tests/integration/test_api_session.py` 的 `ColabWorld._start_ollama` 改回 `self.start_result`(預設 `T4_STARTED`,定義在同一檔,`plan.md` § 待決問題 Q59),仍記 `("start_ollama", name)`,`FakeColabControl` 照真 adapter 綁定新簽章(`tests/integration/test_fake_signatures.py` 照原樣回歸);`tests/realrun/test_host_adapter.py` 的 `START_OLLAMA_ENV` 補三個 `CGB_TUNE_*`(realrun,這個任務不執行它,`plan.md` § 待決問題 Q63),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T002a)
   - 🧪 `testplan.md` § US1-CLI-01
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`
   - 📎 `spec.md` § FR-002、FR-003;`plan.md` § 待決問題 Q32、Q51
-- [ ] T003a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-05 的測試(每種各呼叫一次 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-05`),執行確認它因為「照現況只把 `stage` 寫進 `message`、`AdapterError` 沒有 `remoteStage`,呼叫者要解析中文訊息才知道階段(plan.md Q3)」這類實作而失敗
+- [x] T003a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-05 的測試(每種各呼叫一次 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-05`),執行確認它因為「照現況只把 `stage` 寫進 `message`、`AdapterError` 沒有 `remoteStage`,呼叫者要解析中文訊息才知道階段(plan.md Q3)」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q3、Q32
-- [ ] T003b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/errors.py`、`src/cgb/adapters/colab_cli.py` 只寫讓 US1-CLI-05 通過的程式碼;`AdapterError` 加 keyword 參數 `remote_stage`(預設 None,S1 `Error.remoteStage`);結果 `ok` 為 false 時以 `stage` 填 `remote_stage`、`message` 含階段與 `detail`;沒有結果行的 traceback 時 `remote_stage` 為 None(其他建 `AdapterError` 的地方不用改),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T003a)
+- [x] T003b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/errors.py`、`src/cgb/adapters/colab_cli.py` 只寫讓 US1-CLI-05 通過的程式碼;`AdapterError` 加 keyword 參數 `remote_stage`(預設 None,S1 `Error.remoteStage`);結果 `ok` 為 false 時以 `stage` 填 `remote_stage`、`message` 含階段與 `detail`;沒有結果行的 traceback 時 `remote_stage` 為 None(其他建 `AdapterError` 的地方不用改),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T003a)
   - 🧪 `testplan.md` § US1-CLI-05
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001;`plan.md` § 待決問題 Q3、Q32
-- [ ] T004a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-02 的測試(呼叫 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-02`),執行確認它因為「轉接層依 `vramTotalBytes` 自己重算 `tuning`,而不是原樣交出腳本回報的(合約共用約定 12 (e))」這類實作而失敗
+- [x] T004a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-02 的測試(呼叫 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-02`),執行確認它因為「轉接層依 `vramTotalBytes` 自己重算 `tuning`,而不是原樣交出腳本回報的(合約共用約定 12 (e))」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.MachineProbe`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-001、FR-002
-- [ ] T004b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`tests/integration/test_colab_cli.py` 只寫讓 US1-CLI-02 通過的程式碼;回傳加上 `machine`(`gpuName`、`vramTotalBytes`、`systemMemoryTotalBytes`,`probedAt` 取轉接層收到結果時的 UTC 時間)與原樣的 `tuning`(合約共用約定 12 (e));同一個任務刪掉 `tests/integration/test_colab_cli.py` 的 `test_start_ollama_reads_the_last_result_line`、`test_start_ollama_retries_once_with_same_arguments_after_connection_lost`(以整個結果字典斷言,由 US1-CLI-02、US1-CLI-07 取代,`testplan.md` § 2.1),執行全部測試確認都通過、不留 skip,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T004a)
+- [x] T004b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`tests/integration/test_colab_cli.py` 只寫讓 US1-CLI-02 通過的程式碼;回傳加上 `machine`(`gpuName`、`vramTotalBytes`、`systemMemoryTotalBytes`,`probedAt` 取轉接層收到結果時的 UTC 時間)與原樣的 `tuning`(合約共用約定 12 (e));同一個任務刪掉 `tests/integration/test_colab_cli.py` 的 `test_start_ollama_reads_the_last_result_line`、`test_start_ollama_retries_once_with_same_arguments_after_connection_lost`(以整個結果字典斷言,由 US1-CLI-02、US1-CLI-07 取代,`testplan.md` § 2.1),執行全部測試確認都通過、不留 skip,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T004a)
   - 🧪 `testplan.md` § US1-CLI-02
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.MachineProbe`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-001、FR-002
-- [ ] T005a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-03 的測試(呼叫 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-03`);T004b 讓 `start_ollama` 原樣交出 `vramTotalBytes`、`gpuName` 與 `tuning`(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把 null 的顯示記憶體當成缺欄位歸成 `COLAB_BAD_RESPONSE`,讀不到顯示記憶體就讓開啟失敗」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T005a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-03 的測試(呼叫 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-03`);T004b 讓 `start_ollama` 原樣交出 `vramTotalBytes`、`gpuName` 與 `tuning`(`src/cgb/adapters/colab_cli.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「把 null 的顯示記憶體當成缺欄位歸成 `COLAB_BAD_RESPONSE`,讀不到顯示記憶體就讓開啟失敗」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-CLI-03
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.MachineProbe`
   - 📎 `spec.md` § FR-003
-- [ ] T005b [US1] 🟢 /tdd 綠燈:US1-CLI-03 由 T004b 讓 `start_ollama` 原樣交出 `vramTotalBytes`、`gpuName` 與 `tuning`(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US1-CLI-03 通過的程式碼(依賴 T005a)
+- [x] T005b [US1] 🟢 /tdd 綠燈:US1-CLI-03 由 T004b 讓 `start_ollama` 原樣交出 `vramTotalBytes`、`gpuName` 與 `tuning`(`src/cgb/adapters/colab_cli.py`)滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US1-CLI-03 通過的程式碼(依賴 T005a)
   - 🧪 `testplan.md` § US1-CLI-03
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.MachineProbe`
   - 📎 `spec.md` § FR-003
-- [ ] T006a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-04 的測試(呼叫 `start_ollama(name="cgb-test-0001", overrides={"numParallel": 4, "contextLength": None, "maxLoadedModels": None})`;分隔註解寫 `# ---- 005 US1-CLI-04`),執行確認它因為「`tuning` 為 null 時歸成 `COLAB_BAD_RESPONSE`,後端恢復時接不回 005 之前的工作階段」這類實作而失敗
+- [x] T006a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-04 的測試(呼叫 `start_ollama(name="cgb-test-0001", overrides={"numParallel": 4, "contextLength": None, "maxLoadedModels": None})`;分隔註解寫 `# ---- 005 US1-CLI-04`),執行確認它因為「`tuning` 為 null 時歸成 `COLAB_BAD_RESPONSE`,後端恢復時接不回 005 之前的工作階段」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-04
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`
   - 📎 `spec.md` § FR-002、使用者故事 1 驗收情境 5;`plan.md` § 待決問題 Q2
-- [ ] T006b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US1-CLI-04 通過的程式碼;`alreadyRunning` 為 true 時接受 `tuning` 為 null、原樣回 None,不拿這次的覆蓋值補一份,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T006a)
+- [x] T006b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py` 只寫讓 US1-CLI-04 通過的程式碼;`alreadyRunning` 為 true 時接受 `tuning` 為 null、原樣回 None,不拿這次的覆蓋值補一份,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T006a)
   - 🧪 `testplan.md` § US1-CLI-04
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`
   - 📎 `spec.md` § FR-002、使用者故事 1 驗收情境 5;`plan.md` § 待決問題 Q2
-- [ ] T007a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-06 的測試(每種各呼叫一次 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-06`),執行確認它因為「照現況以 `result["ollamaVersion"]` 直接取值,缺鍵丟 `KeyError` 越過轉接層」這類實作而失敗
+- [x] T007a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-06 的測試(每種各呼叫一次 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-06`),執行確認它因為「照現況以 `result["ollamaVersion"]` 直接取值,缺鍵丟 `KeyError` 越過轉接層」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-06
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.Error`、`components.schemas.TuningSource`
   - 📎 `spec.md` § FR-002;`plan.md` § 待決問題 Q50
-- [ ] T007b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`tests/integration/test_colab_cli.py` 只寫讓 US1-CLI-06 通過的程式碼;缺鍵、型別不符、`source` 不在 `TuningSource` 的列舉、新啟動(`alreadyRunning` 為 false)卻沒有 `tuning` 都歸 `COLAB_BAD_RESPONSE`,不讓 `KeyError`、`TypeError`、`ValueError` 越過轉接層;同一個任務把 `tests/integration/test_colab_cli.py` 的 `START_OLLAMA_OK` 改成含 `gpuName`、`vramTotalBytes`、`systemMemoryTotalBytes`、`tuning` 的 005 結果行(沿用它的 001 測試只斷言命令列與分類,照原樣回歸),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T007a)
+- [x] T007b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/colab_cli.py`、`tests/integration/test_colab_cli.py` 只寫讓 US1-CLI-06 通過的程式碼;缺鍵、型別不符、`source` 不在 `TuningSource` 的列舉、新啟動(`alreadyRunning` 為 false)卻沒有 `tuning` 都歸 `COLAB_BAD_RESPONSE`,不讓 `KeyError`、`TypeError`、`ValueError` 越過轉接層;同一個任務把 `tests/integration/test_colab_cli.py` 的 `START_OLLAMA_OK` 改成含 `gpuName`、`vramTotalBytes`、`systemMemoryTotalBytes`、`tuning` 的 005 結果行(沿用它的 001 測試只斷言命令列與分類,照原樣回歸),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T007a)
   - 🧪 `testplan.md` § US1-CLI-06
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.Error`、`components.schemas.TuningSource`
   - 📎 `spec.md` § FR-002;`plan.md` § 待決問題 Q50
-- [ ] T008a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-07 的測試(每種各呼叫一次 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-07`);既有的 `_exec_script`(`src/cgb/adapters/colab_cli.py`:失敗分類、逾時整組終止、`Connection was lost` 以同一組參數重跑一次),加上 T002b 讓 `start_ollama` 經它組命令列已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「加覆蓋值時另寫一條組命令列、直接呼叫 `_run` 的路徑,繞過 `_exec_script`,失去 001 的分類、整組終止與 `Connection was lost` 重跑」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T008a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_colab_cli.py` 寫 US1-CLI-07 的測試(每種各呼叫一次 `start_ollama(name="cgb-test-0001", overrides=AUTO)`;分隔註解寫 `# ---- 005 US1-CLI-07`);既有的 `_exec_script`(`src/cgb/adapters/colab_cli.py`:失敗分類、逾時整組終止、`Connection was lost` 以同一組參數重跑一次),加上 T002b 讓 `start_ollama` 經它組命令列已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「加覆蓋值時另寫一條組命令列、直接呼叫 `_run` 的路徑,繞過 `_exec_script`,失去 001 的分類、整組終止與 `Connection was lost` 重跑」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-CLI-07
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T008b [US1] 🟢 /tdd 綠燈:US1-CLI-07 由 既有的 `_exec_script`(`src/cgb/adapters/colab_cli.py`:失敗分類、逾時整組終止、`Connection was lost` 以同一組參數重跑一次),加上 T002b 讓 `start_ollama` 經它組命令列滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US1-CLI-07 通過的程式碼(依賴 T008a)
+- [x] T008b [US1] 🟢 /tdd 綠燈:US1-CLI-07 由 既有的 `_exec_script`(`src/cgb/adapters/colab_cli.py`:失敗分類、逾時整組終止、`Connection was lost` 以同一組參數重跑一次),加上 T002b 讓 `start_ollama` 經它組命令列滿足,確認 `src/cgb/adapters/colab_cli.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/colab_cli.py` 只寫讓 US1-CLI-07 通過的程式碼(依賴 T008a)
   - 🧪 `testplan.md` § US1-CLI-07
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaInput`、`components.schemas.OllamaStarted`、`components.schemas.Error`
   - 📎 `spec.md` § FR-001
-- [ ] T009a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-08 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-08`);同一個任務在這個新檔建 `testplan.md` § 2.1 的 fixture `box`(`fake_gpu`、`run`、`start_old_serve`、`serve_env`、`pid_file`、`state`、`version`、`marked`、socket 守門與收尾),整檔標 `pytest.mark.realrun_local`(T001);`/usr/local/bin/ollama` 不存在就 `pytest.skip("無法實跑:…")`、不替它安裝(`plan.md` § 待決問題 Q47);假 `nvidia-smi` 依收到的參數產生輸出:照 `--query-gpu` 的欄位順序與 `--format` 的 `noheader`、`nounits` 決定有沒有表頭與單位,印 `<名稱>, <MiB>`,不寫死整行(給 `raw` 時才原樣印);port 只用 `free_loopback_port()`,不對 127.0.0.1:11434 送任何請求,執行確認它因為「邊界用 `>` 判斷,剛好 12288、20480、32768、65536 MiB 落到下一級」這類實作而失敗
+- [x] T009a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-08 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-08`);同一個任務在這個新檔建 `testplan.md` § 2.1 的 fixture `box`(`fake_gpu`、`run`、`start_old_serve`、`serve_env`、`pid_file`、`state`、`version`、`marked`、socket 守門與收尾),整檔標 `pytest.mark.realrun_local`(T001);`/usr/local/bin/ollama` 不存在就 `pytest.skip("無法實跑:…")`、不替它安裝(`plan.md` § 待決問題 Q47);假 `nvidia-smi` 依收到的參數產生輸出:照 `--query-gpu` 的欄位順序與 `--format` 的 `noheader`、`nounits` 決定有沒有表頭與單位,印 `<名稱>, <MiB>`,不寫死整行(給 `raw` 時才原樣印);port 只用 `free_loopback_port()`,不對 127.0.0.1:11434 送任何請求,執行確認它因為「邊界用 `>` 判斷,剛好 12288、20480、32768、65536 MiB 落到下一級」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-08
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(剛好落在級距邊界);`research.md` § R2、R4、R6;`plan.md` § 待決問題 Q27、Q45、Q46、Q47
-- [ ] T009b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-08 通過的程式碼;腳本以 `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits` 讀第一張 GPU,依 FR-002 的級距(MiB × 1048576,「以上、未滿」,不看 GPU 名稱)決定三項,只把決定的五個 `OLLAMA_*` 加進 `ollama serve` 的環境,`CGB-RESULT` 回報 `gpuName`、`vramTotalBytes`、`tuning`;讓 `OLLAMA_HOST`(version URL)、`CGB_SERVE_PID_FILE`、`CGB_TUNING_FILE`、`CGB_SERVE_LOG`、`CGB_INSTALL_COMMAND`、`CGB_PROBE_TIMEOUT_SECONDS`、`CGB_VERIFY_SECONDS` 可覆寫,預設值不變,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T009a)
+- [x] T009b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-08 通過的程式碼;腳本以 `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits` 讀第一張 GPU,依 FR-002 的級距(MiB × 1048576,「以上、未滿」,不看 GPU 名稱)決定三項,只把決定的五個 `OLLAMA_*` 加進 `ollama serve` 的環境,`CGB-RESULT` 回報 `gpuName`、`vramTotalBytes`、`tuning`;讓 `OLLAMA_HOST`(version URL)、`CGB_SERVE_PID_FILE`、`CGB_TUNING_FILE`、`CGB_SERVE_LOG`、`CGB_INSTALL_COMMAND`、`CGB_PROBE_TIMEOUT_SECONDS`、`CGB_VERIFY_SECONDS` 可覆寫,預設值不變,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T009a)
   - 🧪 `testplan.md` § US1-CLI-08
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、SC-005、邊界情況(剛好落在級距邊界);`research.md` § R2、R4、R6;`plan.md` § 待決問題 Q27、Q45、Q46、Q47
-- [ ] T010a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-09 的測試(每種各 `box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-09`),執行確認它因為「讀不到時當成 0 GiB 套第一級 1/4096/1」這類實作而失敗
+- [x] T010a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-09 的測試(每種各 `box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-09`),執行確認它因為「讀不到時當成 0 GiB 套第一級 1/4096/1」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-003、FR-001;`research.md` § R6
-- [ ] T010b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-09 通過的程式碼;讀不到(沒有 `nvidia-smi`、非 0 結束、`[N/A]`)時 `vramTotalBytes`、`gpuName` 為 null,`tuning` 五項都是 `ollama_default`,serve 的環境不帶五個變數,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T010a)
+- [x] T010b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-09 通過的程式碼;讀不到(沒有 `nvidia-smi`、非 0 結束、`[N/A]`)時 `vramTotalBytes`、`gpuName` 為 null,`tuning` 五項都是 `ollama_default`,serve 的環境不帶五個變數,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T010a)
   - 🧪 `testplan.md` § US1-CLI-09
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-003、FR-001;`research.md` § R6
-- [ ] T011a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-10 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-10`);T009b(`src/cgb/adapters/scripts/start_ollama.py` 只取第一行、查詢參數和 `probe_resources.py` 相同)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「取最後一行,或把兩張的顯示記憶體加總(96 GiB 仍是 16/8192/3,所以另有則1、則2)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T011a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-10 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-10`);T009b(`src/cgb/adapters/scripts/start_ollama.py` 只取第一行、查詢參數和 `probe_resources.py` 相同)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「取最後一行,或把兩張的顯示記憶體加總(96 GiB 仍是 16/8192/3,所以另有則1、則2)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-CLI-10
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-001、邊界情況(多張 GPU)
-- [ ] T011b [US1] 🟢 /tdd 綠燈:US1-CLI-10 由 T009b(`src/cgb/adapters/scripts/start_ollama.py` 只取第一行、查詢參數和 `probe_resources.py` 相同)滿足,確認 `src/cgb/adapters/scripts/start_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-10 通過的程式碼(依賴 T011a)
+- [x] T011b [US1] 🟢 /tdd 綠燈:US1-CLI-10 由 T009b(`src/cgb/adapters/scripts/start_ollama.py` 只取第一行、查詢參數和 `probe_resources.py` 相同)滿足,確認 `src/cgb/adapters/scripts/start_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-10 通過的程式碼(依賴 T011a)
   - 🧪 `testplan.md` § US1-CLI-10
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-001、邊界情況(多張 GPU)
-- [ ] T012a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-11 的測試(`box.run([start_ollama.py])`,之後讓 `box.run` 的子行程結束;分隔註解寫 `# ---- 005 US1-CLI-11`),執行確認它因為「系統記憶體用 `MemAvailable`,或沒乘 1024」這類實作而失敗
+- [x] T012a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-11 的測試(`box.run([start_ollama.py])`,之後讓 `box.run` 的子行程結束;分隔註解寫 `# ---- 005 US1-CLI-11`),執行確認它因為「系統記憶體用 `MemAvailable`,或沒乘 1024」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-11
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-001、FR-002;`plan.md` § 待決問題 Q2
-- [ ] T012b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-11 通過的程式碼;系統記憶體取 `/proc/meminfo` 的 `MemTotal` × 1024;serve 以 `start_new_session=True` 啟動,pid 檔寫 serve 的 pid,狀態檔寫 `gpuName`、`vramTotalBytes`、`systemMemoryTotalBytes`、`tuning`(和 `CGB-RESULT` 同名),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T012a)
+- [x] T012b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-11 通過的程式碼;系統記憶體取 `/proc/meminfo` 的 `MemTotal` × 1024;serve 以 `start_new_session=True` 啟動,pid 檔寫 serve 的 pid,狀態檔寫 `gpuName`、`vramTotalBytes`、`systemMemoryTotalBytes`、`tuning`(和 `CGB-RESULT` 同名),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T012a)
   - 🧪 `testplan.md` § US1-CLI-11
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-001、FR-002;`plan.md` § 待決問題 Q2
-- [ ] T013a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-12 的測試(每種各 `box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-12`),執行確認它因為「啟動前沒刪舊的狀態檔,之後重跑走已在執行時讀到描述另一個 serve 的設定(合約共用約定 13-1)」這類實作而失敗
+- [x] T013a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-12 的測試(每種各 `box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-12`),執行確認它因為「啟動前沒刪舊的狀態檔,之後重跑走已在執行時讀到描述另一個 serve 的設定(合約共用約定 13-1)」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-12
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、使用者故事 1 驗收情境 5
-- [ ] T013b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-12 通過的程式碼;啟動前先刪狀態檔;驗證失敗不寫狀態檔,`detail` 取 serve 紀錄檔最後一行;啟動丟出的 `OSError` 回 `stage: start`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T013a)
+- [x] T013b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-12 通過的程式碼;啟動前先刪狀態檔;驗證失敗不寫狀態檔,`detail` 取 serve 紀錄檔最後一行;啟動丟出的 `OSError` 回 `stage: start`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T013a)
   - 🧪 `testplan.md` § US1-CLI-12
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、使用者故事 1 驗收情境 5
-- [ ] T014a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-13 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-13`),執行確認它因為「已在執行時照這次的 `CGB_TUNE_*` 重算 `tuning`(回報平行數 4,遠端實際是 8)」這類實作而失敗
+- [x] T014a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-13 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-13`),執行確認它因為「已在執行時照這次的 `CGB_TUNE_*` 重算 `tuning`(回報平行數 4,遠端實際是 8)」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-13
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、使用者故事 1 驗收情境 5;`plan.md` § 待決問題 Q2
-- [ ] T014b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-13 通過的程式碼;已在回應時讀狀態檔交出 `tuning`(不照這次的 `CGB_TUNE_*` 重算),硬體用這次量到的,不再啟動 serve、不覆寫 pid 檔,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T014a)
+- [x] T014b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-13 通過的程式碼;已在回應時讀狀態檔交出 `tuning`(不照這次的 `CGB_TUNE_*` 重算),硬體用這次量到的,不再啟動 serve、不覆寫 pid 檔,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T014a)
   - 🧪 `testplan.md` § US1-CLI-13
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、使用者故事 1 驗收情境 5;`plan.md` § 待決問題 Q2
-- [ ] T015a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-14 的測試(每種各 `box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-14`),執行確認它因為「讀檔時的 `FileNotFoundError` 或 `JSONDecodeError` 沒接住,變成遠端例外,後端恢復 005 之前的工作階段時失敗」這類實作而失敗
+- [x] T015a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-14 的測試(每種各 `box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-14`),執行確認它因為「讀檔時的 `FileNotFoundError` 或 `JSONDecodeError` 沒接住,變成遠端例外,後端恢復 005 之前的工作階段時失敗」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-14
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、使用者故事 1 驗收情境 5
-- [ ] T015b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-14 通過的程式碼;狀態檔不存在、不是 JSON 或格式不符時 `tuning` 為 null,照樣印結果行,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T015a)
+- [x] T015b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-14 通過的程式碼;狀態檔不存在、不是 JSON 或格式不符時 `tuning` 為 null,照樣印結果行,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T015a)
   - 🧪 `testplan.md` § US1-CLI-14
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-002、使用者故事 1 驗收情境 5
-- [ ] T016a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-15 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-15`),執行確認它因為「寫 pid 檔或狀態檔的 `OSError` 沒接住,serve 已經在跑卻回報失敗,後端以為開啟失敗而釋放執行環境(合約共用約定 13、13-1:寫入失敗不算失敗)」這類實作而失敗
+- [x] T016a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-15 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-15`),執行確認它因為「寫 pid 檔或狀態檔的 `OSError` 沒接住,serve 已經在跑卻回報失敗,後端以為開啟失敗而釋放執行環境(合約共用約定 13、13-1:寫入失敗不算失敗)」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-15
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-001
-- [ ] T016b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-15 通過的程式碼;寫 pid 檔與狀態檔的 `OSError` 接住、不算失敗(合約共用約定 13、13-1),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T016a)
+- [x] T016b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-15 通過的程式碼;寫 pid 檔與狀態檔的 `OSError` 接住、不算失敗(合約共用約定 13、13-1),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T016a)
   - 🧪 `testplan.md` § US1-CLI-15
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § FR-001
-- [ ] T017a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-16 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-16`),執行確認它因為「呼叫 `nvidia-smi` 沒設逾時,開啟被拖到 CLI 的 240 秒時限」這類實作而失敗
+- [x] T017a [US1] 🔴 /tdd 紅燈:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-16 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-16`),執行確認它因為「呼叫 `nvidia-smi` 沒設逾時,開啟被拖到 CLI 的 240 秒時限」這類實作而失敗
   - 🧪 `testplan.md` § US1-CLI-16
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § NFR-001、FR-003;`research.md` § R6;`plan.md` § 待決問題 Q48
-- [ ] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-16 通過的程式碼;`nvidia-smi` 以 `CGB_PROBE_TIMEOUT_SECONDS`(預設 10)逾時,逾時就結束它並當成讀不到,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T017a)
+- [x] T017b [US1] 🟢 /tdd 綠燈:在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-16 通過的程式碼;`nvidia-smi` 以 `CGB_PROBE_TIMEOUT_SECONDS`(預設 10)逾時,逾時就結束它並當成讀不到,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T017a)
   - 🧪 `testplan.md` § US1-CLI-16
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § NFR-001、FR-003;`research.md` § R6;`plan.md` § 待決問題 Q48
-- [ ] T018a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-17 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-17`);T009b 讓 version URL 取自 `OLLAMA_HOST`(`src/cgb/adapters/scripts/start_ollama.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「腳本照現況寫死 `VERSION_URL = "http://127.0.0.1:11434/api/version"`,不讀 `OLLAMA_HOST`(在 Colab 上碰巧正確,在桌機上會打到使用者自己的 Ollama,並把它當成已在執行)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T018a [US1] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-17 的測試(`box.run([start_ollama.py])`;分隔註解寫 `# ---- 005 US1-CLI-17`);T009b 讓 version URL 取自 `OLLAMA_HOST`(`src/cgb/adapters/scripts/start_ollama.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「腳本照現況寫死 `VERSION_URL = "http://127.0.0.1:11434/api/version"`,不讀 `OLLAMA_HOST`(在 Colab 上碰巧正確,在桌機上會打到使用者自己的 Ollama,並把它當成已在執行)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US1-CLI-17
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § NFR-003;`plan.md` § 待決問題 Q46
-- [ ] T018b [US1] 🟢 /tdd 綠燈:US1-CLI-17 由 T009b 讓 version URL 取自 `OLLAMA_HOST`(`src/cgb/adapters/scripts/start_ollama.py`)滿足,確認 `src/cgb/adapters/scripts/start_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-17 通過的程式碼(依賴 T018a)
+- [x] T018b [US1] 🟢 /tdd 綠燈:US1-CLI-17 由 T009b 讓 version URL 取自 `OLLAMA_HOST`(`src/cgb/adapters/scripts/start_ollama.py`)滿足,確認 `src/cgb/adapters/scripts/start_ollama.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/adapters/scripts/start_ollama.py` 只寫讓 US1-CLI-17 通過的程式碼(依賴 T018a)
   - 🧪 `testplan.md` § US1-CLI-17
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`、`components.schemas.AppliedTuning`
   - 📎 `spec.md` § NFR-003;`plan.md` § 待決問題 Q46
-- [ ] T019 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T002b~T018b 記下的重構清單(範圍限 `src/cgb/adapters/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_colab_cli.py`、`tests/integration/test_ollama_scripts.py` 的斷言(依賴 T018b)
+- [x] T019 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T002b~T018b 記下的重構清單(範圍限 `src/cgb/adapters/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_colab_cli.py`、`tests/integration/test_ollama_scripts.py` 的斷言(依賴 T018b)
   - 🧪 `testplan.md` § US1-CLI-01、US1-CLI-05、US1-CLI-02~US1-CLI-04、US1-CLI-06~US1-CLI-17
   - 📎 `testplan.md` § 2.1
-- [ ] T020 [US1] 📏 量測:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-18(標 `realrun_local`),照案例在桌機有 `/usr/bin/nvidia-smi`(GTX 1660 Ti)時以 `box.start_old_serve()` 起好已在執行的 serve 與狀態檔,組 A 的 `bin/nvidia-smi` 連到 `/usr/bin/nvidia-smi`、組 B 沒有 `nvidia-smi`,測試先自己跑一次 `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits` 記下第一行;A、B 交錯各 `box.run([start_ollama.py])` 5 次,記下 A、B 各 5 次的耗時與中位數、A 每次的 `vramTotalBytes` 與 `gpuName`,和門檻(A 中位數減 B 中位數 ≤ 5 秒,SC-003;`vramTotalBytes` 等於讀到的 MiB × 1048576、`gpuName` 等於讀到的名稱)比較,結果寫進 `specs/005-ollama-machine-tuning/measurements.md`;只對桌機 GPU 送唯讀的 `nvidia-smi --query-gpu`,不改 GPU 設定、不跑 CUDA 程式;serve 是 `box` 起的臨時 `ollama serve`(`free_loopback_port()`、暫存 `HOME` 與 `OLLAMA_MODELS`,不 pull 任何模型),腳本裡的 socket 守門只放行那個 port,不對 127.0.0.1:11434 送請求;不執行 `colab`、不花 compute units;紀錄只寫 pytest 暫存資料夾;收尾照 `box` 確認行程與行程群組都已結束;沒有 `/usr/bin/nvidia-smi` 或 `/usr/local/bin/ollama` 就標無法實跑;判定者:腳本;樣本:一次實跑,A、B 各 5 次(未用於調整)
+- [x] T020 [US1] 📏 量測:在 `tests/integration/test_ollama_scripts.py` 寫 US1-CLI-18(標 `realrun_local`),照案例在桌機有 `/usr/bin/nvidia-smi`(GTX 1660 Ti)時以 `box.start_old_serve()` 起好已在執行的 serve 與狀態檔,組 A 的 `bin/nvidia-smi` 連到 `/usr/bin/nvidia-smi`、組 B 沒有 `nvidia-smi`,測試先自己跑一次 `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits` 記下第一行;A、B 交錯各 `box.run([start_ollama.py])` 5 次,記下 A、B 各 5 次的耗時與中位數、A 每次的 `vramTotalBytes` 與 `gpuName`,和門檻(A 中位數減 B 中位數 ≤ 5 秒,SC-003;`vramTotalBytes` 等於讀到的 MiB × 1048576、`gpuName` 等於讀到的名稱)比較,結果寫進 `specs/005-ollama-machine-tuning/measurements.md`;只對桌機 GPU 送唯讀的 `nvidia-smi --query-gpu`,不改 GPU 設定、不跑 CUDA 程式;serve 是 `box` 起的臨時 `ollama serve`(`free_loopback_port()`、暫存 `HOME` 與 `OLLAMA_MODELS`,不 pull 任何模型),腳本裡的 socket 守門只放行那個 port,不對 127.0.0.1:11434 送請求;不執行 `colab`、不花 compute units;紀錄只寫 pytest 暫存資料夾;收尾照 `box` 確認行程與行程群組都已結束;沒有 `/usr/bin/nvidia-smi` 或 `/usr/local/bin/ollama` 就標無法實跑;判定者:腳本;樣本:一次實跑,A、B 各 5 次(未用於調整)
   - 🧪 `testplan.md` § US1-CLI-18
   - ⚙ `contracts/colab-cli.openapi.yaml` § `paths./exec/start-ollama.post`、`components.schemas.StartOllamaScriptResult`
   - 📎 `spec.md` § NFR-001、FR-001、SC-003

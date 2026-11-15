@@ -243,7 +243,7 @@ class SessionLifecycle:
         await asyncio.shield(creating)
         progress["allocated"] = True
         self._repo.update(name, step="starting_ollama")
-        await colab.start_ollama(name=name)
+        await colab.start_ollama(name=name, overrides={"numParallel": None, "contextLength": None, "maxLoadedModels": None})
         self._repo.update(name, step="connecting")
         # Q64:`colab ssh --proxy-mode` 找不到名稱會自己開一台新的,建立通道前一定先確認名稱在列
         listed = await colab.list_sessions()

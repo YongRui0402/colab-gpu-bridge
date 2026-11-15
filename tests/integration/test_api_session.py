@@ -19,6 +19,24 @@ from cgb.adapters.errors import AdapterError
 from fakes import Gate
 
 T4 = {"gpu": "T4", "highMem": False}
+# 替身預設的 `OllamaStarted`(Q59):15 GiB 的 T4,自動值 2/4096/1(test_api_tuning.py 從這裡匯入)
+T4_STARTED = {
+    "ollamaVersion": "0.40.15",
+    "alreadyRunning": False,
+    "machine": {
+        "gpuName": "Tesla T4",
+        "vramTotalBytes": 15 * 1073741824,
+        "systemMemoryTotalBytes": 13_605_855_232,
+        "probedAt": "2026-11-15T09:00:00Z",
+    },
+    "tuning": {
+        "numParallel": {"value": 2, "source": "auto"},
+        "contextLength": {"value": 4096, "source": "auto"},
+        "maxLoadedModels": {"value": 1, "source": "auto"},
+        "flashAttention": {"value": True, "source": "auto"},
+        "kvCacheType": {"value": "q8_0", "source": "auto"},
+    },
+}
 NAME_PATTERN = re.compile(r"^cgb-test-[a-z0-9-]+$")
 
 
@@ -44,6 +62,7 @@ class ColabWorld:
         self.unnamed: list[dict[str, str]] = []
         self.hardware: dict[str, str] = {}  # 名稱 → `colab sessions` 列出的硬體,沒寫的是 T4
         self.log: list[tuple[str, Any]] = []
+        self.start_result: dict[str, Any] = T4_STARTED  # `start_ollama` 回的結果;測試要別的機器時換掉
         colab, tunnel, remote = fakes.colab, fakes.tunnel, fakes.remote_ollama
 
         colab.get_usage.side_effect(self._usage)
@@ -92,7 +111,7 @@ class ColabWorld:
 
     def _start_ollama(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.log.append(("start_ollama", kwargs.get("name")))
-        return {"ollamaVersion": "0.40.15", "alreadyRunning": False}
+        return self.start_result
 
     def _stop(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         name = kwargs["name"]
