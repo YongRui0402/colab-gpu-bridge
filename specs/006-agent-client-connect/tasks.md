@@ -219,7 +219,7 @@
 
 ### E11 部署與網路(Docker Compose)
 
-- [ ] T023a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_compose_env.py`(新增)寫 US1-DEP-01 的測試(以 PyYAML 讀專案根目錄的 `compose.yaml`,不執行 `docker compose`;斷言 `services.cgb.environment.CGB_PUBLIC_OLLAMA_PORT` 是 `${CGB_HOST_OLLAMA_PORT:-11434}`、`services.cgb.ports` 對外的相容端點仍是 `${CGB_HOST_OLLAMA_PORT:-11434}:11434`),執行確認它因為「變數名稱打錯,或寫死 11436」這類實作而失敗(現況沒有這個變數)
+- [ ] T023a [US1] 🔴 /tdd 紅燈:在 `tests/unit/test_compose_env.py`(新增)寫 US1-DEP-01 的測試(以標準函式庫照縮排讀專案根目錄的 `compose.yaml`(專案沒有 YAML 函式庫,`plan.md` § 待決問題 Q29),不執行 `docker compose`;斷言 `services.cgb.environment.CGB_PUBLIC_OLLAMA_PORT` 是 `${CGB_HOST_OLLAMA_PORT:-11434}`、`services.cgb.ports` 對外的相容端點仍是 `${CGB_HOST_OLLAMA_PORT:-11434}:11434`),執行確認它因為「變數名稱打錯,或寫死 11436」這類實作而失敗(現況沒有這個變數)
   - 🧪 `testplan.md` § US1-DEP-01
   - ⚙ `deploy/compose.yaml` § `services.cgb`、`services.cgb.environment`、`services.cgb.ports`
   - 📎 `spec.md` § FR-001;`research.md` § R7

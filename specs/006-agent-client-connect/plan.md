@@ -118,3 +118,4 @@ tests/
 | Q26 | tasks | 原型 `index.html` 的 `[data-state="normal"]`、`[data-state="applying"]` 是 005 已做好的工作階段頁(提醒連過去的位置,Q14),必須覆蓋的介面元素清單仍列了它們:a 在 US3-AJ-01 的紅綠任務 ⚙ 列出,只斷言連過去到得了 `#ollama-tuning`,不重做 005 的畫面(先採用);b 從清單剔除,改 plan.md 的 Documentation 樹 | — | a(D15) |
 | Q27 | tasks | `prototype/style.css` 末尾「006 連線設定頁」增補(`.tabs`、`.tab`、`.snippet`、`.snippet-head`、`.code`、`.copied`、`.howto`、`.facts`、`.empty-state`、`.note-list`)要搬進 `src/cgb/static/style.css`:a 併進第一個用到的 US1-AJ-01 綠燈任務(先採用);b Setup 排一個不標步驟的任務(不合 Rule 17 的三類) | — | a(D15) |
 | Q28 | tasks | G-03(串流延遲量測)只用測試行程內的假伺服器、不開 Colab:a 寫成 `tests/integration/test_006_g_03.py`、不標 `realrun`,進快速層,結果寫進 `measurements.md`(先採用);b 標 `realrun_local`,只在全部層跑 | — | a(D15) |
+| Q29 | implement T023a | testplan 寫 E11 用 PyYAML 讀 `compose.yaml`,但專案的依賴裡沒有 YAML 函式庫:a 加 `pyyaml` 當開發依賴;b 用標準函式庫照縮排讀出 `services.cgb.environment` 與 `ports`,不加套件 | — | b(D17):testplan、tasks 已改 |

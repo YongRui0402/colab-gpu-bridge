@@ -15,7 +15,7 @@
 |---|---|---|---|---|---|---|
 | E3 Ollama 相容端點(FastAPI 轉送) | `contracts/ollama-compat.openapi.yaml` | 相容端點的 HTTP:`/v1/chat/completions`、`/v1/models` 與其他 `/v1` 路徑的回應 | 整合(真的路由與 `forward()`,轉送真的經過 httpx 打到測試行程內的假 Ollama 伺服器) | pytest + pytest-asyncio,沿用 `tests/integration/test_ollama_compat.py` 的 `bridge`(`live_servers`、`ColabWorld`、`open_ready`) | 測試行程內的 uvicorn,127.0.0.1 隨機 port;假 Ollama 伺服器新增 `SseReply`(逐段送 `data:` 行,可在中途斷線,plan Q19) | `FakeOllamaServer`(遠端 Ollama 的 `/v1`)→ G-01、G-02、G-04<br>`FakeColabControl`、`FakeTunnel`(Colab 執行環境與通道)→ G-04 |
 | E2 後端 UI API(FastAPI REST 與 SSE) | `contracts/ui.openapi.yaml` | HTTP `GET /api/connect` 的回應;`domain/connect.py` 的片段產生與建議值(純函式) | 整合(真的 api、services、domain;轉接層用替身)、單元(`connect`) | pytest + pytest-asyncio + `httpx.ASGITransport`,沿用 `tests/conftest.py` 的 `ui_client`、`fakes`、`make_app` 與 `test_api_session.py` 的 `ColabWorld`、`open_ready` | 暫存 SQLite;`CGB_PUBLIC_OLLAMA_PORT` 由 `make_app` 的設定注入 | `FakeColabControl`(回報的顯示記憶體與套用的設定)、`FakeRemoteOllama`(模型目錄)→ G-01、G-02、G-04 |
-| E11 部署與網路(Docker Compose) | `deploy/compose.yaml`、`deploy/.env.example` | 專案根目錄 `compose.yaml` 的內容(以 YAML 讀出 `cgb` 服務的 `environment`) | 單元 | pytest + PyYAML(專案既有) | 只讀檔,不執行 `docker compose` | 無 |
+| E11 部署與網路(Docker Compose) | `deploy/compose.yaml`、`deploy/.env.example` | 專案根目錄 `compose.yaml` 的內容(以 YAML 讀出 `cgb` 服務的 `environment`) | 單元 | pytest(標準函式庫照縮排讀 `compose.yaml`,專案沒有 YAML 函式庫,plan Q29) | 只讀檔,不執行 `docker compose` | 無 |
 | 跨端點驗收 | E1、E2 的規格檔(`prototype/connect.html`、`contracts/ui.openapi.yaml`) | 瀏覽器畫面上的文字、分頁、複製按鈕與剪貼簿內容 | E2E(真的瀏覽器、真的後端;轉接層用替身) | Playwright(Python)+ pytest-playwright,`tests/e2e/conftest.py` 的 `e2e_servers` | 測試行程內的 uvicorn:UI 127.0.0.1:8781、相容端點 127.0.0.1:11437;剪貼簿以 `context.grant_permissions(["clipboard-read", "clipboard-write"])` 讀回 | `FakeColabControl`、`FakeTunnel`、`FakeRemoteOllama` → G-01、G-02、G-04 |
 | E1 前端 UI(瀏覽器,原生 HTML/CSS/JS) | `prototype/connect.html`、`prototype/states.html` | — | — | — | 畫面都要先從 `GET /api/connect` 拿到資料,照 001~005 的做法不另立端點節;畫面行為都放在跨端點驗收 | — |
 
@@ -103,7 +103,7 @@
 
 | ID | 受測操作 | 假如 | 當 | 則 | 要抓的錯 | 需求 |
 |---|---|---|---|---|---|---|
-| US1-DEP-01 | 讀 `compose.yaml` | 專案根目錄的 `compose.yaml` | 以 YAML 讀出 `services.cgb.environment` | 則1:`CGB_PUBLIC_OLLAMA_PORT` 的值是 `${CGB_HOST_OLLAMA_PORT:-11434}`<br>則2:`ports` 對外的相容端點仍是 `${CGB_HOST_OLLAMA_PORT:-11434}:11434` | 變數名稱打錯,或寫死 11436 | FR-001 |
+| US1-DEP-01 | 讀 `compose.yaml` | 專案根目錄的 `compose.yaml` | 照縮排讀出 `services.cgb.environment` | 則1:`CGB_PUBLIC_OLLAMA_PORT` 的值是 `${CGB_HOST_OLLAMA_PORT:-11434}`<br>則2:`ports` 對外的相容端點仍是 `${CGB_HOST_OLLAMA_PORT:-11434}:11434` | 變數名稱打錯,或寫死 11436 | FR-001 |
 
 ### 2.4 跨端點驗收
 
