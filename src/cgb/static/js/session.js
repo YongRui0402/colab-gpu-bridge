@@ -1,7 +1,7 @@
 // 首頁(工作階段面板):依後端推送的 `Session` 顯示對應的狀態區塊(prototype/index.html)
 import { readThenFollow, request } from "./api.js";
 import { startHeader } from "./header.js";
-import { PICKABLE_TYPES, cu, duration, mmss, showState, typeInfo, typeText } from "./view.js";
+import { PICKABLE_TYPES, TUNING_ROWS, cu, duration, machineText, mmss, showState, sourceTag, tuningSummary, tuningValue, typeInfo, typeText } from "./view.js";
 
 // 可選的類型與顯示記憶體在 view.js(FR-009 預設 T4、不開高 RAM)
 
@@ -137,6 +137,7 @@ const RENDER = {
     $("r-name").textContent = session.name;
     $("r-type").textContent = `${typeText(session.runtimeType)}(顯示記憶體約 ${Math.round(info.vramMiB / 1024)} GB)`;
     renderCountdown();
+    renderTuningCard();
   },
   "low-balance"() {
     $("lb-text").textContent = `餘額 ${cu(usage.balance)},低於警告門檻 ${usage.warningThreshold} CU。仍然可以開啟,系統不會因為餘額擋下或自動結束工作階段。`;
@@ -193,6 +194,27 @@ const RENDER = {
     if (from) $("f-switch-note").textContent = `原本的 ${typeText(from)} 執行環境在變更類型時已經結束,不會留著。`;
   },
 };
+
+// FR-004:Ollama 設定卡照 `Session.ollama` 顯示(contracts/ui.openapi.yaml § OllamaStatus),不查 GPU 類型的表
+function renderTuningCard() {
+  const ollama = session.ollama ?? { status: "pending", machine: null, tuning: null };
+  const { machine, tuning } = ollama;
+  $("t-summary").textContent = tuningSummary(machine, tuning);
+  $("t-hardware").innerHTML = machineText(machine);
+  $("t-table").hidden = !tuning;
+  $("t-rows").innerHTML = tuning
+    ? TUNING_ROWS.map((r) => `
+      <tr class="${r.fixed ? "is-fixed" : ""}">
+        <td>${r.label}<span class="env">${r.env}</span></td>
+        <td>${tuningValue(r.key, tuning[r.key]) ?? '<span class="muted">不帶(Ollama 自己的預設值)</span>'}</td>
+        <td>${sourceTag(tuning[r.key].source)}${r.fixed ? ' <span class="small muted">固定</span>' : ""}</td>
+      </tr>`).join("")
+    : "";
+  // 讀不到目前的設定(`unknown`)與讀不到顯示記憶體各有一段說明;前者優先
+  const unknown = ollama.status === "unknown";
+  document.querySelector('[data-state="ready-unknown-tuning"]').hidden = !unknown;
+  document.querySelector('[data-state="ready-no-vram"]').hidden = unknown || !machine || Boolean(machine.vramTotalBytes);
+}
 
 // FR-026:閒置倒數以後端給的 `deadline` 自己倒數(contracts/ui.openapi.yaml § IdleCountdown)
 function renderCountdown() {

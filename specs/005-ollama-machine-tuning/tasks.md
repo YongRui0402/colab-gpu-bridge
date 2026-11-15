@@ -430,31 +430,31 @@
 
 > 端點節都完成、驗收過後由主 agent 開始;真的瀏覽器(Playwright)接測試行程內真的後端(`tests/e2e/conftest.py` 的 `e2e_servers`,UI 127.0.0.1:8781),轉接層用替身;e2e 用固定 port,同一時間只跑一份
 
-- [ ] T050a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us1_tuning.py` 寫 US1-AJ-01 的測試(使用者在開啟畫面選 A100 開啟,等到就緒;分隔註解寫 `# ---- 005 US1-AJ-01`),執行確認它因為「設定卡顯示 GPU 類型名稱查表的值而不是量到的顯示記憶體算出的值;來源標成手動」這類實作而失敗
+- [x] T050a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us1_tuning.py` 寫 US1-AJ-01 的測試(使用者在開啟畫面選 A100 開啟,等到就緒;分隔註解寫 `# ---- 005 US1-AJ-01`),執行確認它因為「設定卡顯示 GPU 類型名稱查表的值而不是量到的顯示記憶體算出的值;來源標成手動」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `prototype/index.html` § `[data-state="starting"]`、`[data-state="ready"]`、`#t-summary`、`#t-hardware`、`#t-table`、`#t-rows`、`.tuning-summary`、`.tuning-table`、`.tuning-fixed`;`contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § FR-002、FR-004;`research.md` § R11;`plan.md` § 待決問題 Q16
-- [ ] T050b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js`、`src/cgb/static/style.css` 只寫讓 US1-AJ-01 通過的程式碼;工作階段頁加 Ollama 設定卡:量到的顯示記憶體與系統記憶體、三項設定與來源,flash attention 與 KV cache 標固定開啟、沒有欄位;級距與來源的顯示文字放在 `src/cgb/static/js/view.js`;同一個任務把 `prototype/style.css` 的「005:Ollama 設定」區段(第 1199 行起)搬進 `src/cgb/static/style.css`,只用既有的 `var(--…)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T050a)
+- [x] T050b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js`、`src/cgb/static/style.css` 只寫讓 US1-AJ-01 通過的程式碼;工作階段頁加 Ollama 設定卡:量到的顯示記憶體與系統記憶體、三項設定與來源,flash attention 與 KV cache 標固定開啟、沒有欄位;級距與來源的顯示文字放在 `src/cgb/static/js/view.js`;同一個任務把 `prototype/style.css` 的「005:Ollama 設定」區段(第 1199 行起)搬進 `src/cgb/static/style.css`,只用既有的 `var(--…)`,執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T050a)
   - 🧪 `testplan.md` § US1-AJ-01
   - ⚙ `prototype/index.html` § `[data-state="starting"]`、`[data-state="ready"]`、`#t-summary`、`#t-hardware`、`#t-table`、`#t-rows`、`.tuning-summary`、`.tuning-table`、`.tuning-fixed`;`contracts/ui.openapi.yaml` § `paths./session.get`、`components.schemas.OllamaStatus`
   - 📎 `spec.md` § FR-002、FR-004;`research.md` § R11;`plan.md` § 待決問題 Q16
-- [ ] T051a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us1_tuning.py` 寫 US1-AJ-02 的測試(使用者開 T4 到就緒;分隔註解寫 `# ---- 005 US1-AJ-02`),執行確認它因為「讀不到時讓開啟失敗;設定卡空白、沒有說明」這類實作而失敗
+- [x] T051a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us1_tuning.py` 寫 US1-AJ-02 的測試(使用者開 T4 到就緒;分隔註解寫 `# ---- 005 US1-AJ-02`),執行確認它因為「讀不到時讓開啟失敗;設定卡空白、沒有說明」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `prototype/index.html` § `[data-state="ready-no-vram"]`、`[data-state="ready-unknown-tuning"]`、`[data-state="ready"]`
   - 📎 `spec.md` § FR-003、FR-004;`plan.md` § 待決問題 Q57
-- [ ] T051b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js` 只寫讓 US1-AJ-02 通過的程式碼;讀不到顯示記憶體時設定卡說明「讀不到顯示記憶體,使用 Ollama 預設值」;`tuning` 為 null(005 之前開的)時照原型 `ready-unknown-tuning` 說明(這個狀態沒有案例斷言,完成報告列為未直接驗證,`plan.md` § 待決問題 Q57),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T051a)
+- [x] T051b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/index.html`、`src/cgb/static/js/session.js`、`src/cgb/static/js/view.js` 只寫讓 US1-AJ-02 通過的程式碼;讀不到顯示記憶體時設定卡說明「讀不到顯示記憶體,使用 Ollama 預設值」;`tuning` 為 null(005 之前開的)時照原型 `ready-unknown-tuning` 說明(這個狀態沒有案例斷言,完成報告列為未直接驗證,`plan.md` § 待決問題 Q57),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T051a)
   - 🧪 `testplan.md` § US1-AJ-02
   - ⚙ `prototype/index.html` § `[data-state="ready-no-vram"]`、`[data-state="ready-unknown-tuning"]`、`[data-state="ready"]`
   - 📎 `spec.md` § FR-003、FR-004;`plan.md` § 待決問題 Q57
-- [ ] T052a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us1_tuning.py` 寫 US1-AJ-03 的測試(使用者到紀錄頁點這一筆工作階段;分隔註解寫 `# ---- 005 US1-AJ-03`),執行確認它因為「紀錄頁沒有呈現 Ollama 設定;只呈現最後一筆以外的資料」這類實作而失敗
+- [x] T052a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_005_us1_tuning.py` 寫 US1-AJ-03 的測試(使用者到紀錄頁點這一筆工作階段;分隔註解寫 `# ---- 005 US1-AJ-03`),執行確認它因為「紀錄頁沒有呈現 Ollama 設定;只呈現最後一筆以外的資料」這類實作而失敗
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `prototype/history.html` § `[data-state="normal"]`、`[data-state="tuning-log"]`、`[data-state="empty"]`、`#rows`、`#d-body`、`.tuning-table`;`contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`
   - 📎 `spec.md` § FR-005;`plan.md` § 待決問題 Q57
-- [ ] T052b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/history.html`、`src/cgb/static/js/history.js`、`src/cgb/static/js/view.js` 只寫讓 US1-AJ-03 通過的程式碼;紀錄頁的明細列出每一筆 Ollama 設定(觸發、時間、量到的硬體、三項與來源、結果);`empty` 沿用 001、這一輪不改,完成報告列為未直接驗證(`plan.md` § 待決問題 Q57),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T052a)
+- [x] T052b [US1] 🟢 /tdd 綠燈:在 `src/cgb/static/history.html`、`src/cgb/static/js/history.js`、`src/cgb/static/js/view.js` 只寫讓 US1-AJ-03 通過的程式碼;紀錄頁的明細列出每一筆 Ollama 設定(觸發、時間、量到的硬體、三項與來源、結果);`empty` 沿用 001、這一輪不改,完成報告列為未直接驗證(`plan.md` § 待決問題 Q57),執行全部測試確認都通過;看到要整理的地方記進重構清單(依賴 T052a)
   - 🧪 `testplan.md` § US1-AJ-03
   - ⚙ `prototype/history.html` § `[data-state="normal"]`、`[data-state="tuning-log"]`、`[data-state="empty"]`、`#rows`、`#d-body`、`.tuning-table`;`contracts/ui.openapi.yaml` § `paths./sessions/{name}.get`
   - 📎 `spec.md` § FR-005;`plan.md` § 待決問題 Q57
-- [ ] T053 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T050b~T052b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T052b)
+- [x] T053 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T050b~T052b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/e2e/` 的斷言(依賴 T052b)
   - 🧪 `testplan.md` § US1-AJ-01~US1-AJ-03
   - 📎 `testplan.md` § 2.4
 

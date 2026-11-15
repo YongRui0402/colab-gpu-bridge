@@ -83,7 +83,8 @@
     </section>
 
     <!-- 就緒 -->
-    <section data-state="ready" class="panel" hidden>
+    <div data-state="ready" hidden>
+    <section class="panel">
       <h2 class="state-title"><span class="pill pill-ok">就緒</span><span class="mono" id="r-name"></span></h2>
       <div class="grid-2">
         <dl class="kv">
@@ -101,6 +102,33 @@
         <button type="button" class="btn btn-danger" data-go="confirm-stop">結束</button>
       </div>
     </section>
+
+    <!-- 005:Ollama 設定卡(FR-004);值照遠端回報的 `Session.ollama`,不查 GPU 類型的表 -->
+    <section class="panel" id="t-card">
+      <div class="panel-head">
+        <h2>Ollama 設定</h2>
+      </div>
+      <p class="tuning-summary" id="t-summary"></p>
+      <div class="notice notice-warn" data-state="ready-no-vram" hidden>
+        <strong>讀不到顯示記憶體,使用 Ollama 預設值</strong>
+        開好時執行環境的 <span class="mono">nvidia-smi</span> 沒有回報顯示記憶體,三項設定都沒有帶,用 Ollama 自己的預設值;工作階段照常可以用。
+      </div>
+      <div class="notice notice-warn" data-state="ready-unknown-tuning" hidden>
+        <strong>讀不到目前的 Ollama 設定</strong>
+        系統接回這台時 Ollama 已經在執行,執行環境上沒有留下設定檔(例如這台是更新前開的),所以不知道它帶了哪些設定。
+      </div>
+      <dl class="kv">
+        <dt>量到的硬體</dt><dd id="t-hardware"></dd>
+      </dl>
+      <table class="table tuning-table" id="t-table">
+        <thead>
+          <tr><th>設定</th><th>值</th><th>來源</th></tr>
+        </thead>
+        <tbody id="t-rows"></tbody>
+      </table>
+      <p class="tuning-fixed">flash attention 與 KV cache 固定開啟,只顯示、不能修改。每一次開啟的設定都記在<a href="history.html">紀錄</a>。</p>
+    </section>
+    </div>
 
     <!-- 確認變更類型 -->
     <section data-state="confirm-switch" class="panel" hidden>
