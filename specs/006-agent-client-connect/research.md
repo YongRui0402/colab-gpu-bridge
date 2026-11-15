@@ -129,11 +129,12 @@
 
 ## R8. 本機實跑用哪個模型(SC-001、SC-002)
 
-**決策**:SC-001、SC-002 的本機實跑用 `qwen2.5:3b`,臨時 serve 設 `OLLAMA_CONTEXT_LENGTH=10240`;本系統開工作階段時以覆蓋值 context 10240 開(在替身工作階段裡轉發到臨時 serve)。
+**決策**:SC-001、SC-002 的本機實跑用 `qwen2.5:3b`,臨時 serve 設 `OLLAMA_CONTEXT_LENGTH=16384`;本系統開工作階段時以覆蓋值 context 16384 開(在替身工作階段裡轉發到臨時 serve)。
 
 **理由**:
 
 - 實測(本機實測環境):`qwen2.5:3b` 兩個用戶端都一次成功。`qwen3:4b` 在 4096 被截斷;改 16384 後只有 29/37 層放進 GPU、約 7 token/s,光標題請求就思考到 4096 token 上限,opencode 600 秒逾時。`reasoning_effort:"none"` 沒有真的關掉思考,只是把思考內容改放進 `content`。
+- 估算(qwen2.5 3B:36 層、KV 維度 2 頭 × 128、臨時 serve 預設 f16 每個值 2 bytes):每個 token 約 36 KB,16384 × 平行 1 ≈ 0.6 GB,加上模型 1.9 GB,6 GB 放得下;依片段規則 `limit.output` 為 4096,可用輸入 12,288 token,大於 R4 量到的 6,469。
 - 判斷:6 GB 顯示記憶體上,3B、不思考的模型最穩;Colab 上的 SC-004 改用 `qwen2.5:7b`(005 已在 T4 實跑過)。
 
 **考慮過的替代方案**:`qwen3:4b`:思考內容太多,6 GB 上 opencode 600 秒逾時。
@@ -150,4 +151,5 @@
 
 ### 2026-11-16
 
+- R8:本機實跑的 context 從 10240 改成 16384。原因:analyze A2,依片段規則 10240 時 `limit.output` 為 4096,可用輸入只剩 6,144,小於 opencode 第一個請求的 6,469(R4);10240 只在 output 2048 時實測過。連帶:testplan G-01、G-02 與 tasks T048、T049 同步改成 16384。
 - R3:pi 的 `maxTokens` 從固定 4096 改成 `min(4096, ⌊context ÷ 2⌋)`。原因:S4 原型發現 context 4096 時 `maxTokens` 等於 context,一次回覆就能用完整個 context;和 R2 的 opencode 規則一致(plan Q15)。連帶:`contracts/ui.openapi.yaml` 的 `x-snippet-rule` 同步改。

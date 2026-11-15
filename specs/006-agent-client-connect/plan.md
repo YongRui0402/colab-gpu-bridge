@@ -29,7 +29,7 @@ src/cgb/
 ├── ollama_compat/forward.py    # E3:SSE 中途斷線時補 data: 錯誤段與 [DONE]
 ├── domain/connect.py           # 新增:片段產生與 context 建議值(純函式)
 ├── api/connect.py              # 新增:E2 連線資訊(相容端點的 port、目前 context、建議值、模型清單)
-├── config.py                   # 讀 CGB_PUBLIC_OLLAMA_PORT
+├── __main__.py、app.py        # Settings 讀 CGB_PUBLIC_OLLAMA_PORT,create_app 收 public_ollama_port(Q21;專案沒有 config.py)
 └── static/                     # E1:新頁 connect.html 與 js/connect.js,導覽列加「連線設定」
 
 compose.yaml                    # E11:把 CGB_HOST_OLLAMA_PORT 以 CGB_PUBLIC_OLLAMA_PORT 傳進容器

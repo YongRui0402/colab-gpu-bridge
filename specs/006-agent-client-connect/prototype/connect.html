@@ -38,7 +38,7 @@
 
     <!-- 沒有就緒的工作階段 -->
     <section data-state="no-session" class="panel empty-state" hidden>
-      <h2 class="state-title"><span class="pill">未就緒</span>目前沒有可用的工作階段</h2>
+      <h2 class="state-title"><span class="pill">未就緒</span>目前沒有就緒的工作階段</h2>
       <p>連線設定要接到一台正在跑的 Colab 執行環境;還沒有的話,片段裡的位址連過去只會收到「沒有可用的工作階段」的錯誤,所以先不顯示。</p>
       <p class="muted">下一步:先開啟工作階段,等狀態變成「就緒」再回來。</p>
       <div class="actions">
@@ -50,7 +50,7 @@
     <section data-state="empty-catalog" class="panel empty-state" hidden>
       <h2 class="state-title"><span class="pill pill-ok">就緒</span>模型目錄是空的</h2>
       <p>工作階段已經就緒,但還沒有下載任何模型,片段裡沒有東西可以列,所以先不顯示。</p>
-      <p class="muted">下一步:先到「下載模型」下載一個支援工具呼叫的模型,例如 <span class="mono">qwen2.5-coder:7b</span>,下載完再回來。</p>
+      <p class="muted">下一步:先到模型頁下載模型(建議支援工具呼叫的模型),例如 <span class="mono">qwen2.5-coder:7b</span>,下載完再回來。</p>
       <div class="actions">
         <a class="btn btn-primary" href="../../004-chat-hf-curated-queue/prototype/library.html">到下載模型</a>
         <a class="btn" href="../../004-chat-hf-curated-queue/prototype/models.html">看模型目錄</a>
@@ -70,7 +70,7 @@
       </ul>
     </div>
     <div class="notice notice-warn" data-part="unknown-notice" hidden>
-      <strong>讀不到目前套用的 Ollama 設定</strong>
+      <strong>讀不到目前的 Ollama 設定,片段不帶 context 長度</strong>
       <p>工作階段就緒,但這一次沒能向遠端 Ollama 讀回目前的 context 長度(可能是設定剛套用、遠端暫時沒有回應)。所以下面的片段不帶 context 長度,opencode 與 pi 會用各自的預設值,pi 也不附 <span class="mono">settings.json</span>。
         到 <a href="index.html#ollama-tuning">工作階段頁</a> 確認設定讀得回來之後,重新整理這一頁就會帶上。</p>
     </div>
