@@ -828,10 +828,13 @@ def test_精選項目的遷移中途失敗時整個還原_下次啟動可再升�
 
 
 def _open_db(tmp_path: Path, kind: str) -> sqlite3.Connection:
-    """`kind` 為 `fresh` 是全新庫;`migrated` 是空的舊庫(001~003 建的)跑過 `create_schema` 的遷移後。"""
+    """`kind` 為 `fresh` 是全新庫;`migrated` 是空的舊庫(001~003 建的)跑過 `create_schema` 的遷移後;
+    `from_v1` 是 `_build_v1` 建出空的 v1 舊庫(004 建的)跑過 `create_schema` 遷移到 2 之後(plan.md Q43)。"""
     db_path = tmp_path / f"{kind}.sqlite3"
     if kind == "migrated":
         _build_v0(db_path).close()
+    elif kind == "from_v1":
+        _build_v1(db_path).close()
     conn = connect(db_path)
     create_schema(conn)
     return conn
@@ -1737,4 +1740,209 @@ def test_v1_舊庫有清單外的結束原因時照樣升級_結束原因照原�
     assert [row[0] for row in conn.execute("SELECT end_reason FROM session_transitions WHERE session_name = 'cgb-odd'")] == [
         "SESSION_EXPIRED"
     ]
+    conn.close()
+
+
+# ---- 005 US2-DB-01
+
+# 「runtime_type_tunings 的欄名」:contracts/store.dbml § Table runtime_type_tunings,依宣告順序(testplan.md § 3.3 US2-DB-01 則1)
+_RUNTIME_TYPE_TUNINGS_COLUMNS = ["gpu", "num_parallel", "context_length", "max_loaded_models", "updated_at"]
+
+
+def test_全新庫與_v1_升級的庫的類型覆蓋值表欄位相同_只有_gpu_是主鍵_三個值可為空且沒有預設值_更新時間必填(
+    tmp_path: Path,
+) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2
+    fresh = _open_db(tmp_path, "fresh")
+    from_v1 = _open_db(tmp_path, "from_v1")
+
+    # Act:兩個庫各讀 PRAGMA table_info(runtime_type_tunings)
+    info_a = {row["name"]: row for row in fresh.execute("PRAGMA table_info(runtime_type_tunings)")}
+    rows_a = _table_info(fresh, "runtime_type_tunings")
+    rows_b = _table_info(from_v1, "runtime_type_tunings")
+
+    # Assert:則1 A 的欄名依序照規格
+    assert list(info_a) == _RUNTIME_TYPE_TUNINGS_COLUMNS
+    # Assert:則2 A 的主鍵只有 gpu
+    assert [name for name, row in info_a.items() if row["pk"] != 0] == ["gpu"]
+    assert info_a["gpu"]["pk"] == 1
+    # Assert:則3 三個值可為 NULL、沒有預設值
+    assert [
+        (info_a[name]["notnull"], info_a[name]["dflt_value"])
+        for name in ("num_parallel", "context_length", "max_loaded_models")
+    ] == [(0, None)] * 3
+    # Assert:則4 updated_at 必填
+    assert info_a["updated_at"]["notnull"] == 1
+    # Assert:則5 B 與 A 完全相同
+    assert rows_b == rows_a
+    fresh.close()
+    from_v1.close()
+
+
+# ---- 005 US2-DB-02
+
+_INSERT_OVERRIDE = (
+    "INSERT INTO runtime_type_tunings (gpu, num_parallel, context_length, max_loaded_models, updated_at)"
+    " VALUES (?, ?, ?, ?, ?)"
+)
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_每種類型最多一列_清單外與小寫的類型寫不進去_同類型以_ON_CONFLICT_整份取代_沒填的項目讀回_None(
+    tmp_path: Path, kind: str
+) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2
+    conn = _open_db(tmp_path, kind)
+
+    # Act:①~⑥ 逐句寫入
+    first = _rejected(conn, _INSERT_OVERRIDE, ("A100", 4, None, None, "2026-11-15T08:00:00Z"))
+    second = _rejected(conn, _INSERT_OVERRIDE, ("A100", 8, None, None, "2026-11-15T08:00:00Z"))
+    t4 = _rejected(conn, _INSERT_OVERRIDE, ("T4", None, 8192, None, "2026-11-15T08:00:00Z"))
+    h100 = _rejected(conn, _INSERT_OVERRIDE, ("H100", None, None, 3, "2026-11-15T08:00:00Z"))
+    lower = _rejected(conn, _INSERT_OVERRIDE, ("a100", 4, None, None, "2026-11-15T08:00:00Z"))
+    v100 = _rejected(conn, _INSERT_OVERRIDE, ("V100", 4, None, None, "2026-11-15T08:00:00Z"))
+    # Act:⑦ 同類型以 ON CONFLICT (gpu) 整份取代
+    upsert_error: sqlite3.Error | None = None
+    try:
+        conn.execute(
+            _INSERT_OVERRIDE + " ON CONFLICT (gpu) DO UPDATE SET num_parallel = excluded.num_parallel,"
+            " context_length = excluded.context_length, max_loaded_models = excluded.max_loaded_models,"
+            " updated_at = excluded.updated_at",
+            ("A100", None, 16384, None, "2026-11-15T09:00:00Z"),
+        )
+    except sqlite3.Error as exc:
+        upsert_error = exc
+    # Act:⑧ 讀回
+    rows = [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT gpu, num_parallel, context_length, max_loaded_models FROM runtime_type_tunings ORDER BY gpu"
+        )
+    ]
+
+    # Assert:則1 ① 寫得進去;則2 ② 被擋
+    assert (first, second) == (False, True)
+    # Assert:則3 ③、則4 ④ 寫得進去
+    assert (t4, h100) == (False, False)
+    # Assert:則5 ⑤ 小寫、則6 ⑥ 清單外的類型被擋
+    assert (lower, v100) == (True, True)
+    # Assert:則7 ⑦ 沒有丟出例外
+    assert upsert_error is None
+    # Assert:則8 每種類型一列,A100 整份換成 ⑦ 的值,沒填的項目是 None
+    assert rows == [("A100", None, 16384, None), ("H100", None, None, 3), ("T4", None, 8192, None)]
+    conn.close()
+
+
+# ---- 005 US2-DB-03
+
+# 每一欄依序寫的值與是否該被擋:FR-017 的範圍,邊界上收、邊界外擋(testplan.md § 3.3 US2-DB-03 則1~則6)
+_RANGE_CASES = [
+    ("num_parallel", 1, False), ("num_parallel", 32, False), ("num_parallel", 0, True), ("num_parallel", 33, True),
+    ("context_length", 2048, False), ("context_length", 131072, False),
+    ("context_length", 2047, True), ("context_length", 131073, True),
+    ("max_loaded_models", 1, False), ("max_loaded_models", 4, False),
+    ("max_loaded_models", 0, True), ("max_loaded_models", 5, True),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_三個值只收規定範圍_邊界上寫得進去_邊界外與更新時間為空寫不進去(tmp_path: Path, kind: str) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2
+    conn = _open_db(tmp_path, kind)
+
+    # Act:以 gpu='L4' 逐句寫入,其他兩個值 NULL;寫得進去的就刪掉再寫下一句
+    results: list[tuple[str, int, bool]] = []
+    for column, value, _ in _RANGE_CASES:
+        values = {"num_parallel": None, "context_length": None, "max_loaded_models": None, column: value}
+        rejected = _rejected(
+            conn,
+            _INSERT_OVERRIDE,
+            ("L4", values["num_parallel"], values["context_length"], values["max_loaded_models"], "2026-11-15T08:00:00Z"),
+        )
+        results.append((column, value, rejected))
+        if not rejected:
+            conn.execute("DELETE FROM runtime_type_tunings WHERE gpu = 'L4'")
+    # Act:最後一句三個值都合法但 updated_at 為 NULL
+    null_updated_at = _rejected(conn, _INSERT_OVERRIDE, ("L4", 4, 8192, 2, None))
+
+    # Assert:則1~則6 邊界上寫得進去,邊界外各丟 IntegrityError
+    assert results == _RANGE_CASES
+    # Assert:則7 updated_at 為 NULL 被擋
+    assert null_updated_at is True
+    conn.close()
+
+
+# ---- 005 US2-DB-04
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_三個值全是_NULL_的列寫不進去_清除時刪列_再記一次寫得進去(tmp_path: Path, kind: str) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2;先寫入 A100 的平行數 4
+    conn = _open_db(tmp_path, kind)
+    conn.execute(_INSERT_OVERRIDE, ("A100", 4, None, None, "2026-11-15T08:00:00Z"))
+
+    # Act:① 把唯一有值的項目改成 NULL
+    update_rejected = _rejected(conn, "UPDATE runtime_type_tunings SET num_parallel = NULL WHERE gpu = 'A100'")
+    a100_after_update = conn.execute("SELECT num_parallel FROM runtime_type_tunings WHERE gpu = 'A100'").fetchone()[0]
+    # Act:② 寫一列三個值都是 NULL
+    null_row_rejected = _rejected(conn, _INSERT_OVERRIDE, ("T4", None, None, None, "2026-11-15T08:10:00Z"))
+    # Act:③ 清除時刪列
+    conn.execute("DELETE FROM runtime_type_tunings WHERE gpu = 'A100'")
+    count_after_delete = _count(conn, "SELECT count(*) FROM runtime_type_tunings")
+    # Act:④ 再記一次
+    rewrite_rejected = _rejected(conn, _INSERT_OVERRIDE, ("A100", None, None, 2, "2026-11-15T08:20:00Z"))
+    a100_after_rewrite = tuple(
+        conn.execute(
+            "SELECT num_parallel, context_length, max_loaded_models FROM runtime_type_tunings WHERE gpu = 'A100'"
+        ).fetchone()
+    )
+
+    # Assert:則1 ① 被擋;則2 A100 的平行數仍是 4
+    assert update_rejected is True
+    assert a100_after_update == 4
+    # Assert:則3 ② 被擋
+    assert null_row_rejected is True
+    # Assert:則4 ③ 之後沒有任何列
+    assert count_after_delete == 0
+    # Assert:則5 ④ 寫得進去;則6 讀回只有同時載入數
+    assert rewrite_rejected is False
+    assert a100_after_rewrite == (None, None, 2)
+    conn.close()
+
+
+# ---- 005 US2-DB-05
+
+
+@pytest.mark.parametrize("kind", ["fresh", "from_v1"])
+def test_後端重新啟動後記住的類型覆蓋值都還在_不重跑遷移(tmp_path: Path, kind: str) -> None:
+    # Arrange:情況 A 全新庫;情況 B 空的 v1 舊庫遷移到 2;寫入 A100 與 T4 的覆蓋值
+    conn = _open_db(tmp_path, kind)
+    conn.execute(_INSERT_OVERRIDE, ("A100", 4, None, None, "2026-11-15T08:00:00Z"))
+    conn.execute(_INSERT_OVERRIDE, ("T4", None, None, 2, "2026-11-15T08:05:00Z"))
+
+    # Act:關掉後以新的 connect 開同一個檔再跑 create_schema(後端重新啟動)
+    conn.close()
+    conn = connect(tmp_path / f"{kind}.sqlite3")
+    restart_error: sqlite3.Error | None = None
+    try:
+        create_schema(conn)
+    except sqlite3.Error as exc:
+        restart_error = exc
+    rows = [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT gpu, num_parallel, context_length, max_loaded_models, updated_at"
+            " FROM runtime_type_tunings ORDER BY gpu"
+        )
+    ]
+
+    # Assert:則1 沒有丟出例外
+    assert restart_error is None
+    # Assert:則2 兩列照原值讀回
+    assert rows == [
+        ("A100", 4, None, None, "2026-11-15T08:00:00Z"),
+        ("T4", None, None, 2, "2026-11-15T08:05:00Z"),
+    ]
+    # Assert:則3 user_version 為 2
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     conn.close()

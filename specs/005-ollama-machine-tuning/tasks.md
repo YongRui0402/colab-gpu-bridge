@@ -786,47 +786,47 @@
 
 > 只驗 `runtime_type_tunings` 這一側的事實;DDL 已由故事 1 的 T038b、T041b 照 `contracts/store.dbml` 建出,這一節都是對照組;「情況 A」「情況 B」照 `testplan.md` § 3.3
 
-- [ ] T089a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-01 的測試(兩個庫各讀 `PRAGMA table_info(runtime_type_tunings)`;分隔註解寫 `# ---- 005 US2-DB-01`);同一個任務在 `_open_db` 加 `kind="from_v1"`(`_build_v1` 建空的 v1 舊庫再 `create_schema`,`plan.md` § 待決問題 Q43),「情況 A」「情況 B」以 `pytest.mark.parametrize` 跑同一組斷言;US1 的 T038b(全新庫)與 T041b(1 → 2 遷移)照 `contracts/store.dbml` 建出 `runtime_type_tunings`(`gpu` 為主鍵,`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「主鍵設成自動遞增的 `id`、`gpu` 只是普通欄位,同一種類型可以有好幾列,讀的時候取到哪一列不一定」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T089a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-01 的測試(兩個庫各讀 `PRAGMA table_info(runtime_type_tunings)`;分隔註解寫 `# ---- 005 US2-DB-01`);同一個任務在 `_open_db` 加 `kind="from_v1"`(`_build_v1` 建空的 v1 舊庫再 `create_schema`,`plan.md` § 待決問題 Q43),「情況 A」「情況 B」以 `pytest.mark.parametrize` 跑同一組斷言;US1 的 T038b(全新庫)與 T041b(1 → 2 遷移)照 `contracts/store.dbml` 建出 `runtime_type_tunings`(`gpu` 為主鍵,`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「主鍵設成自動遞增的 `id`、`gpu` 只是普通欄位,同一種類型可以有好幾列,讀的時候取到哪一列不一定」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US2-DB-01
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-018;`plan.md` § 待決問題 Q43
-- [ ] T089b [US2] 🟢 /tdd 綠燈:US2-DB-01 由 US1 的 T038b(全新庫)與 T041b(1 → 2 遷移)照 `contracts/store.dbml` 建出 `runtime_type_tunings`(`gpu` 為主鍵,`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-01 通過的程式碼(依賴 T089a)
+- [x] T089b [US2] 🟢 /tdd 綠燈:US2-DB-01 由 US1 的 T038b(全新庫)與 T041b(1 → 2 遷移)照 `contracts/store.dbml` 建出 `runtime_type_tunings`(`gpu` 為主鍵,`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-01 通過的程式碼(依賴 T089a)
   - 🧪 `testplan.md` § US2-DB-01
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-018;`plan.md` § 待決問題 Q43
-- [ ] T090a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-02 的測試(每種情況依序執行:①`INSERT INTO runtime_type_tunings (gpu, num_parallel, context_length, max_loaded_models, updated_at) VALUES ('A100', 4, NULL, NULL, '2026-11-15T08:00:00Z')`;②再一次 ① 但 `num_parallel=8`;③`('T4', NULL, 8192, NULL, ...)`;④`('H100', NULL, NULL, 3, ...)`;⑤`('a100', 4, NULL, NULL, ...)`;⑥`('V100', 4, NULL, NULL, ...)`;⑦`INSERT ... VALUES ('A100', NULL, 16384, NULL, '2026-11-15T09:00:00Z') ON CONFLICT (gpu) DO UPDATE SET num_parallel = excluded.num_parallel, context_length = excluded.context_length, max_loaded_models = excluded.max_loaded_models, updated_at = excluded.updated_at`;⑧讀 `SELECT gpu, num_parallel, context_length, max_loaded_models FROM runtime_type_tunings ORDER BY gpu`;分隔註解寫 `# ---- 005 US2-DB-02`);US1 的 T038b、T041b 照 `contracts/store.dbml` 以 `gpu` 為主鍵(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`gpu` 沒有主鍵或 UNIQUE,第二次寫 A100 多出一列,`ON CONFLICT (gpu)` 丟 `OperationalError`(沒有對應的唯一約束)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T090a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-02 的測試(每種情況依序執行:①`INSERT INTO runtime_type_tunings (gpu, num_parallel, context_length, max_loaded_models, updated_at) VALUES ('A100', 4, NULL, NULL, '2026-11-15T08:00:00Z')`;②再一次 ① 但 `num_parallel=8`;③`('T4', NULL, 8192, NULL, ...)`;④`('H100', NULL, NULL, 3, ...)`;⑤`('a100', 4, NULL, NULL, ...)`;⑥`('V100', 4, NULL, NULL, ...)`;⑦`INSERT ... VALUES ('A100', NULL, 16384, NULL, '2026-11-15T09:00:00Z') ON CONFLICT (gpu) DO UPDATE SET num_parallel = excluded.num_parallel, context_length = excluded.context_length, max_loaded_models = excluded.max_loaded_models, updated_at = excluded.updated_at`;⑧讀 `SELECT gpu, num_parallel, context_length, max_loaded_models FROM runtime_type_tunings ORDER BY gpu`;分隔註解寫 `# ---- 005 US2-DB-02`);US1 的 T038b、T041b 照 `contracts/store.dbml` 以 `gpu` 為主鍵(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「`gpu` 沒有主鍵或 UNIQUE,第二次寫 A100 多出一列,`ON CONFLICT (gpu)` 丟 `OperationalError`(沒有對應的唯一約束)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US2-DB-02
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-018、FR-008
-- [ ] T090b [US2] 🟢 /tdd 綠燈:US2-DB-02 由 US1 的 T038b、T041b 照 `contracts/store.dbml` 以 `gpu` 為主鍵(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-02 通過的程式碼(依賴 T090a)
+- [x] T090b [US2] 🟢 /tdd 綠燈:US2-DB-02 由 US1 的 T038b、T041b 照 `contracts/store.dbml` 以 `gpu` 為主鍵(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-02 通過的程式碼(依賴 T090a)
   - 🧪 `testplan.md` § US2-DB-02
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-018、FR-008
-- [ ] T091a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-03 的測試(每種情況以 `gpu='L4'` 逐句 `INSERT`(其他兩個值 NULL,寫完一句成功的就 `DELETE` 掉再寫下一句):`num_parallel` 為 1、32、0、33;`context_length` 為 2048、131072、2047、131073;`max_loaded_models` 為 1、4、0、5;最後一句三個值都合法但 `updated_at` 為 NULL;分隔註解寫 `# ---- 005 US2-DB-03`);US1 的 T038b、T041b 照 `contracts/store.dbml` 寫三個範圍的 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「範圍只在 api 檢查、表上沒有 CHECK(store.dbml 定為最後一道),repos 的錯誤或手動改庫寫進 64,下次開啟把平行數 64 帶給遠端」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T091a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-03 的測試(每種情況以 `gpu='L4'` 逐句 `INSERT`(其他兩個值 NULL,寫完一句成功的就 `DELETE` 掉再寫下一句):`num_parallel` 為 1、32、0、33;`context_length` 為 2048、131072、2047、131073;`max_loaded_models` 為 1、4、0、5;最後一句三個值都合法但 `updated_at` 為 NULL;分隔註解寫 `# ---- 005 US2-DB-03`);US1 的 T038b、T041b 照 `contracts/store.dbml` 寫三個範圍的 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「範圍只在 api 檢查、表上沒有 CHECK(store.dbml 定為最後一道),repos 的錯誤或手動改庫寫進 64,下次開啟把平行數 64 帶給遠端」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US2-DB-03
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-017、FR-018
-- [ ] T091b [US2] 🟢 /tdd 綠燈:US2-DB-03 由 US1 的 T038b、T041b 照 `contracts/store.dbml` 寫三個範圍的 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-03 通過的程式碼(依賴 T091a)
+- [x] T091b [US2] 🟢 /tdd 綠燈:US2-DB-03 由 US1 的 T038b、T041b 照 `contracts/store.dbml` 寫三個範圍的 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-03 通過的程式碼(依賴 T091a)
   - 🧪 `testplan.md` § US2-DB-03
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-017、FR-018
-- [ ] T092a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-04 的測試(每種情況依序執行:①`UPDATE runtime_type_tunings SET num_parallel = NULL WHERE gpu = 'A100'`;②`INSERT ... VALUES ('T4', NULL, NULL, NULL, '2026-11-15T08:10:00Z')`;③`DELETE FROM runtime_type_tunings WHERE gpu = 'A100'`;④`INSERT ... VALUES ('A100', NULL, NULL, 2, '2026-11-15T08:20:00Z')`;分隔註解寫 `# ---- 005 US2-DB-04`);US1 的 T038b、T041b 照 `contracts/store.dbml` 寫「至少一個不為 NULL」的表層級 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「照 Q23 的另一個選項,清除時把三個值改成 NULL、留下那一列,表上沒有「至少一個不為 NULL」的表層級 CHECK,`getTuningOverrides` 對清除過的類型回出 `updatedAt` 有值、三個 null 的資料,和「沒有記過」分不出來」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T092a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-04 的測試(每種情況依序執行:①`UPDATE runtime_type_tunings SET num_parallel = NULL WHERE gpu = 'A100'`;②`INSERT ... VALUES ('T4', NULL, NULL, NULL, '2026-11-15T08:10:00Z')`;③`DELETE FROM runtime_type_tunings WHERE gpu = 'A100'`;④`INSERT ... VALUES ('A100', NULL, NULL, 2, '2026-11-15T08:20:00Z')`;分隔註解寫 `# ---- 005 US2-DB-04`);US1 的 T038b、T041b 照 `contracts/store.dbml` 寫「至少一個不為 NULL」的表層級 CHECK(`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「照 Q23 的另一個選項,清除時把三個值改成 NULL、留下那一列,表上沒有「至少一個不為 NULL」的表層級 CHECK,`getTuningOverrides` 對清除過的類型回出 `updatedAt` 有值、三個 null 的資料,和「沒有記過」分不出來」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US2-DB-04
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-018、FR-009;`plan.md` § 待決問題 Q23
-- [ ] T092b [US2] 🟢 /tdd 綠燈:US2-DB-04 由 US1 的 T038b、T041b 照 `contracts/store.dbml` 寫「至少一個不為 NULL」的表層級 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-04 通過的程式碼(依賴 T092a)
+- [x] T092b [US2] 🟢 /tdd 綠燈:US2-DB-04 由 US1 的 T038b、T041b 照 `contracts/store.dbml` 寫「至少一個不為 NULL」的表層級 CHECK(`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-04 通過的程式碼(依賴 T092a)
   - 🧪 `testplan.md` § US2-DB-04
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-018、FR-009;`plan.md` § 待決問題 Q23
-- [ ] T093a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-05 的測試(每種情況 `conn.close()`,以新的 `connect` 開同一個檔,再呼叫 `create_schema(conn)`(後端重新啟動),讀 `SELECT gpu, num_parallel, context_length, max_loaded_models, updated_at FROM runtime_type_tunings ORDER BY gpu`;分隔註解寫 `# ---- 005 US2-DB-05`);US1 的 T047b(`user_version` 已是 2 就不跑遷移,`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「已經是 2 的庫每次啟動都重跑 1 → 2 的步驟 3,以 `DROP TABLE IF EXISTS runtime_type_tunings` 再建,後端一重啟記住的覆蓋值全部消失(FR-018「跨後端重新啟動保留」)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
+- [x] T093a [US2] 🔴 /tdd 紅燈(對照組):在 `tests/integration/test_db_schema.py` 寫 US2-DB-05 的測試(每種情況 `conn.close()`,以新的 `connect` 開同一個檔,再呼叫 `create_schema(conn)`(後端重新啟動),讀 `SELECT gpu, num_parallel, context_length, max_loaded_models, updated_at FROM runtime_type_tunings ORDER BY gpu`;分隔註解寫 `# ---- 005 US2-DB-05`);US1 的 T047b(`user_version` 已是 2 就不跑遷移,`src/cgb/db/schema.py`)已做到這段程式,這個案例會被滿足:先執行確認通過,再暫時放入「已經是 2 的庫每次啟動都重跑 1 → 2 的步驟 3,以 `DROP TABLE IF EXISTS runtime_type_tunings` 再建,後端一重啟記住的覆蓋值全部消失(FR-018「跨後端重新啟動保留」)」這類實作,執行確認斷言失敗後撤回;若一執行就斷言失敗,就當成一般的紅燈,不必再暫時改壞(`plan.md` § 待決問題 Q54)
   - 🧪 `testplan.md` § US2-DB-05
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-018、使用者故事 2 驗收情境 2
-- [ ] T093b [US2] 🟢 /tdd 綠燈:US2-DB-05 由 US1 的 T047b(`user_version` 已是 2 就不跑遷移,`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-05 通過的程式碼(依賴 T093a)
+- [x] T093b [US2] 🟢 /tdd 綠燈:US2-DB-05 由 US1 的 T047b(`user_version` 已是 2 就不跑遷移,`src/cgb/db/schema.py`)滿足,確認 `src/cgb/db/schema.py` 不需要為它改程式碼,執行全部測試確認都通過;紅燈時若它其實沒有通過,才在 `src/cgb/db/schema.py` 只寫讓 US2-DB-05 通過的程式碼(依賴 T093a)
   - 🧪 `testplan.md` § US2-DB-05
   - ⚙ `contracts/store.dbml` § `Table runtime_type_tunings`
   - 📎 `spec.md` § FR-018、使用者故事 2 驗收情境 2
-- [ ] T094 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T089b~T093b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T093b)
+- [x] T094 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T089b~T093b 記下的重構清單(範圍限 `src/cgb/db/`),每改一小步執行全部測試,變紅就撤回那一步;不改 `tests/integration/test_db_schema.py` 的斷言(依賴 T093b)
   - 🧪 `testplan.md` § US2-DB-01~US2-DB-05
   - 📎 `testplan.md` § 3.3
 
