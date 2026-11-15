@@ -171,3 +171,62 @@ def test_平行數超出範圍時說明範圍_不開啟也不記住(page: Page, 
     screen = open_screen(page)
     pick(screen, "A100")
     expect(field(screen, "numParallel")).not_to_have_value("64")
+
+
+# ---- 005 US2-AJ-02(變更類型)
+
+
+def open_t4_ready(page: Page) -> None:
+    screen = open_screen(page)
+    screen.locator(".tuning-block > summary").click()
+    field(screen, "numParallel").fill("4")
+    press_open(screen)
+    expect(page.locator('[data-state="ready"]')).to_be_visible(timeout=10_000)
+
+
+def test_變更類型的確認頁預先填入目標類型記住的值_不沿用目前類型的欄位(page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any) -> None:
+    # Arrange:L4 記住平行數 8,再以平行數 4 開 T4
+    fakes.colab.start_ollama.side_effect(a100_start)
+    screen = open_screen(page)
+    pick(screen, "L4")
+    screen.locator(".tuning-block > summary").click()
+    field(screen, "numParallel").fill("8")
+    press_open(screen)
+    expect(page.locator('[data-state="ready"]')).to_be_visible(timeout=10_000)
+    end_session(e2e_servers)
+    page.goto("/")
+    open_t4_ready(page)
+
+    # Act:按「變更類型」,不另點類型選項
+    page.locator('[data-state="ready"]').get_by_role("button", name="變更類型").click()
+
+    # Assert:預選的 L4 欄位是它記住的 8,不是 T4 的 4
+    confirm = page.locator('[data-state="confirm-switch"]')
+    expect(confirm.locator('input[type="radio"][value="L4"]')).to_be_checked()
+    expect(field(confirm, "numParallel")).to_have_value("8")
+
+
+# ---- 005 FR-017(變更類型)
+
+
+def test_變更類型的平行數超出範圍時留在確認頁說明範圍_原工作階段不受影響(page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any) -> None:
+    # Arrange
+    fakes.colab.start_ollama.side_effect(a100_start)
+    open_t4_ready(page)
+    page.locator('[data-state="ready"]').get_by_role("button", name="變更類型").click()
+    confirm = page.locator('[data-state="confirm-switch"]')
+    confirm.locator(".tuning-block > summary").click()
+    field(confirm, "numParallel").fill("64")
+
+    # Act
+    page.click("#switch")
+
+    # Assert:留在確認頁、保留輸入、說明 1~32
+    expect(confirm).to_be_visible()
+    expect(field(confirm, "numParallel")).to_have_value("64")
+    expect(page.locator("#switch-invalid-note")).to_be_visible()
+    expect(page.locator("#switch-invalid-note")).to_contain_text("1~32")
+    # 沒有重開:原本的工作階段還在
+    page.goto("/")
+    expect(page.locator('[data-state="ready"]')).to_be_visible()
+    assert fakes.colab.create_session.call_count == 1

@@ -120,11 +120,13 @@ function renderOpen() {
 
 // 開啟畫面的說明:範圍不符(後端擋下)優先,否則有記住的值時說明已預先填入
 function renderOpenNotes() {
-  const invalid = $("invalid-note");
   const prefilled = $("prefill-note");
   const errors = Object.values(fieldErrors);
-  invalid.hidden = !errors.length;
-  if (errors.length) invalid.innerHTML = `<strong>Ollama 設定有 ${errors.length} 項不在範圍內</strong>沒有開啟工作階段,也沒有記住這組值。${errors.map(escape).join(";")}。`;
+  for (const [id, effect] of [["invalid-note", "沒有開啟工作階段"], ["switch-invalid-note", "沒有變更類型,目前的工作階段不受影響"]]) {
+    const invalid = $(id);
+    invalid.hidden = !errors.length;
+    if (errors.length) invalid.innerHTML = `<strong>Ollama 設定有 ${errors.length} 項不在範圍內</strong>${effect},也沒有記住這組值。${errors.map(escape).join(";")}。`;
+  }
   const remembered = typeOverrides.find((o) => o.gpu === picked.gpu);
   prefilled.hidden = Boolean(errors.length) || !remembered?.updatedAt;
   if (!prefilled.hidden) {
@@ -326,8 +328,12 @@ document.querySelector("main").addEventListener("click", (event) => {
   if (!go) return;
   local = go.dataset.go === "ready" ? null : go.dataset.go;
   // 變更類型預設選另一種(prototype/index.html)
-  if (local === "confirm-switch") picked = { gpu: session.runtimeType.gpu === "T4" ? "L4" : "T4", highMem: false };
-  renderPicker();
+  if (local === "confirm-switch") {
+    picked = { gpu: session.runtimeType.gpu === "T4" ? "L4" : "T4", highMem: false };
+    // FR-008:預選的目標類型也要換成它記住的值,不沿用目前類型的欄位
+    prefill();
+  }
+  renderOpen();
   render();
 });
 
@@ -410,9 +416,20 @@ $("cancel-open").addEventListener("click", () => {
 });
 
 $("switch").addEventListener("click", async () => {
-  local = null;
+  const response = await request("POST", "/session/restart", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem }, tuning: tuningBody() });
+  // FR-017:範圍不符時後端回 400,沒有重開;留在確認畫面、保留輸入並說明範圍
+  const rangeField = RANGE_CODES[response.data?.code];
+  if (rangeField) {
+    fieldErrors = { [rangeField]: response.data.message };
+    tuningOpen = true;
+    renderOpen();
+    return;
+  }
+  fieldErrors = {};
+  // 受理後才離開確認畫面,之後的結果等 `session.updated` 推送
+  local = response.data?.code === "AUTH_REQUIRED" ? "needs-login" : null;
+  if (response.ok) loadTypeOverrides();
   render();
-  await request("POST", "/session/restart", { runtimeType: { gpu: picked.gpu, highMem: picked.highMem }, tuning: tuningBody() });
 });
 
 $("stop").addEventListener("click", async () => {
