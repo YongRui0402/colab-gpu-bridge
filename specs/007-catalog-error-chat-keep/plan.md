@@ -89,3 +89,20 @@ tests/
 | Q7 | S2 | 對話頁的按鈕文字:a 現有的「清空」改成「清除」,和 spec 驗收情境 8 的用字一致(先採用);b 沿用「清空」 | — | a(D11) |
 | Q8 | S2 | 狀態總覽裡讀不到目錄的三種代碼只有一格:a 照 research R2 只用一個 `unavailable` 狀態,那一格演 `OLLAMA_UNREACHABLE`,另外兩種的訊息寫在說明文字;對話頁那一格演 `OLLAMA_BAD_RESPONSE`(先採用);b 每個代碼各開一個狀態 | — | a(D11) |
 | Q9 | S2 | 審美方向:a 沿用現有 UI 與 004~006 原型的配色與排版,只加提示的排版(先採用);b 重新訂 | — | a(D11) |
+| Q10 | testplan | `FakeRemoteOllama`(遠端 Ollama 轉接層)怎麼實跑:a 加 G-01(📏 量測,時機:節內):真的 `RemoteOllama` + 真的 app,通道位址分別指到沒人聽的 127.0.0.1 port、回非 JSON 的臨時 http.server、只接連線不回應的 socket,斷言列目錄與預先載入 502/502/504、沒有 500;不起 `ollama serve`、不碰 11434,標 `realrun_local` 預設排除(先採用);b 無法實跑,引用 003 G-01;c a 再加臨時 `ollama serve` 驗恢復 | — | a(分身決策紀錄 D12) |
+| Q11 | testplan | research R1 要拿掉 `api/connect.py` 自己接 `AdapterError` 的那段,`GET /api/connect` 要不要回歸:a E2 節加回歸案例,三種代碼仍回同樣的 502/504 與訊息,錨點用 006 `contracts/ui.openapi.yaml` § `paths./connect.get`(先採用);b 不加,寫進不在範疇 | — | a(D12) |
+| Q12 | testplan | e2e 的 `FakeColabControl`、`FakeTunnel`(Colab 執行環境與通道)與五種結束方式的實跑:a 寫「無法實跑:spec 假設這一輪不跑 colab、不花 compute units」(先採用);b 另排 Colab 實跑 | — | a(D12) |
+| Q13 | testplan | `preloadModel` 確認目錄失敗時合約寫「也不推送 `models.updated`」,要不要驗:a US1-API-08 改用 `live_servers` 連著 `/api/events`,斷言送出後 1 秒內沒有 `models.updated`(先採用);b 不驗,寫進不在範疇 | — | a(分身決策紀錄 D13) |
+| Q14 | testplan | Q3 的 `hf.co` 名稱要不要有專門案例:a 不另寫,只在 US1-API-08 用一個 `hf.co/...` 模型當「其他模型」,名稱格式屬 400、照 Q2 排除(先採用);b 另寫一個 `hf.co` 名稱受理的案例 | — | a(分身決策紀錄 D13) |
+| Q15 | testplan | 三種代碼寫成同一個案例的三條則還是拆三個案例:a 同一個案例分三條則,訊息另拆成 US1-API-02、11、15,實作可用 `parametrize`(先採用);b 每種代碼各一個案例 | — | a(分身決策紀錄 D13) |
+| Q16 | testplan | 畫面出現說明、另一個分頁結束工作階段後畫面換狀態的時限 spec 沒寫:a 照 Playwright 預設 5 秒,和 SC-003 一致;預設資料用顯示記憶體 15 GiB 與不會跳 `preload-warn` 的模型(先採用);b 另訂更短的門檻 | — | a(分身決策紀錄 D13) |
+| Q17 | testplan | NFR-003「不含英文字母」怎麼判斷(後端三句說明本身有「Ollama」):a 說明比對合約原句,其餘提示文字(標題、按鈕、小字)去掉代碼與模型名稱後斷言不含 A–Z、a–z(先採用);b 整塊字串白名單比對 | — | a(分身決策紀錄 D13) |
+| Q18 | testplan | US2-API-09 的隱私檢查要用不在受測操作表的 `POST /api/chat`:a 受測操作表加一列(004 合約 § `chat`),替身 `FakeOllamaServer` 寫無法實跑(007 沒改對話轉送,004 已實跑),`chat` 的錯誤碼寫進不在範疇(由 004 案例涵蓋)(先採用);b 把 US2-API-09 移到跨端點驗收 | — | a(分身決策紀錄 D13) |
+| Q19 | testplan | 要讀 SSE 的 E2 案例用哪種伺服器:a 照既有慣例用測試行程內 uvicorn(`live_servers`、`start_live_servers`),端點表的工具欄補一句(先採用);b 用 ASGITransport 讀串流 | — | a(分身決策紀錄 D13) |
+| Q20 | testplan | NFR-002 放在 E2 節還是只放跨端點驗收:a 兩邊都有,US2-API-09 驗後端的資料庫、日誌與 SSE(含對照組),US2-AJ-28 跑整段 SC-004(先採用);b 只放 US2-AJ | — | a(分身決策紀錄 D13) |
+| Q21 | testplan | 對話頁說明區塊的「重新讀取」(`chat.html` `#reload`)受測操作表沒列:a 這一輪不用它,對話頁恢復改用重新整理或切頁,US1-AJ-11 只斷言它的文字是中文(先採用);b 補進受測操作表,加一個恢復後可以送出的案例 | — | a(分身決策紀錄 D13) |
+| Q22 | testplan | 回覆途中工作階段結束:007 FR-006 與 research R4 要清空並顯示「工作階段已結束,對話已清除」(US2-AJ-14),但 004 spec FR-008 與驗收情境 8 寫「回覆途中工作階段中斷…必須保留已收到的部分並標示中斷與原因」,004 的 e2e `test_回覆途中工作階段被結束_保留已收到的內容並標示中斷`、`test_回覆途中在另一個分頁變更類型_保留已收到的內容並說明正在變更類型` 會轉紅。a 照 007 FR-006 清空,tasks 排任務改寫或刪掉那兩支 004 測試(先採用);b 保留 004 的行為,先顯示中斷幾秒後再清 | — | 待使用者本人決定(和 004 spec FR-008 矛盾,分身不代答,見分身決策紀錄「停下的矛盾」);testplan 先照 007 FR-006 寫 US2-AJ-14 |
+| Q23 | testplan | Q7 把「清空」改成「清除」後,004 測試名稱與斷言用的「清空」:a tasks 一起更新 004 的相關斷言(先採用);b 不動 004 的測試 | — | a(分身決策紀錄 D13) |
+| Q24 | testplan | SC-003 的 5 秒從什麼時候起算:a 從測試以 `GET /api/session` 輪詢到結束狀態(變更類型是 `name` 第一次變了)的那一刻起算,因為閒置、被收回、重連逾時沒有使用者動作可以當起點(先採用);b 從使用者按下確認起算 | — | a(分身決策紀錄 D13) |
+| Q25 | testplan | 「瀏覽器不允許保存」怎麼模擬:a 用 `add_init_script` 讓 `setItem` 丟 `QuotaExceededError`、讀 `localStorage` 丟 `SecurityError`,替身寫無法實跑,真的無痕模式列進完成報告為未驗證(先採用);b 寫成 📏 人工,本人用真的無痕視窗驗(時機:整合) | — | a(分身決策紀錄 D13) |
+| Q26 | testplan | 變更類型時 `#cleared-name` 與實作的狀態名稱:a US2-AJ-13 不斷言 `#cleared-name`;實作照原型的 `data-state` 名稱與 spec 原文做(`keep-*`、`chat-model-gone`、「中斷:離開頁面時這則回覆還沒有完成」),案例不用改(先採用);b 加一條則斷言 `#cleared-name`,實作另取名稱再回頭改案例 | — | a(分身決策紀錄 D13) |
