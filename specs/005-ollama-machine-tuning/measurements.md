@@ -82,3 +82,13 @@
 - `/api/ps`(name, size, size_vram, context_length):自動 None;平行 1 None;n_seq_max {'auto': [], 'p1': []}
 - **G-01 自動值 / 平行 1 = None,門檻 ≤ 0.6;size_vram = size False;server config 五個變數 False;n_seq_max 等於套用值 False:沒過**
 - 其他:{'error': '沒有就緒:COLAB_FAILED 開啟執行環境失敗,請稍後再試。'}
+
+## G-01(T170)真的 Colab A100
+
+- 日期:2026-11-16 11:44;開啟 {'seconds': 204.2, 'state': 'ready', 'reason': None};下載 加入 201;completed(None),33 秒;整批 7.6 分,用掉 0.0 compute units(用量 6.73/hr);P3 之後 cgb-test- 的行 []
+- 硬體:{'gpuName': 'NVIDIA A100-SXM4-40GB', 'vramTotalBytes': 42949672960, 'systemMemoryTotalBytes': 89629184000, 'probedAt': '2026-11-16T03:39:58.657906+00:00'}
+- 自動值:設定 {'numParallel': 8, 'contextLength': 8192, 'maxLoadedModels': 2, 'flashAttention': True, 'kvCacheType': 'q8_0'};3 輪 [15.3, 6.1, 6.4] 秒,中位數 6.4260122400010005
+- 平行數 1(開著時套用 {'accepted': 202, 'seconds': 22.2, 'state': 'ready'}):設定 {'numParallel': 1, 'contextLength': 8192, 'maxLoadedModels': 2, 'flashAttention': True, 'kvCacheType': 'q8_0'};3 輪 [12.8, 12.8, 12.8] 秒,中位數 12.796557037043385
+- `/api/ps`(name, size, size_vram, context_length):自動 [('qwen2.5:7b', 6985959340, 6985959340, 8192)];平行 1 [('qwen2.5:7b', 4930729409, 4930729409, 8192)];n_seq_max {'auto': [8], 'p1': [8, 1]}
+- **G-01 自動值 / 平行 1 = 0.502,門檻 ≤ 0.6;size_vram = size True;server config 五個變數 True;n_seq_max 等於套用值 True:過**
+- 其他:{}
