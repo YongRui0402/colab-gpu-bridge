@@ -575,127 +575,127 @@
   - 🧪 `testplan.md` § US2-AJ-15
   - ⚙ `prototype/chat.html` § `[data-state="keep-checking"]`、`[data-state="chat-ready"]`;`contracts/ui.openapi.yaml` § `paths./events.get`;`prototype/index.html` § `[data-state="ready"]`、`[data-state="ending"]`、`[data-state="ended"]`、`[data-state="opening"]`
   - 📎 `spec.md` § FR-006、SC-003;`research.md` § R4
-- [ ] T056a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-16 的測試(`two_rounds` 後關掉對話頁分頁;在工作階段頁變更類型成 L4,等新的工作階段就緒;新開分頁打開 `/chat.html`,等 `[data-state="chat-ready"]`;斷言 `#log .msg` 0 則、保存是 null);T055b 載入時同時比對 `state` 與 `name`,這個案例會被滿足:先執行確認通過,再暫時讓載入時只看 `state` 是不是 `ready`,確認斷言失敗後撤回
+- [X] T056a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-16 的測試(`two_rounds` 後關掉對話頁分頁;在工作階段頁變更類型成 L4,等新的工作階段就緒;新開分頁打開 `/chat.html`,等 `[data-state="chat-ready"]`;斷言 `#log .msg` 0 則、保存是 null);T055b 載入時同時比對 `state` 與 `name`,這個案例會被滿足:先執行確認通過,再暫時讓載入時只看 `state` 是不是 `ready`,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-16
   - ⚙ `prototype/chat.html` § `[data-state="chat-ready"]`、`#log`;`prototype/index.html` § `[data-state="ready"]`、`#switch`;`contracts/ui.openapi.yaml` § `paths./events.get`
   - 📎 `spec.md` § FR-006、SC-003、§ 使用者故事 2 驗收情境 7;`research.md` § R4
-- [ ] T056b [US2] 🟢 /tdd 綠燈:US2-AJ-16 由 T055b 載入時的名稱比對滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-16 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T056a)
+- [X] T056b [US2] 🟢 /tdd 綠燈:US2-AJ-16 由 T055b 載入時的名稱比對滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-16 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T056a)
   - 🧪 `testplan.md` § US2-AJ-16
   - ⚙ `prototype/chat.html` § `#log`、`[data-state="chat-ready"]`;`contracts/ui.openapi.yaml` § `paths./events.get`;`prototype/index.html` § `[data-state="ready"]`
   - 📎 `spec.md` § FR-006;`research.md` § R4
-- [ ] T057a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-17 的測試(`two_rounds` 後關掉對話頁分頁;在工作階段頁按「結束」並確認、等 `[data-state="ended"]`,不開新的;新開分頁打開 `/chat.html`;斷言 `[data-state="chat-no-session"]` 出現、`#log .msg` 0 則、保存是 null);T055b 載入時要求 `state` 在可還原的四種之內,且 T049b 收到 `ended` 會清,這個案例會被滿足:先執行確認通過,再暫時讓載入時只比對 `name`、同時讓 `sessionUpdated` 不看 `END_STATES`,確認斷言失敗後撤回
+- [X] T057a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-17 的測試(`two_rounds` 後關掉對話頁分頁;在工作階段頁按「結束」並確認、等 `[data-state="ended"]`,不開新的;新開分頁打開 `/chat.html`;斷言 `[data-state="chat-no-session"]` 出現、`#log .msg` 0 則、保存是 null);T055b 載入時要求 `state` 在可還原的四種之內,且 T049b 收到 `ended` 會清,這個案例會被滿足:先執行確認通過,再暫時讓載入時只比對 `name`、同時讓 `sessionUpdated` 不看 `END_STATES`,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-17
   - ⚙ `prototype/chat.html` § `[data-state="chat-no-session"]`、`#log`;`prototype/index.html` § `[data-state="ready"]`、`#end`、`[data-state="ended"]`;`contracts/ui.openapi.yaml` § `paths./events.get`
   - 📎 `spec.md` § FR-006、SC-003;`research.md` § R4
-- [ ] T057b [US2] 🟢 /tdd 綠燈:US2-AJ-17 由 T055b 載入時的狀態比對與 T049b 滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-17 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T057a)
+- [X] T057b [US2] 🟢 /tdd 綠燈:US2-AJ-17 由 T055b 載入時的狀態比對與 T049b 滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-17 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T057a)
   - 🧪 `testplan.md` § US2-AJ-17
   - ⚙ `prototype/chat.html` § `[data-state="chat-no-session"]`;`contracts/ui.openapi.yaml` § `paths./events.get`;`prototype/index.html` § `[data-state="ready"]`、`[data-state="ended"]`
   - 📎 `spec.md` § FR-006;`research.md` § R4
-- [ ] T058a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-18 的測試(`two_rounds` 後按 `#clear`,再重新整理;斷言按下後 `#log .msg` 0 則、保存是 null,重新整理後 0 則,`#clear` 的文字是「清除」),執行確認它因為「只清 `convo` 與畫面、沒有 `removeItem`,重新整理又還原;或按鈕文字沿用 004 的「清空」」這類實作而失敗
+- [X] T058a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-18 的測試(`two_rounds` 後按 `#clear`,再重新整理;斷言按下後 `#log .msg` 0 則、保存是 null,重新整理後 0 則,`#clear` 的文字是「清除」),執行確認它因為「只清 `convo` 與畫面、沒有 `removeItem`,重新整理又還原;或按鈕文字沿用 004 的「清空」」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-18
   - ⚙ `prototype/chat.html` § `#clear`、`#log`
   - 📎 `spec.md` § FR-007、NFR-003、§ 使用者故事 2 驗收情境 8;`research.md` § R3;`plan.md` § 待決問題 Q7、Q23
-- [ ] T058b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html` 只寫讓 US2-AJ-18 通過的程式碼:`chat.html` 的 `#clear` 文字「清空」改「清除」(plan Q7 a);`clearChat()` 在清空 `convo` 後 `removeItem("cgb.chat.v1")`、不寫 `{messages: []}` 空殼(research R3),並解除綁定的工作階段;`chat.js` 裡「清空」的註解(`finishTurn` 的「回覆途中按了清空」、`clearChat` 上方)一起改成「清除」;依 plan Q23 a 搜過 `tests/`:沒有斷言按鈕文字「清空」的測試,`tests/e2e/test_004_us2_chat.py` 的 `test_清空與換模型都清掉畫面與要帶上的對話` 只用 `#clear`、不必改,`tests/e2e/test_004_g_03.py` 只有說明文字提到「清空」、不必改;執行 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 確認通過;看到要整理的地方記進重構清單(依賴 T058a)
+- [X] T058b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html` 只寫讓 US2-AJ-18 通過的程式碼:`chat.html` 的 `#clear` 文字「清空」改「清除」(plan Q7 a);`clearChat()` 在清空 `convo` 後 `removeItem("cgb.chat.v1")`、不寫 `{messages: []}` 空殼(research R3),並解除綁定的工作階段;`chat.js` 裡「清空」的註解(`finishTurn` 的「回覆途中按了清空」、`clearChat` 上方)一起改成「清除」;依 plan Q23 a 搜過 `tests/`:沒有斷言按鈕文字「清空」的測試,`tests/e2e/test_004_us2_chat.py` 的 `test_清空與換模型都清掉畫面與要帶上的對話` 只用 `#clear`、不必改,`tests/e2e/test_004_g_03.py` 只有說明文字提到「清空」、不必改;執行 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 確認通過;看到要整理的地方記進重構清單(依賴 T058a)
   - 🧪 `testplan.md` § US2-AJ-18
   - ⚙ `prototype/chat.html` § `#clear`
   - 📎 `spec.md` § FR-007、NFR-003;`research.md` § R3;`plan.md` § 待決問題 Q7、Q23
-- [ ] T059a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-19 的測試(`#model` 選 `qwen2.5:latest` 後 `two_rounds`,改選 `llama3.2:3b`,再重新整理;斷言改選後 `#log .msg` 0 則、保存是 null,重新整理後 0 則);`#model` 的 `change` 走 `clearChat()`,T058b 已讓它 `removeItem`,這個案例會被滿足:先執行確認通過,再暫時在 `change` 處理函式裡先以舊的 `convo` 與新模型整份寫入再清畫面(不 `removeItem`),確認斷言失敗後撤回
+- [X] T059a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-19 的測試(`#model` 選 `qwen2.5:latest` 後 `two_rounds`,改選 `llama3.2:3b`,再重新整理;斷言改選後 `#log .msg` 0 則、保存是 null,重新整理後 0 則);`#model` 的 `change` 走 `clearChat()`,T058b 已讓它 `removeItem`,這個案例會被滿足:先執行確認通過,再暫時在 `change` 處理函式裡先以舊的 `convo` 與新模型整份寫入再清畫面(不 `removeItem`),確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-19
   - ⚙ `prototype/chat.html` § `#model`、`#log`
   - 📎 `spec.md` § FR-007、§ 使用者故事 2 驗收情境 8;`research.md` § R3
-- [ ] T059b [US2] 🟢 /tdd 綠燈:US2-AJ-19 由既有的 `change` → `clearChat()` 與 T058b 的 `removeItem` 滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過(例如重新整理後 `#model` 沒落在 `llama3.2:3b`),才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-19 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T059a)
+- [X] T059b [US2] 🟢 /tdd 綠燈:US2-AJ-19 由既有的 `change` → `clearChat()` 與 T058b 的 `removeItem` 滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過(例如重新整理後 `#model` 沒落在 `llama3.2:3b`),才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-19 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T059a)
   - 🧪 `testplan.md` § US2-AJ-19
   - ⚙ `prototype/chat.html` § `#model`
   - 📎 `spec.md` § FR-007;`research.md` § R3
-- [ ] T060a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-20 的測試(同一個 context 開分頁 A、B 都打開對話頁且都是空的;A 完成「你好」→「一二三」,再重新整理 B;斷言 B 的 `#log .msg` 依序「你好」「一二三」);T041b~T058b 只在自己的 `convo` 改變或判定結束時寫入或移除,沒有在 `pagehide`、`beforeunload` 寫入(T045b 只設旗標),而且 `sessionUpdated` 只在已綁定時清,這個案例會被滿足:先執行確認通過,再暫時在 `pagehide` 把自己的 `convo` 整份寫入(空的就 `removeItem`),確認斷言失敗後撤回
+- [X] T060a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-20 的測試(同一個 context 開分頁 A、B 都打開對話頁且都是空的;A 完成「你好」→「一二三」,再重新整理 B;斷言 B 的 `#log .msg` 依序「你好」「一二三」);T041b~T058b 只在自己的 `convo` 改變或判定結束時寫入或移除,沒有在 `pagehide`、`beforeunload` 寫入(T045b 只設旗標),而且 `sessionUpdated` 只在已綁定時清,這個案例會被滿足:先執行確認通過,再暫時在 `pagehide` 把自己的 `convo` 整份寫入(空的就 `removeItem`),確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-20
   - ⚙ `prototype/chat.html` § `#log`
   - 📎 `spec.md` § FR-004、§ 邊界情況;`research.md` § R3
-- [ ] T060b [US2] 🟢 /tdd 綠燈:US2-AJ-20 由「只在改變時寫入」與 `sessionUpdated` 只清已綁定的對話滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過(例如 B 收到 A 對話後推送的 `session.updated` 時以空的 `convo` 寫入),才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-20 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T060a)
+- [X] T060b [US2] 🟢 /tdd 綠燈:US2-AJ-20 由「只在改變時寫入」與 `sessionUpdated` 只清已綁定的對話滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過(例如 B 收到 A 對話後推送的 `session.updated` 時以空的 `convo` 寫入),才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-20 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T060a)
   - 🧪 `testplan.md` § US2-AJ-20
   - ⚙ `prototype/chat.html` § `#log`
   - 📎 `spec.md` § 邊界情況;`research.md` § R3
-- [ ] T061a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-21 的測試(A 完成「你好」→「一二三」後開分頁 B 還原同一輪;替身前兩次 `POST /api/chat` 各在第一段後停在一個 `Gate`;A 送「甲」、B 送「乙」,先放行 A 到 `DONE` 等 A 完成,再放行 B 等 B 完成;開分頁 C 打開對話頁;斷言 C 的 `#log .msg` 依序 user「你好」、assistant「一二三」、user「乙」、B 收到的回覆,共 4 則);T041b、T045b 每次都以自己的 `convo` 整份覆寫,這個案例會被滿足:先執行確認通過,再暫時讓寫入前先讀回保存、接上自己的新訊息再寫,確認斷言失敗後撤回
+- [X] T061a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-21 的測試(A 完成「你好」→「一二三」後開分頁 B 還原同一輪;替身前兩次 `POST /api/chat` 各在第一段後停在一個 `Gate`;A 送「甲」、B 送「乙」,先放行 A 到 `DONE` 等 A 完成,再放行 B 等 B 完成;開分頁 C 打開對話頁;斷言 C 的 `#log .msg` 依序 user「你好」、assistant「一二三」、user「乙」、B 收到的回覆,共 4 則);T041b、T045b 每次都以自己的 `convo` 整份覆寫,這個案例會被滿足:先執行確認通過,再暫時讓寫入前先讀回保存、接上自己的新訊息再寫,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-21
   - ⚙ `prototype/chat.html` § `#input`、`#send`、`#log`
   - 📎 `spec.md` § 邊界情況;`research.md` § R3
-- [ ] T061b [US2] 🟢 /tdd 綠燈:US2-AJ-21 由 T041b、T045b 的整份覆寫(最後寫入的為準)滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-21 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T061a)
+- [X] T061b [US2] 🟢 /tdd 綠燈:US2-AJ-21 由 T041b、T045b 的整份覆寫(最後寫入的為準)滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-21 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T061a)
   - 🧪 `testplan.md` § US2-AJ-21
   - ⚙ `prototype/chat.html` § `#log`
   - 📎 `spec.md` § 邊界情況;`research.md` § R3
-- [ ] T062a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-22 的測試(`context.add_init_script` 讓 `Storage.prototype.setItem` 一律丟 `DOMException("…", "QuotaExceededError")`,`page.on("pageerror")` 記下未處理的例外;打開對話頁送出「你好」;斷言顯示「這個瀏覽器無法保存對話,離開或重新整理後會消失」、回覆「一二三」出現且下方顯示速度、`pageerror` 0 次),執行確認它因為「每段寫入的 `setItem` 例外沒接住,`send()` 在第一段就丟出,回覆停在「正在回覆」」這類實作而失敗
+- [X] T062a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-22 的測試(`context.add_init_script` 讓 `Storage.prototype.setItem` 一律丟 `DOMException("…", "QuotaExceededError")`,`page.on("pageerror")` 記下未處理的例外;打開對話頁送出「你好」;斷言顯示「這個瀏覽器無法保存對話,離開或重新整理後會消失」、回覆「一二三」出現且下方顯示速度、`pageerror` 0 次),執行確認它因為「每段寫入的 `setItem` 例外沒接住,`send()` 在第一段就丟出,回覆停在「正在回覆」」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-22
   - ⚙ `prototype/chat.html` § `[data-state="keep-no-store"]`、`#send`、`#log`
   - 📎 `spec.md` § FR-004、§ 邊界情況;`research.md` § R3;`plan.md` § 待決問題 Q25;`prototype/chat.html` § `[data-group="keep"]`
-- [ ] T062b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html` 只寫讓 US2-AJ-22 通過的程式碼:所有寫入收進同一個函式,`setItem` 丟例外(`QuotaExceededError`)就停止保存、不再試、不往外拋,`[data-group="keep"]` 顯示 `keep-no-store`,對話照 004 照常可用(research R3「不能保存時」);提示文字照原型,不用 `DOMException.message`;`chat.html` 的 `keep-no-store` 若 Phase 2 未加就照原型加上;執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過;看到要整理的地方記進重構清單(依賴 T062a)
+- [X] T062b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html` 只寫讓 US2-AJ-22 通過的程式碼:所有寫入收進同一個函式,`setItem` 丟例外(`QuotaExceededError`)就停止保存、不再試、不往外拋,`[data-group="keep"]` 顯示 `keep-no-store`,對話照 004 照常可用(research R3「不能保存時」);提示文字照原型,不用 `DOMException.message`;`chat.html` 的 `keep-no-store` 若 Phase 2 未加就照原型加上;執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過;看到要整理的地方記進重構清單(依賴 T062a)
   - 🧪 `testplan.md` § US2-AJ-22
   - ⚙ `prototype/chat.html` § `[data-state="keep-no-store"]`
   - 📎 `spec.md` § FR-004、§ 邊界情況;`research.md` § R3;`plan.md` § 待決問題 Q25;`prototype/chat.html` § `[data-group="keep"]`
-- [ ] T063a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-23 的測試(`context.add_init_script` 把 `window.localStorage` 的 getter 改成丟 `DOMException("…", "SecurityError")`,`page.on("pageerror")` 記下例外;打開對話頁送出「你好」;斷言顯示「這個瀏覽器無法保存對話,離開或重新整理後會消失」、回覆「一二三」出現、`pageerror` 0 次),執行確認它因為「`chat.js` 在模組頂層或載入時直接讀 `window.localStorage`,例外讓整支腳本沒跑完,頁面停在「正在確認工作階段…」;或只用 `try` 包住 `setItem`、沒包讀取(T062b)」這類實作而失敗
+- [X] T063a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-23 的測試(`context.add_init_script` 把 `window.localStorage` 的 getter 改成丟 `DOMException("…", "SecurityError")`,`page.on("pageerror")` 記下例外;打開對話頁送出「你好」;斷言顯示「這個瀏覽器無法保存對話,離開或重新整理後會消失」、回覆「一二三」出現、`pageerror` 0 次),執行確認它因為「`chat.js` 在模組頂層或載入時直接讀 `window.localStorage`,例外讓整支腳本沒跑完,頁面停在「正在確認工作階段…」;或只用 `try` 包住 `setItem`、沒包讀取(T062b)」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-23
   - ⚙ `prototype/chat.html` § `[data-state="keep-no-store"]`、`#log`
   - 📎 `spec.md` § FR-004、§ 邊界情況;`research.md` § R3;`plan.md` § 待決問題 Q25
-- [ ] T063b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-23 通過的程式碼:取得 `window.localStorage` 本身與 `getItem`、`removeItem` 也收進 T062b 的同一處、各自以 `try` 包住,任何一個丟例外就當成不能保存(啟動時先試寫一次,research R3),讀不到時當成沒有保存過;執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過;看到要整理的地方記進重構清單(依賴 T063a、T062b)
+- [X] T063b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-23 通過的程式碼:取得 `window.localStorage` 本身與 `getItem`、`removeItem` 也收進 T062b 的同一處、各自以 `try` 包住,任何一個丟例外就當成不能保存(啟動時先試寫一次,research R3),讀不到時當成沒有保存過;執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過;看到要整理的地方記進重構清單(依賴 T063a、T062b)
   - 🧪 `testplan.md` § US2-AJ-23
   - ⚙ `prototype/chat.html` § `[data-state="keep-no-store"]`
   - 📎 `spec.md` § FR-004、§ 邊界情況;`research.md` § R3
-- [ ] T064a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-24 的測試(`two_rounds`、記下 N;`add_init_script` 的 `MutationObserver` 記下「工作階段已結束,對話已清除」是否曾出現;以 `restart_backend(e2e_servers, start_live_servers, make_app)` 重新起後端,等 `GET /api/session` 回 `ready` 且 `name` 是 N,再等 3 秒,之後重新整理;斷言重新整理前 `#log .msg` 4 則、`MutationObserver` 0 次、重新整理後依序 4 則);`chat.js` 不處理 `EventSource` 的 `error`,T049b、T053b 只依 `session.updated` 的 `state` 與 `name` 判斷,後端重啟後的快照由 T037b 確保不是 `none`,這個案例會被滿足:先執行確認通過,再暫時在 `src/cgb/static/js/api.js` 的 `subscribe()` 加 `source.onerror = () => handlers["session.updated"]?.({session: {state: "none"}})`,確認斷言失敗後撤回
+- [X] T064a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-24 的測試(`two_rounds`、記下 N;`add_init_script` 的 `MutationObserver` 記下「工作階段已結束,對話已清除」是否曾出現;以 `restart_backend(e2e_servers, start_live_servers, make_app)` 重新起後端,等 `GET /api/session` 回 `ready` 且 `name` 是 N,再等 3 秒,之後重新整理;斷言重新整理前 `#log .msg` 4 則、`MutationObserver` 0 次、重新整理後依序 4 則);`chat.js` 不處理 `EventSource` 的 `error`,T049b、T053b 只依 `session.updated` 的 `state` 與 `name` 判斷,後端重啟後的快照由 T037b 確保不是 `none`,這個案例會被滿足:先執行確認通過,再暫時在 `src/cgb/static/js/api.js` 的 `subscribe()` 加 `source.onerror = () => handlers["session.updated"]?.({session: {state: "none"}})`,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-24
   - ⚙ `prototype/chat.html` § `[data-state="keep-cleared"]`、`#log`;`contracts/ui.openapi.yaml` § `paths./events.get`
   - 📎 `spec.md` § FR-006、§ 邊界情況;`research.md` § R4
-- [ ] T064b [US2] 🟢 /tdd 綠燈:US2-AJ-24 由 T049b、T053b 只看推送內容與 T037b 的快照滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過(例如 `EventSource` 重連後的快照被 T055b 當成「第一則」而重畫或清掉),才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-24 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T064a)
+- [X] T064b [US2] 🟢 /tdd 綠燈:US2-AJ-24 由 T049b、T053b 只看推送內容與 T037b 的快照滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過(例如 `EventSource` 重連後的快照被 T055b 當成「第一則」而重畫或清掉),才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-24 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T064a)
   - 🧪 `testplan.md` § US2-AJ-24
   - ⚙ `prototype/chat.html` § `#log`、`[data-state="keep-cleared"]`;`contracts/ui.openapi.yaml` § `paths./events.get`
   - 📎 `spec.md` § FR-006、§ 邊界情況;`research.md` § R4
-- [ ] T065a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-25 的測試(`two_rounds`、記下 N、`MutationObserver` 同 US2-AJ-24;`fakes.tunnel.check_health.then(AdapterError("TUNNEL_UNREACHABLE", …))` 一次、重連第 1 輪就接回;等 `GET /api/session` 經過 `reconnecting` 回到 `ready` 且 `name` 是 N,再等 3 秒;斷言 `#log .msg` 4 則、`MutationObserver` 0 次、保存的 `session` 是 N);T049b 的 `END_STATES` 不含 `reconnecting`,重連中的推送帶同一個 `name`(T034b、T036b),這個案例會被滿足:先執行確認通過,再暫時把 `reconnecting` 加進 `END_STATES`,確認斷言失敗後撤回
+- [X] T065a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-25 的測試(`two_rounds`、記下 N、`MutationObserver` 同 US2-AJ-24;`fakes.tunnel.check_health.then(AdapterError("TUNNEL_UNREACHABLE", …))` 一次、重連第 1 輪就接回;等 `GET /api/session` 經過 `reconnecting` 回到 `ready` 且 `name` 是 N,再等 3 秒;斷言 `#log .msg` 4 則、`MutationObserver` 0 次、保存的 `session` 是 N);T049b 的 `END_STATES` 不含 `reconnecting`,重連中的推送帶同一個 `name`(T034b、T036b),這個案例會被滿足:先執行確認通過,再暫時把 `reconnecting` 加進 `END_STATES`,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-25
   - ⚙ `prototype/chat.html` § `[data-state="keep-cleared"]`、`#log`;`contracts/ui.openapi.yaml` § `paths./events.get`
   - 📎 `spec.md` § FR-006、§ 邊界情況;`research.md` § R4
-- [ ] T065b [US2] 🟢 /tdd 綠燈:US2-AJ-25 由 T049b 的 `END_STATES` 與 T034b、T036b 的推送滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-25 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T065a)
+- [X] T065b [US2] 🟢 /tdd 綠燈:US2-AJ-25 由 T049b 的 `END_STATES` 與 T034b、T036b 的推送滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-25 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T065a)
   - 🧪 `testplan.md` § US2-AJ-25
   - ⚙ `prototype/chat.html` § `#log`、`[data-state="keep-cleared"]`;`contracts/ui.openapi.yaml` § `paths./events.get`
   - 📎 `spec.md` § FR-006、§ 邊界情況;`research.md` § R4
-- [ ] T066a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-26 的測試(`#model` 選 `qwen2.5:latest` 後 `two_rounds`,從 `world.models` 拿掉 `qwen2.5:latest`,重新整理;斷言 5 秒內 `[data-state="chat-model-gone"]` 出現且含 `qwen2.5:latest`、`#log .msg` 4 則、`#model` 有一個 `disabled` 的選項含 `qwen2.5:latest` 與「已不在執行環境上」、`#send` 停用),執行確認它因為「還原時發現模型不在目錄,`#model` 自動落到 `llama3.2:3b` 且照常可送,舊對話被送給別的模型」這類實作而失敗
+- [X] T066a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-26 的測試(`#model` 選 `qwen2.5:latest` 後 `two_rounds`,從 `world.models` 拿掉 `qwen2.5:latest`,重新整理;斷言 5 秒內 `[data-state="chat-model-gone"]` 出現且含 `qwen2.5:latest`、`#log .msg` 4 則、`#model` 有一個 `disabled` 的選項含 `qwen2.5:latest` 與「已不在執行環境上」、`#send` 停用),執行確認它因為「還原時發現模型不在目錄,`#model` 自動落到 `llama3.2:3b` 且照常可送,舊對話被送給別的模型」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-26
   - ⚙ `prototype/chat.html` § `[data-state="chat-model-gone"]`、`#gone-name`、`#model`、`#send`、`#log`
   - 📎 `spec.md` § 邊界情況;`research.md` § R5;`plan.md` § 待決問題 Q5
-- [ ] T066b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html` 只寫讓 US2-AJ-26 通過的程式碼:`loadModels()` 在 Phase 2 的 `chat-unavailable`、`chat-no-session` 分支之後、目錄有模型時,若還原的對話不是空的、保存的 `model` 不在目錄裡,`view` 設成 `chat-model-gone`,`#gone-name` 填模型名稱;`renderModels()` 在選單最前面加一個 `disabled` 的選項「<名稱>(已不在執行環境上)」並選著它;`renderButtons()` 因 `view` 不是 `chat-ready` 停用 `#send`、`#input`;一打開頁面就顯示,不等按送出(plan Q5 a);`chat.html` 照原型加上 `chat-model-gone` 區塊;執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過;看到要整理的地方記進重構清單(依賴 T066a;`loadModels()` 的讀不到目錄分支是 Phase 2 做的,不改它)
+- [X] T066b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html` 只寫讓 US2-AJ-26 通過的程式碼:`loadModels()` 在 Phase 2 的 `chat-unavailable`、`chat-no-session` 分支之後、目錄有模型時,若還原的對話不是空的、保存的 `model` 不在目錄裡,`view` 設成 `chat-model-gone`,`#gone-name` 填模型名稱;`renderModels()` 在選單最前面加一個 `disabled` 的選項「<名稱>(已不在執行環境上)」並選著它;`renderButtons()` 因 `view` 不是 `chat-ready` 停用 `#send`、`#input`;一打開頁面就顯示,不等按送出(plan Q5 a);`chat.html` 照原型加上 `chat-model-gone` 區塊;執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過;看到要整理的地方記進重構清單(依賴 T066a;`loadModels()` 的讀不到目錄分支是 Phase 2 做的,不改它)
   - 🧪 `testplan.md` § US2-AJ-26
   - ⚙ `prototype/chat.html` § `[data-state="chat-model-gone"]`、`#gone-name`、`#model`、`#send`
   - 📎 `spec.md` § 邊界情況;`research.md` § R5;`plan.md` § 待決問題 Q5、Q26
-- [ ] T067a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-27 的測試(照 US2-AJ-26 已顯示 `chat-model-gone`,`#model` 改選 `llama3.2:3b`,再重新整理;斷言改選後 `#log .msg` 0 則、`#send` 可按,重新整理後 0 則),執行確認它因為「清了畫面但 `chat-model-gone` 沒解除(`clearChat()` 不重算 `view`),仍不能送出」這類實作而失敗
+- [X] T067a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-27 的測試(照 US2-AJ-26 已顯示 `chat-model-gone`,`#model` 改選 `llama3.2:3b`,再重新整理;斷言改選後 `#log .msg` 0 則、`#send` 可按,重新整理後 0 則),執行確認它因為「清了畫面但 `chat-model-gone` 沒解除(`clearChat()` 不重算 `view`),仍不能送出」這類實作而失敗
   - 🧪 `testplan.md` § US2-AJ-27
   - ⚙ `prototype/chat.html` § `[data-state="chat-model-gone"]`、`[data-state="chat-ready"]`、`#model`、`#send`、`#log`
   - 📎 `spec.md` § FR-007、§ 邊界情況;`research.md` § R5
-- [ ] T067b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-27 通過的程式碼:`clearChat()`(換模型與「清除」共用,T058b)清空後重算 `view`(重讀或以目前的 `catalog` 重畫 `loadModels()`/`renderModels()`),拿掉已不在的那個 `disabled` 選項、保留使用者剛選的模型,`chat-model-gone` 換成 `chat-ready`;執行 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 確認通過;看到要整理的地方記進重構清單(依賴 T067a、T066b)
+- [X] T067b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-27 通過的程式碼:`clearChat()`(換模型與「清除」共用,T058b)清空後重算 `view`(重讀或以目前的 `catalog` 重畫 `loadModels()`/`renderModels()`),拿掉已不在的那個 `disabled` 選項、保留使用者剛選的模型,`chat-model-gone` 換成 `chat-ready`;執行 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 確認通過;看到要整理的地方記進重構清單(依賴 T067a、T066b)
   - 🧪 `testplan.md` § US2-AJ-27
   - ⚙ `prototype/chat.html` § `[data-state="chat-ready"]`、`#model`、`#send`、`[data-state="chat-model-gone"]`
   - 📎 `spec.md` § FR-007、§ 邊界情況;`research.md` § R5
-- [ ] T068a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-28 的測試(`caplog.set_level(logging.DEBUG)`;標記 `USER_MARK = "cgb-test-007-使用者-不該留下"`、`REPLY_MARK = "cgb-test-007-回覆-不該留下"`,替身每次回 `chunk(REPLY_MARK)` + `DONE`、其中一次 `then="hang"`;照故事 2 的獨立測試送出兩則含 `USER_MARK` 的訊息、重新整理、切到模型頁再回來、另開分頁、送出第三則、回覆途中重新整理、在工作階段頁「結束」,等 1 秒;斷言則1~則6;最後跑兩個對照組:`logging.getLogger("cgb").warning(USER_MARK)` 後 `caplog.text` 找到 1 次、把 `db_path` 複製到 `tmp_path` 在副本建表寫入 `USER_MARK` 後同一個掃描函式找到 1 列;搜尋一律用同一個函式比字串與 UTF-8 位元組,並掃 `-wal`、`-journal`);既有後端不記對話內容(`src/cgb/api/chat.py` 沒有 logger),E2 的 T039b 已驗後端,這個案例會被滿足:先執行確認通過,再暫時在 `src/cgb/api/chat.py` 讀串流的例外路徑加 `logging.getLogger("cgb").exception("chat %s", body)`,確認則3 失敗後撤回
+- [X] T068a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-28 的測試(`caplog.set_level(logging.DEBUG)`;標記 `USER_MARK = "cgb-test-007-使用者-不該留下"`、`REPLY_MARK = "cgb-test-007-回覆-不該留下"`,替身每次回 `chunk(REPLY_MARK)` + `DONE`、其中一次 `then="hang"`;照故事 2 的獨立測試送出兩則含 `USER_MARK` 的訊息、重新整理、切到模型頁再回來、另開分頁、送出第三則、回覆途中重新整理、在工作階段頁「結束」,等 1 秒;斷言則1~則6;最後跑兩個對照組:`logging.getLogger("cgb").warning(USER_MARK)` 後 `caplog.text` 找到 1 次、把 `db_path` 複製到 `tmp_path` 在副本建表寫入 `USER_MARK` 後同一個掃描函式找到 1 列;搜尋一律用同一個函式比字串與 UTF-8 位元組,並掃 `-wal`、`-journal`);既有後端不記對話內容(`src/cgb/api/chat.py` 沒有 logger),E2 的 T039b 已驗後端,這個案例會被滿足:先執行確認通過,再暫時在 `src/cgb/api/chat.py` 讀串流的例外路徑加 `logging.getLogger("cgb").exception("chat %s", body)`,確認則3 失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-28
   - ⚙ `prototype/chat.html` § `#input`、`#send`;`prototype/index.html` § `#end`
   - 📎 `spec.md` § NFR-002、SC-004;`research.md` § R6
-- [ ] T068b [US2] 🟢 /tdd 綠燈:US2-AJ-28 由既有後端不記對話內容、T039b 與本節前端只寫 `localStorage` 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/static/js/chat.js` 只寫讓 US2-AJ-28 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T068a)
+- [X] T068b [US2] 🟢 /tdd 綠燈:US2-AJ-28 由既有後端不記對話內容、T039b 與本節前端只寫 `localStorage` 滿足,確認 `src/cgb/api/chat.py`、`src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/api/chat.py`、`src/cgb/static/js/chat.js` 只寫讓 US2-AJ-28 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T068a)
   - 🧪 `testplan.md` § US2-AJ-28
   - ⚙ `prototype/chat.html` § `#send`
   - 📎 `spec.md` § NFR-002、SC-004;`research.md` § R6
-- [ ] T069a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-29 的測試(以 `assert_traditional_chinese` 檢查 `main`;依序做出 US2-AJ-09 的清空後、US2-AJ-22 的不能保存、US2-AJ-05 的離開頁面中斷、US2-AJ-26 的模型已不在,四種畫面各斷言通過檢查並含指定原句);四種提示文字已由 T049b、T062b、T045b、T066b 照原型寫成中文,這個案例會被滿足:先執行確認通過,再暫時讓 `keep-no-store` 顯示 `DOMException` 的 `message`(例如 `Storage unavailable`),確認則2 失敗後撤回
+- [X] T069a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-29 的測試(以 `assert_traditional_chinese` 檢查 `main`;依序做出 US2-AJ-09 的清空後、US2-AJ-22 的不能保存、US2-AJ-05 的離開頁面中斷、US2-AJ-26 的模型已不在,四種畫面各斷言通過檢查並含指定原句);四種提示文字已由 T049b、T062b、T045b、T066b 照原型寫成中文,這個案例會被滿足:先執行確認通過,再暫時讓 `keep-no-store` 顯示 `DOMException` 的 `message`(例如 `Storage unavailable`),確認則2 失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-29
   - ⚙ `prototype/chat.html` § `[data-state="keep-cleared"]`、`[data-state="keep-no-store"]`、`[data-state="turn-interrupted"]`、`[data-state="${name}"]`、`[data-state="chat-model-gone"]`
   - 📎 `spec.md` § NFR-003、FR-006、FR-008;`plan.md` § 待決問題 Q17、Q26
-- [ ] T069b [US2] 🟢 /tdd 綠燈:US2-AJ-29 由 T049b、T062b、T045b、T066b 照原型寫的中文提示滿足,確認 `src/cgb/static/chat.html`、`src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/chat.html`、`src/cgb/static/js/chat.js` 只寫讓 US2-AJ-29 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T069a)
+- [X] T069b [US2] 🟢 /tdd 綠燈:US2-AJ-29 由 T049b、T062b、T045b、T066b 照原型寫的中文提示滿足,確認 `src/cgb/static/chat.html`、`src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/chat.html`、`src/cgb/static/js/chat.js` 只寫讓 US2-AJ-29 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T069a)
   - 🧪 `testplan.md` § US2-AJ-29
   - ⚙ `prototype/chat.html` § `[data-state="keep-cleared"]`、`[data-state="keep-no-store"]`、`[data-state="chat-model-gone"]`、`[data-state="turn-interrupted"]`、`[data-state="${name}"]`
   - 📎 `spec.md` § NFR-003
-- [ ] T071a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-30 的測試(`two_rounds` 之後重新整理,等 `#log .msg` 還原成 4 則;替身對下一個 `POST /api/chat` 先停 1 秒才送 `chunk("七")` 再送 `DONE`;送出「第三則」;斷言還原後、送出前 turn 區是 `turn-idle` 的提示,送出後第一段之前是含模型名稱的 `turn-loading`,`DONE` 後 2 秒內回到 `turn-idle`);T041b 的還原沿用 004 載入時的 `turn("turn-idle")`、送出沿用 004 的 `turn-loading`,這個案例會被滿足:先執行確認通過,再暫時讓還原時依保存的最後一則 `status` 畫 turn 區(停在 `turn-interrupted` 的提示),確認斷言失敗後撤回
+- [X] T071a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-30 的測試(`two_rounds` 之後重新整理,等 `#log .msg` 還原成 4 則;替身對下一個 `POST /api/chat` 先停 1 秒才送 `chunk("七")` 再送 `DONE`;送出「第三則」;斷言還原後、送出前 turn 區是 `turn-idle` 的提示,送出後第一段之前是含模型名稱的 `turn-loading`,`DONE` 後 2 秒內回到 `turn-idle`);T041b 的還原沿用 004 載入時的 `turn("turn-idle")`、送出沿用 004 的 `turn-loading`,這個案例會被滿足:先執行確認通過,再暫時讓還原時依保存的最後一則 `status` 畫 turn 區(停在 `turn-interrupted` 的提示),確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-30
   - ⚙ `prototype/chat.html` § `[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="${name}"]`、`#send`
   - 📎 `spec.md` § FR-004、FR-005;`plan.md` § 待決問題 Q27;`research.md` § R5
-- [ ] T071b [US2] 🟢 /tdd 綠燈:US2-AJ-30 由 T041b 的還原與 004 既有的 `turn()` 切換滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-30 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T071a)
+- [X] T071b [US2] 🟢 /tdd 綠燈:US2-AJ-30 由 T041b 的還原與 004 既有的 `turn()` 切換滿足,確認 `src/cgb/static/js/chat.js` 不需要為這個案例改程式碼;紅燈時若它其實沒有通過,才在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-30 通過的程式碼,執行 `tests/e2e/test_007_us2_chat_keep.py` 確認通過(依賴 T071a)
   - 🧪 `testplan.md` § US2-AJ-30
   - ⚙ `prototype/chat.html` § `[data-state="turn-idle"]`、`[data-state="turn-loading"]`、`[data-state="${name}"]`
   - 📎 `spec.md` § FR-004、FR-005;`plan.md` § 待決問題 Q27
-- [ ] T070 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T041b~T069b、T071b 記下的重構清單(範圍限 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html`、`src/cgb/static/style.css`;例如把 `finishTurn` 與還原時填 `[data-state="turn-…"] [data-message]` 的兩處收成原型那樣的 `turn(name, message)`、把保存的讀寫移除收成一處),每改一小步執行這一節的測試檔 `tests/e2e/test_007_us2_chat_keep.py` 與 `tests/e2e/test_004_us2_chat.py`,變紅就撤回那一步;重構前後執行全部測試;不改 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 的斷言(依賴 T071b)
+- [X] T070 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T041b~T069b、T071b 記下的重構清單(範圍限 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html`、`src/cgb/static/style.css`;例如把 `finishTurn` 與還原時填 `[data-state="turn-…"] [data-message]` 的兩處收成原型那樣的 `turn(name, message)`、把保存的讀寫移除收成一處),每改一小步執行這一節的測試檔 `tests/e2e/test_007_us2_chat_keep.py` 與 `tests/e2e/test_004_us2_chat.py`,變紅就撤回那一步;重構前後執行全部測試;不改 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 的斷言(依賴 T071b)
   - 🧪 `testplan.md` § US2-AJ-01~US2-AJ-30
   - 📎 `testplan.md` § 3.2;`research.md` § R3、R4、R5
 

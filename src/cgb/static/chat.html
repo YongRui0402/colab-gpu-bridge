@@ -29,7 +29,7 @@
           <label for="model">模型 <span class="small muted">(執行環境上已下載完成的;換模型會清空對話)</span></label>
           <select id="model"></select>
         </div>
-        <button type="button" class="btn" id="clear">清空</button>
+        <button type="button" class="btn" id="clear">清除</button>
       </div>
 
       <div data-state="chat-ready" data-group="chat" hidden>
@@ -58,6 +58,13 @@
           <span class="notice-line small muted">錯誤代碼 <span class="mono" id="un-code"></span>;上面的對話保留著,讀得到目錄之後可以接著送。</span>
         </div>
       </div>
+      <!-- 保存的對話選的模型已不在目錄裡(spec 邊界情況、research R5) -->
+      <div data-state="chat-model-gone" data-group="chat" hidden>
+        <div class="notice notice-warn">
+          <strong>現在不能送出:<span class="mono" id="gone-name"></span> 已不在執行環境上</strong>
+          下面的對話照常保留;要接著送出,請從上面的選單換一個模型(換模型會清空對話)。
+        </div>
+      </div>
 
       <!-- 對話的保存(FR-004、NFR-002;research R3) -->
       <p class="small muted keep-line" data-state="keep-checking" data-group="keep" hidden><span class="spinner"></span>正在確認工作階段…上一段對話確認還屬於目前的工作階段才會顯示。</p>
@@ -65,6 +72,10 @@
       <div class="notice" data-state="keep-cleared" data-group="keep" hidden>
         <strong>工作階段已結束,對話已清除</strong>
         <span class="notice-line">上一段對話屬於 <span class="mono" id="cleared-name"></span>,只保留到它結束為止;新的工作階段從空白開始。</span>
+      </div>
+      <div class="notice notice-warn" data-state="keep-no-store" data-group="keep" hidden>
+        <strong>這個瀏覽器無法保存對話,離開或重新整理後會消失</strong>
+        <span class="notice-line">可能是無痕模式的限制或儲存空間不足;對話照常可以用,只是不會保留。</span>
       </div>
 
       <div class="chat-log" id="log" aria-live="polite"></div>

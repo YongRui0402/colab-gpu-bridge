@@ -13,6 +13,16 @@ let keptModel = null;
 const KEEP_KEY = "cgb.chat.v1";
 // 正在回覆的那一則與它的連線;沒有時是 null
 let busy = null;
+// 頁面卸載中:被中止的 fetch 進 catch 時不再寫入,保存裡留著 streaming,下次載入才改成 left
+let unloading = false;
+// 瀏覽器不讓寫入(空間不足等)之後就停止保存、不再試,對話照常可用(research R3「不能保存時」)
+let canStore = true;
+// 載入時先不畫保存的對話:收到第一則工作階段快照、確認它還屬於目前的工作階段才還原(research R4 第 1 點)
+let checked = false;
+// 執行環境上已下載的模型(ModelCatalog);`loaded` 決定送出後第一段之前要不要顯示「正在載入」
+let catalog = { items: [] };
+// 能不能送出(FR-008):沒有就緒的工作階段、執行環境上沒有模型、或讀不到執行環境上的模型目錄(research R2)時不能送出,各自說明原因
+let view = "chat-no-session";
 
 // 串流途中失敗(最後一行 ChatStreamFailure 的 error.code,contracts/ui.openapi.yaml § x-stream-error-codes)→ 這一則的狀態
 const STREAM_FAILURE = {
@@ -41,9 +51,6 @@ const CUT = {
 
 // 回覆途中重新整理或離開:還原時把還在 streaming 的那一則改成 left(FR-008、research R5、plan.md Q4)
 const LEFT_PAGE = "離開頁面時這則回覆還沒有完成。";
-// 頁面卸載中:被中止的 fetch 進 catch 時不再寫入,保存裡留著 streaming,下次載入才改成 left
-let unloading = false;
-
 // FR-005:耗時由瀏覽器計時(送出到收到 `done: true`);每秒 token 數 = eval_count ÷ (eval_duration ÷ 10⁹)
 // 還原時才改成 left 的那一則沒有耗時(離開頁面時還沒收到結束),不畫耗時
 const elapsed = (m) => (m.ms === null || m.ms === undefined ? "" : `<span>耗時 ${(m.ms / 1000).toFixed(1)} 秒</span>`);
@@ -61,27 +68,54 @@ function thinkingBlock(m) {
   return `<details class="thinking" ${m.content ? "" : "open"}><summary>思考過程${m.content ? "(點一下展開)" : ""}</summary><div class="thought">${escape(m.thinking)}</div></details>`;
 }
 
+// 不能保存:停止保存,說明離開或重新整理後會消失
+function noStore() {
+  canStore = false;
+  showGroupState("keep", "keep-no-store");
+}
+
+// 對 localStorage 的每一次存取都經過這裡:取得它本身(無痕模式等,SecurityError)或讀、寫、移除(空間不足等,QuotaExceededError)
+// 丟了例外就當成不能保存,不往外拋;不能保存之後不再試,讀不到當成沒有保存過(research R3)
+function withStorage(op) {
+  if (!canStore) return null;
+  try {
+    return op(window.localStorage);
+  } catch {
+    noStore();
+    return null;
+  }
+}
+
+const readKept = () => JSON.parse(withStorage((storage) => storage.getItem(KEEP_KEY)) ?? "null");
+const dropKept = () => withStorage((storage) => storage.removeItem(KEEP_KEY));
+
+// 啟動時先試寫一次,寫不進去就一開始說明不能保存(research R3)
+function probeStore() {
+  withStorage((storage) => {
+    storage.setItem(`${KEEP_KEY}.probe`, "1");
+    storage.removeItem(`${KEEP_KEY}.probe`);
+  });
+}
+
 // 整份對話寫進 localStorage:{session, model, messages, updatedAt}(research R3)
 function saveConvo() {
   if (unloading) return;
   const messages = convo.map(({ role, content, thinking, status, message, ms, tps }) => ({ role, content, thinking, status, message, ms, tps }));
   const model = document.getElementById("model").value || keptModel;
-  localStorage.setItem(KEEP_KEY, JSON.stringify({ session: bound, model, messages, updatedAt: new Date().toISOString() }));
+  withStorage((storage) => storage.setItem(KEEP_KEY, JSON.stringify({ session: bound, model, messages, updatedAt: new Date().toISOString() })));
 }
 
-// 載入時先不畫保存的對話:收到第一則工作階段快照、確認它還屬於目前的工作階段才還原(research R4 第 1 點)
-let checked = false;
 // 工作階段還在、保存的對話可以還原的狀態(research R4)
 const KEEP_STATES = ["ready", "applying_tuning", "reconnecting", "ending"];
 
 // 第一則快照:同一個工作階段而且還在 → 還原;否則拿掉保存、從空白開始
 function checkKept(session) {
   checked = true;
-  const kept = JSON.parse(localStorage.getItem(KEEP_KEY) ?? "null");
+  const kept = readKept();
   if (kept && KEEP_STATES.includes(session.state) && session.name === kept.session) restoreConvo(kept);
   else {
-    if (kept) localStorage.removeItem(KEEP_KEY);
-    showGroupState("keep", "keep-on");
+    if (kept) dropKept();
+    showGroupState("keep", canStore ? "keep-on" : "keep-no-store");
     renderLog();
   }
   renderButtons();
@@ -89,18 +123,23 @@ function checkKept(session) {
 
 // 讀回保存的對話並畫出來
 function restoreConvo(kept) {
-  if (kept?.messages) convo = kept.messages;
-  bound = kept?.session ?? null;
-  keptModel = kept?.model ?? null;
+  if (kept.messages) convo = kept.messages;
+  bound = kept.session ?? null;
+  keptModel = kept.model ?? null;
   const left = convo.filter((m) => m.status === "streaming");
   left.forEach((m) => { m.status = "left"; m.message = LEFT_PAGE; });
   if (left.length) {
     saveConvo();
-    document.querySelectorAll('[data-state="turn-interrupted"] [data-message]').forEach((el) => { el.textContent = LEFT_PAGE; });
-    showGroupState("turn", "turn-interrupted");
+    turn("turn-interrupted", LEFT_PAGE);
   }
   showGroupState("keep", "keep-on");
   renderLog();
+}
+
+// turn 區顯示 `name`;給了 `message` 就填進那一行的 [data-message](prototype/chat.html 的 turn())
+function turn(name, message) {
+  if (message !== undefined) document.querySelectorAll(`[data-state="${name}"] [data-message]`).forEach((el) => { el.textContent = message; });
+  showGroupState("turn", name);
 }
 
 // 對話改變了:先保存再畫
@@ -127,22 +166,25 @@ function renderLog() {
   log.scrollTop = log.scrollHeight;
 }
 
-// 執行環境上已下載的模型(ModelCatalog);`loaded` 決定送出後第一段之前要不要顯示「正在載入」
-let catalog = { items: [] };
+// 還原的對話選的模型已不在目錄裡(spec 邊界情況、research R5)
+const modelGone = () => convo.length > 0 && Boolean(keptModel) && !catalog.items.some((m) => m.name === keptModel);
 
 function renderModels(next) {
   catalog = next;
   const select = document.getElementById("model");
   const chosen = select.value || keptModel;
-  select.innerHTML = catalog.items
-    .map((m) => `<option value="${escape(m.name)}">${escape(m.name)}${m.loaded ? "(已載入)" : ""}</option>`)
-    .join("");
+  const gone = modelGone();
+  const options = catalog.items.map((m) => `<option value="${escape(m.name)}">${escape(m.name)}${m.loaded ? "(已載入)" : ""}</option>`);
+  // 不在了的那個模型列在最前面、不能選,選著它,要使用者自己換一個(plan.md Q5)
+  if (gone) options.unshift(`<option value="${escape(keptModel)}" disabled>${escape(keptModel)}(已不在執行環境上)</option>`);
+  select.innerHTML = options.join("");
+  if (gone) {
+    select.value = keptModel;
+    document.getElementById("gone-name").textContent = keptModel;
+  }
   // 重讀清單(例如每次對話後推送的 session.updated)不改掉使用者選的模型
-  if (catalog.items.some((m) => m.name === chosen)) select.value = chosen;
+  else if (catalog.items.some((m) => m.name === chosen)) select.value = chosen;
 }
-
-// 能不能送出(FR-008):沒有就緒的工作階段、執行環境上沒有模型、或讀不到執行環境上的模型目錄(research R2)時不能送出,各自說明原因
-let view = "chat-no-session";
 
 function renderButtons() {
   const blocked = !checked || view !== "chat-ready";
@@ -155,22 +197,27 @@ function renderButtons() {
   document.getElementById("clear").disabled = !checked;
 }
 
+// 換成 `next` 這個說明,送出鈕跟著能不能送出
+function showView(next) {
+  view = next;
+  showGroupState("chat", view);
+  renderButtons();
+}
+
 async function loadModels() {
   const response = await request("GET", "/models");
   if (response.ok) {
     renderModels(response.data);
-    view = catalog.items.length ? "chat-ready" : "chat-no-models";
+    showView(!catalog.items.length ? "chat-no-models" : modelGone() ? "chat-model-gone" : "chat-ready");
   } else if (response.status === 502 || response.status === 504) {
     // 讀不到遠端的目錄:說明用後端的 message 與 code,不說成沒有就緒的工作階段(research R2)
     renderModels({ items: [] });
     showError("un", response.data);
-    view = "chat-unavailable";
+    showView("chat-unavailable");
   } else {
     renderModels({ items: [] });
-    view = "chat-no-session";
+    showView("chat-no-session");
   }
-  showGroupState("chat", view);
-  renderButtons();
   if (!convo.length) renderLog();
 }
 
@@ -189,8 +236,8 @@ async function send(text) {
   if (loaded === false) {
     // 還沒載入:遠端先載入再回覆,載入的時間落在第一段之前(001 使用者故事 3 驗收情境 3)
     document.querySelectorAll("[data-model-name]").forEach((el) => { el.textContent = model; });
-    showGroupState("turn", "turn-loading");
-  } else showGroupState("turn", "turn-streaming");
+    turn("turn-loading");
+  } else turn("turn-streaming");
   try {
     const response = await chat({ model, messages }, busy.controller.signal);
     if (!response.ok) {
@@ -208,7 +255,7 @@ async function send(text) {
       }
       reply.content += line.message?.content ?? "";
       reply.thinking += line.message?.thinking ?? "";
-      showGroupState("turn", line.message?.thinking && !line.message.content ? "turn-thinking" : "turn-streaming");
+      turn(line.message?.thinking && !line.message.content ? "turn-thinking" : "turn-streaming");
       if (line.done === true) {
         endReply(reply, "done");
         // 缺少 eval_count 或 eval_duration、或 eval_duration 為 0 時仍算完成,只是不顯示速度(plan.md Q8)
@@ -230,17 +277,16 @@ async function send(text) {
 
 // 這一則結束(完成或停止):換回送出鈕,下方顯示這一則的結果
 function finishTurn(reply) {
-  // 回覆途中按了清空:這一則已經不在對話裡,畫面維持清空後的樣子
+  // 回覆途中按了清除:這一則已經不在對話裡,畫面維持清空後的樣子
   if (!convo.includes(reply)) return;
   busy = null;
   renderButtons();
   convoChanged();
   if (reply.status === "stopped" || reply.status in CUT) {
     // 說明是固定開頭加後端的 error.message(通用說法,plan.md Q61),不在前端寫死原因
-    document.querySelectorAll(`[data-state="turn-${reply.status}"] [data-message]`).forEach((el) => { el.textContent = reply.message ?? ""; });
-    showGroupState("turn", `turn-${reply.status}`);
+    turn(`turn-${reply.status}`, reply.message ?? "");
   }
-  else showGroupState("turn", reply.status === "done" && !reply.tps ? "turn-norate" : "turn-idle");
+  else turn(reply.status === "done" && !reply.tps ? "turn-norate" : "turn-idle");
 }
 
 // 記下這一則怎麼結束的:狀態、後端給的說明與耗時
@@ -274,14 +320,26 @@ document.getElementById("input").addEventListener("keydown", (event) => {
   }
 });
 
-// 清空(FR-006):畫面與要帶上的對話一起清掉;換模型也一樣
-function clearChat() {
+// 先停止進行中的回覆(它的收尾不再寫入保存),再清空對話、解除綁定的工作階段、拿掉保存;清除、換模型與工作階段結束共用
+function dropConvo() {
   stop();
   busy = null;
   renderButtons();
   convo = [];
-  convoChanged();
-  showGroupState("turn", "turn-idle");
+  bound = null;
+  dropKept();
+}
+
+// 清除(FR-007):畫面、要帶上的對話與保存一起清掉,不留空殼(research R3);換模型也一樣
+function clearChat() {
+  dropConvo();
+  // 模型已不在時換了模型:以目前的目錄重畫選單(拿掉不在了的那一個、留著剛選的),可以送出了
+  if (view === "chat-model-gone") {
+    renderModels(catalog);
+    showView("chat-ready");
+  }
+  renderLog();
+  turn("turn-idle");
 }
 
 document.getElementById("stop").addEventListener("click", stop);
@@ -304,26 +362,20 @@ function sessionUpdated(session) {
   }
   const over = END_STATES.includes(session.state) || (Boolean(session.name) && session.name !== bound);
   if (bound !== null && over) {
-    // 回覆途中就先停止那一則;它的收尾不再寫入保存(research R4 第 2 點)
-    if (busy) {
-      busy.controller.abort();
-      busy = null;
-      renderButtons();
-    }
+    // 回覆途中就先停止那一則(research R4 第 2 點)
     document.getElementById("cleared-name").textContent = bound;
-    bound = null;
-    convo = [];
-    localStorage.removeItem(KEEP_KEY);
+    dropConvo();
     renderLog();
     showGroupState("keep", "keep-cleared");
-    showGroupState("turn", "turn-idle");
+    turn("turn-idle");
   }
   // 工作階段一變就重讀模型清單:結束、失聯之後選單跟著清空(FR-008)
   loadModels();
 }
 
+probeStore();
 startHeader({ "session.updated": (payload) => sessionUpdated(payload.session) });
-showGroupState("turn", "turn-idle");
+turn("turn-idle");
 showGroupState("keep", "keep-checking");
 renderLog();
 renderButtons();
