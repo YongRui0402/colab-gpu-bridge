@@ -1,9 +1,10 @@
 """模型目錄:執行環境上已下載的模型、是否已載入與預先載入(FR-014、FR-015;contracts/ui.openapi.yaml § listCatalog、preloadModel)。"""
 
+from collections.abc import Awaitable
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
-from cgb.domain.errors import ApiError
+from cgb.domain.errors import ApiError, ollama_error
 from cgb.services.event_bus import EventBus
 from cgb.services.session_lifecycle import SessionLifecycle
 
@@ -31,6 +32,14 @@ def catalog_payload(
     return {"vramBytes": vram_bytes, "items": items}
 
 
+async def _read_remote(read: Awaitable[dict[str, Any]]) -> dict[str, Any]:
+    """讀遠端 Ollama 的一份清單;讀不到不當成目錄是空的,依 S1 的代碼轉成 502 或 504(FR-001、research.md R1),不帶底層例外的文字。"""
+    try:
+        return await read
+    except AdapterError as error:
+        raise ollama_error(error.code) from None
+
+
 class Catalog:
     def __init__(self, state: Any, lifecycle: SessionLifecycle, events: EventBus) -> None:
         self._state = state
@@ -44,8 +53,9 @@ class Catalog:
     async def list(self) -> dict[str, Any]:
         base_url = self._lifecycle.require_ready_base_url()
         remote = self._state.remote_ollama
-        local = (await remote.list_local_models(base_url=base_url))["models"]
-        loaded = {m["name"] for m in (await remote.list_loaded_models(base_url=base_url))["models"]}
+        # 照 tags → ps 的順序依序讀、不並行;任一份讀不到就整份失敗,不回半套目錄(x-catalog-failure-rule 第 2 點)
+        local = (await _read_remote(remote.list_local_models(base_url=base_url)))["models"]
+        loaded = {m["name"] for m in (await _read_remote(remote.list_loaded_models(base_url=base_url)))["models"]}
         vram = await self._vram_total()
         return catalog_payload(local, loaded, vram, self._preloads)
 

@@ -5,9 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from cgb.adapters.errors import AdapterError
 from cgb.domain import connect as snippets
-from cgb.domain.errors import ollama_error
 
 router = APIRouter()
 
@@ -48,11 +46,8 @@ async def get_connect_info(request: Request) -> JSONResponse:
     context_length = tuning["contextLength"]["value"] if tuning is not None else None
     # info.x-recommendation-rule:讀得到 context 且小於建議下限時提醒
     should_warn = snippets.should_warn(context_length)
-    try:
-        catalog = await services.catalog.list()
-    except AdapterError as error:
-        # 讀不到不當成目錄是空的(plan.md Q7):和 001 listCatalog 一樣回 502 或 504 與 S1 的代碼
-        raise ollama_error(error.code) from None
+    # 讀不到不當成目錄是空的:`Catalog.list()` 轉成 502 或 504 的 `ApiError`,由全域處理器回應(plan.md Q11)
+    catalog = await services.catalog.list()
     models = [item["name"] for item in catalog["items"]]
     # info.x-recommendation-rule:建議值依顯示記憶體估算,讀不到時用下限(FR-007、Q11)
     info["recommendedContextLength"] = snippets.recommended_context_length(catalog["vramBytes"])
