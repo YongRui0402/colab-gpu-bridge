@@ -8,6 +8,8 @@
 import re
 from typing import Any
 
+import pytest
+
 from playwright.sync_api import BrowserContext, Locator, Page, expect
 
 from e2e.test_004_us2_chat import complete_turn, end_session_in_other_tab
@@ -283,3 +285,57 @@ def test_讀不到目錄時工作階段被結束_兩頁不重新整理就改說�
     expect(models_tab.locator('[data-state="unavailable"]')).to_be_hidden()
     expect(chat_tab.locator('[data-state="chat-no-session"]')).to_be_visible(timeout=WITHIN)
     expect(chat_tab.locator('[data-state="chat-unavailable"]')).to_be_hidden()
+
+
+# ---------------------------------------------------------------- US1-AJ-11
+
+LATIN = re.compile(r"[A-Za-z]")
+MESSAGES = {"OLLAMA_UNREACHABLE": U, "OLLAMA_BAD_RESPONSE": B, "OLLAMA_TIMEOUT": T}
+
+
+def text_without(box: Locator, *selectors: str) -> str:
+    """`box` 的文字(含按鈕),去掉 `selectors` 那幾個元素(後端的說明、代碼與模型名稱)之後剩下的部分。"""
+    return box.evaluate(
+        "(el, selectors) => { const copy = el.cloneNode(true); selectors.forEach((s) => copy.querySelectorAll(s).forEach((n) => n.remove())); return copy.textContent; }",
+        list(selectors),
+    )
+
+
+@pytest.mark.parametrize("code", ["OLLAMA_UNREACHABLE", "OLLAMA_BAD_RESPONSE", "OLLAMA_TIMEOUT"])
+def test_讀不到目錄的各種說明都是繁體中文_代碼與模型名稱保留原文(
+    page: Page, context: BrowserContext, e2e_servers: Any, world: ColabWorld, fakes: Any, code: str
+) -> None:
+    # Arrange:分頁 A 是模型頁,目錄已列出 3 列;之後 tags 丟這一次的代碼
+    models_tab = page
+    open_catalog(models_tab, world)
+    fakes.remote_ollama.list_local_models.raises(code)
+
+    # Act 1:在 A 按「預先載入」,另開分頁 B 打開對話頁
+    row(models_tab, "llama3.2:3b").get_by_role("button", name="預先載入").click()
+    chat_tab = context.new_page()
+    chat_tab.goto("/chat.html")
+
+    # Assert 1:A 的預先載入說明(重新整理之前斷言;plan Q35)
+    note = models_tab.locator('[data-state="preload-unavailable"]')
+    expect(note).to_be_visible(timeout=WITHIN)
+    expect(models_tab.locator("#pu-message")).to_have_text(MESSAGES[code])
+    expect(models_tab.locator("#pu-code")).to_have_text(code)
+    expect(models_tab.locator("#pu-name")).to_have_text("llama3.2:3b")
+    assert LATIN.findall(text_without(note, "#pu-message", "#pu-code", "#pu-name")) == []
+
+    # Assert 2:B 的讀不到目錄說明
+    chat_unavailable = chat_tab.locator('[data-state="chat-unavailable"]')
+    expect(chat_unavailable).to_be_visible(timeout=WITHIN)
+    expect(chat_unavailable.locator("#un-code")).to_have_text(code)
+    assert LATIN.findall(text_without(chat_unavailable, "#un-message", "#un-code")) == []
+
+    # Act 2:回 A 重新整理頁面,再按「重新讀取」
+    models_tab.bring_to_front()
+    models_tab.reload()
+    models_tab.click("#reload", timeout=WITHIN)
+
+    # Assert 3:A 的讀不到目錄說明
+    unavailable = models_tab.locator('[data-state="unavailable"]')
+    expect(unavailable).to_be_visible(timeout=WITHIN)
+    expect(models_tab.locator("#un-message")).to_have_text(MESSAGES[code])
+    assert LATIN.findall(text_without(unavailable, "#un-message", "#un-code")) == []

@@ -1,7 +1,7 @@
 // 模型頁:執行環境上已下載的模型、預先載入與下載佇列(FR-014、FR-015、FR-017、FR-021;prototype/models.html)
 import { readThenFollow, request } from "./api.js";
 import { startHeader } from "./header.js";
-import { bytes, clock, escape, showGroupState, typeText } from "./view.js";
+import { bytes, clock, escape, hideGroup, showError, showGroupState, typeText } from "./view.js";
 
 // 目錄(ModelCatalog)與目前的工作階段(session.updated;提示裡要說是哪一種執行階段類型)
 let current = { items: [] };
@@ -53,30 +53,31 @@ function catalogPushed(catalog) {
 async function loadCatalog() {
   if (!local) showGroupState("catalog", "loading");
   const response = await request("GET", "/models");
-  if (response.ok) show(response.data);
-  // 沒有就緒的工作階段:執行環境上的模型跟著消失,目錄清空(FR-018)
-  else if (response.data?.code === "NO_READY_SESSION") {
-    document.getElementById("catalog").innerHTML = "";
-    showGroupState("catalog", "no-session");
-  }
-  // 讀不到遠端的目錄(502、504):清空目錄,顯示後端的說明與代碼,不顯示成空的目錄(FR-003、research R2)
-  else if (response.status === 502 || response.status === 504) {
-    document.getElementById("catalog").innerHTML = "";
-    document.getElementById("un-message").textContent = response.data?.message ?? "";
-    document.getElementById("un-code").textContent = response.data?.code ?? "";
-    showGroupState("catalog", "unavailable");
-  }
+  if (response.ok) return show(response.data);
+  const state = failedCatalogState(response);
+  if (!state) return;
+  // 兩種失敗都清空目錄:沒有就緒的工作階段時模型跟著消失(FR-018);讀不到遠端時不顯示成空的目錄(FR-003)
+  document.getElementById("catalog").innerHTML = "";
+  if (state === "unavailable") showError("un", response.data);
+  showGroupState("catalog", state);
+}
+
+// 列目錄失敗時要顯示的狀態:沒有就緒的工作階段(503 NO_READY_SESSION)是 no-session;
+// 讀不到遠端的目錄(502、504)是 unavailable,說明與代碼用後端的(research R2);其他的不改畫面
+function failedCatalogState(response) {
+  if (response.data?.code === "NO_READY_SESSION") return "no-session";
+  if (response.status === 502 || response.status === 504) return "unavailable";
+  return null;
 }
 
 async function preload(name) {
   // 送出前先收起上一次的說明,舊的失敗說明不蓋在載入中的目錄上
-  showGroupState("preload-note", "");
+  hideGroup("preload-note");
   const response = await request("POST", "/models/preload", { name });
   // 確認目錄時讀不到遠端(502、504):不受理,蓋上說明;不重讀目錄、其他模型照原狀顯示(FR-002、FR-003、research R2)
   if (response.status === 502 || response.status === 504) {
     document.getElementById("pu-name").textContent = name;
-    document.getElementById("pu-message").textContent = response.data?.message ?? "";
-    document.getElementById("pu-code").textContent = response.data?.code ?? "";
+    showError("pu", response.data);
     showGroupState("preload-note", "preload-unavailable");
     return;
   }
@@ -114,7 +115,7 @@ document.getElementById("pw-go").addEventListener("click", () => {
 });
 document.getElementById("pw-cancel").addEventListener("click", closeWarn);
 // 沒有預先載入的說明的「關閉」
-document.getElementById("pu-close").addEventListener("click", () => showGroupState("preload-note", ""));
+document.getElementById("pu-close").addEventListener("click", () => hideGroup("preload-note"));
 // 讀不到目錄時的「重新讀取」:遠端恢復後不必重開工作階段(FR-003、驗收情境 5)
 document.getElementById("reload").addEventListener("click", loadCatalog);
 

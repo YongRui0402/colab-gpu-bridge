@@ -273,15 +273,15 @@
   - 🧪 `testplan.md` § US1-AJ-10
   - ⚙ `prototype/models.html` § `[data-state="no-session"]`、`[data-state="unavailable"]`;`prototype/chat.html` § `[data-state="chat-no-session"]`、`[data-state="chat-unavailable"]`;`prototype/index.html` § `#end`
   - 📎 `spec.md` § 邊界情況;`research.md` § R2
-- [ ] T029a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us1_catalog_errors.py` 寫 US1-AJ-11 的測試(以 `OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_TIMEOUT` 參數化;分頁 A 打開 `/models.html` 等到 3 列,之後 tags 丟這一次的代碼;在 A 按 `llama3.2:3b` 的「預先載入」,另開分頁 B 打開 `/chat.html`,回 A 先斷言 `preload-unavailable` 的則1~4,再重新整理頁面、按「重新讀取」(plan Q35);斷言 `#pu-message`、A 的 `#un-message` 等於這個代碼的原句,`#pu-code`、B 的 `#un-code` 是代碼原文,`#pu-name` 是 `llama3.2:3b`,`preload-unavailable` 去掉 `#pu-message`、`#pu-code`、`#pu-name`,B 的 `chat-unavailable` 與 A 的 `unavailable` 去掉 `#un-message`、`#un-code` 之後的文字(含「關閉」「重新讀取」)不含 A–Z、a–z);這個案例會被滿足:T019b、T024b、T026b 照原型放的標題、按鈕與小字都是中文,T021b、T025b、T027b 讓 504 也顯示後端的 `message`:先執行確認通過,再暫時把 `src/cgb/static/models.html` 的 `#pu-close` 文字改成「Close」,確認斷言失敗後撤回
+- [X] T029a [US1] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us1_catalog_errors.py` 寫 US1-AJ-11 的測試(以 `OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_TIMEOUT` 參數化;分頁 A 打開 `/models.html` 等到 3 列,之後 tags 丟這一次的代碼;在 A 按 `llama3.2:3b` 的「預先載入」,另開分頁 B 打開 `/chat.html`,回 A 先斷言 `preload-unavailable` 的則1~4,再重新整理頁面、按「重新讀取」(plan Q35);斷言 `#pu-message`、A 的 `#un-message` 等於這個代碼的原句,`#pu-code`、B 的 `#un-code` 是代碼原文,`#pu-name` 是 `llama3.2:3b`,`preload-unavailable` 去掉 `#pu-message`、`#pu-code`、`#pu-name`,B 的 `chat-unavailable` 與 A 的 `unavailable` 去掉 `#un-message`、`#un-code` 之後的文字(含「關閉」「重新讀取」)不含 A–Z、a–z);這個案例會被滿足:T019b、T024b、T026b 照原型放的標題、按鈕與小字都是中文,T021b、T025b、T027b 讓 504 也顯示後端的 `message`:先執行確認通過,再暫時把 `src/cgb/static/models.html` 的 `#pu-close` 文字改成「Close」,確認斷言失敗後撤回
   - 🧪 `testplan.md` § US1-AJ-11
   - ⚙ `prototype/models.html` § `[data-state="preload-unavailable"]`、`#pu-message`、`#pu-code`、`#pu-name`、`#pu-close`、`[data-state="unavailable"]`、`#un-message`、`#un-code`、`#reload`;`prototype/chat.html` § `[data-state="chat-unavailable"]`、`#un-message`、`#un-code`、`#reload`
   - 📎 `spec.md` § NFR-003、FR-003;`plan.md` § 待決問題 Q17、Q21、Q35
-- [ ] T029b [US1] 🟢 /tdd 綠燈:US1-AJ-11 由 T019b、T021b、T024b、T025b、T026b、T027b 滿足,確認 `src/cgb/static/models.html`、`src/cgb/static/chat.html`、`src/cgb/static/js/models.js`、`src/cgb/static/js/chat.js` 不需要為它改程式碼;紅燈時若它其實沒有通過,才在這四個檔只寫讓 US1-AJ-11 通過的程式碼,執行 `tests/e2e/test_007_us1_catalog_errors.py` 確認通過;看到要整理的地方記進重構清單(依賴 T029a)
+- [X] T029b [US1] 🟢 /tdd 綠燈:US1-AJ-11 由 T019b、T021b、T024b、T025b、T026b、T027b 滿足,確認 `src/cgb/static/models.html`、`src/cgb/static/chat.html`、`src/cgb/static/js/models.js`、`src/cgb/static/js/chat.js` 不需要為它改程式碼;紅燈時若它其實沒有通過,才在這四個檔只寫讓 US1-AJ-11 通過的程式碼,執行 `tests/e2e/test_007_us1_catalog_errors.py` 確認通過;看到要整理的地方記進重構清單(依賴 T029a)
   - 🧪 `testplan.md` § US1-AJ-11
   - ⚙ `prototype/models.html` § `[data-state="preload-unavailable"]`、`#pu-message`、`#pu-code`、`#pu-name`、`#pu-close`、`[data-state="unavailable"]`、`#un-message`、`#un-code`、`#reload`;`prototype/chat.html` § `[data-state="chat-unavailable"]`、`#un-message`、`#un-code`、`#reload`
   - 📎 `spec.md` § NFR-003;`plan.md` § 待決問題 Q17
-- [ ] T030 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T019b~T029b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行這一節的測試檔 `tests/e2e/test_007_us1_catalog_errors.py`,變紅就撤回那一步;重構前後執行全部測試;不改 `tests/e2e/test_007_us1_catalog_errors.py` 的斷言(依賴 T029b)
+- [X] T030 [US1] 🔵 /tdd 重構:在全部測試綠燈下整理 T019b~T029b 記下的重構清單(範圍限 `src/cgb/static/`),每改一小步執行這一節的測試檔 `tests/e2e/test_007_us1_catalog_errors.py`,變紅就撤回那一步;重構前後執行全部測試;不改 `tests/e2e/test_007_us1_catalog_errors.py` 的斷言(依賴 T029b)
   - 🧪 `testplan.md` § US1-AJ-01~US1-AJ-11
   - 📎 `testplan.md` § 2.2
 

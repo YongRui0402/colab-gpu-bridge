@@ -1,7 +1,7 @@
 // 對話頁:選執行環境上的模型、送出訊息,回覆逐段出現(FR-004~FR-008;prototype/chat.html)
 import { chat, request } from "./api.js";
 import { startHeader } from "./header.js";
-import { escape, showGroupState } from "./view.js";
+import { escape, showError, showGroupState } from "./view.js";
 
 // 這段對話存在這個瀏覽器的 localStorage(`cgb.chat.v1`),重新整理後還原;不寫進本系統的資料庫與日誌(FR-004、NFR-002、research R3)
 let convo = [];
@@ -58,11 +58,12 @@ function saveConvo() {
   localStorage.setItem(KEEP_KEY, JSON.stringify({ session: sessionName, model, messages, updatedAt: new Date().toISOString() }));
 }
 
-// 啟動時讀回保存的對話
+// 啟動時讀回保存的對話並畫出來
 function restoreConvo() {
   const kept = JSON.parse(localStorage.getItem(KEEP_KEY) ?? "null");
   if (kept?.messages) convo = kept.messages;
   showGroupState("keep", "keep-on");
+  renderLog();
 }
 
 // 對話改變了:先保存再畫
@@ -99,7 +100,7 @@ function renderModels(next) {
   if (catalog.items.some((m) => m.name === chosen)) select.value = chosen;
 }
 
-// 能不能送出(FR-008):沒有就緒的工作階段、或執行環境上沒有模型時不能送出,各自說明原因
+// 能不能送出(FR-008):沒有就緒的工作階段、執行環境上沒有模型、或讀不到執行環境上的模型目錄(research R2)時不能送出,各自說明原因
 let view = "chat-no-session";
 
 function renderButtons() {
@@ -120,8 +121,7 @@ async function loadModels() {
   } else if (response.status === 502 || response.status === 504) {
     // 讀不到遠端的目錄:說明用後端的 message 與 code,不說成沒有就緒的工作階段(research R2)
     renderModels({ items: [] });
-    document.getElementById("un-message").textContent = response.data?.message ?? "";
-    document.getElementById("un-code").textContent = response.data?.code ?? "";
+    showError("un", response.data);
     view = "chat-unavailable";
   } else {
     renderModels({ items: [] });
@@ -254,5 +254,4 @@ startHeader({
 });
 showGroupState("turn", "turn-idle");
 restoreConvo();
-renderLog();
 loadModels();
