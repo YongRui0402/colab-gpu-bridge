@@ -66,7 +66,12 @@ except OSError as error:
     lines = []
 for line in lines:
     if any(k in line for k in keys):
-        print("LOGPROBE", line[:600])
+        if "server config" in line:
+            # 這一行很長(約 600 字以上),截斷會切掉字母排序在後的 OLLAMA_NUM_PARALLEL 等;只抽出五個變數
+            env = re.findall(r"(OLLAMA_(?:NUM_PARALLEL|CONTEXT_LENGTH|MAX_LOADED_MODELS|FLASH_ATTENTION|KV_CACHE_TYPE):\S*)", line)
+            print("LOGPROBE server config", " ".join(env))
+        else:
+            print("LOGPROBE", line[:600])
 print("LOGPROBE-DONE", len(lines))
 """
 

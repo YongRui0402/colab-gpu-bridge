@@ -62,3 +62,23 @@
 - `/api/ps` 之前 [('qwen2.5:7b', 7086622636, 7086622636, 32768)];之後 [('qwen2.5:7b', 8704533461, 8704533461, 32768)];遠端 log 的 n_seq_max [2, 4]
 - **則1 重啟 90 秒內完成(不含重新載入模型):過;則2 `/api/ps` 列出 qwen2.5:7b:過;則3 n_seq_max = 4:過**
 - 其他:{}
+
+## G-01(T170)真的 Colab A100
+
+- 日期:2026-11-16 11:12;開啟 {'seconds': 117.4, 'state': 'ready', 'reason': None};下載 加入 201;completed(None),30 秒;整批 6.1 分,用掉 0.24 compute units(用量 6.73/hr);P3 之後 cgb-test- 的行 []
+- 硬體:{'gpuName': 'NVIDIA A100-SXM4-40GB', 'vramTotalBytes': 42949672960, 'systemMemoryTotalBytes': 89629184000, 'probedAt': '2026-11-16T03:07:50.558125+00:00'}
+- 自動值:設定 {'numParallel': 8, 'contextLength': 8192, 'maxLoadedModels': 2, 'flashAttention': True, 'kvCacheType': 'q8_0'};3 輪 [6.5, 15.5, 6.3] 秒,中位數 6.455970744951628
+- 平行數 1(開著時套用 {'accepted': 202, 'seconds': 12.8, 'state': 'ready'}):設定 {'numParallel': 1, 'contextLength': 8192, 'maxLoadedModels': 2, 'flashAttention': True, 'kvCacheType': 'q8_0'};3 輪 [13.2, 13.1, 13.0] 秒,中位數 13.058001494035125
+- `/api/ps`(name, size, size_vram, context_length):自動 [('qwen2.5:7b', 6985959340, 6985959340, 8192)];平行 1 [('qwen2.5:7b', 4930729409, 4930729409, 8192)];n_seq_max {'auto': [8], 'p1': [8, 1]}
+- **G-01 自動值 / 平行 1 = 0.494,門檻 ≤ 0.6;size_vram = size True;server config 五個變數 False;n_seq_max 等於套用值 True:沒過**
+- 其他:{}
+
+## G-01(T170)真的 Colab A100
+
+- 日期:2026-11-16 11:23;開啟 {'seconds': 198.3, 'state': 'open_failed', 'reason': 'COLAB_FAILED'};下載 None;整批 3.4 分,用掉 0.0 compute units(用量 None/hr);P3 之後 cgb-test- 的行 []
+- 硬體:None
+- 自動值:設定 None;3 輪 None 秒,中位數 None
+- 平行數 1(開著時套用 None):設定 None;3 輪 None 秒,中位數 None
+- `/api/ps`(name, size, size_vram, context_length):自動 None;平行 1 None;n_seq_max {'auto': [], 'p1': []}
+- **G-01 自動值 / 平行 1 = None,門檻 ≤ 0.6;size_vram = size False;server config 五個變數 False;n_seq_max 等於套用值 False:沒過**
+- 其他:{'error': '沒有就緒:COLAB_FAILED 開啟執行環境失敗,請稍後再試。'}
