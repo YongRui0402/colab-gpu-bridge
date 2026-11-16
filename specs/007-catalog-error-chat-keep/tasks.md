@@ -599,7 +599,7 @@
   - 🧪 `testplan.md` § US2-AJ-18
   - ⚙ `prototype/chat.html` § `#clear`
   - 📎 `spec.md` § FR-007、NFR-003;`research.md` § R3;`plan.md` § 待決問題 Q7、Q23
-- [ ] T059a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-19 的測試(`#model` 選 `qwen2.5:latest` 後 `two_rounds`,改選 `llama3.2:3b`,再重新整理;斷言改選後 `#log .msg` 0 則、保存是 null,重新整理後 0 則、`#model` 的值是 `llama3.2:3b`);`#model` 的 `change` 走 `clearChat()`,T058b 已讓它 `removeItem`,這個案例會被滿足:先執行確認通過,再暫時在 `change` 處理函式裡先以舊的 `convo` 與新模型整份寫入再清畫面(不 `removeItem`),確認斷言失敗後撤回
+- [ ] T059a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-19 的測試(`#model` 選 `qwen2.5:latest` 後 `two_rounds`,改選 `llama3.2:3b`,再重新整理;斷言改選後 `#log .msg` 0 則、保存是 null,重新整理後 0 則);`#model` 的 `change` 走 `clearChat()`,T058b 已讓它 `removeItem`,這個案例會被滿足:先執行確認通過,再暫時在 `change` 處理函式裡先以舊的 `convo` 與新模型整份寫入再清畫面(不 `removeItem`),確認斷言失敗後撤回
   - 🧪 `testplan.md` § US2-AJ-19
   - ⚙ `prototype/chat.html` § `#model`、`#log`
   - 📎 `spec.md` § FR-007、§ 使用者故事 2 驗收情境 8;`research.md` § R3
