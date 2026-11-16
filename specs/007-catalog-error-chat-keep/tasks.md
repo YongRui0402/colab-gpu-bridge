@@ -563,7 +563,7 @@
   - 🧪 `testplan.md` § US2-AJ-14
   - ⚙ `prototype/chat.html` § `[data-state="keep-cleared"]`、`#log`;`prototype/index.html` § `[data-state="ready"]`、`#end`;`contracts/ui.openapi.yaml` § `paths./events.get`
   - 📎 `spec.md` § FR-006、FR-008、SC-003、§ 使用者故事 2 驗收情境 6;`research.md` § R4、R5;`plan.md` § 待決問題 Q22
-- [ ] T054b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-14 通過的程式碼:拿掉 T049b、T053b 的回覆途中例外,`sessionUpdated` 判定結束時先 `busy.controller.abort()`、`busy = null` 再清空(research R4 第 2 點「回覆途中就先停止那一則」);清空之後同一則的 `endReply`、`finishTurn` 與每段寫入一律不再寫入保存(`finishTurn` 既有的 `!convo.includes(reply)` 檢查延伸到寫入);同一個任務依 `plan.md` § 待決問題 Q22(先採用 a)改寫或刪除 004 的三支舊測試(若本人選 b 則改照 b 重寫本任務):刪除 `tests/e2e/test_004_us2_chat.py` 的 `test_回覆途中工作階段被結束_保留已收到的內容並標示中斷`(行為改由 US2-AJ-14 涵蓋)與 `test_回覆途中在另一個分頁變更類型_保留已收到的內容並說明正在變更類型`(改由 US2-AJ-13 涵蓋),同檔 `test_對話頁各種狀態的文字都是繁體中文` 的最後一段「回覆途中工作階段被結束」把 `shown("turn-lost")` 改成斷言 `[data-state="keep-cleared"]` 可見並通過 `assert_traditional_chinese`;`chat.html` 的 `turn-lost` 留著(變更類型途中先收到 `SESSION_ENDED`、名稱還沒變之前仍會顯示);執行 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 確認通過、不留 skip;看到要整理的地方記進重構清單(依賴 T054a)
+- [ ] T054b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-14 通過的程式碼:拿掉 T049b、T053b 的回覆途中例外,`sessionUpdated` 判定結束時先 `busy.controller.abort()`、`busy = null` 再清空(research R4 第 2 點「回覆途中就先停止那一則」);清空之後同一則的 `endReply`、`finishTurn` 與每段寫入一律不再寫入保存(`finishTurn` 既有的 `!convo.includes(reply)` 檢查延伸到寫入);同一個任務依 `plan.md` § 待決問題 Q22(使用者本人選 a)改寫或刪除 004 的三支舊測試:刪除 `tests/e2e/test_004_us2_chat.py` 的 `test_回覆途中工作階段被結束_保留已收到的內容並標示中斷`(行為改由 US2-AJ-14 涵蓋)與 `test_回覆途中在另一個分頁變更類型_保留已收到的內容並說明正在變更類型`(改由 US2-AJ-13 涵蓋),同檔 `test_對話頁各種狀態的文字都是繁體中文` 的最後一段「回覆途中工作階段被結束」把 `shown("turn-lost")` 改成斷言 `[data-state="keep-cleared"]` 可見並通過 `assert_traditional_chinese`;`chat.html` 的 `turn-lost` 留著(變更類型途中先收到 `SESSION_ENDED`、名稱還沒變之前仍會顯示);執行 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 確認通過、不留 skip;看到要整理的地方記進重構清單(依賴 T054a)
   - 🧪 `testplan.md` § US2-AJ-14
   - ⚙ `prototype/chat.html` § `[data-state="keep-cleared"]`;`contracts/ui.openapi.yaml` § `paths./events.get`;`prototype/index.html` § `[data-state="ready"]`
   - 📎 `spec.md` § FR-006、FR-008;`research.md` § R4、R5;`plan.md` § 待決問題 Q22
@@ -805,4 +805,4 @@
 - 同一個 phase 的 E2 節交給一個 subagent;E1 沒有任務;跨端點驗收在 E2 節完成後由主 agent 做
 - 同一個檔不同時改:`src/cgb/static/chat.html`、`src/cgb/static/js/chat.js` 先由 US1 的跨端點驗收改讀不到目錄的說明,再由 US2 的跨端點驗收加對話的保存、還原與清除,兩段依序做
 - 📏 量測:G-01(T072)不開 Colab,Phase 2 的 E2 節完成後由主 agent 做;這一輪沒有要花 compute units 或本人在場的實跑
-- `plan.md` § 待決問題 Q22 等使用者本人決定;在本人決定前,US2-AJ-14 對應的任務先照 007 spec FR-006 排
+- `plan.md` § 待決問題 Q22 已由使用者本人選 a(照 007 spec FR-006 清空,修訂 004 FR-008,見 spec.md 假設):US2-AJ-14 對應的 T054a、T054b 照現在寫的做,T054b 刪除與改寫 004 的三支舊測試
