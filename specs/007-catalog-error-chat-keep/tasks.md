@@ -698,15 +698,15 @@
 - [X] T070 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T041b~T069b、T071b 記下的重構清單(範圍限 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html`、`src/cgb/static/style.css`;例如把 `finishTurn` 與還原時填 `[data-state="turn-…"] [data-message]` 的兩處收成原型那樣的 `turn(name, message)`、把保存的讀寫移除收成一處),每改一小步執行這一節的測試檔 `tests/e2e/test_007_us2_chat_keep.py` 與 `tests/e2e/test_004_us2_chat.py`,變紅就撤回那一步;重構前後執行全部測試;不改 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 的斷言(依賴 T071b)
   - 🧪 `testplan.md` § US2-AJ-01~US2-AJ-30
   - 📎 `testplan.md` § 3.2;`research.md` § R3、R4、R5
-- [ ] T073a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-31 的測試(照 US2-AJ-26 以 `qwen_gone_after_reload` 顯示 `chat-model-gone`,`#model` 改選 `llama3.2:3b`,`reply_with(fakes, "一二三")` 後送出「你好」等回覆完成,再等 2 秒;斷言 `[data-state="chat-model-gone"]` 隱藏、`[data-state="chat-ready"]` 可見、`#send` 可按),執行確認它因為「`clearChat()` 沒清 `keptModel`,對話不是空的之後重讀目錄又判成模型已不在」這類實作而失敗(plan Q40)
+- [X] T073a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-31 的測試(照 US2-AJ-26 以 `qwen_gone_after_reload` 顯示 `chat-model-gone`,`#model` 改選 `llama3.2:3b`,`reply_with(fakes, "一二三")` 後送出「你好」等回覆完成,再等 2 秒;斷言 `[data-state="chat-model-gone"]` 隱藏、`[data-state="chat-ready"]` 可見、`#send` 可按),執行確認它因為「`clearChat()` 沒清 `keptModel`,對話不是空的之後重讀目錄又判成模型已不在」這類實作而失敗(plan Q40)
   - 🧪 `testplan.md` § US2-AJ-31
   - ⚙ `prototype/chat.html` § `[data-state="chat-model-gone"]`、`[data-state="chat-ready"]`、`#model`、`#send`
   - 📎 `spec.md` § FR-007、§ 邊界情況;`research.md` § R5;`plan.md` § 待決問題 Q40
-- [ ] T073b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-31 通過的程式碼:`dropConvo()`(清除、換模型與工作階段結束共用)清空對話時一起把 `keptModel` 設成 null,之後的模型以 `#model` 選著的為準;執行 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 確認通過(依賴 T073a)
+- [X] T073b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-31 通過的程式碼:`dropConvo()`(清除、換模型與工作階段結束共用)清空對話時一起把 `keptModel` 設成 null,之後的模型以 `#model` 選著的為準;執行 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 確認通過(依賴 T073a)
   - 🧪 `testplan.md` § US2-AJ-31
   - ⚙ `prototype/chat.html` § `[data-state="chat-ready"]`、`[data-state="chat-model-gone"]`、`#send`
   - 📎 `spec.md` § FR-007、§ 邊界情況;`research.md` § R5;`plan.md` § 待決問題 Q40
-- [ ] T073c [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T073b 的改動(範圍限 `src/cgb/static/js/chat.js`;例如 `dropConvo()` 把對話相關的狀態一起歸零的寫法是否和 `restoreConvo()` 對稱),每改一小步執行 `tests/e2e/test_007_us2_chat_keep.py` 與 `tests/e2e/test_004_us2_chat.py`,變紅就撤回那一步;沒有要整理的就記下理由;重構前後執行這兩個測試檔;不改測試的斷言(依賴 T073b)
+- [X] T073c [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T073b 的改動(範圍限 `src/cgb/static/js/chat.js`;例如 `dropConvo()` 把對話相關的狀態一起歸零的寫法是否和 `restoreConvo()` 對稱),每改一小步執行 `tests/e2e/test_007_us2_chat_keep.py` 與 `tests/e2e/test_004_us2_chat.py`,變紅就撤回那一步;沒有要整理的就記下理由;重構前後執行這兩個測試檔;不改測試的斷言(依賴 T073b)
   - 🧪 `testplan.md` § US2-AJ-31
   - 📎 `testplan.md` § 3.2;`plan.md` § 待決問題 Q40
 

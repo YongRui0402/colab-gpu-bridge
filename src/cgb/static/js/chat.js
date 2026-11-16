@@ -320,13 +320,14 @@ document.getElementById("input").addEventListener("keydown", (event) => {
   }
 });
 
-// 先停止進行中的回覆(它的收尾不再寫入保存),再清空對話、解除綁定的工作階段、拿掉保存;清除、換模型與工作階段結束共用
+// 先停止進行中的回覆(它的收尾不再寫入保存),再清空對話、放掉保存讀回的模型(之後以選單為準,plan.md Q40)、解除綁定的工作階段、拿掉保存;清除、換模型與工作階段結束共用
 function dropConvo() {
   stop();
   busy = null;
   renderButtons();
   convo = [];
   bound = null;
+  keptModel = null;
   dropKept();
 }
 

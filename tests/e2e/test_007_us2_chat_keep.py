@@ -804,6 +804,29 @@ def test_模型已不在時改選另一個模型_清掉舊對話就能送出_重
     expect(page.locator("#log .msg")).to_have_count(0)
 
 
+
+# ---------------------------------------------------------------- US2-AJ-31
+
+
+def test_模型已不在時改選另一個模型送出一則_收到推送後仍可接著送(
+    page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any
+) -> None:
+    # Arrange:照 US2-AJ-26 已顯示模型已不在,改選另一個模型
+    qwen_gone_after_reload(page, world, fakes)
+    expect(page.locator('[data-state="chat-model-gone"]')).to_be_visible()
+    page.select_option("#model", LLAMA)
+    reply_with(fakes, "一二三")
+
+    # Act:送出一則,等回覆完成,再等對話後的推送讓頁面重讀目錄
+    send(page, "你好")
+    expect(replies(page).last.locator(".content")).to_have_text("一二三")
+    page.wait_for_timeout(2_000)
+
+    # Assert
+    expect(page.locator('[data-state="chat-model-gone"]')).to_be_hidden()
+    expect(page.locator('[data-state="chat-ready"]')).to_be_visible()
+    expect(page.locator("#send")).to_be_enabled()
+
 # ---------------------------------------------------------------- US2-AJ-28
 
 USER_MARK = "cgb-test-007-使用者-不該留下"
