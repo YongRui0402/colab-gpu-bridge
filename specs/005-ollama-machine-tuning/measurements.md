@@ -92,3 +92,5 @@
 - `/api/ps`(name, size, size_vram, context_length):自動 [('qwen2.5:7b', 6985959340, 6985959340, 8192)];平行 1 [('qwen2.5:7b', 4930729409, 4930729409, 8192)];n_seq_max {'auto': [8], 'p1': [8, 1]}
 - **G-01 自動值 / 平行 1 = 0.502,門檻 ≤ 0.6;size_vram = size True;server config 五個變數 True;n_seq_max 等於套用值 True:過**
 - 其他:{}
+
+> **補註(審查後)**:上面最後一節(11:44)的「過」只依 server config 的五個變數名稱出現、`n_seq_max` 與 `/api/ps` 判定;當時沒有比對五個變數的值,也沒有把請求失敗列入判定,原始 JSON 沒有留存,所以這兩項沒有證據。判定已改為:暖機與 16 題 × 3 輪全成功、兩組 server config 的值逐項等於套用值,否則不過(`tests/realrun/test_005_g_01.py` 的 `judge`;離線回歸 `tests/integration/test_005_g_01_judge.py`)。補證據需重跑 A100,待使用者本人同意。

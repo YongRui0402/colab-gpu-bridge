@@ -28,11 +28,66 @@ BATCH_UNITS = float(os.environ.get("CGB_G01_UNITS", "4.0"))
 G01_RATIO = 0.60
 APPLY_TIMEOUT = 600
 MEASUREMENTS = Path(__file__).resolve().parents[2] / "specs/005-ollama-machine-tuning/measurements.md"
-ENV_KEYS = ("OLLAMA_NUM_PARALLEL", "OLLAMA_CONTEXT_LENGTH", "OLLAMA_MAX_LOADED_MODELS", "OLLAMA_FLASH_ATTENTION", "OLLAMA_KV_CACHE_TYPE")
+ENV_OF = {
+    "OLLAMA_NUM_PARALLEL": "numParallel",
+    "OLLAMA_CONTEXT_LENGTH": "contextLength",
+    "OLLAMA_MAX_LOADED_MODELS": "maxLoadedModels",
+    "OLLAMA_FLASH_ATTENTION": "flashAttention",
+    "OLLAMA_KV_CACHE_TYPE": "kvCacheType",
+}
 
 
 def tuning_of(session: dict) -> dict:
     return {k: (v or {}).get("value") for k, v in ((session.get("ollama") or {}).get("tuning") or {}).items()}
+
+
+def requests_ok(g: dict) -> bool:
+    """暖機回 200、3 輪都量完且每輪 16 題都成功;任何一項不成立,這一組的耗時就不能下效能結論。"""
+    return g.get("warmStatus") == 200 and not g.get("errors") and len(g.get("rounds") or []) == ROUNDS and g.get("median") is not None
+
+
+def expected_env(tuning: dict) -> dict:
+    """套用的五個值轉成 server config 的寫法(布林為 true / false)。缺值留 None,比對時算失敗。"""
+    def norm(v):
+        return None if v is None else str(v).lower() if isinstance(v, bool) else str(v)
+
+    return {env: norm(tuning.get(key)) for env, key in ENV_OF.items()}
+
+
+def server_config_of(log: list[str]) -> dict | None:
+    """該組 log 裡最後一行 server config 的五個變數(重啟後會多一行,取最後一行);沒有那一行回 None。"""
+    lines = [line for line in log if "server config" in line]
+    if not lines:
+        return None
+    found = dict(re.findall(r"(OLLAMA_[A-Z_]+):(\S*)", lines[-1]))
+    return {k: found.get(k) for k in ENV_OF}
+
+
+def env_problems(name: str, g: dict) -> list[str]:
+    config = server_config_of(g.get("log") or [])
+    if config is None:
+        return [f"{name}:log 沒有 server config 那一行"]
+    expected = expected_env(g.get("tuning") or {})
+    return [
+        f"{name} {env}:預期 {expected[env]},實際 {config[env]}"
+        for env in ENV_OF
+        if expected[env] is None or config[env] is None or config[env].lower() != expected[env]
+    ]
+
+
+def judge(auto: dict, p1: dict) -> dict:
+    """G-01 的判定(純函式,離線測試在 `tests/integration/test_005_g_01_judge.py`)。"""
+    ok = requests_ok(auto) and requests_ok(p1)
+    ratio = auto["median"] / p1["median"] if ok and p1["median"] else None
+    vram_ok = bool(auto.get("ps")) and bool(p1.get("ps")) and all(r[1] == r[2] for g in (auto, p1) for r in g.get("ps", []))
+    problems = env_problems("自動", auto) + env_problems("平行 1", p1)
+    seq = {k: [int(m) for line in g.get("log", []) for m in re.findall(r"n_seq_max\s*=\s*(\d+)", line)] for k, g in (("auto", auto), ("p1", p1))}
+    seq_ok = bool(seq["auto"]) and seq["auto"][-1] == auto.get("tuning", {}).get("numParallel") and bool(seq["p1"]) and seq["p1"][-1] == 1
+    g01 = ratio is not None and ratio <= G01_RATIO and vram_ok and not problems and seq_ok
+    return {
+        "ratio": ratio, "requestsOk": ok, "vramOk": vram_ok, "envOk": not problems, "envProblems": problems,
+        "nSeqMax": seq, "seqOk": seq_ok, "g01": g01,
+    }
 
 
 def group(stack, realrun, name: str, probe_path: Path, over) -> dict:
@@ -41,6 +96,7 @@ def group(stack, realrun, name: str, probe_path: Path, over) -> dict:
         "POST", "/api/generate", {"model": MODEL, "prompt": "hi", "stream": False, "options": {"num_predict": 8}}, timeout=REQUEST_TIMEOUT
     )
     out["warm"] = f"{warm.status_code},{warm_s:.1f} 秒"
+    out["warmStatus"] = warm.status_code
     out["tuning"] = tuning_of(stack.session() or {})
     rounds: list[float] = []
     for i in range(ROUNDS):
@@ -49,9 +105,12 @@ def group(stack, realrun, name: str, probe_path: Path, over) -> dict:
             out["stopped"] = f"第 {i + 1} 輪前:{reason}"
             break
         seconds, errors = one_round(stack)
-        rounds.append(seconds)
         if errors:
+            # 有請求失敗的輪次不算有效的耗時,不進中位數;只留紀錄
             out.setdefault("errors", []).append(f"第 {i + 1} 輪:{errors}")
+            out.setdefault("failedRounds", []).append(round(seconds, 1))
+        else:
+            rounds.append(seconds)
         if i == 0:
             out["ps"] = ps_rows(stack)
     out["rounds"] = [round(r, 1) for r in rounds]
@@ -123,14 +182,9 @@ def test_005_g_01(realrun):
         data["p3Problems"] = realrun.p3_cleanup()
         data["p3Rows"] = stack.test_rows("P3 之後")
 
-    ratio = auto["median"] / p1["median"] if auto.get("median") and p1.get("median") else None
-    vram_ok = bool(auto.get("ps")) and bool(p1.get("ps")) and all(r[1] == r[2] for g in (auto, p1) for r in g.get("ps", []))
-    auto_log = " ".join(auto.get("log", []))
-    env_ok = "server config" in auto_log and all(k in auto_log for k in ENV_KEYS)
-    seq = {k: [int(m) for line in g.get("log", []) for m in re.findall(r"n_seq_max\s*=\s*(\d+)", line)] for k, g in (("auto", auto), ("p1", p1))}
-    seq_ok = bool(seq["auto"]) and seq["auto"][-1] == auto.get("tuning", {}).get("numParallel") and bool(seq["p1"]) and seq["p1"][-1] == 1
-    g01 = ratio is not None and ratio <= G01_RATIO and vram_ok and env_ok and seq_ok
-    data.update(ratio=ratio, vramOk=vram_ok, envOk=env_ok, nSeqMax=seq, seqOk=seq_ok, g01=g01, auto=auto, p1=p1)
+    verdict = judge(auto, p1)
+    ratio, vram_ok, env_ok, seq, seq_ok, g01 = (verdict[k] for k in ("ratio", "vramOk", "envOk", "nSeqMax", "seqOk", "g01"))
+    data.update(verdict, auto=auto, p1=p1)
 
     raw = Path(os.environ.get("CGB_REALRUN_OUT") or tempfile.gettempdir()) / f"cgb-005-g01-{datetime.now():%Y%m%d-%H%M%S}.json"
     raw.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -145,7 +199,11 @@ def test_005_g_01(realrun):
             f"- 平行數 1(開著時套用 {data.get('apply')}):設定 {p1.get('tuning')};3 輪 {p1.get('rounds')} 秒,中位數 {p1.get('median')}\n"
             f"- `/api/ps`(name, size, size_vram, context_length):自動 {auto.get('ps')};平行 1 {p1.get('ps')};n_seq_max {seq}\n"
             f"- **G-01 自動值 / 平行 1 = {None if ratio is None else round(ratio, 3)},門檻 ≤ {G01_RATIO};size_vram = size {vram_ok};"
-            f"server config 五個變數 {env_ok};n_seq_max 等於套用值 {seq_ok}:{'過' if g01 else '沒過'}**\n"
+            f"請求全部成功(兩組暖機 200、各 {ROUNDS} 輪 16 題都沒失敗){verdict['requestsOk']};"
+            f"server config 五個變數的值等於套用值 {env_ok};n_seq_max 等於套用值 {seq_ok}:{'過' if g01 else '沒過'}**\n"
+            f"- 請求失敗:自動 {auto.get('errors')};平行 1 {p1.get('errors')};server config 比對問題:{verdict['envProblems']}\n"
             f"- 其他:{other}\n"
         )
-    assert g01, json.dumps({k: data[k] for k in ("ratio", "vramOk", "envOk", "seqOk")} | {"error": data.get("error")}, ensure_ascii=False)
+    assert g01, json.dumps(
+        {k: data[k] for k in ("ratio", "vramOk", "requestsOk", "envOk", "envProblems", "seqOk")} | {"error": data.get("error")}, ensure_ascii=False
+    )
