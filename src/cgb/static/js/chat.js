@@ -5,8 +5,11 @@ import { escape, showError, showGroupState } from "./view.js";
 
 // 這段對話存在這個瀏覽器的 localStorage(`cgb.chat.v1`),重新整理後還原;不寫進本系統的資料庫與日誌(FR-004、NFR-002、research R3)
 let convo = [];
-// 最近一次 session.updated 的工作階段名稱,保存時一起記下(research R3)
+// 最近一次 session.updated 的工作階段名稱;這段對話第一次送出時綁定成 bound,保存時一起記下(research R3、R4)
 let sessionName = null;
+let bound = null;
+// 保存裡選的模型:載入時讀回,選單第一次畫出來時選它(research R3)
+let keptModel = null;
 const KEEP_KEY = "cgb.chat.v1";
 // 正在回覆的那一則與它的連線;沒有時是 null
 let busy = null;
@@ -33,10 +36,17 @@ const CUT = {
   "not-found": "沒有回覆:執行環境上沒有這個模型",
   unavailable: "沒有回覆:Ollama 暫時無法使用",
   "start-timeout": "沒有回覆:Ollama 逾時",
+  left: "中斷:離開頁面時這則回覆還沒有完成",
 };
 
+// 回覆途中重新整理或離開:還原時把還在 streaming 的那一則改成 left(FR-008、research R5、plan.md Q4)
+const LEFT_PAGE = "離開頁面時這則回覆還沒有完成。";
+// 頁面卸載中:被中止的 fetch 進 catch 時不再寫入,保存裡留著 streaming,下次載入才改成 left
+let unloading = false;
+
 // FR-005:耗時由瀏覽器計時(送出到收到 `done: true`);每秒 token 數 = eval_count ÷ (eval_duration ÷ 10⁹)
-const elapsed = (m) => `<span>耗時 ${(m.ms / 1000).toFixed(1)} 秒</span>`;
+// 還原時才改成 left 的那一則沒有耗時(離開頁面時還沒收到結束),不畫耗時
+const elapsed = (m) => (m.ms === null || m.ms === undefined ? "" : `<span>耗時 ${(m.ms / 1000).toFixed(1)} 秒</span>`);
 
 function footer(m) {
   if (m.status === "stopped") return `<div class="msg-foot"><span>已停止</span>${elapsed(m)}</div>`;
@@ -53,15 +63,42 @@ function thinkingBlock(m) {
 
 // 整份對話寫進 localStorage:{session, model, messages, updatedAt}(research R3)
 function saveConvo() {
+  if (unloading) return;
   const messages = convo.map(({ role, content, thinking, status, message, ms, tps }) => ({ role, content, thinking, status, message, ms, tps }));
-  const model = document.getElementById("model").value;
-  localStorage.setItem(KEEP_KEY, JSON.stringify({ session: sessionName, model, messages, updatedAt: new Date().toISOString() }));
+  const model = document.getElementById("model").value || keptModel;
+  localStorage.setItem(KEEP_KEY, JSON.stringify({ session: bound, model, messages, updatedAt: new Date().toISOString() }));
 }
 
-// 啟動時讀回保存的對話並畫出來
-function restoreConvo() {
+// 載入時先不畫保存的對話:收到第一則工作階段快照、確認它還屬於目前的工作階段才還原(research R4 第 1 點)
+let checked = false;
+// 工作階段還在、保存的對話可以還原的狀態(research R4)
+const KEEP_STATES = ["ready", "applying_tuning", "reconnecting", "ending"];
+
+// 第一則快照:同一個工作階段而且還在 → 還原;否則拿掉保存、從空白開始
+function checkKept(session) {
+  checked = true;
   const kept = JSON.parse(localStorage.getItem(KEEP_KEY) ?? "null");
+  if (kept && KEEP_STATES.includes(session.state) && session.name === kept.session) restoreConvo(kept);
+  else {
+    if (kept) localStorage.removeItem(KEEP_KEY);
+    showGroupState("keep", "keep-on");
+    renderLog();
+  }
+  renderButtons();
+}
+
+// 讀回保存的對話並畫出來
+function restoreConvo(kept) {
   if (kept?.messages) convo = kept.messages;
+  bound = kept?.session ?? null;
+  keptModel = kept?.model ?? null;
+  const left = convo.filter((m) => m.status === "streaming");
+  left.forEach((m) => { m.status = "left"; m.message = LEFT_PAGE; });
+  if (left.length) {
+    saveConvo();
+    document.querySelectorAll('[data-state="turn-interrupted"] [data-message]').forEach((el) => { el.textContent = LEFT_PAGE; });
+    showGroupState("turn", "turn-interrupted");
+  }
   showGroupState("keep", "keep-on");
   renderLog();
 }
@@ -74,6 +111,10 @@ function convoChanged() {
 
 function renderLog() {
   const log = document.getElementById("log");
+  if (!checked) {
+    log.innerHTML = `<p class="empty">正在確認工作階段…</p>`;
+    return;
+  }
   if (!convo.length) {
     log.innerHTML = `<p class="empty">${view === "chat-ready" ? "還沒有對話。輸入一句話試試,例如「用三句話介紹你自己」。" : "對話送不出去時,這裡會保持空白。"}</p>`;
     return;
@@ -92,7 +133,7 @@ let catalog = { items: [] };
 function renderModels(next) {
   catalog = next;
   const select = document.getElementById("model");
-  const chosen = select.value;
+  const chosen = select.value || keptModel;
   select.innerHTML = catalog.items
     .map((m) => `<option value="${escape(m.name)}">${escape(m.name)}${m.loaded ? "(已載入)" : ""}</option>`)
     .join("");
@@ -104,13 +145,14 @@ function renderModels(next) {
 let view = "chat-no-session";
 
 function renderButtons() {
-  const blocked = view !== "chat-ready";
+  const blocked = !checked || view !== "chat-ready";
   document.getElementById("input").disabled = blocked;
   document.getElementById("send").disabled = blocked;
   document.getElementById("send").hidden = Boolean(busy);
   document.getElementById("stop").hidden = !busy;
   // 回覆途中不能換模型(換模型會清空對話)
-  document.getElementById("model").disabled = Boolean(busy);
+  document.getElementById("model").disabled = !checked || Boolean(busy);
+  document.getElementById("clear").disabled = !checked;
 }
 
 async function loadModels() {
@@ -134,7 +176,8 @@ async function loadModels() {
 
 async function send(text) {
   const model = document.getElementById("model").value;
-  convo.push({ role: "user", content: text });
+  if (!convo.length) bound = sessionName;
+  convo.push({ role: "user", content: text, status: "done" });
   // 多輪對話靠瀏覽器自己帶:前面的每一則(含模型的回覆,以 assistant)都送出(FR-004)
   const messages = convo.map((m) => ({ role: m.role, content: m.content }));
   const reply = { role: "assistant", content: "", thinking: "", status: "streaming", startedAt: Date.now() };
@@ -171,6 +214,8 @@ async function send(text) {
         // 缺少 eval_count 或 eval_duration、或 eval_duration 為 0 時仍算完成,只是不顯示速度(plan.md Q8)
         reply.tps = line.eval_count && line.eval_duration ? line.eval_count / (line.eval_duration / 1e9) : null;
       }
+      // 這一則已不在對話裡(工作階段結束而清除):不再寫入保存
+      if (!convo.includes(reply)) break;
       convoChanged();
     }
   } catch (error) {
@@ -240,18 +285,45 @@ function clearChat() {
 }
 
 document.getElementById("stop").addEventListener("click", stop);
+window.addEventListener("pagehide", () => { unloading = true; });
 document.getElementById("clear").addEventListener("click", clearChat);
 document.getElementById("model").addEventListener("change", clearChat);
 // 讀不到目錄時的「重新讀取」
 document.getElementById("reload").addEventListener("click", () => loadModels());
 
-// 工作階段一變就重讀模型清單:結束、失聯之後選單跟著清空(FR-008)
-startHeader({
-  "session.updated": (payload) => {
-    sessionName = payload.session.name;
-    loadModels();
-  },
-});
+// 工作階段結束的狀態(research R4 第 2 點;reconnecting、applying_tuning、ending 不算)
+const END_STATES = ["none", "ended", "open_failed", "lost"];
+
+// 綁定的工作階段結束了,或換成另一個工作階段(變更類型;ending 本身不算,等名稱變了才清):
+// 清空對話與保存,說明已清除(FR-006、research R4 第 2 點);開著的頁面不重新載入
+function sessionUpdated(session) {
+  sessionName = session.name;
+  if (!checked) {
+    checkKept(session);
+    return loadModels();
+  }
+  const over = END_STATES.includes(session.state) || (Boolean(session.name) && session.name !== bound);
+  if (bound !== null && over) {
+    // 回覆途中就先停止那一則;它的收尾不再寫入保存(research R4 第 2 點)
+    if (busy) {
+      busy.controller.abort();
+      busy = null;
+      renderButtons();
+    }
+    document.getElementById("cleared-name").textContent = bound;
+    bound = null;
+    convo = [];
+    localStorage.removeItem(KEEP_KEY);
+    renderLog();
+    showGroupState("keep", "keep-cleared");
+    showGroupState("turn", "turn-idle");
+  }
+  // 工作階段一變就重讀模型清單:結束、失聯之後選單跟著清空(FR-008)
+  loadModels();
+}
+
+startHeader({ "session.updated": (payload) => sessionUpdated(payload.session) });
 showGroupState("turn", "turn-idle");
-restoreConvo();
-loadModels();
+showGroupState("keep", "keep-checking");
+renderLog();
+renderButtons();

@@ -60,7 +60,12 @@
       </div>
 
       <!-- 對話的保存(FR-004、NFR-002;research R3) -->
+      <p class="small muted keep-line" data-state="keep-checking" data-group="keep" hidden><span class="spinner"></span>正在確認工作階段…上一段對話確認還屬於目前的工作階段才會顯示。</p>
       <p class="small muted keep-line" data-state="keep-on" data-group="keep" hidden>對話保留在這個瀏覽器裡:重新整理、切到別頁再回來、另開分頁都還在,工作階段結束就清除;不寫進本系統的資料庫與日誌。</p>
+      <div class="notice" data-state="keep-cleared" data-group="keep" hidden>
+        <strong>工作階段已結束,對話已清除</strong>
+        <span class="notice-line">上一段對話屬於 <span class="mono" id="cleared-name"></span>,只保留到它結束為止;新的工作階段從空白開始。</span>
+      </div>
 
       <div class="chat-log" id="log" aria-live="polite"></div>
 
@@ -73,12 +78,12 @@
       <div class="turn-line" data-state="turn-idle" data-group="turn" hidden>在這裡送出訊息,也會讓工作階段的閒置倒數重新計時。</div>
       <div class="turn-line" data-state="turn-loading" data-group="turn" hidden><span class="spinner"></span><span>正在載入 <span class="mono" data-model-name></span>;第一次使用要先載入到顯示記憶體,載入好就開始回覆。</span></div>
       <div class="turn-line" data-state="turn-thinking" data-group="turn" hidden><span class="spinner"></span><span>模型正在思考(灰字是思考過程,可以收合)…</span></div>
-      <div class="turn-line" data-state="turn-streaming" data-group="turn" hidden><span class="spinner"></span><span>正在回覆…</span></div>
+      <div class="turn-line" data-state="turn-streaming" data-group="turn" hidden><span class="spinner"></span><span>正在回覆…這時重新整理或離開,已收到的部分會保留、標成中斷。</span></div>
       <div class="turn-line" data-state="turn-stopped" data-group="turn" hidden>已停止這則回覆,留下目前收到的內容;可以接著送下一則。</div>
       <div class="turn-line" data-state="turn-norate" data-group="turn" hidden>這則回覆完成了,但模型沒有回報 token 數,所以只顯示耗時。</div>
       <!-- 串流開始之後的失敗(200 的最後一行 ChatStreamFailure):固定開頭 + 後端的 error.message(plan.md Q61) -->
       <div class="turn-line is-bad" data-state="turn-error" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面;可以再送一次,或換一個模型。</div>
-      <div class="turn-line is-bad" data-state="turn-interrupted" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面;可以再送一次。</div>
+      <div class="turn-line is-bad" data-state="turn-interrupted" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面;可以再送一次,前面每一輪都會一起送給模型。</div>
       <div class="turn-line is-bad" data-state="turn-bad-response" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面;可以再送一次。</div>
       <div class="turn-line is-bad" data-state="turn-timeout" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面。</div>
       <div class="turn-line is-bad" data-state="turn-lost" data-group="turn" hidden>這則回覆中斷:工作階段已結束、正在變更類型或已失聯。已收到的內容保留在上面;等工作階段就緒、模型下載好後才能再對話。</div>
