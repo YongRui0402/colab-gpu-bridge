@@ -74,3 +74,12 @@
 - **則4 總耗時 62.0 秒(只記錄,沒有門檻)**
 - 判定者:腳本;樣本:固定的 `secret.txt`(內容 `紫色長頸鹿 42`,沒有用來調整規則),一次實跑
 - 收尾:npm install(結束碼 0)行程群組已空;pi(結束碼 0)行程群組已空;臨時 serve(pid 2231650,行程群組 2231650)SIGTERM,0.21 秒;行程已結束 是(poll() = 0),行程群組已空 是(`killpg(pgid, 0)` 丟 ProcessLookupError),127.0.0.1:46747 已不在聽 是;使用者自己的 `ollama serve`(pid 3585)沒有碰,收尾後仍在
+
+## G-04(T047)真的 Colab T4 上的 opencode
+
+- 日期:2026-11-16 11:02;同一台 T4(context 覆蓋 32768);開啟 {'seconds': 48.4, 'state': 'ready', 'reason': None};下載 加入 201;completed(None),51 秒;整批 4.3 分,用掉 0.03 compute units;P3 之後 cgb-test- 的行 []
+- `/api/connect`:{'ollamaPort': 11436, 'contextLength': 32768, 'recommendedContextLength': 32768, 'shouldWarn': False, 'models': ['qwen2.5:7b']};opencode 1.18.31
+- opencode 結束碼 0,124.3 秒;工具呼叫 ['read'];每步 input tokens [6411, 106];回答前 80 字 '秘密文件內容:\n1: 紫色長頸鹿 42'
+- `/api/ps`(name, size, size_vram, context_length):[('qwen2.5:7b', 7086622636, 7086622636, 32768)]
+- **則1 輸出含 `紫色長頸鹿 42` 且有 `read`:過;則2 size_vram = size:過;則3 見上方耗時與 compute units**
+- 其他:{} 
