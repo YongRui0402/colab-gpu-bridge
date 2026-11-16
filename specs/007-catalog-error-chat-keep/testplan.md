@@ -179,6 +179,7 @@
 | US2-AJ-25 | 對話頁 › 保存狀態提示 | 對話頁已有兩問兩答,記下工作階段名稱 N;以 `add_init_script` 的 `MutationObserver` 記下「工作階段已結束,對話已清除」是否曾出現 | `fakes.tunnel.check_health.then(AdapterError("TUNNEL_UNREACHABLE", …))` 一次,重連第 1 輪就接回;等 `GET /api/session` 經過 `reconnecting` 回到 `ready` 且 `name` 是 N,再等 3 秒 | 則1:`#log .msg` 共 4 則<br>則2:`MutationObserver` 記到「工作階段已結束,對話已清除」出現 0 次<br>則3:保存的 `session` 是 N | 把 `reconnecting` 列進結束狀態,重連中就清掉(research R4 第 3 點) | 邊界情況(後端重新啟動後重連接回)、FR-006 |
 | US2-AJ-26 | 對話頁 › 模型選單 → 瀏覽器本身 › 重新整理 | 對話頁選 `qwen2.5:latest`,已有兩問兩答;之後從 `ColabWorld.models` 拿掉 `qwen2.5:latest`(目錄只剩 `llama3.2:3b`) | 重新整理對話頁 | 則1:載入後 5 秒內,`chat-model-gone` 的說明出現,含 `qwen2.5:latest`<br>則2:`#log .msg` 共 4 則<br>則3:`#model` 有一個 `disabled` 的選項,文字含 `qwen2.5:latest` 與「已不在執行環境上」<br>則4:`#send` 停用 | 還原時發現模型不在目錄,`#model` 自動落到 `llama3.2:3b` 且照常可送,舊對話被送給別的模型;或發現模型不在就整段清空;或要等按下送出才提示(plan.md Q5 已決定一打開就顯示) | 邊界情況(保存的模型已不在目錄裡) |
 | US2-AJ-27 | 對話頁 › 模型選單 → 瀏覽器本身 › 重新整理 | 照 US2-AJ-26 已顯示 `chat-model-gone` | `#model` 改選 `llama3.2:3b`,再重新整理 | 則1:改選後 `#log .msg` 是 0 則<br>則2:改選後 `#send` 可按<br>則3:重新整理後 `#log .msg` 是 0 則 | `chat-model-gone` 狀態下選單的 `change` 沒走清除,舊對話直接接到新模型;或清了畫面但 `chat-model-gone` 沒解除,仍不能送出 | 邊界情況(保存的模型已不在目錄裡)、FR-007 |
+| US2-AJ-30 | 瀏覽器本身 › 重新整理 → 對話頁 › 「送出」 | 對話頁已有兩問兩答並保存;替身對下一個 `POST /api/chat` 先停 1 秒才送第一段 `chunk("七")`,再送 `DONE`(plan Q27) | 重新整理對話頁,等對話還原後送出「第三則」 | 則1:還原完成、還沒送出時,turn 區顯示 `turn-idle` 的「在這裡送出訊息,也會讓工作階段的閒置倒數重新計時。」<br>則2:送出後、第一段到之前,turn 區顯示 `turn-loading`,文字含選的模型名稱<br>則3:收到 `DONE` 後 2 秒內 turn 區回到 `turn-idle` | 還原時把 turn 區畫成保存當時最後一則的狀態(例如停在 `turn-streaming` 或 `turn-interrupted` 的提示),沒有回到 `turn-idle`;或還原後的第一次送出跳過 `turn-loading` 直接畫成串流 | FR-004、FR-005 |
 
 #### 非功能案例
 
@@ -192,7 +193,7 @@
 每個案例在 `tasks.md` 是一組紅燈、綠燈任務;每一節的案例都做完後,接一個重構任務。同一個故事的端點節彼此平行,跨端點驗收在端點節都完成後才開始。
 
 1. E2 後端 UI API:US2-API-01 → US2-API-02 → US2-API-03 → US2-API-04 → US2-API-05 → US2-API-06 → US2-API-07 → US2-API-08 → US2-API-09 → 重構
-2. 跨端點驗收(3.1 完成後):US2-AJ-01 → US2-AJ-02 → US2-AJ-03 → US2-AJ-04 → US2-AJ-05 → US2-AJ-06 → US2-AJ-07 → US2-AJ-08 → US2-AJ-09 → US2-AJ-10 → US2-AJ-11 → US2-AJ-12 → US2-AJ-13 → US2-AJ-14 → US2-AJ-15 → US2-AJ-16 → US2-AJ-17 → US2-AJ-18 → US2-AJ-19 → US2-AJ-20 → US2-AJ-21 → US2-AJ-22 → US2-AJ-23 → US2-AJ-24 → US2-AJ-25 → US2-AJ-26 → US2-AJ-27 → US2-AJ-28 → US2-AJ-29 → 重構
+2. 跨端點驗收(3.1 完成後):US2-AJ-01 → US2-AJ-02 → US2-AJ-03 → US2-AJ-04 → US2-AJ-05 → US2-AJ-06 → US2-AJ-07 → US2-AJ-08 → US2-AJ-09 → US2-AJ-10 → US2-AJ-11 → US2-AJ-12 → US2-AJ-13 → US2-AJ-14 → US2-AJ-15 → US2-AJ-16 → US2-AJ-17 → US2-AJ-18 → US2-AJ-19 → US2-AJ-20 → US2-AJ-21 → US2-AJ-22 → US2-AJ-23 → US2-AJ-24 → US2-AJ-25 → US2-AJ-26 → US2-AJ-27 → US2-AJ-28 → US2-AJ-29 → US2-AJ-30 → 重構
 
 ## 4. 全域測試區
 
@@ -226,8 +227,8 @@ G-01 在 2.1 的案例都綠燈之後就可以跑(時機:節內)。
 | FR-002 預先載入確認目錄讀不到時回 502/504、不受理、不改狀態 | 故事 1 | US1-API-08~US1-API-13 | — | G-01 | 🔴🟢、📏 量測 |
 | FR-003 模型頁顯示說明、不顯示空目錄、其他模型照原狀 | 故事 1 | — | US1-AJ-01~US1-AJ-07、US1-AJ-10、US1-AJ-11 | — | 🔴🟢 |
 | NFR-001 讀不到時不回 500 | 故事 1 | US1-API-16 | — | G-01 | 🔴🟢、📏 量測 |
-| FR-004 在瀏覽器保存並照原順序還原 | 故事 2 | — | US2-AJ-01~US2-AJ-03、US2-AJ-08、US2-AJ-20、US2-AJ-22、US2-AJ-23、US1-AJ-09 | — | 🔴🟢 |
-| FR-005 還原後送出帶上先前每一輪 | 故事 2 | — | US2-AJ-04、US2-AJ-07 | — | 🔴🟢 |
+| FR-004 在瀏覽器保存並照原順序還原 | 故事 2 | — | US2-AJ-01~US2-AJ-03、US2-AJ-08、US2-AJ-20、US2-AJ-22、US2-AJ-23、US2-AJ-30、US1-AJ-09 | — | 🔴🟢 |
+| FR-005 還原後送出帶上先前每一輪 | 故事 2 | — | US2-AJ-04、US2-AJ-07、US2-AJ-30 | — | 🔴🟢 |
 | FR-006 工作階段結束後清除保存的對話 | 故事 2 | US2-API-01~US2-API-08 | US2-AJ-09~US2-AJ-17、US2-AJ-24、US2-AJ-25、US2-AJ-29 | — | 🔴🟢 |
 | FR-007 換模型或按「清除」一起清 | 故事 2 | — | US2-AJ-18、US2-AJ-19、US2-AJ-27 | — | 🔴🟢 |
 | FR-008 回覆途中離開保存並標示中斷 | 故事 2 | — | US2-AJ-05~US2-AJ-08、US2-AJ-14、US2-AJ-29 | — | 🔴🟢 |
