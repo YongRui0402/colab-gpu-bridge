@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>狀態總覽|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body class="states-page">
+  <header class="topbar">
+    <span class="brand">Colab GPU 橋接 · 007 狀態總覽</span>
+    <nav>
+      <a href="index.html">開啟原型</a>
+      <button type="button" onclick="Proto.reset()">重設假資料</button>
+    </nav>
+  </header>
+  <main>
+    <p class="muted">只收 007 改到的模型頁與對話頁,以及拿來結束工作階段的一小段工作階段頁(其餘照 004~006)。每一格讀的是那個狀態自己的假資料,不會改到「開啟原型」裡的資料。「開啟原型」預設是 T4 就緒、目錄有四個模型、對話是空的:到對話頁聊兩輪,重新整理、切到模型頁再回來、另開分頁都還在;回覆途中重新整理會標成中斷;到工作階段頁按結束或變更類型,開著的對話頁不用重新整理就清空。</p>
+
+    <section>
+      <h2 class="states-heading"><a href="models.html">模型</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="models.html?state=normal" title="模型:目錄讀得到" loading="lazy"></iframe>
+          <figcaption>目錄讀得到:四個模型,一個已載入(照 001;US1 情境 5 遠端恢復後就是這樣)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=empty" title="模型:目錄是空的" loading="lazy"></iframe>
+          <figcaption>目錄是空的:只在真的讀到空目錄時出現,讀不到時不會是這一格(FR-003)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=loading" title="模型:讀取中" loading="lazy"></iframe>
+          <figcaption>讀取中:等 GET /api/models 回應;以前 502、504 會一直停在這裡(research R2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=unavailable" title="模型:讀不到目錄" loading="lazy"></iframe>
+          <figcaption>讀不到目錄:502 OLLAMA_UNREACHABLE「連不到執行環境上的 Ollama,請確認工作階段仍在運作後再試。」;同一個畫面另外兩種是 502 OLLAMA_BAD_RESPONSE「執行環境上的 Ollama 回應無法解讀,請稍後再試。」與 504 OLLAMA_TIMEOUT「執行環境上的 Ollama 在時限內沒有回應,請稍後再試。」;不顯示「還沒有模型」,按「重新讀取」時遠端已恢復,目錄照常顯示(FR-003、NFR-003,US1 情境 1、2、3、5)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=preload-unavailable" title="模型:預先載入時讀不到目錄" loading="lazy"></iframe>
+          <figcaption>預先載入時讀不到目錄:按 llama3.2:3b 的「預先載入」,502 OLLAMA_UNREACHABLE,不受理,提示蓋在目錄上方,其他模型照原狀(FR-002、FR-003,US1 情境 4)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="models.html?state=no-session" title="模型:沒有就緒的工作階段" loading="lazy"></iframe>
+          <figcaption>沒有就緒的工作階段:503 NO_READY_SESSION,照 001 不變(邊界情況)</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="states-heading"><a href="chat.html">對話</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="chat.html?state=chat-ready" title="對話:還原兩問兩答" loading="lazy"></iframe>
+          <figcaption>還原兩問兩答:重新整理、切到模型頁再回來、另開分頁都一樣,順序、內容與選的模型不變(FR-004、SC-002,US2 情境 1、2、3)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=keep-checking" title="對話:等工作階段的快照" loading="lazy"></iframe>
+          <figcaption>等工作階段的快照:打開頁面時先不畫保存的對話,確認還是同一個工作階段才還原,避免上一個的對話閃一下(FR-006,research R4)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=keep-on" title="對話:新工作階段打開對話頁" loading="lazy"></iframe>
+          <figcaption>新工作階段打開對話頁:保存的對話屬於上一個工作階段,不顯示、直接丟掉(FR-006、SC-003,US2 情境 7)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=keep-cleared" title="對話:工作階段已結束,對話已清除" loading="lazy"></iframe>
+          <figcaption>工作階段已結束,對話已清除:對話頁開著,約 1.5 秒後工作階段閒置自動結束,不用重新整理就清空;使用者結束、被 Colab 收回、重連逾時、變更類型都是這一格(FR-006、SC-003,US2 情境 6)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=keep-no-store" title="對話:這個瀏覽器無法保存" loading="lazy"></iframe>
+          <figcaption>這個瀏覽器無法保存:無痕模式的限制或空間不足,對話照常可用(邊界情況)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-interrupted" title="對話:回覆途中重新整理" loading="lazy"></iframe>
+          <figcaption>回覆途中重新整理:已收到的部分保留,標成中斷,不顯示成完成;再送一次時前面每一輪都帶上(FR-005、FR-008,US2 情境 4、5)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-idle" title="對話:沒有保存過的對話" loading="lazy"></iframe>
+          <figcaption>沒有保存過的對話:空白,可以送出;換模型或按「清除」之後也是這樣,重新整理仍是空的(FR-007,US2 情境 8)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-loading" title="對話:選的模型還沒載入" loading="lazy"></iframe>
+          <figcaption>選的模型還沒載入:先載入再回覆(照 004)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-streaming" title="對話:正在回覆" loading="lazy"></iframe>
+          <figcaption>正在回覆:每收到一段就整份保存(FR-008,research R5)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=turn-stopped" title="對話:還原按過停止的回覆" loading="lazy"></iframe>
+          <figcaption>還原按過停止的回覆:照「已停止」顯示,不當成中斷(FR-004)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=chat-unavailable" title="對話:讀不到目錄" loading="lazy"></iframe>
+          <figcaption>讀不到目錄:502 OLLAMA_BAD_RESPONSE,不再說成沒有工作階段;保存的對話照常顯示,「重新讀取」讀得到就能接著送(research R2)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=chat-model-gone" title="對話:選的模型已不在目錄裡" loading="lazy"></iframe>
+          <figcaption>選的模型已不在目錄裡:對話照常顯示,要先從選單換一個模型才能送(換了照 FR-007 清空;邊界情況)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=chat-no-session" title="對話:沒有就緒的工作階段" loading="lazy"></iframe>
+          <figcaption>沒有就緒的工作階段:上一個工作階段的對話已丟掉(FR-006)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="chat.html?state=chat-no-models" title="對話:執行環境上沒有模型" loading="lazy"></iframe>
+          <figcaption>執行環境上沒有模型:新開的 L4 還沒下載完成(照 004)</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="states-heading"><a href="index.html">工作階段(拿來結束工作階段的一小段)</a></h2>
+      <div class="states-grid">
+        <figure>
+          <iframe src="index.html?state=ready" title="工作階段:就緒" loading="lazy"></iframe>
+          <figcaption>就緒:結束與變更類型,兩者都會清除對話頁的對話(FR-006)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ending" title="工作階段:結束中" loading="lazy"></iframe>
+          <figcaption>結束中:對話還不清,等到已結束才清(research R4)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=ended" title="工作階段:已結束" loading="lazy"></iframe>
+          <figcaption>已結束:可以再開一個新的工作階段(FR-006)</figcaption>
+        </figure>
+        <figure>
+          <iframe src="index.html?state=opening" title="工作階段:開啟中" loading="lazy"></iframe>
+          <figcaption>開啟中:新的工作階段名稱和上一個不同,保存的對話不會帶過去(FR-006、SC-003)</figcaption>
+        </figure>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>對話|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-004 FR-005 FR-006 FR-007 FR-008 NFR-002 NFR-003 SC-002 SC-003">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型</a>
+      <a href="../../004-chat-hf-curated-queue/prototype/library.html">下載模型</a>
+      <a href="chat.html" aria-current="page">對話</a>
+      <a href="../../001-session-model-catalog/prototype/usage.html">用量與設定</a>
+      <a href="../../005-ollama-machine-tuning/prototype/history.html">紀錄</a>
+      <a href="../../006-agent-client-connect/prototype/connect.html">連線設定</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="pill" id="session-pill">未開啟</span>
+    </div>
+  </header>
+  <main>
+    <h1>對話</h1>
+    <section class="panel">
+      <div class="chat-head">
+        <div class="grow">
+          <label for="model">模型 <span class="small muted">(執行環境上已下載完成的;換模型會清空對話)</span></label>
+          <select id="model"></select>
+        </div>
+        <button type="button" class="btn" id="clear">清除</button>
+      </div>
+
+      <!-- 能不能送出(004 的三種,加上這一輪的讀不到目錄與保存的模型已不在目錄裡) -->
+      <div data-state="chat-ready" data-group="chat" hidden>
+        <p class="small muted">試試模型的基本能力:回覆會逐段出現,每則下方顯示耗時與每秒 token 數。</p>
+      </div>
+      <div data-state="chat-no-session" data-group="chat" hidden>
+        <div class="notice notice-warn">
+          <strong>現在不能送出:沒有就緒的工作階段</strong>
+          對話要送到 Colab 執行環境上的模型;<a href="index.html">開啟工作階段</a>並就緒後再回來。
+        </div>
+      </div>
+      <div data-state="chat-no-models" data-group="chat" hidden>
+        <div class="notice notice-warn">
+          <strong>現在不能送出:執行環境上還沒有下載完成的模型</strong>
+          新開的執行環境是空的;到<a href="../../004-chat-hf-curated-queue/prototype/library.html">下載模型</a>挑一個,或等精選清單自動排入的下載完成(進度在<a href="models.html">模型</a>頁)。
+        </div>
+      </div>
+      <!-- 讀不到目錄(502、504):不再說成沒有工作階段;保存的對話照常顯示(research R2) -->
+      <div data-state="chat-unavailable" data-group="chat" hidden>
+        <div class="notice notice-error">
+          <div class="notice-head">
+            <strong>現在不能送出:讀不到執行環境上的模型目錄</strong>
+            <button type="button" class="btn btn-small" id="reload">重新讀取</button>
+          </div>
+          <span class="notice-line" id="un-message"></span>
+          <span class="notice-line small muted">錯誤代碼 <span class="mono" id="un-code"></span>;上面的對話保留著,讀得到目錄之後可以接著送。</span>
+        </div>
+      </div>
+      <!-- 保存的對話選的模型已不在目錄裡(spec 邊界情況、research R5) -->
+      <div data-state="chat-model-gone" data-group="chat" hidden>
+        <div class="notice notice-warn">
+          <strong>現在不能送出:<span class="mono" id="gone-name"></span> 已不在執行環境上</strong>
+          下面的對話照常保留;要接著送出,請從上面的選單換一個模型(換模型會清空對話)。
+        </div>
+      </div>
+
+      <!-- 對話的保存(FR-004、FR-006、NFR-002;research R3、R4) -->
+      <p class="small muted keep-line" data-state="keep-checking" data-group="keep" hidden><span class="spinner"></span>正在確認工作階段…上一段對話確認還屬於目前的工作階段才會顯示。</p>
+      <p class="small muted keep-line" data-state="keep-on" data-group="keep" hidden>對話保留在這個瀏覽器裡:重新整理、切到別頁再回來、另開分頁都還在,工作階段結束就清除;不寫進本系統的資料庫與日誌。</p>
+      <div class="notice" data-state="keep-cleared" data-group="keep" hidden>
+        <strong>工作階段已結束,對話已清除</strong>
+        <span class="notice-line">上一段對話屬於 <span class="mono" id="cleared-name"></span>,只保留到它結束為止;新的工作階段從空白開始。</span>
+      </div>
+      <div class="notice notice-warn" data-state="keep-no-store" data-group="keep" hidden>
+        <strong>這個瀏覽器無法保存對話,離開或重新整理後會消失</strong>
+        <span class="notice-line">可能是無痕模式的限制或儲存空間不足;對話照常可以用,只是不會保留。</span>
+      </div>
+
+      <div class="chat-log" id="log" aria-live="polite"></div>
+
+      <form class="composer" id="composer">
+        <textarea id="input" placeholder="輸入訊息,Enter 送出,Shift+Enter 換行" required></textarea>
+        <button type="submit" class="btn btn-primary" id="send">送出</button>
+        <button type="button" class="btn btn-danger" id="stop" hidden>停止</button>
+      </form>
+
+      <div class="turn-line" data-state="turn-idle" data-group="turn" hidden>在這裡送出訊息,也會讓工作階段的閒置倒數重新計時。</div>
+      <div class="turn-line" data-state="turn-loading" data-group="turn" hidden><span class="spinner"></span><span>正在載入 <span class="mono" data-model-name></span>;第一次使用要先載入到顯示記憶體,載入好就開始回覆。</span></div>
+      <div class="turn-line" data-state="turn-streaming" data-group="turn" hidden><span class="spinner"></span><span>正在回覆…這時重新整理或離開,已收到的部分會保留、標成中斷。</span></div>
+      <div class="turn-line" data-state="turn-stopped" data-group="turn" hidden>已停止這則回覆,留下目前收到的內容;可以接著送下一則。</div>
+      <!-- 回覆途中重新整理或離開,回來時這則標成中斷(FR-008、research R5) -->
+      <div class="turn-line is-bad" data-state="turn-interrupted" data-group="turn" hidden>這則回覆中斷:<span data-message></span>已收到的內容保留在上面;可以再送一次,前面每一輪都會一起送給模型。</div>
+    </section>
+  </main>
+  <script>
+    const esc = Proto.escape;
+    // 工作階段還在、保存的對話可以還原的狀態;結束的狀態(research R4)
+    const KEEP_STATES = ["ready", "applying_tuning", "reconnecting", "ending"];
+    const END_STATES = ["none", "ended", "open_failed", "lost"];
+    const LEFT_PAGE = "離開頁面時這則回覆還沒有完成。";
+    const CUT = {
+      interrupted: "中斷:回應到一半就斷了",
+      unavailable: "沒有回覆:Ollama 暫時無法使用",
+    };
+
+    let convo = [];        // 畫面上的對話,也就是保存的 messages
+    let convoModel = null; // 選的模型
+    let bound = null;      // 這段對話屬於哪個工作階段(Session.name)
+    let busy = null;       // 正在回覆的那一則:{ m, startedAt, evalCount, loading }
+    let timer = null;
+    let checked = false;   // 已經收到第一則工作階段快照
+    let canStore = true;
+    let clearedName = null;
+    let items = [];
+    let view = "chat-no-session";
+    const isThinkingModel = (name) => /qwen3/i.test(name);
+
+    // 每次對話改變(送出、每收到一段、結束、清除)就整份寫入;空的就整個拿掉(research R3)
+    const persist = () => {
+      if (!checked || !canStore) return renderKeep();
+      const value = convo.length ? { session: bound, model: convoModel, messages: convo, updatedAt: new Date().toISOString() } : null;
+      if (!Proto.save("chat", value)) canStore = false;
+      renderKeep();
+    };
+
+    const renderKeep = () => {
+      if (!checked) return Proto.showState("keep-checking");
+      if (clearedName) {
+        document.getElementById("cleared-name").textContent = clearedName;
+        return Proto.showState("keep-cleared");
+      }
+      Proto.showState(canStore ? "keep-on" : "keep-no-store");
+    };
+
+    // GET /api/models:能不能送出跟著目錄
+    const loadModels = () => {
+      const r = Proto.readCatalog();
+      if (r.ok) {
+        items = r.data.items;
+        if (!items.length) view = "chat-no-models";
+        else if (convo.length && convoModel && !items.some((m) => m.name === convoModel)) view = "chat-model-gone";
+        else view = "chat-ready";
+      } else {
+        items = [];
+        if (r.data.code === "NO_READY_SESSION") view = "chat-no-session";
+        else {
+          document.getElementById("un-message").textContent = r.data.message;
+          document.getElementById("un-code").textContent = r.data.code;
+          view = "chat-unavailable";
+        }
+      }
+      renderModels();
+    };
+
+    const renderModels = () => {
+      const select = document.getElementById("model");
+      const options = items.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}${m.loaded ? "(已載入)" : ""}</option>`);
+      const gone = convo.length && convoModel && !items.some((m) => m.name === convoModel);
+      if (gone) options.unshift(`<option value="${esc(convoModel)}" disabled>${esc(convoModel)}(已不在執行環境上)</option>`);
+      if (!options.length) options.push("<option value=\"\">沒有可用的模型</option>");
+      select.innerHTML = options.join("");
+      if (!convo.length && !items.some((m) => m.name === convoModel)) convoModel = (items.find((m) => m.loaded) ?? items[0])?.name ?? null;
+      select.value = convoModel ?? "";
+      document.getElementById("gone-name").textContent = convoModel ?? "";
+    };
+
+    const time = (m) => (m.ms === null || m.ms === undefined ? "" : `<span>耗時 ${(m.ms / 1000).toFixed(1)} 秒</span>`);
+    const footer = (m) => {
+      if (m.status === "streaming") return "";
+      if (m.status === "done") return `<div class="msg-foot">${time(m)}<span>${m.tps ? `${m.tps.toFixed(1)} tokens/s` : "沒有 token 統計,不顯示速度"}</span></div>`;
+      if (m.status === "stopped") return `<div class="msg-foot"><span>已停止</span>${time(m)}</div>`;
+      return `<div class="msg-foot"><span class="cut">${CUT[m.status]}</span>${time(m)}</div>`;
+    };
+    const renderLog = () => {
+      const log = document.getElementById("log");
+      if (!checked) {
+        log.innerHTML = "<p class=\"empty\">正在確認工作階段…</p>";
+        return;
+      }
+      if (!convo.length) {
+        log.innerHTML = `<p class="empty">${view === "chat-ready" ? "還沒有對話。輸入一句話試試,例如「用三句話介紹你自己」。" : "對話送不出去時,這裡會保持空白。"}</p>`;
+        return;
+      }
+      log.innerHTML = convo.map((m) => {
+        if (m.role === "user") return `<div class="msg msg-user">${esc(m.content)}</div>`;
+        const streaming = m.status === "streaming";
+        const thinking = m.thinking
+          ? `<details class="thinking" ${m.content ? "" : "open"}><summary>思考過程${m.content ? "(點一下展開)" : ""}</summary><div class="thought ${streaming && !m.content ? "caret" : ""}">${esc(m.thinking)}</div></details>`
+          : "";
+        const body = busy?.m === m && busy.loading
+          ? "<div class=\"content muted\">正在載入模型…</div>"
+          : `<div class="content ${streaming && (m.content || !m.thinking) ? "caret" : ""}">${esc(m.content)}</div>`;
+        return `<div class="msg msg-bot${m.status in CUT ? " is-cut" : ""}">${thinking}${body}${footer(m)}</div>`;
+      }).join("");
+      log.scrollTop = log.scrollHeight;
+    };
+
+    const render = () => {
+      // 還沒收到快照前不說能不能送出,免得先閃一下「沒有工作階段」
+      if (checked) Proto.showState(view);
+      else Proto.hideGroup("chat");
+      const blocked = !checked || view !== "chat-ready";
+      document.getElementById("input").disabled = blocked;
+      document.getElementById("send").disabled = blocked;
+      document.getElementById("send").hidden = Boolean(busy);
+      document.getElementById("stop").hidden = !busy;
+      document.getElementById("model").disabled = !checked || Boolean(busy);
+      document.getElementById("clear").disabled = !checked;
+      renderKeep();
+      renderLog();
+    };
+
+    const turn = (name, message) => {
+      document.querySelectorAll(`[data-state="${name}"] [data-message]`).forEach((el) => { el.textContent = message ?? ""; });
+      Proto.showState(name);
+    };
+
+    const finish = (status) => {
+      const { m, startedAt, evalCount } = busy;
+      clearTimeout(timer);
+      m.status = status;
+      m.ms = Date.now() - startedAt;
+      m.tps = status === "done" ? evalCount / (m.ms / 1000) : null;
+      busy = null;
+      persist();
+      turn(status === "stopped" ? "turn-stopped" : "turn-idle");
+      render();
+    };
+
+    // 回覆一段一段送來;每一段都整份寫入,回覆途中重新整理也留得住已收到的部分(research R5)
+    const stream = (m, script) => {
+      const pieces = [];
+      const cut = (text, field) => {
+        for (let i = 0; i < text.length; i += 2) pieces.push([field, text.slice(i, i + 2)]);
+      };
+      if (script.thinking) cut(script.thinking, "thinking");
+      cut(script.content, "content");
+      const step = () => {
+        if (!busy || busy.m !== m) return;
+        const next = pieces.shift();
+        if (!next) return finish("done");
+        m[next[0]] += next[1];
+        busy.evalCount += 1;
+        persist();
+        turn("turn-streaming");
+        renderLog();
+        timer = Proto.later(40, step);
+      };
+      step();
+    };
+
+    // POST /api/chat:送出的是還原的每一輪加上這一則(FR-005);替身的回覆會接著前面的內容講
+    const send = (text) => {
+      const name = document.getElementById("model").value;
+      if (!bound) bound = Proto.load("session").name;
+      clearedName = null;
+      convoModel = name;
+      convo.push({ role: "user", content: text, thinking: "", status: "done", message: null, ms: null, tps: null });
+      const kind = isThinkingModel(name) ? "thinking" : "default";
+      const list = REPLIES[kind];
+      const turns = convo.filter((x) => x.role === "user").length - 1;
+      const raw = list[turns % list.length];
+      const script = typeof raw === "string" ? { content: raw } : raw;
+      const m = { role: "assistant", content: "", thinking: "", status: "streaming", message: null, ms: null, tps: null };
+      convo.push(m);
+      busy = { m, startedAt: Date.now(), evalCount: 0, loading: false };
+      persist();
+      const target = items.find((x) => x.name === name);
+      if (target && !target.loaded) {
+        // 模型還沒載入:先載入再回覆(001 使用者故事 3 驗收情境 3)
+        busy.loading = true;
+        document.querySelectorAll("[data-model-name]").forEach((el) => { el.textContent = name; });
+        turn("turn-loading");
+        render();
+        timer = Proto.later(2500, () => {
+          if (!busy || busy.m !== m) return;
+          const catalog = Proto.load("catalog");
+          catalog.items.forEach((x) => { if (x.name === name) x.loaded = true; });
+          Proto.save("catalog", catalog);
+          items = catalog.items;
+          busy.loading = false;
+          renderModels();
+          stream(m, script);
+        });
+        return;
+      }
+      render();
+      stream(m, script);
+    };
+
+    // 換模型或按「清除」:畫面與保存的一起清掉(FR-007)
+    const clearChat = () => {
+      clearTimeout(timer);
+      busy = null;
+      convo = [];
+      bound = null;
+      persist();
+      turn("turn-idle");
+      loadModels();
+      render();
+    };
+
+    // 工作階段結束、或換成另一個工作階段時,開著的對話頁不用重新整理就清空(FR-006、research R4)
+    const sessionUpdated = (session) => {
+      const over = END_STATES.includes(session.state) || (session.name && session.name !== bound);
+      if (bound && over) {
+        clearTimeout(timer);
+        busy = null;
+        clearedName = bound;
+        convo = [];
+        bound = null;
+        persist();
+        turn("turn-idle");
+      }
+      loadModels();
+      render();
+    };
+
+    // 打開頁面時先不畫保存的對話,等第一則 session.updated 快照再決定還原或丟掉(research R4)
+    const restore = () => {
+      const session = Proto.load("session");
+      const saved = Proto.load("chat");
+      canStore = Proto.canStore();
+      checked = true;
+      let next = ["turn-idle"];
+      if (saved && KEEP_STATES.includes(session.state) && session.name === saved.session) {
+        convo = saved.messages;
+        convoModel = saved.model;
+        bound = saved.session;
+        // 回覆途中離開的那一則改成中斷,改完立刻寫回(FR-008、research R5)
+        convo.forEach((m) => {
+          if (m.role !== "assistant" || m.status !== "streaming") return;
+          m.status = m.content || m.thinking ? "interrupted" : "unavailable";
+          m.message = LEFT_PAGE;
+          next = ["turn-interrupted", LEFT_PAGE];
+        });
+        if (convo.at(-1)?.status === "stopped") next = ["turn-stopped"];
+      } else if (saved) {
+        Proto.save("chat", null);
+      }
+      loadModels();
+      persist();
+      turn(...next);
+      render();
+    };
+
+    document.getElementById("composer").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = document.getElementById("input");
+      const text = input.value.trim();
+      if (!text || busy || view !== "chat-ready") return;
+      input.value = "";
+      send(text);
+    });
+    document.getElementById("input").addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        document.getElementById("composer").requestSubmit();
+      }
+    });
+    document.getElementById("stop").addEventListener("click", () => {
+      if (busy) finish("stopped");
+    });
+    document.getElementById("clear").addEventListener("click", clearChat);
+    document.getElementById("model").addEventListener("change", (event) => {
+      convoModel = event.target.value;
+      clearChat();
+    });
+    document.getElementById("reload").addEventListener("click", () => {
+      loadModels();
+      render();
+    });
+
+    // 狀態總覽裡停在某一刻的兩格:正在載入模型、正在回覆
+    const FROZEN = {
+      "turn-loading": () => {
+        convoModel = "llama3.2:3b";
+        bound = Proto.load("session").name;
+        const m = { role: "assistant", content: "", thinking: "", status: "streaming", message: null, ms: null, tps: null };
+        convo = [{ role: "user", content: "用一句話說明什麼是 GGUF", thinking: "", status: "done", message: null, ms: null, tps: null }, m];
+        busy = { m, startedAt: Date.now(), evalCount: 0, loading: true };
+        document.querySelectorAll("[data-model-name]").forEach((el) => { el.textContent = convoModel; });
+      },
+      "turn-streaming": () => {
+        convoModel = HF_QWEN3_8B;
+        bound = Proto.load("session").name;
+        const m = { role: "assistant", content: REPLIES.thinking[1].content.slice(0, 34), thinking: REPLIES.thinking[1].thinking, status: "streaming", message: null, ms: null, tps: null };
+        convo = [
+          { role: "user", content: "Colab 的 T4 跑得動 8B 的模型嗎?", thinking: "", status: "done", message: null, ms: null, tps: null },
+          { role: "assistant", content: REPLIES.thinking[0].content, thinking: REPLIES.thinking[0].thinking, status: "done", message: null, ms: 5100, tps: 38.7 },
+          { role: "user", content: "那 BF16 的版本呢?", thinking: "", status: "done", message: null, ms: null, tps: null },
+          m,
+        ];
+        busy = { m, startedAt: Date.now(), evalCount: 0, loading: false };
+      },
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      render();
+      if (Proto.forced === "keep-checking") return;
+      // 連上 /api/events 後先收到工作階段的快照(替身約 0.3 秒)
+      Proto.later(300, () => {
+        restore();
+        if (FROZEN[Proto.forced]) {
+          FROZEN[Proto.forced]();
+          loadModels();
+          turn(Proto.forced);
+          render();
+        }
+        if (Proto.forced === "keep-cleared") {
+          // 狀態總覽這一格:對話頁開著時,工作階段閒置自動結束
+          Proto.later(1500, () => Proto.save("session", { ...ENDED, endReason: "IDLE_TIMEOUT" }));
+        }
+        // 之後跟著 session.updated 推送(別的分頁結束或變更類型也會收到)
+        let last = JSON.stringify(Proto.load("session"));
+        const tick = () => {
+          const now = JSON.stringify(Proto.load("session"));
+          if (now !== last) {
+            last = now;
+            sessionUpdated(JSON.parse(now));
+          }
+          Proto.later(1000, tick);
+        };
+        Proto.later(1000, tick);
+      });
+    });
+  </script>
+</body>
+</html>

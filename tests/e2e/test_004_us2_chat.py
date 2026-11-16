@@ -11,6 +11,7 @@ import time
 from dataclasses import replace
 from typing import Any
 
+import httpx
 import pytest
 from playwright.sync_api import BrowserContext, Locator, Page, expect
 
@@ -260,25 +261,6 @@ def end_session_in_other_tab(context: BrowserContext) -> None:
     home.click("#stop")
 
 
-# ---- 004 US2-AJ-09
-
-
-def test_回覆途中工作階段被結束_保留已收到的內容並標示中斷(
-    page: Page, context: BrowserContext, e2e_servers: Any, world: ColabWorld, fakes: Any
-) -> None:
-    # Arrange
-    open_chat(page, world, QWEN)
-    start_hanging_turn(page, fakes)
-
-    # Act
-    end_session_in_other_tab(context)
-
-    # Assert
-    expect(page.locator('[data-state="turn-lost"]')).to_be_visible()
-    expect(replies(page).last.locator(".content")).to_have_text("一二")
-    expect(page.locator("#model option", has_text=QWEN)).to_have_count(0)
-
-
 # ---- 004 US2-AJ-10
 
 
@@ -393,40 +375,16 @@ def test_串流開始前失敗時說明沒有送出的原因_訊息留在對話�
     assert "memory" not in main
 
 
-# ---- 004 US2-AJ-15
-
-
-def test_回覆途中在另一個分頁變更類型_保留已收到的內容並說明正在變更類型(
-    page: Page, context: BrowserContext, e2e_servers: Any, world: ColabWorld, fakes: Any
-) -> None:
-    # Arrange
-    open_chat(page, world, QWEN)
-    start_hanging_turn(page, fakes)
-    home = context.new_page()
-    home.goto("/")
-
-    # Act
-    home.locator('[data-state="ready"]').get_by_role("button", name="變更類型").click()
-    home.locator('[data-state="confirm-switch"] input[type="radio"][value="L4"]').check()
-    home.click("#switch")
-    page.bring_to_front()
-
-    # Assert
-    lost = page.locator('[data-state="turn-lost"]')
-    expect(lost).to_be_visible()
-    expect(replies(page).last.locator(".content")).to_have_text("一二")
-    expect(lost).to_contain_text("正在變更類型")
-
-
 # ---- 004 US2-AJ-12
 
 ALLOWED_WORDS = ("Hugging Face", "Colab", "token", "Ollama", "GGUF")
 
 
-def assert_traditional_chinese(page: Page, state: str) -> None:
-    """對話頁 `main` 的文字去掉模型名稱與 `tokens/s` 之後,沒有連續 4 個以上的英文字母(容許清單除外),且至少有一個中文字。"""
+def assert_traditional_chinese(page: Page, state: str, names: tuple[str, ...] = ()) -> None:
+    """對話頁 `main` 的文字去掉模型名稱、`names`(畫面上的工作階段名稱等識別字)與 `tokens/s` 之後,
+    沒有連續 4 個以上的英文字母(容許清單除外),且至少有一個中文字。"""
     text = page.locator("main").inner_text()
-    for removed in (QWEN, LLAMA, "qwen2.5", "tokens/s", *ALLOWED_WORDS):
+    for removed in (QWEN, LLAMA, "qwen2.5", "tokens/s", *names, *ALLOWED_WORDS):
         text = text.replace(removed, "")
     words = re.findall(r"[A-Za-z]{4,}", text)
     assert words == [], f"{state}:對話頁出現英文 {words}"
@@ -467,11 +425,13 @@ def test_對話頁各種狀態的文字都是繁體中文(page: Page, context: B
         send(page, "你好")
         shown(state)
 
-    # 回覆途中工作階段被結束
+    # 回覆途中工作階段被結束:對話清除(007 plan.md Q22);畫面上的工作階段名稱是識別字,先去掉(007 plan.md Q37)
+    name = httpx.get(f"{e2e_servers.ui_url}/api/session", timeout=5.0).json()["name"]
     start_hanging_turn(page, fakes)
     end_session_in_other_tab(context)
     page.bring_to_front()
-    shown("turn-lost")
+    expect(page.locator('[data-state="keep-cleared"]')).to_be_visible()
+    assert_traditional_chinese(page, "keep-cleared", names=(name,))
 
 
 @pytest.mark.parametrize("chat_read", [0.3])

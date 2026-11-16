@@ -1132,13 +1132,6 @@ progress::-moz-progress-bar {
   margin: var(--space-xs) 0 0;
 }
 
-.auto-notice .notice-head {
-  display: flex;
-  gap: var(--space-sm);
-  align-items: baseline;
-  justify-content: space-between;
-}
-
 /* ---------- 004:Hugging Face 搜尋結果的展開 ---------- */
 
 .inline-error {
@@ -1381,4 +1374,21 @@ progress::-moz-progress-bar {
 .note-list {
   padding-left: var(--space-lg);
   margin: var(--space-xs) 0 0;
+}
+
+/* ---------- 007:讀不到目錄、對話保存的提示 ---------- */
+.notice .notice-head {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.notice-line {
+  display: block;
+  margin-top: var(--space-xs);
+}
+
+.keep-line {
+  margin: var(--space-sm) 0;
 }

@@ -14,6 +14,15 @@ export function showGroupState(group, name) {
   });
 }
 
+// 收起同一組(`data-group`)的所有區塊
+export const hideGroup = (group) => showGroupState(group, "");
+
+// 把後端的 `Error`(`{code, message}`)填進 `#<prefix>-message` 與 `#<prefix>-code`:說明照後端的繁體中文,代碼保留原文
+export function showError(prefix, error) {
+  document.getElementById(`${prefix}-message`).textContent = error?.message ?? "";
+  document.getElementById(`${prefix}-code`).textContent = error?.code ?? "";
+}
+
 // 執行階段類型與顯示記憶體(prototype/mock.js 的 runtimeTypes);`hidden` 的不列在精選清單的建議類型選單(FR-017)
 export const RUNTIME_TYPES = [
   { id: "T4", vramMiB: 15360, highMem: true, hidden: false },
