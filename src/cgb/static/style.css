@@ -900,3 +900,495 @@ progress::-moz-progress-bar {
     justify-content: flex-start;
   }
 }
+
+/* ---------- 004:對話頁 ---------- */
+
+.chat-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  align-items: flex-end;
+  margin-bottom: var(--space-md);
+}
+
+.chat-head .grow {
+  flex: 1;
+  min-width: 240px;
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 280px;
+  max-height: 60vh;
+  padding: var(--space-md);
+  overflow-y: auto;
+  background: var(--color-sunken);
+  border-radius: var(--radius-sm);
+}
+
+.chat-log .empty {
+  margin: auto;
+  padding: var(--space-lg);
+}
+
+.msg {
+  max-width: 85%;
+}
+
+.msg-user {
+  align-self: flex-end;
+  padding: var(--space-sm) var(--space-md);
+  white-space: pre-wrap;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-lg);
+}
+
+.msg-bot {
+  align-self: flex-start;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.msg-bot .content {
+  white-space: pre-wrap;
+}
+
+.msg-bot.is-cut {
+  border-color: var(--color-danger);
+}
+
+.msg-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  align-items: center;
+  margin-top: var(--space-xs);
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.msg-foot .cut {
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.thinking {
+  margin-bottom: var(--space-xs);
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.thinking summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.thinking .thought {
+  padding-left: var(--space-sm);
+  margin-top: var(--space-xs);
+  white-space: pre-wrap;
+  border-left: 2px solid var(--color-line);
+}
+
+.caret::after {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  content: "";
+  background: var(--color-muted);
+  animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.composer {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: flex-end;
+  margin-top: var(--space-md);
+}
+
+.composer textarea {
+  flex: 1;
+  min-height: 64px;
+  margin-top: 0;
+  resize: vertical;
+}
+
+.turn-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  min-height: 32px;
+  margin-top: var(--space-sm);
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.turn-line.is-bad {
+  color: var(--color-danger);
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-busy);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@media (max-width: 760px) {
+  .msg {
+    max-width: 100%;
+  }
+
+  .composer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* ---------- 004:精選清單的自動下載開關 ---------- */
+
+.switch {
+  display: inline-flex;
+  gap: var(--space-xs);
+  align-items: center;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+}
+
+.switch .knob {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  background: var(--color-line);
+  border-radius: 999px;
+  transition: background 0.15s;
+}
+
+.switch .knob::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  content: "";
+  background: var(--color-surface);
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s;
+}
+
+.switch input:checked + .knob {
+  background: var(--color-primary);
+}
+
+.switch input:checked + .knob::after {
+  transform: translateX(14px);
+}
+
+.switch input:checked ~ .switch-text {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.switch input:focus-visible + .knob {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.field-error {
+  margin-top: var(--space-xs);
+  font-size: 13px;
+  color: var(--color-danger);
+}
+
+/* ---------- 004:自動下載提示區 ---------- */
+
+.auto-notice ul {
+  padding-left: var(--space-lg);
+  margin: var(--space-xs) 0 0;
+}
+
+/* ---------- 004:Hugging Face 搜尋結果的展開 ---------- */
+
+.inline-error {
+  padding: var(--space-sm) var(--space-md);
+  margin-top: var(--space-sm);
+  font-size: 13px;
+  background: var(--color-warn-soft);
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- 005:Ollama 設定(開啟畫面的區塊、工作階段頁的設定卡、套用流程) ---------- */
+
+.tuning-block {
+  margin: var(--space-md) 0;
+  background: var(--color-sunken);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.tuning-block > summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: baseline;
+  padding: var(--space-sm) var(--space-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tuning-block > summary .small {
+  font-weight: 400;
+}
+
+.tuning-block .tuning-body {
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+.tuning-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+  margin: var(--space-sm) 0;
+}
+
+.tuning-fields .field {
+  margin-bottom: 0;
+}
+
+.tuning-fields input.is-bad {
+  border-color: var(--color-danger);
+  box-shadow: inset 0 0 0 1px var(--color-danger);
+}
+
+.tuning-fixed {
+  margin: var(--space-sm) 0 0;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.src {
+  display: inline-block;
+  padding: 0 var(--space-sm);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  border-radius: 999px;
+}
+
+.src-auto {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.src-manual {
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+}
+
+.src-default {
+  color: var(--color-muted);
+  background: var(--color-sunken);
+}
+
+.tuning-summary {
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.tuning-table td:first-child {
+  white-space: nowrap;
+}
+
+.tuning-table .env {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.tuning-table tr.is-fixed td {
+  color: var(--color-muted);
+}
+
+.diff-old {
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+.history-row {
+  cursor: pointer;
+}
+
+.history-row:hover td,
+.history-row.is-open td {
+  background: var(--color-primary-soft);
+}
+
+@media (max-width: 760px) {
+  .tuning-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- 006 連線設定頁 ---------- */
+
+.tabs {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.tab {
+  padding: var(--space-sm) var(--space-lg);
+  margin-bottom: -1px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border-color: var(--color-line);
+  border-bottom-color: var(--color-surface);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.snippet {
+  margin-bottom: var(--space-lg);
+}
+
+.snippet-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.snippet-head h3 {
+  margin: 0;
+}
+
+.code {
+  max-height: 360px;
+  padding: var(--space-md);
+  margin: 0;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-text);
+  white-space: pre;
+  background: var(--color-sunken);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.copied {
+  color: var(--color-success);
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.howto {
+  padding-left: var(--space-lg);
+  margin: 0 0 var(--space-sm);
+}
+
+.howto li {
+  margin-bottom: var(--space-xs);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-lg);
+  margin: 0 0 var(--space-md);
+}
+
+.facts div {
+  min-width: 140px;
+}
+
+.facts dt {
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.empty-state {
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+}
+
+.empty-state .actions {
+  justify-content: center;
+}
+
+.note-list {
+  padding-left: var(--space-lg);
+  margin: var(--space-xs) 0 0;
+}
+
+/* ---------- 007:讀不到目錄、對話保存的提示 ---------- */
+.notice .notice-head {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.notice-line {
+  display: block;
+  margin-top: var(--space-xs);
+}
+
+.keep-line {
+  margin: var(--space-sm) 0;
+}

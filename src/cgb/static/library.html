@@ -15,8 +15,10 @@
       <a href="index.html">工作階段</a>
       <a href="models.html">模型</a>
       <a href="library.html" aria-current="page">下載模型</a>
+      <a href="chat.html">對話</a>
       <a href="usage.html">用量與設定</a>
       <a href="history.html">紀錄</a>
+      <a href="connect.html">連線設定</a>
     </nav>
   </header>
   <main>
@@ -26,45 +28,97 @@
     <!-- 精選清單 -->
     <section class="panel">
       <div class="panel-head">
-        <h2>精選清單</h2>
+        <div>
+          <h2>精選清單</h2>
+          <p class="small muted">不用開工作階段也能編輯。在「修改」裡打開「開好就自動下載」的,每次工作階段一就緒就依清單順序自動排進下載。</p>
+        </div>
+        <button type="button" class="btn btn-small" id="cur-add">新增</button>
       </div>
-      <ul class="list" id="curated"></ul>
+      <ul class="list" id="curated" data-state="cur-list" data-group="curated" hidden></ul>
+      <div data-state="cur-empty" data-group="curated" hidden>
+        <p class="empty">精選清單是空的。按「新增」加入常用的模型,可以是官方模型庫的名稱,或 <span class="mono">hf.co/&lt;作者&gt;/&lt;模型&gt;:&lt;量化版本&gt;</span>。</p>
+      </div>
     </section>
 
     <!-- 搜尋官方模型庫 -->
     <section class="panel">
       <h2>搜尋 Ollama 官方模型庫</h2>
-      <form class="inline-form" id="search-form">
+      <form class="inline-form" id="lib-form">
         <div class="grow">
-          <label for="q" class="small muted">關鍵字</label>
-          <input type="search" id="q" placeholder="例如 qwen、llama、embed" required>
+          <label for="lib-q" class="small muted">關鍵字</label>
+          <input type="search" id="lib-q" placeholder="例如 qwen、llama、embed" required>
         </div>
         <button type="submit" class="btn btn-primary">搜尋</button>
       </form>
 
-      <div data-state="normal">
+      <div data-state="lib-idle" data-group="search">
         <p class="empty">輸入關鍵字搜尋 ollama.com 上的官方模型;只列可以下載到執行環境的版本。</p>
       </div>
-      <div data-state="searching" hidden>
+      <div data-state="lib-searching" data-group="search" hidden>
         <p class="empty">正在搜尋 ollama.com…</p>
       </div>
-      <div data-state="results" hidden>
+      <div data-state="lib-results" data-group="search" hidden>
         <p class="small muted" id="results-meta"></p>
-        <div id="results"></div>
+        <div id="lib-results"></div>
         <div class="actions" id="more-box">
           <button type="button" class="btn" id="more">顯示更多</button>
         </div>
       </div>
-      <div data-state="no-results" hidden>
+      <div data-state="no-results" data-group="search" hidden>
         <div class="empty">
           <p id="nr-text"></p>
           <p class="small">換個關鍵字試試,或在下面直接輸入完整的模型名稱。</p>
         </div>
       </div>
-      <div data-state="library-down" hidden>
+      <div data-state="library-down" data-group="search" hidden>
         <div class="notice notice-warn">
           <strong>現在沒辦法搜尋官方模型庫</strong>
           ollama.com 的搜尋頁讀不懂(可能改版了)或連不上。精選清單和直接輸入名稱照樣可以用。
+        </div>
+      </div>
+    </section>
+
+    <!-- 搜尋 Hugging Face(FR-013;prototype/library.html) -->
+    <section class="panel">
+      <h2>搜尋 Hugging Face</h2>
+      <form class="inline-form" id="hf-form">
+        <div class="grow">
+          <label for="hf-q" class="small muted">關鍵字(只列含 GGUF 檔、不用登入就能下載的模型)</label>
+          <input type="search" id="hf-q" placeholder="例如 qwen3、llama-3.2、gemma" required>
+        </div>
+        <button type="submit" class="btn btn-primary">搜尋</button>
+      </form>
+      <div data-state="hf-idle" data-group="hf">
+        <p class="empty">輸入關鍵字搜尋 huggingface.co 上的 GGUF 模型;展開一個模型可以看它的量化版本與大小。</p>
+      </div>
+      <div data-state="hf-searching" data-group="hf" hidden>
+        <p class="empty">正在搜尋 huggingface.co…</p>
+      </div>
+      <div data-state="hf-results" data-group="hf" hidden>
+        <p class="small muted" id="hf-meta"></p>
+      </div>
+      <div data-state="hf-expand-down" data-group="hf" hidden>
+        <div class="notice notice-warn">
+          <strong>Hugging Face 暫時無法使用,取不到版本清單</strong>
+          huggingface.co 連不到、回應錯誤或看不懂,或在 10 秒內沒有回應。可以稍後再展開一次;官方模型庫、精選清單與直接輸入名稱照常可以用。
+        </div>
+      </div>
+      <div data-state="hf-empty" data-group="hf" hidden>
+        <div class="empty">
+          <p id="hf-empty-text"></p>
+          <p class="small">換個關鍵字試試,或在下面直接輸入 <span class="mono">hf.co/&lt;作者&gt;/&lt;模型&gt;</span>。</p>
+        </div>
+      </div>
+      <div data-state="hf-down" data-group="hf" hidden>
+        <div class="notice notice-warn">
+          <strong>暫時無法搜尋 Hugging Face</strong>
+          huggingface.co 連不到、逾時或回應看不懂。官方模型庫、精選清單與直接輸入名稱照常可以用,稍後再搜尋一次。
+        </div>
+      </div>
+      <div id="hf-results-box" hidden>
+        <div id="hf-results"></div>
+        <div class="actions" id="hf-more-box">
+          <button type="button" class="btn" id="hf-more">載入更多</button>
         </div>
       </div>
     </section>
@@ -74,22 +128,67 @@
       <h2>直接輸入名稱</h2>
       <form class="inline-form" id="name-form">
         <div class="grow">
-          <label for="direct" class="small muted">模型名稱(含版本;沒寫版本就是 latest)</label>
-          <input type="text" class="mono" id="direct" placeholder="qwen2.5:14b" required>
+          <label for="direct" class="small muted">官方模型名稱或 <span class="mono">hf.co/&lt;作者&gt;/&lt;模型&gt;[:&lt;量化版本&gt;]</span>;沒寫版本就是 latest</label>
+          <input type="text" class="mono" id="direct" placeholder="qwen2.5:14b 或 hf.co/unsloth/Qwen3-8B-GGUF:Q4_K_M" required>
         </div>
         <button type="submit" class="btn">加入勾選</button>
       </form>
+      <p class="small muted" data-state="direct-unchecked" data-group="direct" hidden>現在沒有就緒的工作階段:只檢查名稱的格式就加入勾選,大小要等開好工作階段、按「加入下載」時才確認。</p>
+      <p class="field-error" data-state="direct-error" data-group="direct" id="direct-error" hidden>名稱的格式不對:官方模型寫成 <span class="mono">qwen2.5:14b</span>,Hugging Face 寫成 <span class="mono">hf.co/作者/模型:量化版本</span>。</p>
+    </section>
+
+    <!-- 新增或修改精選項目 -->
+    <section class="overlay" id="cur-sheet" hidden>
+      <form class="sheet" id="cur-form">
+        <h2 data-state="cur-form" data-group="form-title">新增精選項目</h2>
+        <h2 data-state="cur-form-edit" data-group="form-title" hidden>修改精選項目</h2>
+        <div class="field">
+          <label for="c-name">模型名稱(含版本)</label>
+          <input type="text" class="mono" id="c-name" placeholder="qwen3:8b 或 hf.co/unsloth/Qwen3-8B-GGUF:Q4_K_M" required>
+          <p class="field-error" data-state="cur-duplicate" data-group="form-error" id="c-dup" hidden>這個模型已經在精選清單裡(沒寫版本視為 latest,大小寫不同也算同一個)。</p>
+          <p class="field-error" data-state="cur-invalid" data-group="form-error" hidden>名稱的格式不對:官方模型寫成 <span class="mono">qwen2.5:14b</span>,Hugging Face 寫成 <span class="mono">hf.co/作者/模型:量化版本</span>。</p>
+          <span class="hint">新增時不會先查模型是否存在;取不到的模型,自動下載時會跳過並在模型頁提示原因。</span>
+        </div>
+        <div class="field">
+          <label for="c-note">說明 <span class="hint">(可以不填)</span></label>
+          <input type="text" id="c-note" placeholder="例如:會思考的中型模型,回答前會先推理">
+        </div>
+        <div class="field">
+          <label for="c-type">建議的執行階段類型 <span class="hint">(可以不填)</span></label>
+          <select id="c-type"></select>
+          <span class="hint" id="c-type-keep" hidden></span>
+          <label class="check"><input type="checkbox" id="c-highmem"> 高 RAM</label>
+          <span class="hint" id="c-highmem-hint"></span>
+        </div>
+        <label class="switch"><input type="checkbox" id="c-auto"><span class="knob"></span><span class="switch-text">開好就自動下載</span></label>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary" id="c-submit">加入</button>
+          <button type="button" class="btn" id="c-cancel">取消</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 確認刪除精選項目 -->
+    <section data-state="cur-delete" data-group="sheet" class="overlay" hidden>
+      <div class="sheet">
+        <h2>從精選清單刪除?</h2>
+        <p><strong class="mono" id="del-name"></strong> 會從精選清單移除,之後開工作階段也不會再自動下載。已經在佇列裡或執行環境上的不受影響。</p>
+        <div class="actions">
+          <button type="button" class="btn btn-danger" id="del-go">刪除</button>
+          <button type="button" class="btn" id="del-cancel">取消</button>
+        </div>
+      </div>
     </section>
 
     <!-- 確認中 -->
-    <section data-state="checking" class="overlay" hidden>
+    <section data-state="checking" data-group="search" class="overlay" hidden>
       <div class="sheet">
         <p class="empty" id="checking-text">正在向 registry.ollama.ai 確認大小…</p>
       </div>
     </section>
 
     <!-- 確認加入下載 -->
-    <section data-state="confirm" class="overlay" hidden>
+    <section data-state="confirm" data-group="search" class="overlay" hidden>
       <div class="sheet">
         <h2>加入下載佇列</h2>
         <table class="summary" id="confirm-table"></table>
@@ -104,7 +203,7 @@
     </section>
 
     <!-- 空間不足 -->
-    <section data-state="no-space" class="overlay" hidden>
+    <section data-state="no-space" data-group="search" class="overlay" hidden>
       <div class="sheet">
         <h2>執行環境的磁碟空間不夠</h2>
         <table class="summary" id="space-table"></table>
@@ -116,7 +215,7 @@
     </section>
 
     <!-- 找不到這個模型 -->
-    <section data-state="not-found" class="overlay" hidden>
+    <section data-state="not-found" data-group="search" class="overlay" hidden>
       <div class="sheet">
         <h2>找不到這個模型</h2>
         <p>Ollama 官方模型庫沒有 <strong class="mono" id="nf-name"></strong>(名稱或版本不存在)。執行環境上的模型都沒有變動。</p>
@@ -128,7 +227,7 @@
     </section>
 
     <!-- 只能在雲端執行 -->
-    <section data-state="cloud-only" class="overlay" hidden>
+    <section data-state="cloud-only" data-group="search" class="overlay" hidden>
       <div class="sheet">
         <h2>這個版本不能下載</h2>
         <p><strong class="mono" id="co-name"></strong> 只能在 Ollama 雲端執行,沒有可以下載的模型檔。請改選其他版本。</p>
@@ -139,7 +238,7 @@
     </section>
 
     <!-- 沒有就緒的工作階段 -->
-    <section data-state="no-session" class="overlay" hidden>
+    <section data-state="no-session" data-group="search" class="overlay" hidden>
       <div class="sheet">
         <h2>要先開啟工作階段</h2>
         <p>模型會下載到 Colab 的執行環境上;現在沒有就緒的工作階段,也就不知道剩下多少磁碟空間。開啟並就緒後再加入下載,勾選的項目會保留。</p>
@@ -147,6 +246,33 @@
           <a class="btn btn-primary" href="index.html">到工作階段開啟</a>
           <button type="button" class="btn" data-back>返回</button>
         </div>
+      </div>
+    </section>
+
+    <!-- HF_AUTH_REQUIRED(試算與加入的 422) -->
+    <section data-state="hf-auth-required" data-group="search" class="overlay" hidden>
+      <div class="sheet">
+        <h2>這個模型要登入才能下載</h2>
+        <p><strong class="mono" data-fail-name></strong> 在 Hugging Face 上需要登入、要先同意條款、是私有的,或不存在。這一輪只支援不用登入的公開模型,沒有加入佇列。</p>
+        <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
+      </div>
+    </section>
+
+    <!-- HF_QUANT_UNAVAILABLE(試算與加入的 422;不回 HF_NO_GGUF,沒有 GGUF 的 repo 也落在這裡,plan.md Q20、D99) -->
+    <section data-state="hf-quant-unavailable" data-group="search" class="overlay" hidden>
+      <div class="sheet">
+        <h2>這個量化版本無法下載</h2>
+        <p><strong class="mono" data-fail-name></strong> 沒有這個量化版本、它是分割成好幾個檔的版本,或不是 GGUF。沒有加入佇列;可以在上面搜尋這個模型、展開看有哪些版本。</p>
+        <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
+      </div>
+    </section>
+
+    <!-- HF_TIMEOUT、HF_UNREACHABLE、HF_SERVER_ERROR、HF_BAD_RESPONSE(試算與加入的 502、504) -->
+    <section data-state="hf-size-down" data-group="search" class="overlay" hidden>
+      <div class="sheet">
+        <h2>暫時無法向 Hugging Face 確認大小</h2>
+        <p><strong class="mono" data-fail-name></strong> 的大小取不到(huggingface.co 連不到、逾時或回應看不懂),所以沒有加入佇列。官方模型庫的模型可以先取消勾選這一個再加入。</p>
+        <div class="actions"><button type="button" class="btn btn-primary" data-back>知道了</button></div>
       </div>
     </section>
   </main>

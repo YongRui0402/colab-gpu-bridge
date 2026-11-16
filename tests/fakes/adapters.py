@@ -22,6 +22,7 @@ from typing import Any
 from cgb.adapters.colab_cli import ColabControl
 from cgb.adapters.errors import AdapterError
 from cgb.adapters.google_oauth import GoogleOAuth
+from cgb.adapters.huggingface import HuggingFaceHub
 from cgb.adapters.model_library import ModelLibrary
 from cgb.adapters.remote_ollama import RemoteOllama
 from cgb.adapters.tunnel import Tunnel
@@ -233,6 +234,7 @@ class FakeColabControl(_FakeAdapter):
         "list_sessions",
         "create_session",
         "start_ollama",
+        "restart_ollama",
         "probe_resources",
         "stop_session",
         "get_usage",
@@ -310,6 +312,16 @@ class FakeModelLibrary(_FakeAdapter):
 
     REAL = ModelLibrary
     METHODS = ("search_library", "list_model_tags", "get_manifest")
+
+
+class FakeHuggingFaceHub(_FakeAdapter):
+    """`contracts/huggingface.openapi.yaml` 的 `HuggingFaceHub`(plan.md Q49:四個方法一次寫齊)。
+
+    `get_manifest(author=, model=, tag=)` 回 `{"sizeBytes"}`;`list_quants(author=, model=)` 回 `[{"quant", "sizeBytes"}]`。
+    """
+
+    REAL = HuggingFaceHub
+    METHODS = ("search_models", "list_repo_files", "get_manifest", "list_quants")
 
 
 class FakeGoogleOAuth(_FakeAdapter):

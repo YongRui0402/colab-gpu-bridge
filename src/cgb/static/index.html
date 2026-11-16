@@ -15,8 +15,10 @@
       <a href="index.html" aria-current="page">工作階段</a>
       <a href="models.html">模型</a>
       <a href="library.html">下載模型</a>
+      <a href="chat.html">對話</a>
       <a href="usage.html">用量與設定</a>
       <a href="history.html">紀錄</a>
+      <a href="connect.html">連線設定</a>
     </nav>
   </header>
   <main>
@@ -27,6 +29,8 @@
       <h2 class="state-title"><span class="pill">未開啟</span>目前沒有工作階段</h2>
       <p class="muted">選好執行階段類型後按「開啟」,系統會在 Colab 開一台執行環境、裝好 Ollama 並接上通道;實測 1 到 3 分鐘。</p>
       <div data-picker="open"></div>
+      <div class="notice" id="prefill-note" hidden></div>
+      <div class="notice notice-error" id="invalid-note" hidden></div>
       <div class="actions">
         <button type="button" class="btn btn-primary" id="open">開啟</button>
       </div>
@@ -82,7 +86,8 @@
     </section>
 
     <!-- 就緒 -->
-    <section data-state="ready" class="panel" hidden>
+    <div data-state="ready" hidden>
+    <section class="panel">
       <h2 class="state-title"><span class="pill pill-ok">就緒</span><span class="mono" id="r-name"></span></h2>
       <div class="grid-2">
         <dl class="kv">
@@ -101,11 +106,135 @@
       </div>
     </section>
 
+    <!-- 005:Ollama 設定卡(FR-004);值照遠端回報的 `Session.ollama`,不查 GPU 類型的表 -->
+    <section class="panel" id="t-card">
+      <div class="panel-head">
+        <h2>Ollama 設定</h2>
+        <button type="button" class="btn" data-go="edit-tuning">修改設定</button>
+      </div>
+      <p class="tuning-summary" id="t-summary"></p>
+      <div class="notice notice-warn" data-state="ready-fallback" id="t-fallback" hidden></div>
+      <div class="notice" data-state="ready-not-reloaded" id="t-not-reloaded" hidden></div>
+      <div class="notice notice-warn" data-state="ready-preload-failed" id="t-preload-failed" hidden></div>
+      <div class="notice notice-warn" data-state="ready-no-vram" hidden>
+        <strong>讀不到顯示記憶體,使用 Ollama 預設值</strong>
+        開好時執行環境的 <span class="mono">nvidia-smi</span> 沒有回報顯示記憶體,三項設定都沒有帶,用 Ollama 自己的預設值;工作階段照常可以用。
+      </div>
+      <div class="notice notice-warn" data-state="ready-no-vram-manual" hidden>
+        <strong>讀不到顯示記憶體</strong>
+        填了的項目照你的值套用;沒填的項目沒有自動值可用,用 Ollama 自己的預設值。
+      </div>
+      <div class="notice" data-state="ready-manual" id="t-manual-note" hidden></div>
+      <div class="notice notice-warn" data-state="ready-unknown-tuning" hidden>
+        <strong>讀不到目前的 Ollama 設定</strong>
+        系統接回這台時 Ollama 已經在執行,執行環境上沒有留下設定檔(例如這台是更新前開的),所以不知道它帶了哪些設定。
+      </div>
+      <dl class="kv">
+        <dt>量到的硬體</dt><dd id="t-hardware"></dd>
+      </dl>
+      <table class="table tuning-table" id="t-table">
+        <thead>
+          <tr><th>設定</th><th>值</th><th>來源</th></tr>
+        </thead>
+        <tbody id="t-rows"></tbody>
+      </table>
+      <p class="tuning-fixed">flash attention 與 KV cache 固定開啟,只顯示、不能修改。每一次開啟與套用的設定都記在<a href="history.html">紀錄</a>。</p>
+    </section>
+    </div>
+
+    <!-- 005:修改設定(FR-010、FR-017);確認後後端擋下的原因也回到這裡說明(FR-011) -->
+    <section data-state="edit-tuning" class="panel" hidden>
+      <h2>修改 Ollama 設定</h2>
+      <p class="muted" id="et-intro"></p>
+      <div class="notice notice-error" data-state="apply-invalid" id="apply-invalid-note" hidden></div>
+      <div class="notice notice-warn" data-state="apply-blocked-download" hidden>
+        <strong data-error-message>有模型正在下載,下載完才能套用</strong>
+        <span id="blocked-download-text">遠端 Ollama 沒有重啟,下載繼續進行。</span>
+      </div>
+      <div class="notice notice-warn" data-state="apply-blocked-request" hidden>
+        <strong data-error-message>有請求還在進行,要等它們結束才能套用</strong>
+        <span id="blocked-request-text">遠端 Ollama 沒有重啟,這些請求照常進行。</span>
+      </div>
+      <div class="notice notice-warn" data-state="apply-conflict" hidden>
+        <strong data-error-message>正在套用設定,請等它完成</strong>
+        另一個分頁剛按了套用,這一次沒有送出;等那一次套用完、回到就緒後再試。
+      </div>
+      <div class="notice notice-warn" data-state="apply-not-ready" hidden>
+        <strong data-error-message>工作階段還沒就緒,要等它就緒才能套用</strong>
+        開啟中、重連中與結束中都不能套用;這次沒有送出,遠端 Ollama 沒有重啟。
+      </div>
+      <div class="notice notice-warn" data-state="apply-auth-required" hidden>
+        <strong data-error-message>Colab 帳號沒有登入,先登入才能套用</strong>
+        重啟到一半授權失效會讓工作階段失聯,所以先擋下。<a href="login.html">到登入頁</a>
+      </div>
+      <div id="et-fields"></div>
+      <p class="tuning-fixed">flash attention 與 KV cache <span class="mono">q8_0</span> 固定開啟,不能修改。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="apply">套用並重啟 Ollama</button>
+        <button type="button" class="btn" id="edit-clear">全部改回自動</button>
+        <button type="button" class="btn" data-go="ready">取消</button>
+      </div>
+    </section>
+
+    <!-- 005:套用前的確認(FR-010,US3 情境 2) -->
+    <section data-state="confirm-apply" class="panel" hidden>
+      <h2>要套用並重啟 Ollama 嗎?</h2>
+      <table class="table tuning-table">
+        <thead>
+          <tr><th>設定</th><th>目前</th><th>套用後(預估)</th></tr>
+        </thead>
+        <tbody id="ca-rows"></tbody>
+      </table>
+      <div class="notice notice-warn">
+        <strong>會重啟遠端 Ollama,已載入的模型要重新載入,這段時間無法對話與送請求</strong>
+        區網程式經 Ollama 相容端點送的請求會收到「工作階段未就緒」,不會排隊等待;閒置倒數暫停,回到就緒時重新計時。
+      </div>
+      <ul id="ca-effects"></ul>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="confirm-apply">確認,套用並重啟</button>
+        <button type="button" class="btn" data-go="edit-tuning">回去修改</button>
+      </div>
+    </section>
+
+    <!-- 005:套用設定中:重啟 Ollama(FR-012、FR-015) -->
+    <section data-state="restarting" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-busy">套用設定中</span><span class="mono" data-field="name"></span></h2>
+      <p class="muted" data-apply-elapsed></p>
+      <ol class="steps" data-apply-steps></ol>
+      <p class="small muted">這段時間對話與相容端點的請求會收到「工作階段未就緒」;閒置倒數暫停,下載佇列暫停、回到就緒後照常開始。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-danger" data-go="confirm-stop">結束工作階段</button>
+      </div>
+    </section>
+
+    <!-- 005:套用設定中:要求的設定起不來,改回自動值再重啟一次(FR-013) -->
+    <section data-state="fallback-restarting" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-warn">套用設定中</span><span class="mono" data-field="name"></span></h2>
+      <p class="muted" data-apply-elapsed></p>
+      <div class="notice notice-warn" id="fb-note"></div>
+      <ol class="steps" data-apply-steps></ol>
+      <div class="actions">
+        <button type="button" class="btn btn-danger" data-go="confirm-stop">結束工作階段</button>
+      </div>
+    </section>
+
+    <!-- 005:套用設定中:重新載入模型(FR-012、FR-015) -->
+    <section data-state="reloading" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-busy">套用設定中</span><span class="mono" data-field="name"></span></h2>
+      <p class="muted" data-apply-elapsed></p>
+      <ol class="steps" data-apply-steps></ol>
+      <p class="small muted">這段時間對話與相容端點的請求會收到「工作階段未就緒」;閒置倒數暫停,下載佇列暫停、回到就緒後照常開始。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-danger" data-go="confirm-stop">結束工作階段</button>
+      </div>
+    </section>
+
     <!-- 確認變更類型 -->
     <section data-state="confirm-switch" class="panel" hidden>
       <h2>變更執行階段類型</h2>
       <p class="muted">目前是 <strong id="cw-current"></strong>。</p>
       <div data-picker="switch"></div>
+      <div class="notice notice-error" id="switch-invalid-note" hidden></div>
       <div class="notice notice-warn">
         <strong>會結束目前的工作階段並重開</strong>
         <span id="cw-effects">新的執行環境就緒後,會自動從網路重新下載並載入目前已載入的模型。其他模型要另外下載。</span>
@@ -148,7 +277,7 @@
       <dl class="kv">
         <dt>結束原因</dt><dd id="e-reason"></dd>
       </dl>
-      <div class="notice notice-ok">已確認 Colab 帳號下沒有遺留的執行環境。</div>
+      <div class="notice notice-ok">已確認 Colab 帳號下沒有遺留的執行環境;下載佇列已一起清空。</div>
       <div data-picker="ended" data-when="released"></div>
       <div class="actions">
         <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
@@ -179,6 +308,7 @@
       </div>
       <p id="f-switch-note" hidden></p>
       <p class="muted">已確認 Colab 帳號下沒有留下這次配置的執行環境。</p>
+      <p class="muted">沒有開成的工作階段不會留下佇列;變更類型時為了重新載入而排入的項目也一起清空了。可以換一個類型再開。</p>
       <div data-picker="failed" data-when="released"></div>
       <div class="actions">
         <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
@@ -222,9 +352,26 @@
       <dl class="kv">
         <dt>結束原因</dt><dd>被 Colab 收回(Colab 上已經沒有這台執行環境)</dd>
       </dl>
+      <p class="muted">執行環境上的模型已經消失,下載佇列也一起清空了;上一台的「完成」紀錄不會帶到下一台。</p>
       <div data-picker="lost" data-when="released"></div>
       <div class="actions">
         <button type="button" class="btn" data-action="reopen">重新開啟</button>
+        <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
+      </div>
+    </section>
+
+    <!-- 005:改回自動值也失敗而失聯(FR-013,US3 情境 7;EndReason OLLAMA_RESTART_FAILED) -->
+    <section data-state="lost-restart" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-danger">失聯</span><span class="mono" data-field="name"></span></h2>
+      <dl class="kv">
+        <dt>結束原因</dt><dd>重啟 Ollama 失敗</dd>
+        <dt>說明</dt><dd id="lr-message"></dd>
+        <dt>這次要求的值</dt><dd id="lr-requested"></dd>
+        <dt>失敗在哪一段</dt><dd id="lr-stage"></dd>
+      </dl>
+      <p class="muted">這台執行環境已釋放,模型與下載佇列一起清空了。這組值沒有被記住,下次開同一種類型時預先填的仍是原本記住的值。</p>
+      <div data-picker="lost-restart" data-when="released"></div>
+      <div class="actions">
         <button type="button" class="btn btn-primary" data-action="open" data-when="released">開啟</button>
       </div>
     </section>
@@ -235,6 +382,7 @@
       <dl class="kv">
         <dt>結束原因</dt><dd>重連逾時(5 分鐘內接不回)</dd>
       </dl>
+      <p class="muted">這台執行環境不再使用,下載佇列也一起清空了,下載中的那一筆跟著中斷;上一台的「完成」紀錄不會帶到下一台。</p>
       <div class="notice notice-ok" data-when="released">已釋放這台執行環境,Colab 帳號下沒有遺留。</div>
       <div data-picker="lost-timeout" data-when="released"></div>
       <div class="actions">

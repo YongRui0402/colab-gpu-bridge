@@ -1,7 +1,7 @@
 // 模型頁:執行環境上已下載的模型、預先載入與下載佇列(FR-014、FR-015、FR-017、FR-021;prototype/models.html)
-import { request } from "./api.js";
+import { readThenFollow, request } from "./api.js";
 import { startHeader } from "./header.js";
-import { bytes, clock, escape, showState, typeText } from "./view.js";
+import { bytes, clock, escape, hideGroup, showError, showGroupState, typeText } from "./view.js";
 
 // 目錄(ModelCatalog)與目前的工作階段(session.updated;提示裡要說是哪一種執行階段類型)
 let current = { items: [] };
@@ -34,7 +34,7 @@ function catalogItem(model) {
 function show(catalog) {
   current = catalog;
   document.getElementById("catalog").innerHTML = catalog.items.map(catalogItem).join("");
-  showState(local ?? (catalog.items.length ? "normal" : "empty"));
+  showGroupState("catalog", local ?? (catalog.items.length ? "normal" : "empty"));
 }
 
 // 推送來的目錄裡,剛從載入中變成失敗的模型:蓋上「載入失敗」的說明(說明是後端給的繁體中文 PreloadState.message)
@@ -51,18 +51,36 @@ function catalogPushed(catalog) {
 }
 
 async function loadCatalog() {
-  if (!local) showState("loading");
+  if (!local) showGroupState("catalog", "loading");
   const response = await request("GET", "/models");
-  if (response.ok) show(response.data);
-  // 沒有就緒的工作階段:執行環境上的模型跟著消失,目錄清空(FR-018)
-  else if (response.data?.code === "NO_READY_SESSION") {
-    document.getElementById("catalog").innerHTML = "";
-    showState("no-session");
-  }
+  if (response.ok) return show(response.data);
+  const state = failedCatalogState(response);
+  if (!state) return;
+  // 兩種失敗都清空目錄:沒有就緒的工作階段時模型跟著消失(FR-018);讀不到遠端時不顯示成空的目錄(FR-003)
+  document.getElementById("catalog").innerHTML = "";
+  if (state === "unavailable") showError("un", response.data);
+  showGroupState("catalog", state);
+}
+
+// 列目錄失敗時要顯示的狀態:沒有就緒的工作階段(503 NO_READY_SESSION)是 no-session;
+// 讀不到遠端的目錄(502、504)是 unavailable,說明與代碼用後端的(research R2);其他的不改畫面
+function failedCatalogState(response) {
+  if (response.data?.code === "NO_READY_SESSION") return "no-session";
+  if (response.status === 502 || response.status === 504) return "unavailable";
+  return null;
 }
 
 async function preload(name) {
+  // 送出前先收起上一次的說明,舊的失敗說明不蓋在載入中的目錄上
+  hideGroup("preload-note");
   const response = await request("POST", "/models/preload", { name });
+  // 確認目錄時讀不到遠端(502、504):不受理,蓋上說明;不重讀目錄、其他模型照原狀顯示(FR-002、FR-003、research R2)
+  if (response.status === 502 || response.status === 504) {
+    document.getElementById("pu-name").textContent = name;
+    showError("pu", response.data);
+    showGroupState("preload-note", "preload-unavailable");
+    return;
+  }
   if (!response.ok) return;
   // 受理後先把那一列標成載入中;完成或失敗由 `models.updated` 推送整份目錄
   show({ ...current, items: current.items.map((m) => (m.name === name ? response.data : m)) });
@@ -75,7 +93,7 @@ function warnBeforePreload(model) {
   const vram = current.vramBytes ? `(約 ${Math.round(current.vramBytes / 2 ** 30)} GB)` : "";
   document.getElementById("pw-name").textContent = model.name;
   document.getElementById("pw-text").textContent = `有 ${bytes(model.sizeBytes)},超過 ${type} 的顯示記憶體${vram}。可能載入失敗,或有一部分放在 CPU 上執行而慢很多。要順跑的話,請改用顯示記憶體更大的類型。`;
-  showState(local);
+  showGroupState("catalog", local);
 }
 
 function closeWarn() {
@@ -96,6 +114,10 @@ document.getElementById("pw-go").addEventListener("click", () => {
   preload(warnTarget);
 });
 document.getElementById("pw-cancel").addEventListener("click", closeWarn);
+// 沒有預先載入的說明的「關閉」
+document.getElementById("pu-close").addEventListener("click", () => hideGroup("preload-note"));
+// 讀不到目錄時的「重新讀取」:遠端恢復後不必重開工作階段(FR-003、驗收情境 5)
+document.getElementById("reload").addEventListener("click", loadCatalog);
 
 // ---------------------------------------------------------------- 下載佇列
 
@@ -150,12 +172,18 @@ function queueItem(job, position) {
   return queueRow(job, `<div class="item-meta">${bytes(job.sizeBytes)} · ${clock(job.finishedAt)} 完成</div>`, '<span class="pill pill-ok">完成</span>');
 }
 
+// 工作階段已結束、失聯或開啟失敗時佇列是空的,就是跟著它一起清空的(FR-001);
+// 合約沒有清除的筆數,看工作階段狀態判斷,之後才打開或重新整理也一樣(plan.md Q29、D98)
+const CLEARED_STATES = ["ended", "lost", "open_failed"];
+
 function renderQueue() {
   const sorted = [...jobs.values()].sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state]);
   let position = 0;
-  document.getElementById("queue").innerHTML = sorted.length
-    ? sorted.map((job) => queueItem(job, job.state === "queued" ? ++position : 0)).join("")
-    : '<li><span class="muted">佇列是空的。到「下載模型」挑選要下載的模型。</span></li>';
+  document.getElementById("queue").innerHTML = sorted.map((job) => queueItem(job, job.state === "queued" ? ++position : 0)).join("");
+  if (sorted.length) return showGroupState("queue", "queue-list");
+  if (!CLEARED_STATES.includes(session?.state)) return showGroupState("queue", "queue-empty");
+  document.getElementById("qc-text").innerHTML = `工作階段 <span class="mono">${escape(session.name)}</span> 結束時,佇列已一起清空(含完成、失敗與排隊中的)。`;
+  showGroupState("queue", "queue-cleared");
 }
 
 function jobUpdated(job) {
@@ -210,7 +238,57 @@ function sessionUpdated(payload) {
   loadQueue();
 }
 
+// ---------------------------------------------------------------- 自動下載提示區(FR-012;prototype/models.html 的 renderNotice)
+
+// 目前工作階段的自動下載結果(AutoDownloadResult);沒有時是 null
+let autoResult = null;
+
+// 跳過項目的數字只用合約有的 sizeBytes、freeDiskBytes、vramBytes(plan.md Q68),沒有值的不顯示;
+// 顯示記憶體和模型目錄一樣以 2 的 30 次方換算
+function skipFigures(s) {
+  const parts = [];
+  if (s.sizeBytes != null) parts.push(`大小 ${bytes(s.sizeBytes)}`);
+  if (s.freeDiskBytes != null) parts.push(`排入前面幾個之後只剩 ${bytes(s.freeDiskBytes)}`);
+  if (s.vramBytes != null) parts.push(`顯示記憶體約 ${Math.round(s.vramBytes / 2 ** 30)} GB`);
+  return parts.length ? `(${parts.join(",")})` : "";
+}
+
+function renderNotice() {
+  const box = document.getElementById("auto-notice");
+  const r = autoResult;
+  const mine = r !== null && !r.dismissed;
+  // 判定中(還在取大小)顯示「正在依精選清單排入…」(plan.md Q33)
+  showGroupState("auto", mine && r.state === "running" ? "auto-running" : "");
+  // 判定完成但排入與跳過都是空的不顯示(plan.md Q30)
+  const show = mine && r.state === "done" && (r.enqueued.length > 0 || r.skipped.length > 0);
+  box.hidden = !show;
+  if (!show) return;
+  box.className = `notice auto-notice${r.skipped.length ? " notice-warn" : ""}`;
+  const enqueued = r.enqueued.map((n) => `<span class="mono">${escape(n)}</span>`).join("、");
+  box.innerHTML = `
+    <div class="notice-head">
+      <strong>開好就自動下載:排入 ${r.enqueued.length} 個${r.skipped.length ? `,跳過 ${r.skipped.length} 個` : ""}</strong>
+      <button type="button" class="btn btn-small" data-dismiss>關閉</button>
+    </div>
+    <span class="small muted">${r.finishedAt ? clock(r.finishedAt) : ""} 工作階段就緒時依精選清單的順序排入${enqueued ? `:${enqueued}` : ""}</span>
+    ${r.skipped.length ? `<ul>${r.skipped.map((s) => `<li><span class="mono">${escape(s.model)}</span> · ${escape(s.message)}${skipFigures(s)}</li>`).join("")}</ul>` : ""}`;
+}
+
+// 打開頁面時讀一次 GET /api/downloads/auto-result,之後跟著 autoDownload.updated(重新整理後仍看得到,FR-012)
+const autoPushed = readThenFollow("/downloads/auto-result", (data) => {
+  autoResult = data.result;
+  renderNotice();
+});
+
+// 關閉:送 POST /api/downloads/auto-result/dismiss,記在後端(重新整理後也不再顯示)
+document.getElementById("queue-panel").addEventListener("click", async (event) => {
+  if (!event.target.closest("[data-dismiss]")) return;
+  const response = await request("POST", "/downloads/auto-result/dismiss");
+  if (response.ok) autoPushed({ result: response.data });
+});
+
 startHeader({
+  "autoDownload.updated": autoPushed,
   "session.updated": sessionUpdated,
   "models.updated": (payload) => catalogPushed(payload.catalog),
   "download.updated": (payload) => jobUpdated(payload.job),

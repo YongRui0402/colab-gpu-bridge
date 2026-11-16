@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>工作階段|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-001 FR-002 FR-003 FR-004 FR-006 FR-007 FR-008 FR-009 FR-010 FR-011 FR-012 FR-013 FR-014 FR-015 FR-017 FR-018 NFR-002 SC-004">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html" aria-current="page">工作階段</a>
+      <a href="../../004-chat-hf-curated-queue/prototype/models.html">模型</a>
+      <a href="../../004-chat-hf-curated-queue/prototype/library.html">下載模型</a>
+      <a href="../../004-chat-hf-curated-queue/prototype/chat.html">對話</a>
+      <a href="history.html">紀錄</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="pill" id="session-pill">未開啟</span>
+    </div>
+  </header>
+  <main>
+    <h1>工作階段</h1>
+
+    <!-- 未開啟:類型選單下多了可展開的「Ollama 設定」(FR-006、FR-008、FR-009、FR-017) -->
+    <section data-state="normal" class="panel">
+      <h2 class="state-title"><span class="pill">未開啟</span>目前沒有工作階段</h2>
+      <p class="muted">選好執行階段類型後按「開啟」,系統會在 Colab 開一台執行環境、裝好 Ollama 並接上通道;實測 1 到 3 分鐘。Ollama 的平行數、context 長度與同時載入模型數預設依這台量到的顯示記憶體自動決定。</p>
+      <div data-picker="open"></div>
+      <div class="notice" data-state="tuning-prefilled" data-group="open-note" id="prefill-note"></div>
+      <div class="notice notice-error" data-state="tuning-invalid" data-group="open-note" id="invalid-note"></div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="open">開啟</button>
+      </div>
+    </section>
+
+    <!-- 開啟中 -->
+    <section data-state="starting" class="panel">
+      <h2 class="state-title"><span class="pill pill-busy">開啟中</span><span class="mono" data-session-name>cgb-20261115-1530</span></h2>
+      <p class="muted"><span id="s-type">A100</span> · 已經過 <strong id="s-elapsed">30 秒</strong></p>
+      <ol class="steps" id="s-steps"></ol>
+      <div class="actions">
+        <button type="button" class="btn btn-danger" data-go="confirm-stop">停止開啟</button>
+      </div>
+    </section>
+
+    <!-- 就緒:004 的狀態卡,加上「Ollama 設定」卡(FR-004、FR-010) -->
+    <div data-state="ready">
+      <section class="panel">
+        <h2 class="state-title"><span class="pill pill-ok">就緒</span><span class="mono" data-session-name>cgb-20261115-1442</span></h2>
+        <div class="grid-2">
+          <dl class="kv">
+            <dt>執行階段類型</dt><dd id="r-type">A100</dd>
+            <dt>已運行</dt><dd id="r-uptime">48 分</dd>
+            <dt>已載入</dt><dd id="r-loaded"><span class="mono">qwen2.5:7b</span></dd>
+            <dt>背景下載</dt><dd id="r-download">—</dd>
+          </dl>
+          <div class="stat">
+            <div class="label">距離閒置自動結束</div>
+            <div class="countdown" id="r-countdown">24:00</div>
+            <p class="small muted" id="r-idle">閒置時限 30 分鐘。</p>
+          </div>
+        </div>
+        <div class="actions">
+          <a class="btn" href="../../004-chat-hf-curated-queue/prototype/chat.html">對話</a>
+          <button type="button" class="btn" data-go="confirm-switch">變更類型</button>
+          <button type="button" class="btn btn-danger" data-go="confirm-stop">結束</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Ollama 設定</h2>
+          <button type="button" class="btn" data-go="edit-tuning">修改設定</button>
+        </div>
+        <p class="tuning-summary" id="t-summary"></p>
+        <div class="notice notice-warn" data-state="ready-fallback" data-group="note-fallback" id="t-fallback"></div>
+        <div class="notice" data-state="ready-not-reloaded" data-group="note-reload" id="t-not-reloaded"></div>
+        <div class="notice notice-warn" data-state="ready-preload-failed" data-group="note-preload" id="t-preload-failed"></div>
+        <div class="notice notice-warn" data-state="ready-no-vram" data-group="note-vram">
+          <strong>讀不到顯示記憶體,使用 Ollama 預設值</strong>
+          開好時執行環境的 <span class="mono">nvidia-smi</span> 沒有回報顯示記憶體,三項設定都沒有帶,用 Ollama 自己的預設值;工作階段照常可以用。要指定的話按「修改設定」填數字。
+        </div>
+        <div class="notice notice-warn" data-state="ready-no-vram-manual" data-group="note-vram">
+          <strong>讀不到顯示記憶體</strong>
+          填了的項目照你的值套用;沒填的項目沒有自動值可用,用 Ollama 自己的預設值。
+        </div>
+        <div class="notice notice-warn" data-state="ready-unknown-tuning" data-group="note-unknown">
+          <strong>讀不到目前的 Ollama 設定</strong>
+          系統接回這台時 Ollama 已經在執行,執行環境上沒有留下設定檔(例如這台是更新前開的),所以不知道它帶了哪些設定。按「修改設定」套用一次,就會以新設定重啟並記下來。
+        </div>
+        <div class="notice" data-state="ready-manual" data-group="note-manual" id="t-manual-note"></div>
+        <dl class="kv">
+          <dt>量到的硬體</dt><dd id="t-hardware"></dd>
+          <dt>生效</dt><dd id="t-since"></dd>
+        </dl>
+        <table class="table tuning-table" id="t-table">
+          <thead>
+            <tr><th>設定</th><th>值</th><th>來源</th></tr>
+          </thead>
+          <tbody id="t-rows"></tbody>
+        </table>
+        <p class="small muted">flash attention 與 KV cache 固定開啟,只顯示、不能修改。每一次開啟與套用的設定都記在<a href="history.html">紀錄</a>。</p>
+      </section>
+    </div>
+
+    <!-- 修改設定(FR-010、FR-017);確認後後端擋下的原因也回到這裡說明(FR-011) -->
+    <section data-state="edit-tuning" class="panel">
+      <h2>修改 Ollama 設定</h2>
+      <p class="muted" id="et-intro"></p>
+      <div class="notice notice-error" data-state="apply-invalid" data-group="apply-note" id="apply-invalid-note"></div>
+      <div class="notice notice-warn" data-state="apply-blocked-download" data-group="apply-note">
+        <strong data-error-message>有模型正在下載,下載完才能套用</strong>
+        <span id="blocked-download-text">遠端 Ollama 沒有重啟,下載繼續進行。</span>
+      </div>
+      <div class="notice notice-warn" data-state="apply-blocked-request" data-group="apply-note">
+        <strong data-error-message>有請求還在進行,要等它們結束才能套用</strong>
+        <span id="blocked-request-text">遠端 Ollama 沒有重啟,這些請求照常進行。</span>
+      </div>
+      <div class="notice notice-warn" data-state="apply-conflict" data-group="apply-note">
+        <strong data-error-message>正在套用設定,請等它完成</strong>
+        另一個分頁剛按了套用,這一次沒有送出;等那一次套用完、回到就緒後再試。
+      </div>
+      <div class="notice notice-warn" data-state="apply-not-ready" data-group="apply-note">
+        <strong data-error-message>工作階段還沒就緒,要等它就緒才能套用</strong>
+        開啟中、重連中與結束中都不能套用;這次沒有送出,遠端 Ollama 沒有重啟。
+      </div>
+      <div class="notice notice-warn" data-state="apply-auth-required" data-group="apply-note">
+        <strong data-error-message>Colab 帳號沒有登入,先登入才能套用</strong>
+        重啟到一半授權失效會讓工作階段失聯,所以先擋下。<a href="../../001-session-model-catalog/prototype/login.html">到登入頁</a>
+      </div>
+      <div id="et-fields"></div>
+      <p class="tuning-fixed">flash attention 與 KV cache <span class="mono">q8_0</span> 固定開啟,不能修改。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="apply">套用並重啟 Ollama</button>
+        <button type="button" class="btn" id="edit-clear">全部改回自動</button>
+        <button type="button" class="btn" data-go="back">取消</button>
+      </div>
+    </section>
+
+    <!-- 套用前的確認(FR-010,US3 情境 2) -->
+    <section data-state="confirm-apply" class="panel">
+      <h2>要套用並重啟 Ollama 嗎?</h2>
+      <table class="table tuning-table">
+        <thead>
+          <tr><th>設定</th><th>目前</th><th>套用後(預估)</th></tr>
+        </thead>
+        <tbody id="ca-rows"></tbody>
+      </table>
+      <div class="notice notice-warn">
+        <strong>會重啟遠端 Ollama,已載入的模型要重新載入,這段時間無法對話與送請求</strong>
+        區網程式經 Ollama 相容端點送的請求會收到「工作階段未就緒」,不會排隊等待;閒置倒數暫停,回到就緒時重新計時。
+      </div>
+      <ul id="ca-effects"></ul>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="confirm-apply">確認,套用並重啟</button>
+        <button type="button" class="btn" data-go="edit-tuning">回去修改</button>
+      </div>
+    </section>
+
+    <!-- 套用設定中:重啟 Ollama(FR-012、FR-015) -->
+    <section data-state="restarting" class="panel">
+      <h2 class="state-title"><span class="pill pill-busy">套用設定中</span><span class="mono" data-session-name>cgb-20261115-1442</span></h2>
+      <p class="muted" data-apply-elapsed></p>
+      <ol class="steps" data-apply-steps></ol>
+      <p class="small muted">這段時間對話與相容端點的請求會收到「工作階段未就緒」;閒置倒數暫停,下載佇列暫停、回到就緒後照常開始。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-danger" data-go="confirm-stop">結束工作階段</button>
+      </div>
+    </section>
+
+    <!-- 套用設定中:重新載入模型(FR-012、FR-015) -->
+    <section data-state="reloading" class="panel">
+      <h2 class="state-title"><span class="pill pill-busy">套用設定中</span><span class="mono" data-session-name>cgb-20261115-1442</span></h2>
+      <p class="muted" data-apply-elapsed></p>
+      <ol class="steps" data-apply-steps></ol>
+      <p class="small muted">這段時間對話與相容端點的請求會收到「工作階段未就緒」;閒置倒數暫停,下載佇列暫停、回到就緒後照常開始。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-danger" data-go="confirm-stop">結束工作階段</button>
+      </div>
+    </section>
+
+    <!-- 套用設定中:要求的設定起不來,改回自動值再重啟一次(FR-013) -->
+    <section data-state="fallback-restarting" class="panel">
+      <h2 class="state-title"><span class="pill pill-warn">套用設定中</span><span class="mono" data-session-name>cgb-20261115-1442</span></h2>
+      <p class="muted" data-apply-elapsed></p>
+      <div class="notice notice-warn" id="fb-note"></div>
+      <ol class="steps" data-apply-steps></ol>
+      <div class="actions">
+        <button type="button" class="btn btn-danger" data-go="confirm-stop">結束工作階段</button>
+      </div>
+    </section>
+
+    <!-- 改回自動值也失敗:失聯(FR-013,US3 情境 7;EndReason OLLAMA_RESTART_FAILED) -->
+    <section data-state="lost-restart" class="panel">
+      <h2 class="state-title"><span class="pill pill-danger">失聯</span><span class="mono" data-session-name>cgb-20261115-1442</span></h2>
+      <dl class="kv">
+        <dt>結束原因</dt><dd>Ollama 重啟失敗</dd>
+        <dt>說明</dt><dd id="lr-message"></dd>
+        <dt>這次要求的值</dt><dd id="lr-requested"></dd>
+        <dt>失敗在哪一段</dt><dd id="lr-stage"></dd>
+      </dl>
+      <p class="muted">這台執行環境已釋放,模型與下載佇列一起清空了。這組值沒有被記住,下次開同一種類型時預先填的仍是原本記住的值。</p>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-go="open-new">重新開啟</button>
+      </div>
+    </section>
+
+    <!-- 確認變更類型:新的執行環境重新量測,套用新類型記住的值或自動值(spec 邊界情況) -->
+    <section data-state="confirm-switch" class="panel">
+      <h2>變更執行階段類型</h2>
+      <p class="muted">目前是 <strong id="cw-current">A100</strong>。</p>
+      <div data-picker="switch"></div>
+      <div class="notice notice-warn">
+        <strong>會結束目前的工作階段並重開</strong>
+        <span id="cw-effects"></span>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="switch">確認,結束並重開</button>
+        <button type="button" class="btn" data-go="back">取消</button>
+      </div>
+    </section>
+
+    <!-- 變更類型中(opening,step 為 ending_previous) -->
+    <section data-state="switching" class="panel">
+      <h2 class="state-title"><span class="pill pill-busy">開啟中</span>變更類型:<span id="w-from">A100</span> → <span id="w-to">L4</span></h2>
+      <ol class="steps">
+        <li class="current" id="w-step1">結束目前的執行環境並確認已釋放</li>
+        <li id="w-step2">以新類型開啟執行環境,重新量顯示記憶體並依設定啟動 Ollama</li>
+      </ol>
+    </section>
+
+    <!-- 確認結束 -->
+    <section data-state="confirm-stop" class="panel">
+      <h2>要結束 <span class="mono" data-session-name>cgb-20261115-1442</span> 嗎?</h2>
+      <ul id="cs-effects"></ul>
+      <div class="actions">
+        <button type="button" class="btn btn-danger" id="stop">結束工作階段</button>
+        <button type="button" class="btn" data-go="back">取消</button>
+      </div>
+    </section>
+
+    <!-- 結束中 -->
+    <section data-state="stopping" class="panel">
+      <h2 class="state-title"><span class="pill pill-busy">結束中</span><span class="mono" data-session-name>cgb-20261115-1442</span></h2>
+      <ol class="steps">
+        <li class="current">釋放 Colab 上的執行環境</li>
+        <li>清除下載佇列</li>
+      </ol>
+    </section>
+
+    <!-- 已結束 -->
+    <section data-state="ended" class="panel">
+      <h2 class="state-title"><span class="pill" id="e-pill">已結束</span><span class="mono" data-session-name>cgb-20261115-1442</span></h2>
+      <dl class="kv">
+        <dt>結束原因</dt><dd id="e-reason">使用者結束</dd>
+        <dt>執行階段類型</dt><dd id="e-type">A100</dd>
+      </dl>
+      <div class="notice notice-ok" id="e-note">已確認 Colab 帳號下沒有遺留的執行環境;這次的 Ollama 設定記在<a href="history.html">紀錄</a>。</div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-go="open-new">開啟新的工作階段</button>
+      </div>
+    </section>
+  </main>
+  <script>
+    const ui = Proto.load("ui") ?? {};
+    let local = ui.view ?? null;
+    let picked = { type: ui.type ?? "T4", highMem: false };
+    let tuningOpen = ui.open ?? false;
+    let openFields = ui.fields ?? null;
+    let openErrors = {};
+    let editFields = null;
+    let editErrors = {};
+    let applyError = ui.error ?? null;
+    let pendingApply = null;
+    let busy = false;
+
+    const $ = (id) => document.getElementById(id);
+    const names = (list) => list.map((n) => `<span class="mono">${Proto.escape(n)}</span>`).join("、");
+    const typicalAuto = (type) => Proto.tier(Proto.type(type).vramMiB * 1048576);
+    const ERROR_STATE = {
+      DOWNLOAD_IN_PROGRESS: "apply-blocked-download",
+      REQUESTS_IN_PROGRESS: "apply-blocked-request",
+      TUNING_IN_PROGRESS: "apply-conflict",
+      NO_READY_SESSION: "apply-not-ready",
+      AUTH_REQUIRED: "apply-auth-required",
+    };
+    const OPENING_STEPS = [
+      ["allocating", (s) => `在 Colab 配置 ${s.runtimeType.gpu} 執行環境`],
+      ["starting_ollama", () => "安裝 Ollama、量顯示記憶體並依設定啟動"],
+      ["connecting", () => "建立 SSH 通道"],
+      ["verifying", () => "確認模型服務有回應"],
+    ];
+    const valueText = (key, it) => {
+      if (it.value === null) return "<span class=\"muted\">不帶(Ollama 自己的預設值)</span>";
+      if (key === "flashAttention") return "開啟";
+      if (key === "kvCacheType") return `<span class="mono">${it.value}</span>`;
+      const f = TUNING_FIELDS.find((x) => x.key === key);
+      return `${it.value.toLocaleString("zh-TW")}${f.unit}`;
+    };
+    const ROWS = [
+      ...TUNING_FIELDS.map((f) => ({ key: f.key, label: f.label, env: f.env })),
+      { key: "flashAttention", label: "flash attention", env: "OLLAMA_FLASH_ATTENTION", fixed: true },
+      { key: "kvCacheType", label: "KV cache", env: "OLLAMA_KV_CACHE_TYPE", fixed: true },
+    ];
+    const stageText = (rec) => (rec.remoteStage ? REMOTE_STAGE[rec.remoteStage] : "遠端腳本沒有回報是哪一段");
+
+    // 三個數字欄位:開啟畫面與修改設定共用;留空 = 自動,佔位字寫出自動值
+    const fieldsHtml = (form, fields, errors, auto) => `
+      <div class="tuning-fields">
+        ${TUNING_FIELDS.map((f) => `
+          <div class="field">
+            <label for="${form}-${f.key}">${f.label}</label>
+            <span class="hint">${f.min}~${f.max} 的整數 · 留空 = 自動</span>
+            <input type="number" id="${form}-${f.key}" data-form="${form}" data-field="${f.key}" min="${f.min}" max="${f.max}" step="1" inputmode="numeric"
+              placeholder="${auto ? `自動(${auto[f.key]})` : "自動"}" value="${Proto.escape(fields[f.key])}" class="${errors[f.key] ? "is-bad" : ""}">
+            ${errors[f.key] ? `<div class="field-error">${errors[f.key]}</div>` : ""}
+          </div>`).join("")}
+      </div>`;
+
+    const filledText = (fields) => {
+      const filled = TUNING_FIELDS.filter((f) => String(fields[f.key]).trim() !== "");
+      return filled.length ? `手動:${filled.map((f) => `${f.label} ${fields[f.key]}`).join("、")}` : "全部自動";
+    };
+
+    // 開啟與變更類型共用的選單(004 renderPicker),類型下面加「Ollama 設定」區塊(FR-006、FR-008)
+    const renderPicker = () => {
+      if (!openFields) openFields = Proto.fieldsOf(Proto.override(picked.type));
+      const auto = typicalAuto(picked.type);
+      const vram = Math.round(Proto.type(picked.type).vramMiB / 1024);
+      document.querySelectorAll("[data-picker]").forEach((box) => {
+        const key = box.dataset.picker;
+        const current = Proto.type(picked.type);
+        box.innerHTML = `
+          <label>執行階段類型</label>
+          <div class="type-picker">
+            ${Proto.pickableTypes().map((t) => `
+              <label class="type-option">
+                <input type="radio" name="type-${key}" value="${t.id}" ${picked.type === t.id ? "checked" : ""}>
+                <strong>${t.id}${t.id === "T4" ? "(預設)" : ""}</strong>
+                <span class="small muted">顯示記憶體約 ${Math.round(t.vramMiB / 1024)} GB</span>
+              </label>`).join("")}
+          </div>
+          <label class="check"><input type="checkbox" name="highmem-${key}" ${picked.highMem && current.highMem ? "checked" : ""} ${current.highMem ? "" : "disabled"}> 高 RAM</label>
+          <span class="small muted">${current.highMem ? "需要 Colab Pro 以上;能不能開到要看當下 Colab 的分配" : "L4 不支援高 RAM 選項"}</span>
+          <details class="tuning-block" data-tuning ${tuningOpen ? "open" : ""}>
+            <summary>Ollama 設定 <span class="small muted" data-filled>${filledText(openFields)}</span></summary>
+            <div class="tuning-body">
+              <p class="small muted">留空 = 自動:開好時依這台量到的顯示記憶體決定。${picked.type} 的顯示記憶體約 ${vram} GB,自動值通常是平行數 ${auto.numParallel}、context 長度 ${auto.contextLength}、同時載入 ${auto.maxLoadedModels} 個模型。開啟時這三個欄位會整組記成 ${picked.type} 的值,下次選 ${picked.type} 時預先填入;三個都留空就是清掉記住的值。</p>
+              ${fieldsHtml(key, openFields, openErrors, auto)}
+              <p class="tuning-fixed">flash attention 與 KV cache <span class="mono">q8_0</span> 固定開啟,不能修改。系統不估算這組值放不放得進顯示記憶體。</p>
+              <button type="button" class="btn btn-small" data-clear>全部改回自動</button>
+            </div>
+          </details>`;
+      });
+    };
+
+    const renderOpenNotes = () => {
+      const r = Proto.override(picked.type);
+      const errorCount = Object.keys(openErrors).length;
+      if (errorCount) {
+        $("invalid-note").innerHTML = `<strong>Ollama 設定有 ${errorCount} 項不在範圍內</strong>沒有開啟工作階段,也沒有記住這組值。${Object.values(openErrors).join(";")}。`;
+        Proto.showState("tuning-invalid");
+      } else if (r.updatedAt) {
+        $("prefill-note").innerHTML = `已預先填入 ${picked.type} 記住的值(${Proto.dateTime(r.updatedAt)} 記下):${TUNING_FIELDS.filter((f) => r[f.key] !== null).map((f) => `${f.label} ${r[f.key]}`).join("、")}。不想用的話展開「Ollama 設定」按「全部改回自動」,再開啟就會清掉記住的值。`;
+        Proto.showState("tuning-prefilled");
+      } else {
+        Proto.hideGroup("open-note");
+      }
+    };
+
+    const viewOf = (s) => {
+      if (local) return local;
+      if (s.state === "none") return "normal";
+      if (s.state === "opening") return s.step === "ending_previous" ? "switching" : "starting";
+      if (s.state === "ending") return "stopping";
+      if (s.state === "lost" && s.endReason === "OLLAMA_RESTART_FAILED") return "lost-restart";
+      if (["ended", "lost", "open_failed"].includes(s.state)) return "ended";
+      if (s.state === "applying_tuning") {
+        if (s.step === "reloading_models") return "reloading";
+        return s.ollama.lastApply?.attempt === "auto_fallback" ? "fallback-restarting" : "restarting";
+      }
+      return s.state;
+    };
+
+    const renderTuningCard = (s) => {
+      const o = s.ollama;
+      const m = o.machine;
+      const last = o.lastApply;
+      $("t-summary").textContent = Proto.summary(m, o.tuning);
+      $("t-hardware").innerHTML = Proto.machineText(m);
+      $("t-since").textContent = last && last.tuning && ["applied", "fell_back_to_auto", "interrupted"].includes(last.result)
+        ? `${Proto.clock(last.finishedAt)} ${{ applied: "套用", fell_back_to_auto: "套用時改回自動值", interrupted: "接回時讀到" }[last.result]}`
+        : `${Proto.clock(s.readyAt)} 開啟時`;
+      $("t-table").hidden = !o.tuning;
+      if (o.tuning) {
+        $("t-rows").innerHTML = ROWS.map((r) => `
+          <tr class="${r.fixed ? "is-fixed" : ""}">
+            <td>${r.label}<span class="env">${r.env}</span></td>
+            <td>${valueText(r.key, o.tuning[r.key])}</td>
+            <td>${Proto.sourceTag(o.tuning[r.key].source)}${r.fixed ? " <span class=\"small muted\">固定</span>" : ""}</td>
+          </tr>`).join("");
+      }
+      // 最近一次套用的說明(OllamaStatus.lastApply)
+      if (last?.result === "fell_back_to_auto") {
+        $("t-fallback").innerHTML = `<strong>${Proto.escape(last.message)}</strong>這次要求的值(${Proto.requestedText(last.requested)})在「${stageText(last)}」失敗,系統改用這台的自動值重啟;這組值沒有被記住,${s.runtimeType.gpu} 記住的值沒有改。`;
+        Proto.showState("ready-fallback");
+      } else Proto.hideGroup("note-fallback");
+      const over = last?.notReloaded.filter((n) => n.reason === "OVER_LIMIT").map((n) => n.model) ?? [];
+      const failed = last?.notReloaded.filter((n) => n.reason === "PRELOAD_FAILED") ?? [];
+      if (over.length) {
+        $("t-not-reloaded").innerHTML = `<strong>${names(over)} 沒有重新載入</strong>新的同時載入模型數是 ${o.tuning?.maxLoadedModels.value},依重啟前的順序只重新載入了 ${names(last.reloaded)};要用的話在「對話」選它,或從相容端點直接送請求,Ollama 會自己載入。`;
+        Proto.showState("ready-not-reloaded");
+      } else Proto.hideGroup("note-reload");
+      if (failed.length) {
+        $("t-preload-failed").innerHTML = `<strong>${names(failed.map((n) => n.model))} 重新載入失敗</strong>載入時沒有成功(<span class="mono">${failed.map((n) => n.reasonCode).join("、")}</span>),設定已經套用;要用的話在「對話」選它再試一次。`;
+        Proto.showState("ready-preload-failed");
+      } else Proto.hideGroup("note-preload");
+      const manual = o.tuning ? TUNING_FIELDS.filter((f) => o.tuning[f.key].source === "manual") : [];
+      const noVram = !m?.vramTotalBytes;
+      if (o.status === "unknown") { Proto.hideGroup("note-vram"); Proto.showState("ready-unknown-tuning"); }
+      else {
+        Proto.hideGroup("note-unknown");
+        if (noVram) Proto.showState(manual.length ? "ready-no-vram-manual" : "ready-no-vram"); else Proto.hideGroup("note-vram");
+      }
+      if (manual.length && !noVram) {
+        $("t-manual-note").textContent = `標「手動」的是你填的值(${manual.map((f) => f.label).join("、")});沒填的項目照這台量到的顯示記憶體自動決定。`;
+        Proto.showState("ready-manual");
+      } else Proto.hideGroup("note-manual");
+    };
+
+    const renderEdit = (s) => {
+      const vram = s.ollama.machine?.vramTotalBytes ?? null;
+      const auto = vram === null ? null : Proto.tier(vram);
+      if (!editFields) {
+        // 目前是手動的項目填上目前的值;讀不到目前的設定時,填這種類型記住的值
+        const t = s.ollama.tuning;
+        editFields = t
+          ? Proto.fieldsOf(Object.fromEntries(TUNING_FIELDS.map((f) => [f.key, t[f.key].source === "manual" ? t[f.key].value : null])))
+          : Proto.fieldsOf(Proto.override(s.runtimeType.gpu));
+      }
+      $("et-intro").textContent = auto
+        ? `這台量到顯示記憶體 ${Proto.gib(vram)},自動值是平行數 ${auto.numParallel}、context 長度 ${auto.contextLength}、同時載入 ${auto.maxLoadedModels} 個模型。留空的項目用自動值;套用成功後,這三個欄位會整組記成 ${s.runtimeType.gpu} 的值,下次開 ${s.runtimeType.gpu} 時預先填入。`
+        : `這台讀不到顯示記憶體,沒有自動值:留空的項目用 Ollama 自己的預設值。套用成功後,這三個欄位會整組記成 ${s.runtimeType.gpu} 的值。`;
+      $("et-fields").innerHTML = fieldsHtml("edit", editFields, editErrors, auto);
+      const errorCount = Object.keys(editErrors).length;
+      if (errorCount) {
+        $("apply-invalid-note").innerHTML = `<strong>有 ${errorCount} 項不在範圍內</strong>沒有套用,遠端 Ollama 沒有重啟,也沒有記住這組值。${Object.values(editErrors).join(";")}。`;
+        Proto.showState("apply-invalid");
+      } else if (applyError) {
+        const state = ERROR_STATE[applyError.code];
+        document.querySelector(`[data-state="${state}"] [data-error-message]`).textContent = applyError.message;
+        if (applyError.code === "DOWNLOAD_IN_PROGRESS") {
+          const job = Proto.downloading();
+          $("blocked-download-text").innerHTML = `${names([applyError.model])}${job ? ` 下載到 ${Math.floor(Proto.downloadRatio(job) * 100)}%` : " 正在下載"};遠端 Ollama 沒有重啟,下載繼續進行。`;
+        }
+        if (applyError.code === "REQUESTS_IN_PROGRESS") {
+          $("blocked-request-text").textContent = `目前有 ${s.idle?.activeRequests ?? 0} 個請求還沒回完。遠端 Ollama 沒有重啟,這些請求照常進行。`;
+        }
+        Proto.showState(state);
+      } else Proto.hideGroup("apply-note");
+      $("apply").disabled = busy;
+    };
+
+    const renderConfirm = (s, models) => {
+      const vram = s.ollama.machine?.vramTotalBytes ?? null;
+      const now = s.ollama.tuning;
+      const next = Proto.resolve(vram, pendingApply);
+      $("ca-rows").innerHTML = ROWS.map((r) => {
+        const before = now ? `${valueText(r.key, now[r.key])} ${Proto.sourceTag(now[r.key].source)}` : "<span class=\"muted\">讀不到</span>";
+        const changed = !now || now[r.key].value !== next[r.key].value || now[r.key].source !== next[r.key].source;
+        return `<tr class="${r.fixed ? "is-fixed" : ""}"><td>${r.label}</td><td class="${changed ? "diff-old" : ""}">${before}</td><td>${changed ? "<strong>" : ""}${valueText(r.key, next[r.key])}${changed ? "</strong>" : ""} ${Proto.sourceTag(next[r.key].source)}</td></tr>`;
+      }).join("");
+      const loaded = models.filter((m) => m.loaded).map((m) => m.name);
+      const limit = next.maxLoadedModels.value ?? loaded.length;
+      $("ca-effects").innerHTML = [
+        loaded.length ? `重啟後依目前的順序重新載入 ${names(loaded.slice(0, limit))}。` : "目前沒有載入任何模型,重啟後不必重新載入。",
+        loaded.length > limit ? `新的同時載入模型數是 ${limit},${names(loaded.slice(limit))} 不會重新載入。` : null,
+        `套用成功後,這三個欄位會整組記成 ${s.runtimeType.gpu} 的值,下次開 ${s.runtimeType.gpu} 時預先填入。`,
+        "這組值讓 Ollama 起不來時,系統會改用這台的自動值再重啟一次,這組值不會被記住;自動值也起不來的話,工作階段會失聯。",
+        "重啟通常 90 秒內回到就緒,不含重新載入模型的時間;改回自動值時最多 180 秒。",
+      ].filter(Boolean).map((text) => `<li>${text}</li>`).join("");
+      $("confirm-apply").disabled = busy;
+    };
+
+    // 套用中的步驟照 Session.step 與 ollama.lastApply(attempt、reloaded、reasonCode、remoteStage)
+    const renderApplying = (s, view) => {
+      const rec = s.ollama.lastApply;
+      const t = Proto.now();
+      const reloading = s.step === "reloading_models";
+      const reloadDone = rec.reloaded.length ? `已重新載入 ${names(rec.reloaded)}` : "依重啟前的順序逐一載入";
+      const steps = rec.attempt === "auto_fallback"
+        ? [
+          `<li class="failed">以要求的設定重啟 Ollama <span class="when">${stageText(rec)}</span></li>`,
+          `<li class="${reloading ? "done" : "current"}">改回自動值重啟 Ollama</li>`,
+        ]
+        : [`<li class="${reloading ? "done" : "current"}">重啟 Ollama <span class="when">停掉目前的 Ollama,以新設定啟動並確認有回應</span></li>`];
+      steps.push(`<li class="${reloading ? "current" : ""}">重新載入模型 ${reloading ? `<span class="when">${reloadDone}</span>` : ""}</li>`, "<li>回到就緒</li>");
+      document.querySelectorAll(`[data-state="${view}"] [data-apply-steps]`).forEach((el) => { el.innerHTML = steps.join(""); });
+      document.querySelectorAll(`[data-state="${view}"] [data-apply-elapsed]`).forEach((el) => { el.innerHTML = `${Proto.typeText(s.runtimeType)} · 確認套用後已經過 <strong>${Proto.duration(t - Date.parse(rec.at))}</strong>`; });
+      if (view === "fallback-restarting") {
+        $("fb-note").innerHTML = `<strong>這次要求的值沒能讓 Ollama 起來,改用自動值再重啟一次</strong>要求的值:${Proto.requestedText(rec.requested)};失敗在「${stageText(rec)}」。這組值不會被記住;改回自動值也失敗的話,這個工作階段會失聯。`;
+      }
+    };
+
+    const render = () => {
+      const s = Proto.load("session");
+      const models = Proto.load("models");
+      const t = Proto.now();
+      const view = viewOf(s);
+      Proto.showState(view);
+      document.querySelectorAll("[data-session-name]").forEach((el) => { el.textContent = s.name ?? ""; });
+
+      if (view === "normal") renderOpenNotes();
+      if (view === "starting") {
+        $("s-type").textContent = Proto.typeText(s.runtimeType);
+        $("s-elapsed").textContent = Proto.duration(t - Date.parse(s.openedAt));
+        const at = OPENING_STEPS.findIndex(([step]) => step === s.step);
+        $("s-steps").innerHTML = OPENING_STEPS.map(([, text], i) => `<li class="${i < at ? "done" : i === at ? "current" : ""}">${text(s)}</li>`).join("");
+      }
+      if (view === "ready") {
+        const loaded = models.filter((m) => m.loaded);
+        const downloading = Proto.downloading();
+        const idle = s.idle;
+        $("r-type").textContent = Proto.typeText(s.runtimeType);
+        $("r-uptime").textContent = Proto.duration(t - Date.parse(s.openedAt));
+        $("r-loaded").innerHTML = loaded.length ? names(loaded.map((m) => m.name)) : "<span class=\"muted\">還沒有載入任何模型</span>";
+        $("r-download").innerHTML = downloading ? `${names([downloading.name])} ${Math.floor(Proto.downloadRatio(downloading) * 100)}%` : "<span class=\"muted\">沒有</span>";
+        $("r-countdown").textContent = Proto.mmss(Date.parse(idle.lastRequestAt) + idle.timeoutMinutes * 60000 - t);
+        $("r-idle").textContent = `閒置時限 ${idle.timeoutMinutes} 分鐘 · ${idle.activeRequests ? `進行中的請求 ${idle.activeRequests} 個` : `最後一次請求 ${Proto.since(idle.lastRequestAt)}`}。套用設定期間暫停,回到就緒時重新計時。`;
+        renderTuningCard(s);
+      }
+      if (view === "edit-tuning") renderEdit(s);
+      if (view === "confirm-apply") renderConfirm(s, models);
+      if (["restarting", "reloading", "fallback-restarting"].includes(view)) renderApplying(s, view);
+      if (view === "lost-restart") {
+        const rec = s.ollama.lastApply;
+        $("lr-message").textContent = s.message;
+        $("lr-requested").textContent = rec ? Proto.requestedText(rec.requested) : "—";
+        $("lr-stage").innerHTML = rec ? `${stageText(rec)} <span class="mono small muted">${rec.reasonCode ?? ""}</span>` : "—";
+      }
+      if (view === "confirm-switch") {
+        $("cw-current").textContent = Proto.typeText(s.runtimeType);
+        $("cw-effects").textContent = `新的 ${picked.type} 執行環境會重新量顯示記憶體,Ollama 設定照上面「Ollama 設定」的值與新的自動值,不沿用目前 ${s.runtimeType.gpu} 的設定;模型與下載佇列會清空。`;
+        $("switch").disabled = picked.type === s.runtimeType.gpu && picked.highMem === s.runtimeType.highMem;
+      }
+      if (view === "switching") {
+        const from = s.sim?.from;
+        $("w-from").textContent = from ? Proto.typeText(from) : "上一台";
+        $("w-to").textContent = Proto.typeText(s.runtimeType);
+      }
+      if (view === "confirm-stop") {
+        $("cs-effects").innerHTML = [
+          s.state === "opening" ? "開啟流程會停止,已經配置的執行環境會被釋放。" : "Colab 上的執行環境會被釋放,停止扣 compute units。",
+          s.state === "applying_tuning" ? "正在套用的設定會停下來,這一次在紀錄裡記為「中斷」,不會記住這組值。" : null,
+          "執行環境上的模型會跟著消失,下載佇列會全部清除。",
+          "各類型記住的 Ollama 設定不受影響,下次開啟照樣預先填入。",
+        ].filter(Boolean).map((text) => `<li>${text}</li>`).join("");
+      }
+      if (view === "ended") {
+        const reason = END_REASON[s.endReason];
+        $("e-pill").className = `pill ${s.state === "lost" ? "pill-danger" : ""}`;
+        $("e-pill").textContent = Proto.stateLabel(s.state).text;
+        $("e-reason").textContent = reason.text;
+        $("e-type").textContent = Proto.typeText(s.runtimeType);
+      }
+    };
+
+    // 欄位輸入只記下來,不重畫(重畫會讓游標跳掉);摘要跟著更新
+    document.querySelector("main").addEventListener("input", (event) => {
+      const el = event.target;
+      if (!el.dataset.field) return;
+      if (el.dataset.form === "edit") editFields[el.dataset.field] = el.value;
+      else {
+        openFields[el.dataset.field] = el.value;
+        el.closest("[data-picker]")?.querySelector("[data-filled]")?.replaceChildren(filledText(openFields));
+      }
+    });
+
+    document.querySelector("main").addEventListener("change", (event) => {
+      const name = event.target.name ?? "";
+      if (name.startsWith("type-")) {
+        picked.type = event.target.value;
+        // FR-008:換類型就換成那種類型記住的值,沒記過的欄位留空
+        openFields = null;
+        openErrors = {};
+      }
+      if (name.startsWith("highmem-")) picked.highMem = event.target.checked;
+      if (!Proto.type(picked.type).highMem) picked.highMem = false;
+      if (name.startsWith("type-") || name.startsWith("highmem-")) {
+        renderPicker();
+        render();
+      }
+    });
+
+    document.querySelector("main").addEventListener("toggle", (event) => {
+      if (event.target.matches?.("[data-tuning]")) tuningOpen = event.target.open;
+    }, true);
+
+    document.querySelector("main").addEventListener("click", (event) => {
+      if (event.target.closest("[data-clear]")) {
+        // FR-009、Q8:只清空三個欄位;用清空的欄位開啟時,後端才清掉這種類型記住的值
+        openFields = Proto.fieldsOf(null);
+        openErrors = {};
+        renderPicker();
+        render();
+        return;
+      }
+      const go = event.target.closest("[data-go]");
+      if (!go) return;
+      const s = Proto.load("session");
+      if (go.dataset.go === "open-new") {
+        Proto.save("session", { state: "none" });
+        local = null;
+        picked = { type: "T4", highMem: false };
+        openFields = null;
+      } else {
+        local = go.dataset.go === "back" ? null : go.dataset.go;
+      }
+      if (go.dataset.go === "edit-tuning" && !go.closest("[data-state=\"confirm-apply\"]")) {
+        editFields = null;
+        editErrors = {};
+        applyError = null;
+      }
+      if (local === "confirm-switch") {
+        picked = { type: s.runtimeType.gpu === "L4" ? "T4" : "L4", highMem: false };
+        openFields = null;
+        openErrors = {};
+        tuningOpen = false;
+      }
+      renderPicker();
+      render();
+    });
+
+    // openSession、restartSession 的 tuning:三個欄位整組送出,受理時整組寫成這種類型記住的值(三個 null 就是清除)
+    const submitTuning = () => {
+      const { values, errors } = Proto.parseFields(openFields);
+      openErrors = errors;
+      if (Object.keys(errors).length) {
+        // FR-017:擋下,不開、不記住
+        tuningOpen = true;
+        renderPicker();
+        render();
+        return null;
+      }
+      const overrides = Proto.load("overrides");
+      const all = TUNING_FIELDS.every((f) => values[f.key] === null);
+      Object.assign(overrides.find((o) => o.gpu === picked.type), { ...values, updatedAt: all ? null : new Date().toISOString() });
+      Proto.save("overrides", overrides);
+      return values;
+    };
+
+    $("open").addEventListener("click", () => {
+      const values = submitTuning();
+      if (!values) return;
+      local = null;
+      Proto.save("session", Proto.newSession(picked.type, picked.highMem, new Date().toISOString(), values));
+      render();
+    });
+
+    $("switch").addEventListener("click", () => {
+      const values = submitTuning();
+      if (!values) return;
+      const s = Proto.load("session");
+      const at = new Date().toISOString();
+      Proto.finish(s, "ended", "RUNTIME_TYPE_CHANGED", at);
+      const next = Proto.newSession(picked.type, picked.highMem, at, values);
+      next.step = "ending_previous";
+      next.sim.from = s.runtimeType;
+      local = null;
+      Proto.save("session", next);
+      render();
+    });
+
+    $("edit-clear").addEventListener("click", () => {
+      editFields = Proto.fieldsOf(null);
+      editErrors = {};
+      applyError = null;
+      render();
+    });
+
+    $("apply").addEventListener("click", () => {
+      const { values, errors } = Proto.parseFields(editFields);
+      editErrors = errors;
+      applyError = null;
+      if (Object.keys(errors).length) return render();
+      pendingApply = values;
+      local = "confirm-apply";
+      render();
+    });
+
+    // 確認之後才呼叫 applyTuning;後端依序檢查,擋下時回到修改畫面說明原因(FR-011、Q18)
+    $("confirm-apply").addEventListener("click", () => {
+      busy = true;
+      render();
+      Proto.later(600, () => {
+        busy = false;
+        const s = Proto.load("session");
+        applyError = Proto.applyError(s);
+        if (applyError) {
+          local = "edit-tuning";
+          return render();
+        }
+        // 202:state applying_tuning、step restarting_ollama,紀錄追加一筆 in_progress
+        const at = new Date().toISOString();
+        const rec = { at, finishedAt: null, trigger: "apply", requested: pendingApply, attempt: "requested", machine: null, tuning: null, result: "in_progress", reasonCode: null, remoteStage: null, message: null, reloaded: [], notReloaded: [] };
+        const tunings = Proto.load("tunings");
+        tunings.push(rec);
+        Proto.write("tunings", tunings);
+        Object.assign(s, { state: "applying_tuning", step: "restarting_ollama", idle: null });
+        s.ollama.lastApply = structuredClone(rec);
+        s.sim = { startedAt: at, requested: pendingApply, order: Proto.load("models").filter((m) => m.loaded).map((m) => m.name), failStage: null, failTwice: false };
+        local = null;
+        editFields = null;
+        Proto.save("session", s);
+        render();
+      });
+    });
+
+    $("stop").addEventListener("click", () => {
+      const s = Proto.load("session");
+      Object.assign(s, { state: "ending", step: null, idle: null, sim: { endingAt: new Date().toISOString() } });
+      local = null;
+      Proto.save("session", s);
+      render();
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (ui.validate) {
+        if (local === "edit-tuning") editErrors = Proto.parseFields(ui.fields).errors;
+        else openErrors = Proto.parseFields(openFields).errors;
+      }
+      if (local === "edit-tuning" || local === "confirm-apply") editFields = { ...ui.fields };
+      if (local === "confirm-apply") pendingApply = Proto.parseFields(ui.fields).values;
+      if (local === "edit-tuning") openFields = null;
+      renderPicker();
+      const tick = () => {
+        Proto.badge();
+        // 欄位有焦點時不重畫,免得打到一半被蓋掉
+        if (!document.activeElement?.dataset?.field) render();
+        Proto.later(1000, tick);
+      };
+      tick();
+    });
+  </script>
+</body>
+</html>

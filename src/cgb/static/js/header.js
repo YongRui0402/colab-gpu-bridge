@@ -7,6 +7,7 @@ const SESSION_PILL = {
   none: { text: "未開啟", cls: "" },
   opening: { text: "開啟中", cls: "pill-busy" },
   ready: { text: "就緒", cls: "pill-ok" },
+  applying_tuning: { text: "套用設定中", cls: "pill-busy" },
   reconnecting: { text: "重連中", cls: "pill-warn" },
   ending: { text: "結束中", cls: "pill-busy" },
   ended: { text: "已結束", cls: "" },

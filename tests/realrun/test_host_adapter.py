@@ -48,7 +48,7 @@ from cgb.adapters.colab_cli import (
     RESULT_PREFIX,
     SESSION_LINE,
     SESSION_READY,
-    START_OLLAMA_ENV,
+    START_OLLAMA_ENV as OLLAMA_ENV,
     USAGE_LINES,
     VERSION_LINE,
     stop_output_of,
@@ -77,6 +77,13 @@ for _model in (SMALL, LARGE, MISSING):
 COLAB_CALL_TIMEOUT = 90
 NEW_TIMEOUT = 300
 START_OLLAMA_TIMEOUT = 300
+# 和轉接層的 start_ollama 同一個命令列:005 起每次都帶齊三個 CGB_TUNE_*,自動時是空字串(Q63)
+START_OLLAMA_ENV = (
+    *OLLAMA_ENV,
+    "--env", "CGB_TUNE_NUM_PARALLEL=",
+    "--env", "CGB_TUNE_CONTEXT_LENGTH=",
+    "--env", "CGB_TUNE_MAX_LOADED_MODELS=",
+)  # fmt: skip
 PROBE_TIMEOUT = 90
 STOP_GONE_DEADLINE = 60
 POLL = 5

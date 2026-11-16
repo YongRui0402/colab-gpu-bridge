@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>工作階段|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-006 FR-007">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html" aria-current="page">工作階段</a>
+      <a href="../../004-chat-hf-curated-queue/prototype/models.html">模型</a>
+      <a href="../../004-chat-hf-curated-queue/prototype/library.html">下載模型</a>
+      <a href="../../004-chat-hf-curated-queue/prototype/chat.html">對話</a>
+      <a href="../../001-session-model-catalog/prototype/usage.html">用量與設定</a>
+      <a href="../../005-ollama-machine-tuning/prototype/history.html">紀錄</a>
+      <a href="connect.html">連線設定</a>
+    </nav>
+  </header>
+  <main>
+    <h1>工作階段</h1>
+    <p class="muted">006 沒有改這一頁,這裡只放連線設定的提醒連過來的位置:Ollama 設定的 context 長度與「套用並重啟」。完整的畫面照 <a href="../../005-ollama-machine-tuning/prototype/index.html">005 的原型</a>。</p>
+
+    <!-- 就緒,可以改 context 長度後套用並重啟 -->
+    <section data-state="normal" class="panel" id="ollama-tuning" hidden>
+      <h2 class="state-title"><span class="pill pill-ok">就緒</span>Ollama 設定</h2>
+      <dl class="facts">
+        <div><dt>目前 context 長度</dt><dd id="current">4,096</dd></div>
+        <div><dt>顯示記憶體</dt><dd id="vram">15 GiB</dd></div>
+      </dl>
+      <div class="field">
+        <label for="context">context 長度</label>
+        <input id="context" type="number" min="2048" max="131072" step="1024" value="32768">
+        <span class="hint">開啟前填在這裡,下次開啟就用這個值;工作階段開著時按「套用並重啟」。</span>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="apply">套用並重啟</button>
+        <a class="btn" href="connect.html">回連線設定</a>
+      </div>
+    </section>
+
+    <!-- 套用並重啟中 -->
+    <section data-state="applying" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-busy">套用中</span>正在重啟遠端 Ollama</h2>
+      <p class="muted">套用新的 context 長度需要重啟遠端 Ollama,實測十幾秒,進行中請不要送請求。</p>
+    </section>
+  </main>
+  <script>
+    const ollama = Proto.load("ollama");
+    const current = ollama && ollama.status === "applied" ? ollama.tuning.contextLength.value : null;
+    const currentEl = document.getElementById("current");
+    currentEl.textContent = current === null ? "讀不到" : current.toLocaleString("en-US");
+    if (ollama && ollama.machine) document.getElementById("vram").textContent = Proto.gib(ollama.machine.vramTotalBytes);
+    document.getElementById("apply").addEventListener("click", () => {
+      const value = Number(document.getElementById("context").value);
+      Proto.showState("applying");
+      Proto.later(2500, () => {
+        const next = Proto.load("ollama");
+        next.status = "applied";
+        next.machine = next.machine ?? Proto.load("ollama").machine;
+        next.tuning = next.tuning ?? { numParallel: { value: 2, source: "auto" }, maxLoadedModels: { value: 1, source: "auto" }, flashAttention: { value: true, source: "auto" }, kvCacheType: { value: "q8_0", source: "auto" } };
+        next.tuning.contextLength = { value, source: "manual" };
+        Proto.save("ollama", next);
+        currentEl.textContent = value.toLocaleString("en-US");
+        Proto.showState("normal");
+      });
+    });
+    Proto.showState(Proto.forced ?? "normal");
+  </script>
+</body>
+</html>

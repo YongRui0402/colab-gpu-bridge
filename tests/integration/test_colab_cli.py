@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
 
@@ -366,23 +367,55 @@ START_OLLAMA_ARGV = [
     "exec", "-s", "cgb-test-0001", "-f", START_OLLAMA_SCRIPT, "--timeout", "240",
     "--env", "OLLAMA_HOST=127.0.0.1:11434", "--env", "OLLAMA_ORIGINS=*",
 ]  # fmt: skip
-START_OLLAMA_OK = 'CGB-RESULT {"ok": true, "ollamaVersion": "0.40.15", "alreadyRunning": false}\n'
 INSTALLER_OUTPUT = "".join(f">>> Installing ollama to /usr/local ... step {i}\n" for i in range(30))
+
+# 三個覆蓋值都是自動(null);命令列代入空字串(合約共用約定 11)
+AUTO = {"numParallel": None, "contextLength": None, "maxLoadedModels": None}
+
+
+def start_argv(np="", cl="", ml=""):
+    """001 的 `START_OLLAMA_ARGV` 後面接三個 `--env CGB_TUNE_*`(合約 § `paths./exec/start-ollama.post` 的 `x-argv`)。"""
+    return [
+        *START_OLLAMA_ARGV,
+        "--env", f"CGB_TUNE_NUM_PARALLEL={np}",
+        "--env", f"CGB_TUNE_CONTEXT_LENGTH={cl}",
+        "--env", f"CGB_TUNE_MAX_LOADED_MODELS={ml}",
+    ]  # fmt: skip
+
+
+def result(**fields):
+    """遠端腳本印出的一行結果(`CGB-RESULT <JSON>`)。"""
+    return f"CGB-RESULT {json.dumps(fields)}\n"
+
+
+# 40 GiB 的自動值:8/8192/2,flash attention 與 KV cache 固定開啟,五項來源都是 auto
+TUNING_AUTO_40G = {
+    "numParallel": {"value": 8, "source": "auto"},
+    "contextLength": {"value": 8192, "source": "auto"},
+    "maxLoadedModels": {"value": 2, "source": "auto"},
+    "flashAttention": {"value": True, "source": "auto"},
+    "kvCacheType": {"value": "q8_0", "source": "auto"},
+}
+# 讀不到顯示記憶體也沒有覆蓋值:五項都不帶,用 Ollama 自己的預設值
+TUNING_DEFAULT = {
+    key: {"value": None, "source": "ollama_default"}
+    for key in ("numParallel", "contextLength", "maxLoadedModels", "flashAttention", "kvCacheType")
+}
+STARTED_A100 = result(
+    ok=True,
+    ollamaVersion="0.40.15",
+    alreadyRunning=False,
+    gpuName="NVIDIA A100-SXM4-40GB",
+    vramTotalBytes=42949672960,
+    systemMemoryTotalBytes=89632571392,
+    tuning=TUNING_AUTO_40G,
+)
+# 001 的測試只看命令列與分類,結果行改成 005 的(含量到的硬體與設定)
+START_OLLAMA_OK = STARTED_A100
 
 
 def start_ollama_script(*entries):
-    return {"colab": {shlex.join(START_OLLAMA_ARGV): list(entries) if len(entries) > 1 else entries[0]}}
-
-
-async def test_start_ollama_reads_the_last_result_line(fake_cli):
-    # Arrange
-    fake_cli.script(start_ollama_script({"stdout": INSTALLER_OUTPUT + START_OLLAMA_OK}))
-
-    # Act
-    result = await failure_of_or_result(ColabControl().start_ollama(name="cgb-test-0001"))
-
-    # Assert
-    assert isinstance(result, dict) and result.get("ollamaVersion") == "0.40.15"
+    return {"colab": {shlex.join(start_argv()): list(entries) if len(entries) > 1 else entries[0]}}
 
 
 async def test_start_ollama_waits_up_to_240_seconds_on_the_remote(fake_cli):
@@ -390,7 +423,7 @@ async def test_start_ollama_waits_up_to_240_seconds_on_the_remote(fake_cli):
     fake_cli.script(start_ollama_script({"stdout": START_OLLAMA_OK}))
 
     # Act
-    await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+    await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
 
     # Assert
     argvs = [call["argv"] for call in fake_cli.calls("colab")]
@@ -402,7 +435,7 @@ async def test_start_ollama_passes_ollama_environment_verbatim(fake_cli):
     fake_cli.script(start_ollama_script({"stdout": START_OLLAMA_OK}))
 
     # Act
-    await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+    await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
 
     # Assert
     argvs = [call["argv"] for call in fake_cli.calls("colab")]
@@ -414,18 +447,6 @@ async def test_start_ollama_passes_ollama_environment_verbatim(fake_cli):
 # ---------------------------------------------------------------- US1-CLI-12
 
 CONNECTION_LOST = {"stderr": "RuntimeError: Connection was lost\n", "exit": 0}
-
-
-async def test_start_ollama_retries_once_with_same_arguments_after_connection_lost(fake_cli):
-    # Arrange
-    fake_cli.script(start_ollama_script(CONNECTION_LOST, {"stdout": START_OLLAMA_OK}))
-
-    # Act
-    result = await failure_of_or_result(ColabControl().start_ollama(name="cgb-test-0001"))
-
-    # Assert
-    assert result == {"ollamaVersion": "0.40.15", "alreadyRunning": False}
-    assert [call["argv"] for call in fake_cli.calls("colab")] == [START_OLLAMA_ARGV, START_OLLAMA_ARGV]
 
 
 # ---------------------------------------------------------------- US1-CLI-13
@@ -461,7 +482,7 @@ async def test_remote_traceback_without_result_is_remote_error_with_masked_url(f
     fake_cli.script(start_ollama_script(traceback))
 
     # Act
-    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
 
     # Assert
     assert code_of(error) == "COLAB_REMOTE_ERROR"
@@ -664,15 +685,16 @@ async def test_create_session_times_out_and_ends_cli_with_its_children(fake_cli)
 
 @pytest.mark.parametrize(
     ("method", "argv"),
-    [("start_ollama", START_OLLAMA_ARGV), ("probe_resources", PROBE_ARGV)],
+    [("start_ollama", start_argv()), ("probe_resources", PROBE_ARGV)],
 )
 async def test_exec_times_out_without_retry_and_ends_cli_with_its_children(fake_cli, method, argv):
     # Arrange
+    extra = {"overrides": AUTO} if method == "start_ollama" else {}
     fake_cli.script({"colab": {shlex.join(argv): HANGS_WITH_CHILD}})
     colab = ColabControl(timeouts=CliTimeouts(start_ollama=SHORT, probe_resources=SHORT))
 
     # Act
-    error, elapsed = await timed(getattr(colab, method)(name="cgb-test-0001"))
+    error, elapsed = await timed(getattr(colab, method)(name="cgb-test-0001", **extra))
 
     # Assert
     assert code_of(error) == "COLAB_TIMEOUT"
@@ -797,7 +819,7 @@ async def test_start_ollama_network_failures_are_told_apart_without_retry(fake_c
     fake_cli.script(start_ollama_script({"stderr": f"error: {marker}\n", "exit": 1}))
 
     # Act
-    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
 
     # Assert
     assert code_of(error) == expected
@@ -863,7 +885,7 @@ async def test_start_ollama_without_valid_authorization_is_auth_required_without
     fake_cli.script(start_ollama_script({"stderr": stderr, "exit": 1}))
 
     # Act
-    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
 
     # Assert
     assert code_of(error) == "AUTH_REQUIRED"
@@ -920,7 +942,7 @@ CALLS_THAT_CRASH = {
         "new -s cgb-test-0001 --gpu T4",
         lambda colab: colab.create_session(name="cgb-test-0001", gpu="T4", high_mem=False),
     ),
-    "start_ollama": (shlex.join(START_OLLAMA_ARGV), lambda colab: colab.start_ollama(name="cgb-test-0001")),
+    "start_ollama": (shlex.join(start_argv()), lambda colab: colab.start_ollama(name="cgb-test-0001", overrides=AUTO)),
 }
 
 
@@ -972,7 +994,7 @@ async def test_start_ollama_on_runtime_that_is_gone_is_not_found_without_retry(f
     fake_cli.script(start_ollama_script({"stdout": stdout, "exit": 0}))
 
     # Act
-    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
 
     # Assert
     assert code_of(error) == "COLAB_NOT_FOUND"
@@ -988,7 +1010,7 @@ async def test_start_ollama_result_not_ok_is_remote_error_with_stage_and_detail(
     fake_cli.script(start_ollama_script({"stdout": INSTALLER_OUTPUT + result, "exit": 0}))
 
     # Act
-    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
 
     # Assert
     assert code_of(error) == "COLAB_REMOTE_ERROR"
@@ -1039,7 +1061,7 @@ def uploaded_script_of(argv):
 
 async def start_ollama_argv(fake_cli):
     fake_cli.script(start_ollama_script({"stdout": START_OLLAMA_OK}))
-    await failure_of(ColabControl().start_ollama(name="cgb-test-0001"))
+    await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
     calls = fake_cli.calls("colab")
     assert len(calls) == 1
     return calls[0]["argv"]
@@ -1158,3 +1180,598 @@ async def test_usage_in_unexpected_number_format_is_bad_response(fake_cli):
 
     # Assert
     assert code_of(error) == "COLAB_BAD_RESPONSE"
+
+
+# ================================================================ 005 依機器配置調整遠端 Ollama(testplan.md § 2.1)
+
+def start_script_for(argv, *entries):
+    return {"colab": {shlex.join(argv): list(entries) if len(entries) > 1 else entries[0]}}
+
+
+# ---- 005 US1-CLI-01
+
+
+async def test_沒有覆蓋值時啟動_Ollama_的命令列仍帶齊三個_CGB_TUNE_且值為空字串(fake_cli):
+    # Arrange
+    fake_cli.script(start_script_for(start_argv(), {"stdout": STARTED_A100}))
+
+    # Act
+    await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
+
+    # Assert
+    calls = fake_cli.calls("colab")
+    assert len(calls) == 1
+    assert calls[0]["argv"] == start_argv()
+
+
+async def test_啟動_Ollama_的命令列真的_colab_解讀得了(tmp_path):
+    """Q56:`--env CGB_TUNE_*=` 帶空值是新的寫法,讓真的 `colab` 0.7.5 解讀一次;會在本機執行 `colab`(快速層排除,執行前先問本人)。"""
+    # Act
+    real = run_real_colab_without_auth(start_argv(), tmp_path / "real-home")
+
+    # Assert
+    assert [marker for marker in ARGUMENT_ERRORS if marker in real.stderr + real.stdout] == []
+    # 參數解讀完之後,`colab exec` 先查工作階段(空的 HOME 裡沒有),再要求授權;兩種都代表參數已被接受
+    # (2026-11-15 實跑:stdout「[colab] Session 'cgb-test-0001' not found.」,和 001 `colab new` 停在授權不同)
+    assert "not found" in real.stdout or "To authorize colab-cli, visit this URL" in real.stderr
+
+
+# ---- 005 US1-CLI-05
+
+REMOTE_FAILURES = [
+    {"stdout": result(ok=False, stage="install", detail="curl: (6) Could not resolve host: ollama.com"), "exit": 0},
+    {"stdout": result(ok=False, stage="start", detail="[Errno 2] No such file or directory: 'ollama'"), "exit": 0},
+    {"stdout": result(ok=False, stage="verify", detail="no response from /api/version within 60 seconds"), "exit": 0},
+    {
+        "stderr": f'Traceback (most recent call last):\n  File "<x>"\nValueError: see {FAKE_ENDPOINT}/x\n',
+        "exit": 0,
+    },
+]
+
+
+def remote_stage_of(error):
+    return getattr(error, "remote_stage", "<AdapterError 沒有 remote_stage>")
+
+
+async def test_遠端腳本回報失敗時帶出失敗的階段_丟出例外時階段是_None(fake_cli):
+    # Arrange
+    fake_cli.script(start_script_for(start_argv(), *REMOTE_FAILURES))
+    colab = ColabControl()
+
+    # Act
+    install, start, verify, traceback = [
+        await failure_of(colab.start_ollama(name="cgb-test-0001", overrides=AUTO)) for _ in REMOTE_FAILURES
+    ]
+
+    # Assert
+    assert (code_of(install), remote_stage_of(install)) == ("COLAB_REMOTE_ERROR", "install")
+    assert (code_of(start), remote_stage_of(start)) == ("COLAB_REMOTE_ERROR", "start")
+    assert (code_of(verify), remote_stage_of(verify)) == ("COLAB_REMOTE_ERROR", "verify")
+    assert "verify" in verify.message and "no response from /api/version within 60 seconds" in verify.message
+    assert (code_of(traceback), remote_stage_of(traceback)) == ("COLAB_REMOTE_ERROR", None)
+    assert traceback.stderr_last_line == "ValueError: see <網址>"
+
+
+# ---- 005 US1-CLI-02
+
+
+async def test_啟動_Ollama_交出量到的硬體與腳本回報的設定(fake_cli):
+    # Arrange
+    fake_cli.script(start_script_for(start_argv(), {"stdout": STARTED_A100}))
+    before = datetime.now(UTC)
+
+    # Act
+    started = await failure_of_or_result(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
+    after = datetime.now(UTC)
+
+    # Assert
+    assert isinstance(started, dict), f"回了錯誤:{started!r}"
+    machine = started.get("machine") or {}
+    assert (started.get("ollamaVersion"), started.get("alreadyRunning")) == ("0.40.15", False)
+    assert machine.get("gpuName") == "NVIDIA A100-SXM4-40GB"
+    assert machine.get("vramTotalBytes") == 42949672960
+    assert machine.get("systemMemoryTotalBytes") == 89632571392
+    probed_at = datetime.fromisoformat(machine.get("probedAt") or "1970-01-01")
+    assert probed_at.tzinfo is not None and before <= probed_at <= after
+    assert started.get("tuning") == TUNING_AUTO_40G
+
+
+# ---- 005 US1-CLI-03
+
+
+async def test_讀不到顯示記憶體時照樣啟動_硬體是_None_設定是_Ollama_預設值(fake_cli):
+    # Arrange
+    no_gpu = result(
+        ok=True,
+        ollamaVersion="0.40.15",
+        alreadyRunning=False,
+        gpuName=None,
+        vramTotalBytes=None,
+        systemMemoryTotalBytes=13605855232,
+        tuning=TUNING_DEFAULT,
+    )
+    fake_cli.script(start_script_for(start_argv(), {"stdout": no_gpu}))
+
+    # Act
+    started = await failure_of_or_result(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
+
+    # Assert
+    assert isinstance(started, dict), f"回了錯誤:{started!r}"
+    assert started["machine"]["vramTotalBytes"] is None
+    assert started["machine"]["gpuName"] is None
+    assert started["tuning"] == TUNING_DEFAULT
+
+
+# ---- 005 US1-CLI-04
+
+
+async def test_已在執行而讀不到設定檔時照樣接受_設定是_None_不拿這次的覆蓋值補(fake_cli):
+    # Arrange
+    before_005 = result(
+        ok=True,
+        ollamaVersion="0.40.15",
+        alreadyRunning=True,
+        gpuName="Tesla T4",
+        vramTotalBytes=16106127360,
+        systemMemoryTotalBytes=13605855232,
+        tuning=None,
+    )
+    fake_cli.script(start_script_for(start_argv(np="4"), {"stdout": before_005}))
+    overrides = {"numParallel": 4, "contextLength": None, "maxLoadedModels": None}
+
+    # Act
+    started = await failure_of_or_result(ColabControl().start_ollama(name="cgb-test-0001", overrides=overrides))
+
+    # Assert
+    assert isinstance(started, dict), f"回了錯誤:{started!r}"
+    assert started["alreadyRunning"] is True
+    assert started["tuning"] is None
+    assert started["machine"]["vramTotalBytes"] == 16106127360
+
+
+# ---- 005 US1-CLI-06
+
+STARTED_FIELDS = {
+    "ok": True,
+    "ollamaVersion": "0.40.15",
+    "alreadyRunning": False,
+    "gpuName": "NVIDIA A100-SXM4-40GB",
+    "vramTotalBytes": 42949672960,
+    "systemMemoryTotalBytes": 89632571392,
+    "tuning": TUNING_AUTO_40G,
+}
+BAD_RESULTS = {
+    "a-no-result-line": INSTALLER_OUTPUT,
+    "b-not-json": INSTALLER_OUTPUT + "CGB-RESULT not json\n",
+    "c-missing-vram": result(**{k: v for k, v in STARTED_FIELDS.items() if k != "vramTotalBytes"}),
+    "d-unknown-source": result(
+        **{**STARTED_FIELDS, "tuning": {**TUNING_AUTO_40G, "numParallel": {"value": 8, "source": "magic"}}}
+    ),
+    "e-new-start-without-tuning": result(**{**STARTED_FIELDS, "tuning": None}),
+}
+
+
+async def test_結果行缺鍵_型別不符或新啟動卻沒有設定時都是_COLAB_BAD_RESPONSE(fake_cli):
+    # Arrange
+    entries = [{"stdout": stdout, "exit": 0} for stdout in BAD_RESULTS.values()]
+    fake_cli.script(start_script_for(start_argv(), *entries))
+    colab = ColabControl()
+
+    # Act
+    errors = [await failure_of(colab.start_ollama(name="cgb-test-0001", overrides=AUTO)) for _ in entries]
+
+    # Assert
+    assert dict(zip(BAD_RESULTS, map(code_of, errors), strict=True)) == dict.fromkeys(BAD_RESULTS, "COLAB_BAD_RESPONSE")
+    assert [e for e in errors if isinstance(e, (KeyError, TypeError, ValueError))] == []
+
+
+# ---- 005 US1-CLI-07
+
+RUNTIME_GONE = {"stdout": "[colab] Session 'cgb-test-0001' not found.\n", "exit": 0}
+AUTH_PROMPT = {
+    "stderr": "To authorize colab-cli, visit this URL: https://accounts.google.com/o/oauth2/auth?x=1\n",
+    "exit": 1,
+}
+CLI_FAILURES = {
+    "c-not-found": (RUNTIME_GONE, "COLAB_NOT_FOUND"),
+    "d-auth": (AUTH_PROMPT, "AUTH_REQUIRED"),
+    "e-connection-error": ({"stderr": "error: ConnectionError\n", "exit": 1}, "COLAB_UNREACHABLE"),
+    "f-read-timeout": ({"stderr": "error: ReadTimeout\n", "exit": 1}, "COLAB_TIMEOUT"),
+    "g-crash": ({"stderr": f"boom at {FAKE_ENDPOINT}/y\n", "exit": 3}, "COLAB_FAILED"),
+}
+
+
+async def test_帶覆蓋值的啟動照樣有_001_的失敗分類_逾時整組終止與斷線重跑一次(fake_cli, tmp_path, monkeypatch):
+    # Arrange
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    short = ColabControl(timeouts=CliTimeouts(start_ollama=SHORT))
+
+    # Act
+    with monkeypatch.context() as no_colab:
+        no_colab.setenv("PATH", str(empty_bin))
+        not_installed = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
+    fake_cli.script(start_script_for(start_argv(), HANGS_WITH_CHILD))
+    hang, hang_elapsed = await timed(short.start_ollama(name="cgb-test-0001", overrides=AUTO))
+    hang_left = processes_still_present(fake_and_child_pids(fake_cli))
+    failures = {}
+    for case, (entry, _) in CLI_FAILURES.items():
+        fake_cli.script(start_script_for(start_argv(), entry))
+        before = len(fake_cli.calls("colab"))
+        error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
+        failures[case] = (error, len(fake_cli.calls("colab")) - before)
+    fake_cli.script(start_script_for(start_argv(), CONNECTION_LOST, {"stdout": STARTED_A100}))
+    before = len(fake_cli.calls("colab"))
+    retried = await failure_of_or_result(ColabControl().start_ollama(name="cgb-test-0001", overrides=AUTO))
+    retried_argvs = [call["argv"] for call in fake_cli.calls("colab")[before:]]
+
+    # Assert
+    assert code_of(not_installed) == "COLAB_NOT_INSTALLED"
+    assert code_of(hang) == "COLAB_TIMEOUT" and SHORT <= hang_elapsed <= 1.5
+    assert hang_left == []
+    assert {case: code_of(error) for case, (error, _) in failures.items()} == {
+        case: code for case, (_, code) in CLI_FAILURES.items()
+    }
+    assert failures["c-not-found"][1] == 1
+    assert failures["g-crash"][0].stderr_last_line == "boom at <網址>"
+    assert isinstance(retried, dict), f"回了錯誤:{retried!r}"
+    assert retried_argvs == [start_argv(), start_argv()]
+
+
+# ---- 005 US2-CLI-01
+
+NUM_PARALLEL_4 = {"numParallel": 4, "contextLength": None, "maxLoadedModels": None}
+
+
+async def test_只覆蓋平行數時命令列帶它的十進位數字_沒填的兩項仍是空字串_設定照腳本回報(fake_cli):
+    # Arrange
+    manual_4 = {**TUNING_AUTO_40G, "numParallel": {"value": 4, "source": "manual"}}
+    fake_cli.script(start_script_for(start_argv(np="4"), {"stdout": result(**{**STARTED_FIELDS, "tuning": manual_4})}))
+
+    # Act
+    started = await failure_of_or_result(ColabControl().start_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+
+    # Assert
+    assert [call["argv"] for call in fake_cli.calls("colab")] == [start_argv(np="4")]
+    assert isinstance(started, dict), f"回了錯誤:{started!r}"
+    assert started["tuning"]["numParallel"] == {"value": 4, "source": "manual"}
+
+
+# ---- 005 US2-CLI-02
+
+
+async def test_覆蓋值剛好是上限或下限時照樣帶進命令列(fake_cli):
+    # Arrange
+    upper = start_argv(np="32", cl="131072", ml="4")
+    lower = start_argv(np="1", cl="2048", ml="1")
+    fake_cli.script({"colab": {shlex.join(argv): {"stdout": STARTED_A100} for argv in (upper, lower)}})
+    colab = ColabControl()
+
+    # Act
+    at_upper = await failure_of(
+        colab.start_ollama(name="cgb-test-0001", overrides={"numParallel": 32, "contextLength": 131072, "maxLoadedModels": 4})
+    )
+    at_lower = await failure_of(
+        colab.start_ollama(name="cgb-test-0001", overrides={"numParallel": 1, "contextLength": 2048, "maxLoadedModels": 1})
+    )
+
+    # Assert
+    argvs = [call["argv"] for call in fake_cli.calls("colab")]
+    assert (at_upper, argvs[:1]) == (None, [upper])
+    assert (at_lower, argvs[1:]) == (None, [lower])
+
+
+# ---- 005 US2-CLI-03
+
+OUT_OF_RANGE = {
+    "numParallel-0": {"numParallel": 0},
+    "numParallel-33": {"numParallel": 33},
+    "contextLength-2047": {"contextLength": 2047},
+    "contextLength-131073": {"contextLength": 131073},
+    "maxLoadedModels-0": {"maxLoadedModels": 0},
+    "maxLoadedModels-5": {"maxLoadedModels": 5},
+    "numParallel-4.5": {"numParallel": 4.5},
+    "numParallel-str-4": {"numParallel": "4"},
+    "numParallel-True": {"numParallel": True},
+}
+
+
+@pytest.mark.parametrize("override", OUT_OF_RANGE.values(), ids=OUT_OF_RANGE.keys())
+async def test_覆蓋值超出範圍或不是整數時是_COLAB_INVALID_TUNING_不執行_colab(fake_cli, override):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(argv): {"stdout": STARTED_A100} for argv in (start_argv(), start_argv(np="1"))}})
+
+    # Act
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides={**AUTO, **override}))
+
+    # Assert
+    assert code_of(error) == "COLAB_INVALID_TUNING"
+    assert fake_cli.calls("colab") == []
+
+
+# ---- 005 US2-CLI-04
+
+
+async def test_遠端腳本回報覆蓋值不符時是_COLAB_INVALID_TUNING_沒有遠端階段(fake_cli):
+    # Arrange
+    rejected = result(ok=False, stage="input", detail="CGB_TUNE_NUM_PARALLEL must be an integer between 1 and 32")
+    fake_cli.script(start_script_for(start_argv(np="4"), {"stdout": rejected, "exit": 0}))
+
+    # Act
+    error = await failure_of(ColabControl().start_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+
+    # Assert
+    assert code_of(error) == "COLAB_INVALID_TUNING"
+    assert remote_stage_of(error) is None
+
+
+# ---- 005 US3-CLI-01
+
+# 重啟腳本在後端本機的路徑,和 `start_ollama.py` 不同(合約 § `paths./exec/restart-ollama.post` 的 `x-argv`)
+RESTART_OLLAMA_SCRIPT = str(files("cgb.adapters.scripts") / "restart_ollama.py")
+
+# 合約 `x-stdout` 的成功範例:T4、平行數 4(manual)、其餘兩項依 15 GiB 級距(auto)
+RESTARTED_T4_P4 = {
+    "ok": True,
+    "ollamaVersion": "0.40.15",
+    "stoppedBy": "pid_file",
+    "gpuName": "Tesla T4",
+    "vramTotalBytes": 16106127360,
+    "systemMemoryTotalBytes": 13605855232,
+    "tuning": {
+        "numParallel": {"value": 4, "source": "manual"},
+        "contextLength": {"value": 4096, "source": "auto"},
+        "maxLoadedModels": {"value": 1, "source": "auto"},
+        "flashAttention": {"value": True, "source": "auto"},
+        "kvCacheType": {"value": "q8_0", "source": "auto"},
+    },
+}
+
+
+def restart_argv(np="", cl="", ml=""):
+    """重啟的命令列:`--timeout 120`、`OLLAMA_HOST`、`OLLAMA_ORIGINS` 再帶一次,後面接三個 `--env CGB_TUNE_*`。"""
+    return [
+        "exec", "-s", "cgb-test-0001", "-f", RESTART_OLLAMA_SCRIPT, "--timeout", "120",
+        "--env", "OLLAMA_HOST=127.0.0.1:11434", "--env", "OLLAMA_ORIGINS=*",
+        "--env", f"CGB_TUNE_NUM_PARALLEL={np}",
+        "--env", f"CGB_TUNE_CONTEXT_LENGTH={cl}",
+        "--env", f"CGB_TUNE_MAX_LOADED_MODELS={ml}",
+    ]  # fmt: skip
+
+
+async def test_套用覆蓋值與改回自動值的重啟各執行一次_命令列都帶齊三個_CGB_TUNE_(fake_cli):
+    # Arrange
+    restarted = {"stdout": result(**RESTARTED_T4_P4)}
+    fake_cli.script({"colab": {shlex.join(argv): restarted for argv in (restart_argv(np="4"), restart_argv())}})
+    colab = ColabControl()
+
+    # Act
+    await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=AUTO))
+
+    # Assert
+    assert [call["argv"] for call in fake_cli.calls("colab")] == [restart_argv(np="4"), restart_argv()]
+
+
+async def test_重啟_Ollama_的命令列真的_colab_解讀得了(tmp_path):
+    """Q56:重啟的命令列(含空值的 `--env CGB_TUNE_*=`)讓真的 `colab` 0.7.5 解讀一次;會在本機執行 `colab`(快速層排除,執行前先問本人)。"""
+    # Act
+    real = run_real_colab_without_auth(restart_argv(np="4"), tmp_path / "real-home")
+
+    # Assert
+    assert [marker for marker in ARGUMENT_ERRORS if marker in real.stderr + real.stdout] == []
+    # 同 `start_ollama` 的那一支:參數被接受之後,`colab exec` 先查工作階段(空的 HOME 裡沒有),再要求授權
+    assert "not found" in real.stdout or "To authorize colab-cli, visit this URL" in real.stderr
+
+
+# ---- 005 US3-CLI-02
+
+
+async def test_重啟_Ollama_交出停掉舊_serve_的方式與這次重啟量到的硬體與設定(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): {"stdout": result(**RESTARTED_T4_P4)}}})
+    before = datetime.now(UTC)
+
+    # Act
+    restarted = await failure_of_or_result(
+        ColabControl().restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4)
+    )
+    after = datetime.now(UTC)
+
+    # Assert
+    assert isinstance(restarted, dict), f"回了錯誤:{restarted!r}"
+    machine = restarted.get("machine") or {}
+    assert restarted.get("ollamaVersion") == "0.40.15"
+    assert restarted.get("stoppedBy") == "pid_file"
+    assert "alreadyRunning" not in restarted
+    assert machine.get("vramTotalBytes") == 16106127360
+    probed_at = datetime.fromisoformat(machine.get("probedAt") or "1970-01-01")
+    assert probed_at.tzinfo is not None and before <= probed_at <= after
+    assert restarted.get("tuning") == RESTARTED_T4_P4["tuning"]
+
+
+# ---- 005 US3-CLI-03
+
+RESTART_FAILURES = [
+    {
+        "stdout": result(
+            ok=False,
+            stage="stop",
+            stoppedBy="not_running",
+            detail="127.0.0.1:11434 still responding after 10 seconds",
+        ),
+        "exit": 0,
+    },
+    {
+        "stdout": result(
+            ok=False, stage="start", stoppedBy="pid_file", detail="[Errno 2] No such file or directory: 'ollama'"
+        ),
+        "exit": 0,
+    },
+    {
+        "stdout": result(
+            ok=False, stage="verify", stoppedBy="pid_file", detail="no response from /api/version within 60 seconds"
+        ),
+        "exit": 0,
+    },
+    {
+        "stderr": f'Traceback (most recent call last):\n  File "<x>"\nValueError: see {FAKE_ENDPOINT}/x\n',
+        "exit": 0,
+    },
+]
+
+
+async def test_重啟失敗時停止_啟動_驗證三個階段都帶出遠端階段_丟出例外時階段是_None(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): RESTART_FAILURES}})
+    colab = ColabControl()
+
+    # Act
+    stop, start, verify, traceback = [
+        await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+        for _ in RESTART_FAILURES
+    ]
+
+    # Assert
+    assert (code_of(stop), remote_stage_of(stop)) == ("COLAB_REMOTE_ERROR", "stop")
+    assert (code_of(start), remote_stage_of(start)) == ("COLAB_REMOTE_ERROR", "start")
+    assert (code_of(verify), remote_stage_of(verify)) == ("COLAB_REMOTE_ERROR", "verify")
+    assert "stop" in stop.message and "still responding after 10 seconds" in stop.message
+    assert (code_of(traceback), remote_stage_of(traceback)) == ("COLAB_REMOTE_ERROR", None)
+
+
+# ---- 005 US3-CLI-04
+
+
+async def test_重啟的覆蓋值不符時是_COLAB_INVALID_TUNING_遠端拒絕或呼叫前就擋下都沒有遠端階段(fake_cli):
+    # Arrange
+    rejected = result(ok=False, stage="input", detail="CGB_TUNE_NUM_PARALLEL must be an integer between 1 and 32")
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): {"stdout": rejected, "exit": 0}}})
+    colab = ColabControl()
+
+    # Act
+    rejected_by_remote = await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    before = len(fake_cli.calls("colab"))
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="33")): {"stdout": result(**RESTARTED_T4_P4)}}})
+    out_of_range = await failure_of_or_result(
+        colab.restart_ollama(name="cgb-test-0001", overrides={**NUM_PARALLEL_4, "numParallel": 33})
+    )
+
+    # Assert
+    assert (code_of(rejected_by_remote), remote_stage_of(rejected_by_remote)) == ("COLAB_INVALID_TUNING", None)
+    assert code_of(out_of_range) == "COLAB_INVALID_TUNING"
+    assert len(fake_cli.calls("colab")) == before
+
+
+# ---- 005 US3-CLI-05
+
+
+async def test_重啟遇到連線中斷時以同一組參數重跑一次_仍中斷才是_COLAB_UNREACHABLE(fake_cli):
+    # Arrange
+    argv = shlex.join(restart_argv(np="4"))
+    fake_cli.script({"colab": {argv: [CONNECTION_LOST, {"stdout": result(**RESTARTED_T4_P4)}]}})
+    colab = ColabControl()
+
+    # Act
+    recovered = await failure_of_or_result(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    recovered_argvs = [call["argv"] for call in fake_cli.calls("colab")]
+    fake_cli.script({"colab": {argv: CONNECTION_LOST}})
+    before = len(fake_cli.calls("colab"))
+    lost = await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+
+    # Assert
+    assert isinstance(recovered, dict), f"回了錯誤:{recovered!r}"
+    assert recovered_argvs == [restart_argv(np="4"), restart_argv(np="4")]
+    assert code_of(lost) == "COLAB_UNREACHABLE"
+    assert len(fake_cli.calls("colab")) - before == 2
+
+
+# ---- 005 US3-CLI-06
+
+
+async def test_重啟找不到_colab_或逾時時有各自的錯誤_逾時整組終止且不重跑(fake_cli, tmp_path, monkeypatch):
+    # Arrange
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    short = ColabControl(timeouts=CliTimeouts(restart_ollama=SHORT))
+
+    # Act
+    with monkeypatch.context() as no_colab:
+        no_colab.setenv("PATH", str(empty_bin))
+        not_installed = await failure_of(ColabControl().restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): HANGS_WITH_CHILD}})
+    hang, hang_elapsed = await timed(short.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+    hang_left = processes_still_present(fake_and_child_pids(fake_cli))
+
+    # Assert
+    assert code_of(not_installed) == "COLAB_NOT_INSTALLED"
+    assert code_of(hang) == "COLAB_TIMEOUT" and SHORT <= hang_elapsed <= 1.5
+    assert len(fake_cli.calls("colab")) == 1
+    assert hang_left == []
+
+
+# ---- 005 US3-CLI-07
+
+RESTART_CLI_FAILURES = {
+    "a-not-found": (RUNTIME_GONE, "COLAB_NOT_FOUND"),
+    "b-auth-prompt": (AUTH_PROMPT, "AUTH_REQUIRED"),
+    "c-unauthorized": (
+        {"stderr": f"requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: {FAKE_ENDPOINT}/x\n", "exit": 1},
+        "AUTH_REQUIRED",
+    ),
+    "d-max-retries": ({"stderr": "error: Max retries exceeded\n", "exit": 1}, "COLAB_UNREACHABLE"),
+    "e-exec-timeout": ({"stderr": "TimeoutError: exec timed out\n", "exit": 1}, "COLAB_TIMEOUT"),
+    "f-crash": ({"stderr": f"boom at {FAKE_ENDPOINT}/y\n", "exit": 3}, "COLAB_FAILED"),
+}
+
+
+async def test_重啟的_colab_失敗照_001_分類_不是遠端階段的錯_message_不含轉發位址(fake_cli):
+    # Arrange
+    colab = ColabControl()
+    failures = {}
+
+    # Act
+    for case, (entry, _) in RESTART_CLI_FAILURES.items():
+        fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): entry}})
+        before = len(fake_cli.calls("colab"))
+        error = await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+        failures[case] = (error, len(fake_cli.calls("colab")) - before)
+
+    # Assert
+    assert {case: code_of(error) for case, (error, _) in failures.items()} == {
+        case: code for case, (_, code) in RESTART_CLI_FAILURES.items()
+    }
+    assert failures["a-not-found"][1] == 1
+    assert failures["f-crash"][0].stderr_last_line == "boom at <網址>"
+    assert [case for case, (error, _) in failures.items() if FAKE_ENDPOINT in error.message] == []
+
+
+# ---- 005 US3-CLI-08
+
+BAD_RESTART_RESULTS = {
+    "a-no-result-line": {"stdout": "", "exit": 0},
+    "b-no-stopped-by": {
+        "stdout": result(**{k: v for k, v in RESTARTED_T4_P4.items() if k != "stoppedBy"}),
+        "exit": 0,
+    },
+    "c-stopped-by-pkill": {"stdout": result(**{**RESTARTED_T4_P4, "stoppedBy": "pkill"}), "exit": 0},
+    "d-null-tuning": {"stdout": result(**{**RESTARTED_T4_P4, "tuning": None}), "exit": 0},
+}
+
+
+async def test_重啟的結果行缺鍵_停止方式不在列舉裡或設定是_null_時都是_COLAB_BAD_RESPONSE(fake_cli):
+    # Arrange
+    fake_cli.script({"colab": {shlex.join(restart_argv(np="4")): list(BAD_RESTART_RESULTS.values())}})
+    colab = ColabControl()
+
+    # Act
+    errors = [
+        await failure_of(colab.restart_ollama(name="cgb-test-0001", overrides=NUM_PARALLEL_4))
+        for _ in BAD_RESTART_RESULTS
+    ]
+
+    # Assert
+    assert dict(zip(BAD_RESTART_RESULTS, map(code_of, errors), strict=True)) == dict.fromkeys(
+        BAD_RESTART_RESULTS, "COLAB_BAD_RESPONSE"
+    )
+    assert [e for e in errors if isinstance(e, (KeyError, TypeError, ValueError))] == []

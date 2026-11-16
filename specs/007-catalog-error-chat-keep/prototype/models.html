@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>模型|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-003 NFR-003">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html" aria-current="page">模型</a>
+      <a href="../../004-chat-hf-curated-queue/prototype/library.html">下載模型</a>
+      <a href="chat.html">對話</a>
+      <a href="../../001-session-model-catalog/prototype/usage.html">用量與設定</a>
+      <a href="../../005-ollama-machine-tuning/prototype/history.html">紀錄</a>
+      <a href="../../006-agent-client-connect/prototype/connect.html">連線設定</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="pill" id="session-pill">未開啟</span>
+    </div>
+  </header>
+  <main>
+    <h1>模型</h1>
+
+    <!-- 目錄:執行環境上已下載的模型 -->
+    <section data-state="normal" data-group="catalog" class="panel" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>執行環境上的模型</h2>
+          <p class="small muted" id="cat-meta"></p>
+        </div>
+        <a class="btn" href="../../004-chat-hf-curated-queue/prototype/library.html">下載模型</a>
+      </div>
+      <!-- 預先載入前確認目錄時讀不到遠端(FR-002、FR-003):蓋在目錄上方,其他模型照原狀顯示(research R2) -->
+      <div class="notice notice-error" data-state="preload-unavailable" data-group="preload-note" hidden>
+        <div class="notice-head">
+          <strong>沒有預先載入 <span class="mono" id="pu-name"></span></strong>
+          <button type="button" class="btn btn-small" id="pu-close">關閉</button>
+        </div>
+        <span class="notice-line" id="pu-message"></span>
+        <span class="notice-line small muted">錯誤代碼 <span class="mono" id="pu-code"></span>;其他模型的狀態沒有改變,遠端恢復後再按一次「預先載入」就好,不必重開工作階段。</span>
+      </div>
+      <ul class="list" id="catalog"></ul>
+      <p class="small muted">區網的程式指名其中任何一個都可以直接用,第一次會先載入;預先載入可以省下第一個請求的等待。</p>
+    </section>
+
+    <!-- 目錄是空的(新開的執行環境) -->
+    <section data-state="empty" data-group="catalog" class="panel" hidden>
+      <h2>執行環境上的模型</h2>
+      <div class="empty">
+        <p>這台執行環境上還沒有模型。每次新開的執行環境都是空的。</p>
+        <a class="btn btn-primary" href="../../004-chat-hf-curated-queue/prototype/library.html">挑選要下載的模型</a>
+      </div>
+    </section>
+
+    <!-- 讀取中 -->
+    <section data-state="loading" data-group="catalog" class="panel" hidden>
+      <h2>執行環境上的模型</h2>
+      <p class="empty"><span class="spinner"></span>正在讀取執行環境上的模型…</p>
+    </section>
+
+    <!-- 讀不到目錄(502、504;FR-003):不顯示成空的目錄,說明用後端的 Error.message(research R2) -->
+    <section data-state="unavailable" data-group="catalog" class="panel" hidden>
+      <h2>執行環境上的模型</h2>
+      <div class="notice notice-error">
+        <strong>讀不到執行環境上的模型目錄</strong>
+        <span class="notice-line" id="un-message"></span>
+        <span class="notice-line small muted">錯誤代碼 <span class="mono" id="un-code"></span>。這不代表執行環境上沒有模型:已經下載的模型還在,只是這次沒有讀到。</span>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="reload">重新讀取</button>
+        <a class="btn" href="index.html">看工作階段的狀態</a>
+      </div>
+    </section>
+
+    <!-- 沒有就緒的工作階段(503 NO_READY_SESSION,照 001) -->
+    <section data-state="no-session" data-group="catalog" class="panel" hidden>
+      <h2>執行環境上的模型</h2>
+      <div class="empty">
+        <p>目前沒有就緒的工作階段。執行環境結束後,上面的模型會跟著消失,下載佇列也一起清空。</p>
+        <a class="btn btn-primary" href="index.html">到工作階段開啟</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>下載佇列</h2>
+      <p class="small muted">007 沒有改下載佇列,畫面照 <a href="../../004-chat-hf-curated-queue/prototype/models.html">004 的原型</a>。</p>
+    </section>
+  </main>
+  <script>
+    const esc = Proto.escape;
+    let current = { vramBytes: null, items: [] };
+
+    const side = (m) => {
+      if (m.preload.state === "loading") return "<span class=\"pill pill-busy\">載入中…</span>";
+      if (m.loaded) return "<span class=\"pill pill-ok\">已載入</span>";
+      return `<button type="button" class="btn btn-small" data-preload="${esc(m.name)}">預先載入</button>`;
+    };
+    const item = (m) => `
+      <li>
+        <div>
+          <div class="item-name mono">${esc(m.name)}</div>
+          <div class="item-meta">${Proto.bytes(m.sizeBytes)} · ${Proto.clock(m.modifiedAt)} 下載完成${m.loaded ? " · 保留到工作階段結束" : ""}</div>
+        </div>
+        <div class="item-side">${side(m)}</div>
+      </li>`;
+
+    const show = (catalog) => {
+      current = catalog;
+      const session = Proto.load("session");
+      document.getElementById("catalog").innerHTML = catalog.items.map(item).join("");
+      document.getElementById("cat-meta").innerHTML = `<span class="mono">${esc(session.name)}</span> · ${Proto.typeText(session.runtimeType)}${catalog.vramBytes ? `,顯示記憶體約 ${Proto.gib(catalog.vramBytes)}` : ""}`;
+      Proto.showState(catalog.items.length ? "normal" : "empty");
+    };
+
+    // GET /api/models(替身的回應約 0.6 秒後到)
+    const loadCatalog = () => {
+      Proto.showState("loading");
+      Proto.later(600, () => {
+        const r = Proto.readCatalog();
+        if (r.ok) return show(r.data);
+        document.getElementById("catalog").innerHTML = "";
+        if (r.data.code === "NO_READY_SESSION") return Proto.showState("no-session");
+        // 502、504:清空目錄,顯示後端的說明,不顯示 empty(FR-003)
+        document.getElementById("un-message").textContent = r.data.message;
+        document.getElementById("un-code").textContent = r.data.code;
+        Proto.showState("unavailable");
+      });
+    };
+
+    // POST /api/models/preload:後端先確認目錄,讀不到就不受理,也不改任何模型的狀態(FR-002)
+    const preload = (name) => {
+      Proto.hideGroup("preload-note");
+      Proto.later(500, () => {
+        const r = Proto.readCatalog();
+        if (!r.ok) {
+          document.getElementById("pu-name").textContent = name;
+          document.getElementById("pu-message").textContent = r.data.message;
+          document.getElementById("pu-code").textContent = r.data.code;
+          Proto.showState("preload-unavailable");
+          return;
+        }
+        const catalog = r.data;
+        catalog.items.find((m) => m.name === name).preload = { state: "loading", reasonCode: null, message: null };
+        Proto.save("catalog", catalog);
+        show(catalog);
+        // 載入完成由 models.updated 推送整份目錄
+        Proto.later(2500, () => {
+          const next = Proto.load("catalog");
+          const target = next.items.find((m) => m.name === name);
+          if (!target) return;
+          target.preload = { state: "idle", reasonCode: null, message: null };
+          target.loaded = true;
+          Proto.save("catalog", next);
+          show(next);
+        });
+      });
+    };
+
+    document.getElementById("catalog").addEventListener("click", (event) => {
+      const name = event.target.dataset.preload;
+      if (name) preload(name);
+    });
+    document.getElementById("pu-close").addEventListener("click", () => Proto.hideGroup("preload-note"));
+    document.getElementById("reload").addEventListener("click", loadCatalog);
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (Proto.forced === "loading") return Proto.showState("loading");
+      loadCatalog();
+      if (Proto.forced === "preload-unavailable") {
+        // 狀態總覽這一格:目錄讀得到之後,按下 llama3.2:3b 的預先載入時遠端剛好連不到(US1 情境 4)
+        Proto.later(700, () => {
+          Proto.save("remote", { failNext: 1, code: "OLLAMA_UNREACHABLE" });
+          preload("llama3.2:3b");
+        });
+      }
+      // 工作階段一變(推送 session.updated)就重讀目錄
+      let last = JSON.stringify(Proto.load("session"));
+      const tick = () => {
+        const now = JSON.stringify(Proto.load("session"));
+        if (now !== last) {
+          last = now;
+          loadCatalog();
+        }
+        Proto.later(1000, tick);
+      };
+      Proto.later(1000, tick);
+    });
+  </script>
+</body>
+</html>

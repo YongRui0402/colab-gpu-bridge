@@ -9,7 +9,7 @@ from cgb.domain.errors import RELEASE_WARNING_MESSAGE, ApiError
 GPU_TYPES = ("T4", "L4", "G4", "A100", "H100")
 
 # FR-006:這些狀態占用唯一的位子(store.dbml sessions.active_slot)
-ACTIVE_STATES = frozenset({"opening", "ready", "reconnecting"})
+ACTIVE_STATES = frozenset({"opening", "ready", "applying_tuning", "reconnecting"})
 
 # 一定有 endReason 的結束狀態
 TERMINAL_STATES = frozenset({"ended", "open_failed", "lost"})

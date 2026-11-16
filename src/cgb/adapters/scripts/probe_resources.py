@@ -52,4 +52,6 @@ def main():
     )
 
 
-main()
+# `colab exec` 在 kernel 的 `__main__` 執行;被 import 時(例如替身簽章比對掃 `cgb.adapters`)不在桌機上跑
+if __name__ == "__main__":
+    main()

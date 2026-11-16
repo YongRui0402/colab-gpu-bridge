@@ -1,15 +1,43 @@
 """模型目錄:執行環境上已下載的模型、是否已載入與預先載入(FR-014、FR-015;contracts/ui.openapi.yaml § listCatalog、preloadModel)。"""
 
+from collections.abc import Awaitable
 from typing import Any
 
 from cgb.adapters.errors import AdapterError
-from cgb.domain.errors import ApiError
+from cgb.domain.errors import ApiError, ollama_error
 from cgb.services.event_bus import EventBus
 from cgb.services.session_lifecycle import SessionLifecycle
 
 _IDLE = {"state": "idle", "reasonCode": None, "message": None}
 # 預先載入失敗給使用者看的說明;不把遠端的英文原文交給 UI(NFR-010)
 PRELOAD_FAILED_MESSAGE = "預先載入失敗,可能是顯示記憶體不足;請改用較小的模型,或換有更多顯示記憶體的執行階段類型。"
+
+
+def catalog_payload(
+    local: list[dict[str, Any]], loaded: set[str], vram_bytes: int | None, preloads: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """`Catalog`(contracts/ui.openapi.yaml § Catalog):執行環境上已下載的模型、哪些已載入、各自的預先載入狀態。"""
+    items = [
+        {
+            "name": m["name"],
+            "sizeBytes": m["size"],
+            "modifiedAt": m["modified_at"],
+            "loaded": m["name"] in loaded,
+            # NFR-006:和顯示記憶體總量比(不扣已載入的,Q62);讀不到時是 null
+            "mayNotFit": m["size"] > vram_bytes if vram_bytes is not None else None,
+            "preload": dict(preloads.get(m["name"], _IDLE)),
+        }
+        for m in local
+    ]
+    return {"vramBytes": vram_bytes, "items": items}
+
+
+async def _read_remote(read: Awaitable[dict[str, Any]]) -> dict[str, Any]:
+    """讀遠端 Ollama 的一份清單;讀不到不當成目錄是空的,依 S1 的代碼轉成 502 或 504(FR-001、research.md R1),不帶底層例外的文字。"""
+    try:
+        return await read
+    except AdapterError as error:
+        raise ollama_error(error.code) from None
 
 
 class Catalog:
@@ -25,22 +53,11 @@ class Catalog:
     async def list(self) -> dict[str, Any]:
         base_url = self._lifecycle.require_ready_base_url()
         remote = self._state.remote_ollama
-        local = (await remote.list_local_models(base_url=base_url))["models"]
-        loaded = {m["name"] for m in (await remote.list_loaded_models(base_url=base_url))["models"]}
+        # 照 tags → ps 的順序依序讀、不並行;任一份讀不到就整份失敗,不回半套目錄(x-catalog-failure-rule 第 2 點)
+        local = (await _read_remote(remote.list_local_models(base_url=base_url)))["models"]
+        loaded = {m["name"] for m in (await _read_remote(remote.list_loaded_models(base_url=base_url)))["models"]}
         vram = await self._vram_total()
-        items = [
-            {
-                "name": m["name"],
-                "sizeBytes": m["size"],
-                "modifiedAt": m["modified_at"],
-                "loaded": m["name"] in loaded,
-                # NFR-006:和顯示記憶體總量比(不扣已載入的,Q62);讀不到時是 null
-                "mayNotFit": m["size"] > vram if vram is not None else None,
-                "preload": dict(self._preloads.get(m["name"], _IDLE)),
-            }
-            for m in local
-        ]
-        return {"vramBytes": vram, "items": items}
+        return catalog_payload(local, loaded, vram, self._preloads)
 
     async def _vram_total(self) -> int | None:
         """顯示記憶體總量由 S8 probe_resources 提供(Q7、Q62);讀不到時是 None。"""

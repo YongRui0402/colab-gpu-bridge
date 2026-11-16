@@ -16,17 +16,19 @@ class DownloadsRepo:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
-    def enqueue(self, *, model: str, size_bytes: int, origin: str, preload_on_complete: bool, added_at: str) -> int:
+    def enqueue(
+        self, *, model: str, size_bytes: int, origin: str, preload_on_complete: bool, added_at: str, session_name: str
+    ) -> int:
         cursor = self._conn.execute(
-            "INSERT INTO download_jobs (model, pending_model, queue_position, size_bytes, state, origin,"
+            "INSERT INTO download_jobs (session_name, model, pending_model, queue_position, size_bytes, state, origin,"
             " preload_on_complete, added_at)"
-            " VALUES (?, ?, (SELECT COALESCE(MAX(queue_position), 0) + 1 FROM download_jobs), ?, 'queued', ?, ?, ?)",
-            (model, model, size_bytes, origin, int(preload_on_complete), added_at),
+            " VALUES (?, ?, ?, (SELECT COALESCE(MAX(queue_position), 0) + 1 FROM download_jobs), ?, 'queued', ?, ?, ?)",
+            (session_name, model, model, size_bytes, origin, int(preload_on_complete), added_at),
         )
         return int(cursor.lastrowid)
 
     def enqueue_many(
-        self, jobs: list[tuple[str, int]], *, origin: str, preload_on_complete: bool, added_at: str
+        self, jobs: list[tuple[str, int]], *, origin: str, preload_on_complete: bool, added_at: str, session_name: str
     ) -> list[int]:
         """整批(模型, 大小)寫入,包在一個交易裡:任何一筆失敗就整批撤回(`QueueConflict`);交易裡沒有 `await`。"""
         self._conn.execute("BEGIN")
@@ -36,7 +38,12 @@ class DownloadsRepo:
                 try:
                     ids.append(
                         self.enqueue(
-                            model=model, size_bytes=size, origin=origin, preload_on_complete=preload_on_complete, added_at=added_at
+                            model=model,
+                            size_bytes=size,
+                            origin=origin,
+                            preload_on_complete=preload_on_complete,
+                            added_at=added_at,
+                            session_name=session_name,
                         )
                     )
                 except sqlite3.IntegrityError:
@@ -59,14 +66,28 @@ class DownloadsRepo:
         rows = self._conn.execute("SELECT * FROM download_jobs ORDER BY queue_position").fetchall()
         return [dict(row) for row in rows]
 
-    def next_queued(self) -> dict[str, Any] | None:
+    def next_queued(self, session_name: str) -> dict[str, Any] | None:
+        """只看屬於這個工作階段的排隊中項目(`info.x-queue-clearing` (4))。"""
         row = self._conn.execute(
-            "SELECT * FROM download_jobs WHERE state = 'queued' ORDER BY queue_position LIMIT 1"
+            "SELECT * FROM download_jobs WHERE state = 'queued' AND session_name = ? ORDER BY queue_position LIMIT 1",
+            (session_name,),
         ).fetchone()
         return dict(row) if row is not None else None
 
     def delete(self, job_id: int) -> None:
         self._conn.execute("DELETE FROM download_jobs WHERE id = ?", (job_id,))
+
+    def delete_all(self) -> list[int]:
+        """移除佇列裡的每一筆(含下載中的),依佇列順序回傳被移除的 id。"""
+        ids = [row[0] for row in self._conn.execute("SELECT id FROM download_jobs ORDER BY queue_position")]
+        self._conn.execute("DELETE FROM download_jobs")
+        return ids
+
+    def delete_unowned(self) -> list[int]:
+        """移除沒有所屬工作階段的項目(升級前留下的,`session_name` 為 NULL),回傳被移除的 id。"""
+        ids = [row[0] for row in self._conn.execute("SELECT id FROM download_jobs WHERE session_name IS NULL ORDER BY queue_position")]
+        self._conn.execute("DELETE FROM download_jobs WHERE session_name IS NULL")
+        return ids
 
     def requeue(self, job_id: int) -> None:
         """重新排到佇列最後:queue_position 改成目前最大值 + 1,狀態回到排隊中(store.dbml)。"""

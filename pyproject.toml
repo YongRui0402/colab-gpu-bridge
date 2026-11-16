@@ -32,7 +32,9 @@ packages = ["src/cgb"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 # 實跑案例會打真實 Colab、花 compute units;預設排除,要跑時明確帶 -m realrun
-addopts = ["-m", "not realrun"]
+# 接本機臨時 ollama serve 的實跑案例(005 Q30)也預設排除,要跑時帶 -m realrun_local
+addopts = ["-m", "not realrun and not realrun_local"]
 markers = [
     "realrun: 打真實 Colab、ollama.com、Google 或起真容器的實跑案例(預設排除,執行時帶 -m realrun)",
+    "realrun_local: 接本機臨時 ollama serve 的實跑案例,不開 Colab、不花 compute units(預設排除,執行時帶 -m realrun_local)",
 ]

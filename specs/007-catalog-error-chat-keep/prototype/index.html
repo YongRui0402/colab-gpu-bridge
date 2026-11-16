@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>工作階段|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mock.js"></script>
+</head>
+<body data-requirements="FR-006 SC-003">
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html" aria-current="page">工作階段</a>
+      <a href="models.html">模型</a>
+      <a href="../../004-chat-hf-curated-queue/prototype/library.html">下載模型</a>
+      <a href="chat.html">對話</a>
+      <a href="../../001-session-model-catalog/prototype/usage.html">用量與設定</a>
+      <a href="../../005-ollama-machine-tuning/prototype/history.html">紀錄</a>
+      <a href="../../006-agent-client-connect/prototype/connect.html">連線設定</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="pill" id="session-pill">未開啟</span>
+    </div>
+  </header>
+  <main>
+    <h1>工作階段</h1>
+    <p class="muted">007 沒有改這一頁。這裡只放結束、變更類型與開啟,好試對話頁「工作階段結束就清除對話」:可以另開一個分頁開著對話頁,在這裡按結束,看那一頁不用重新整理就清空。完整的畫面照 <a href="../../005-ollama-machine-tuning/prototype/index.html">005 的原型</a>。</p>
+
+    <!-- 就緒 -->
+    <section data-state="ready" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-ok">就緒</span><span class="mono" data-session-name></span></h2>
+      <dl class="facts">
+        <div><dt>執行階段類型</dt><dd data-session-type></dd></div>
+      </dl>
+      <div class="field">
+        <label for="switch-type">變更為</label>
+        <select id="switch-type">
+          <option value="L4">L4</option>
+          <option value="A100">A100 高 RAM</option>
+          <option value="T4">T4</option>
+        </select>
+        <span class="hint">變更類型會結束這個工作階段、開一個新的;對話頁的對話跟著清除。</span>
+      </div>
+      <div class="actions">
+        <a class="btn" href="chat.html">對話</a>
+        <button type="button" class="btn" id="switch">變更類型</button>
+        <button type="button" class="btn btn-danger" id="end">結束</button>
+      </div>
+    </section>
+
+    <!-- 結束中(結束或變更類型) -->
+    <section data-state="ending" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-busy">結束中</span><span class="mono" data-session-name></span></h2>
+      <p class="muted"><span class="spinner"></span>正在釋放 Colab 上的執行環境,確認帳號下已經沒有它之後就算結束。</p>
+    </section>
+
+    <!-- 開啟中 -->
+    <section data-state="opening" class="panel" hidden>
+      <h2 class="state-title"><span class="pill pill-busy">開啟中</span><span class="mono" data-session-name></span></h2>
+      <p class="muted"><span class="spinner"></span><span data-session-type></span> · 正在配置執行環境、啟動 Ollama 並接上通道;實測 1 到 3 分鐘(原型縮短成幾秒)。</p>
+    </section>
+
+    <!-- 已結束 -->
+    <section data-state="ended" class="panel" hidden>
+      <h2 class="state-title"><span class="pill">已結束</span><span class="mono" data-session-name></span></h2>
+      <p class="muted">結束原因:<span id="end-reason"></span>。執行環境上的模型、下載佇列與對話頁的對話都跟著清除。</p>
+      <div class="field">
+        <label for="open-type">執行階段類型</label>
+        <select id="open-type">
+          <option value="T4">T4</option>
+          <option value="L4">L4</option>
+          <option value="A100">A100 高 RAM</option>
+        </select>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="open">開啟</button>
+      </div>
+    </section>
+  </main>
+  <script>
+    const TYPES = { T4: { gpu: "T4", highMem: false }, L4: { gpu: "L4", highMem: false }, A100: { gpu: "A100", highMem: true } };
+
+    const render = () => {
+      const session = Proto.load("session");
+      document.querySelectorAll("[data-session-name]").forEach((el) => { el.textContent = session.name ?? ""; });
+      document.querySelectorAll("[data-session-type]").forEach((el) => { el.textContent = Proto.typeText(session.runtimeType); });
+      document.getElementById("end-reason").textContent = Proto.endReasonText(session.endReason);
+      Proto.showState(["open_failed", "lost", "none"].includes(session.state) ? "ended" : session.state);
+    };
+
+    const setSession = (next) => {
+      Proto.save("session", next);
+      render();
+    };
+
+    // 新的執行環境是空的;就緒後精選清單設了「開好就自動下載」的模型下載完成,才出現在目錄(004)
+    const open = (runtimeType) => {
+      const previous = Proto.load("session").name;
+      setSession({ state: "opening", name: Proto.newName(previous), runtimeType, endReason: null });
+      Proto.later(4000, () => {
+        Proto.save("catalog", structuredClone(FRESH_CATALOG));
+        setSession({ ...Proto.load("session"), state: "ready" });
+      });
+    };
+
+    document.getElementById("end").addEventListener("click", () => {
+      setSession({ ...Proto.load("session"), state: "ending" });
+      Proto.later(2500, () => setSession({ ...Proto.load("session"), state: "ended", endReason: "USER_ENDED" }));
+    });
+    document.getElementById("switch").addEventListener("click", () => {
+      const runtimeType = TYPES[document.getElementById("switch-type").value];
+      setSession({ ...Proto.load("session"), state: "ending" });
+      Proto.later(2500, () => open(runtimeType));
+    });
+    document.getElementById("open").addEventListener("click", () => open(TYPES[document.getElementById("open-type").value]));
+
+    document.addEventListener("DOMContentLoaded", () => {
+      render();
+      // 別的分頁改了工作階段(推送 session.updated)時跟著更新
+      const tick = () => {
+        render();
+        Proto.later(1000, tick);
+      };
+      Proto.later(1000, tick);
+    });
+  </script>
+</body>
+</html>

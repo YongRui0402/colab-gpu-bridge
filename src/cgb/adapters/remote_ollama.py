@@ -23,6 +23,8 @@ PULL_PROGRESS_TIMEOUT = 60.0  # pull 兩行進度之間的逾時,不設總時長
 NOT_FOUND_MARKER = "file does not exist"
 # 串流開始前 Ollama 回的錯誤狀態碼 → 原因代碼(contracts § paths./api/generate.post 的 x-error-codes)
 _STATUS_CODES = {400: "OLLAMA_BAD_REQUEST", 404: "OLLAMA_NOT_FOUND", 500: "OLLAMA_SERVER_ERROR"}
+# pull 串流開始前的錯誤狀態碼 → 原因代碼(contracts info.x-failure-rules 第 3 條;pullModel 沒有 404 回應)
+_PULL_STATUS_CODES = {400: "OLLAMA_BAD_REQUEST", 500: "OLLAMA_SERVER_ERROR"}
 
 
 class RemoteOllama:
@@ -105,19 +107,66 @@ class RemoteOllama:
 
     async def preload(self, *, base_url: str, model: str) -> dict[str, Any]:
         """預先載入(FR-015):`POST /api/generate` 只帶 `model` 與 `keep_alive: -1`(plan.md Q4),不帶 `prompt`。"""
-        async with self._client(base_url, httpx.Timeout(PRELOAD_TIMEOUT)) as client:
-            response = await client.post("/api/generate", json={"model": model, "keep_alive": -1})
-        return response.json()
+        try:
+            async with self._client(base_url, httpx.Timeout(PRELOAD_TIMEOUT)) as client:
+                response = await client.post("/api/generate", json={"model": model, "keep_alive": -1})
+        except httpx.TimeoutException as error:
+            raise AdapterError("OLLAMA_TIMEOUT", f"{PRELOAD_TIMEOUT:g} 秒內沒有收到遠端 Ollama 的回應") from error
+        except httpx.TransportError as error:
+            raise AdapterError("OLLAMA_UNREACHABLE", f"連不到遠端 Ollama:{type(error).__name__}") from error
+        except httpx.DecodingError as error:
+            raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的回應本文無法解壓") from error
+        if response.status_code != 200:
+            code = _STATUS_CODES.get(response.status_code, "OLLAMA_BAD_RESPONSE")
+            raise AdapterError(code, f"遠端 Ollama 回了 {response.status_code}")
+        try:
+            body = response.json()
+        except ValueError as error:
+            raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的預先載入回應不是 JSON") from error
+        if not isinstance(body, dict):
+            raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的預先載入回應不是 JSON 物件")
+        return body
 
     async def pull_model(self, *, base_url: str, model: str) -> AsyncIterator[dict[str, Any]]:
         """`POST /api/pull`(串流);逐行產出帶 `total` 的進度行,最後產出 `{"status":"success"}`。
 
         沒有 `total` 的狀態行(`pulling manifest`、`verifying sha256 digest`…)不是進度,不產出。
+        失敗一律歸成 `OLLAMA_` 代碼(contracts `info.x-failure-rules`),底層例外不往外拋;
+        串流開始前的失敗在 `await` 時就丟出,開始後的在迭代時丟出。
         """
         client = self._client(base_url, httpx.Timeout(self._pull_progress_timeout, connect=self._connect_timeout))
         request = client.build_request("POST", "/api/pull", json={"model": model, "stream": True})
-        response = await client.send(request, stream=True)
+        try:
+            response = await client.send(request, stream=True)
+        except httpx.TransportError as error:
+            await client.aclose()
+            raise _pull_send_failure(error) from error
+        rejection = _pull_start_failure(response)
+        if rejection is not None:
+            await response.aclose()
+            await client.aclose()
+            raise rejection
         return _pull_progress(client, response)
+
+
+def _pull_send_failure(error: httpx.TransportError) -> AdapterError:
+    """串流開始前的傳輸層失敗(`info.x-failure-rules` 第 1、2 條):逾時先於其他傳輸層失敗判定。"""
+    if isinstance(error, httpx.TimeoutException):
+        return AdapterError("OLLAMA_TIMEOUT", "遠端 Ollama 沒有在時限內回應下載請求")
+    return AdapterError("OLLAMA_UNREACHABLE", f"連不到遠端 Ollama:{type(error).__name__}")
+
+
+def _pull_start_failure(response: httpx.Response) -> AdapterError | None:
+    """收到回應標頭後、讀本文之前的判定(`info.x-failure-rules` 第 3、4 條);可以開始讀串流時交回 `None`。
+
+    只看狀態碼與 `Content-Type` 的 media type(`;` 之前、去掉空白、不分大小寫,plan.md Q45),不讀本文。
+    """
+    if response.status_code != 200:
+        code = _PULL_STATUS_CODES.get(response.status_code, "OLLAMA_BAD_RESPONSE")
+        return AdapterError(code, f"遠端 Ollama 回了 {response.status_code}")
+    if response.headers.get("content-type", "").split(";")[0].strip().lower() != "application/x-ndjson":
+        return AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的下載回應不是 NDJSON")
+    return None
 
 
 def _is_size(value: object) -> bool:
@@ -159,11 +208,14 @@ async def _pull_progress(client: httpx.AsyncClient, response: httpx.Response) ->
     """pull 的 NDJSON:只產出帶 `total` 的進度行,直到 `status` 為 `success` 的那一行。
 
     HTTP 200 之後的失敗以 `error` 行回報(contracts § paths./api/pull.post 的 200 回應):
-    含 `file does not exist` 是找不到模型或版本,其他是下載失敗;`success` 之前結束或斷線算中斷;
-    兩行之間超過進度間隔逾時算逾時(不設總時長,大模型下載不會被砍)。
+    含 `file does not exist` 是找不到模型或版本,其他是下載失敗;某一行不是合法的 JSON 物件或欄位型別不符算壞回應;
+    `success` 之前結束或斷線算中斷;兩行之間超過進度間隔逾時算逾時(不設總時長,大模型下載不會被砍)。
     """
     try:
-        async for item in _json_lines(response):
+        async for raw in response.aiter_lines():
+            if not raw.strip():
+                continue
+            item = _parse_pull_line(raw)
             if "error" in item:
                 code = "OLLAMA_NOT_FOUND" if NOT_FOUND_MARKER in item["error"] else "OLLAMA_PULL_FAILED"
                 raise AdapterError(code, item["error"])
@@ -180,6 +232,23 @@ async def _pull_progress(client: httpx.AsyncClient, response: httpx.Response) ->
         await response.aclose()
         await client.aclose()
     raise AdapterError("OLLAMA_STREAM_INTERRUPTED", "遠端 Ollama 的下載串流在 success 之前就結束")
+
+
+def _parse_pull_line(raw: str) -> dict[str, Any]:
+    """pull 串流的一行:要是 JSON 物件,`status`、`error` 是字串,`total`、`completed` 是非負整數;不符算 `OLLAMA_BAD_RESPONSE`。"""
+    try:
+        item = json.loads(raw)
+    except ValueError as error:
+        raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的下載進度有一行不是 JSON") from error
+    if not isinstance(item, dict):
+        raise AdapterError("OLLAMA_BAD_RESPONSE", "遠端 Ollama 的下載進度有一行不是 JSON 物件")
+    for key in ("status", "error"):
+        if key in item and not isinstance(item[key], str):
+            raise AdapterError("OLLAMA_BAD_RESPONSE", f"遠端 Ollama 的下載進度有一行 {key} 不是字串")
+    for key in ("total", "completed"):
+        if key in item and not _is_size(item[key]):
+            raise AdapterError("OLLAMA_BAD_RESPONSE", f"遠端 Ollama 的下載進度有一行 {key} 不是非負整數")
+    return item
 
 
 async def _json_lines(response: httpx.Response) -> AsyncIterator[dict[str, Any]]:

@@ -1,0 +1,306 @@
+openapi: 3.1.0
+info:
+  title: 後端 UI API(模型目錄與預先載入讀不到遠端 Ollama 時的錯誤回應)
+  version: 0.7.0
+  description: >-
+    S1(E2 後端 UI API)依 007 的 spec.md、research.md(R1、R4)、techstack.md 與 plan.md 產出。
+
+    **本檔以 001 的同名檔為底(`listCatalog` 另參照 003 的同名檔),只收 007 這一輪要讓程式照做的兩個操作
+    `listCatalog`(`GET /api/models`)、`preloadModel`(`POST /api/models/preload`)與它們用到的 components;
+    另收 `subscribeEvents`(`GET /api/events`)一筆,只為了寫明工作階段結束時前端靠哪一則推送清除保存的對話(FR-006),
+    它的內容與時機不變。其他操作、`Session` 等 schema、事件與錯誤代碼的對應,一律以 001~006 的 `ui.openapi.yaml`
+    與 001、005 的 `ui-events.asyncapi.yaml` 為準**(plan.md Structure Decision、research.md R4)。
+
+    這一輪不改合約(research.md R1):路徑、operationId、參數、成功回應、錯誤代碼與狀態碼照 001、003 原樣;
+    502、504 與三個 `OLLAMA_` 代碼早就寫在 001 的合約裡,現有程式讀不到遠端時回 500(006 plan.md Q30)。
+    這一輪只補寫 001、003 的檔沒寫到的地方:讀不到遠端時「不得回 500」(NFR-001)、兩份清單任一失敗就整份失敗、
+    預先載入確認目錄失敗時不受理也不改任何模型的狀態(FR-002),以及三個代碼固定的 `message`(見 `info.x-ollama-error-message`)。
+
+    編號的出處:`x-requirements` 與沒有標前綴的 `FR-0xx`、`NFR-0xx`、`SC-0xx`、使用者故事、驗收情境都是 007 spec.md 的編號;
+    標了「001 的」「003 的」的指那一輪的 spec.md;`R<n>` 指 007 research.md;`001 S1` 是 001 的 `remote-ollama.openapi.yaml`,
+    `003 S1` 是 003 的 `remote-ollama.openapi.yaml`;`Q<n>` 沿用自 001 的檔時指 001 plan.md。
+
+    呼叫者:本系統前端 UI(瀏覽器),家中區網(含 VPN 連回)的任何裝置都能呼叫,不需要登入(001 的 NFR-009);
+    UI 的靜態檔與本 API 同一個來源,所以 `servers` 只寫相對路徑 `/api`。錯誤本文一律是 `Error`(`{code, message}`,`message` 是給使用者看的繁體中文)。
+
+    對話內容:本檔的操作都不收、不回對話內容;對話只存在使用者的瀏覽器裡(NFR-002、R3),本 API 沒有任何保存對話的操作。
+  x-catalog-failure-rule: >-
+    讀不到遠端 Ollama 時的回應(FR-001、FR-002、NFR-001、R1),`listCatalog` 與 `preloadModel` 確認目錄時共用這一條:
+    (1)列出目錄要讀遠端 Ollama 的兩份清單:已下載的(`listLocalModels`,`/api/tags`)與已載入的(`listLoadedModels`,`/api/ps`),照這個順序讀,各 10 秒(001 S1)。
+    (2)任一份讀不到就整份目錄失敗,不回半套目錄;代碼以先失敗的那一份為準(spec 邊界情況)。
+    (3)失敗原因只有三種(003 S1 的 `info.x-failure-rules`):經通道連不到 → 502 `OLLAMA_UNREACHABLE`;回應格式不對 → 502 `OLLAMA_BAD_RESPONSE`;
+    10 秒內沒有完成 → 504 `OLLAMA_TIMEOUT`。
+    (4)這兩個操作在讀不到遠端時一律回上面的 502 或 504,不回 500(NFR-001、SC-001);不回 200 與空的 `items`,前端也就不會把它當成「還沒有下載任何模型」(FR-003)。
+    (5)讀不到顯示記憶體總量不算這一條的失敗,照 003 回 200、`vramBytes` 與 `mayNotFit` 為 null(spec 邊界情況)。
+    (6)沒有就緒的工作階段時不讀遠端,照 001 回 503 `NO_READY_SESSION`,不受這一輪影響(spec 邊界情況)。
+    (7)錯誤不留狀態:遠端恢復正常後,下一次列出目錄或預先載入照常成功,不需要重開工作階段(使用者故事 1 驗收情境 5)。
+    (8)不在範圍內:這兩個操作以外讀目錄的地方(例如預先載入結束、下載完成後在背景推送 `models.updated`)讀不到遠端時的處理(D2,spec 假設)。
+  x-ollama-error-message: >-
+    三個代碼的 `message` 各是一句固定的繁體中文說明,`listCatalog`、`preloadModel` 與 006 的 `getConnectInfo` 共用同一句(FR-001、spec 假設,沿用 003 的 `info.x-ollama-error-message`):
+    `OLLAMA_UNREACHABLE` 是「連不到執行環境上的 Ollama,請確認工作階段仍在運作後再試。」;
+    `OLLAMA_BAD_RESPONSE` 是「執行環境上的 Ollama 回應無法解讀,請稍後再試。」;
+    `OLLAMA_TIMEOUT` 是「執行環境上的 Ollama 在時限內沒有回應,請稍後再試。」。
+    不帶底層例外的文字、traceback、本機轉發的位址或對方回的內容;這三個錯誤沒有 `Error.model`(讀的是整份模型清單,不是某一個模型)。
+servers:
+  - url: /api
+    description: 與 UI 靜態檔同一個來源;port 沿用 001(8780)
+paths:
+  /models:
+    get:
+      operationId: listCatalog
+      summary: 列出執行環境上已下載的模型(模型目錄)
+      description: >-
+        001 的 FR-014:名稱、大小、是否已載入;來自遠端 Ollama 的 `listLocalModels` 與 `listLoadedModels`(001 S1),
+        只含下載完成的模型(001 的 FR-018)。執行環境剛開好時是空的(200 與空的 `items`)。
+        顯示記憶體總量與 `mayNotFit` 的讀法、同一個工作階段沿用的規則照 003 的同名操作,這一輪不變。
+        目錄有變化時另以 `models.updated` 事件推送(001、005 的 `ui-events.asyncapi.yaml`),這一輪不變。
+
+        這一輪(使用者故事 1):讀 tags、ps 失敗時照 `info.x-catalog-failure-rule` 回 502 或 504 與對應代碼,不回 500(FR-001、NFR-001);
+        對話頁的模型清單也照用這個操作(004),同樣拿到 502 或 504。
+      x-requirements: [FR-001, NFR-001, SC-001]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);工作階段「就緒」
+      x-timeout: >-
+        遠端 Ollama 的 tags、ps 各 10 秒(001 S1);這個工作階段還沒讀成功過顯示記憶體時,另加一次 `colab exec`(照 003,逾時回 null、不回錯誤)
+      responses:
+        '200':
+          description: >-
+            模型目錄;兩份清單都讀到才回 200。讀不到顯示記憶體時也是 200,`vramBytes` 與每個 `mayNotFit` 為 null(照 003)
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelCatalog'
+        '502':
+          description: >-
+            讀 tags 或 ps 時經通道連不到遠端 Ollama(`OLLAMA_UNREACHABLE`),或回應格式不對(`OLLAMA_BAD_RESPONSE`);
+            照 001 原樣,判定見 `info.x-catalog-failure-rule`,`message` 見 `info.x-ollama-error-message`
+          x-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unreachable:
+                  summary: 經通道連不到遠端 Ollama(使用者故事 1 驗收情境 1)
+                  value:
+                    code: OLLAMA_UNREACHABLE
+                    message: 連不到執行環境上的 Ollama,請確認工作階段仍在運作後再試。
+                badResponse:
+                  summary: 回應格式不對(使用者故事 1 驗收情境 2)
+                  value:
+                    code: OLLAMA_BAD_RESPONSE
+                    message: 執行環境上的 Ollama 回應無法解讀,請稍後再試。
+        '503':
+          description: 沒有就緒的工作階段(含開啟中、套用設定中、重連中);照 001、005,不讀遠端
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: >-
+            讀 tags 或 ps 時遠端 Ollama 在 10 秒內沒有回應;照 001 原樣。讀顯示記憶體的 `colab exec` 逾時不是這個,是 200 與 null(照 003)
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                timeout:
+                  summary: 在時限內沒有回應(使用者故事 1 驗收情境 3)
+                  value:
+                    code: OLLAMA_TIMEOUT
+                    message: 執行環境上的 Ollama 在時限內沒有回應,請稍後再試。
+  /models/preload:
+    post:
+      operationId: preloadModel
+      summary: 預先載入目錄裡的一個模型
+      description: >-
+        001 的 FR-015:後端對遠端 Ollama 送只有 `model` 與 `keep_alive: -1` 的 `generate`(001 S1、001 Q4),逾時 300 秒(001 Q5)。
+        先確認模型在目錄裡,受理後立即回 202,該模型的 `preload.state` 為 `loading`;載入的結果以 `models.updated` 推送;
+        已經載入或正在載入時不另做事,照樣回 202。這些都照 001,這一輪不變。
+
+        檢查的先後(第一個不符的就回,後面的都不做):
+        (1)請求本文(400 `INVALID_REQUEST_BODY`、`INVALID_MODEL_NAME`);
+        (2)沒有就緒的工作階段 → 503 `NO_READY_SESSION`;
+        (3)確認目錄:照 `listCatalog` 讀一次整份目錄,讀不到照 `info.x-catalog-failure-rule` 回 502 或 504(FR-002、NFR-001);
+        (4)模型不在目錄裡 → 404 `OLLAMA_NOT_FOUND`;
+        (5)受理 → 202。
+
+        這一輪(使用者故事 1 驗收情境 4):(3)失敗時不受理這次預先載入,不對遠端送 `generate`,
+        也不改變任何模型的 `preload`(這個模型不會變成 `loading` 或 `failed`,其他模型的狀態照原樣),也不推送 `models.updated`(FR-002);
+        前端照原狀顯示目錄裡的其他模型(FR-003)。遠端恢復後再按一次照常受理(驗收情境 5)。
+      x-requirements: [FR-002, NFR-001, SC-001]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);工作階段「就緒」,模型在目錄裡
+      x-timeout: 確認目錄用 tags、ps 各 10 秒(照 `listCatalog`);預先載入本身 300 秒(001 S1、001 Q5),在受理之後才開始,不影響這個操作的回應
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreloadInput'
+      responses:
+        '202':
+          description: 已受理,開始載入;回傳這個模型在目錄裡的現況(`preload.state` 為 `loading`,已載入時 `loaded` 為 true)
+          x-recipients: 呼叫者(UI);目錄的變化也以 `models.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogModel'
+        '400':
+          description: 本文不是合法 JSON(`INVALID_REQUEST_BODY`);沒有 `name` 或模型名稱格式不對(`INVALID_MODEL_NAME`);照 001
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_MODEL_NAME]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 這個模型不在執行環境上(001 S1 的 `OLLAMA_NOT_FOUND`;不會自動下載);照 001
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: >-
+            確認目錄時經通道連不到遠端 Ollama(`OLLAMA_UNREACHABLE`),或回應格式不對(`OLLAMA_BAD_RESPONSE`);照 001 原樣。
+            不受理、不改任何模型的狀態(FR-002)
+          x-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_BAD_RESPONSE]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unreachable:
+                  summary: 目錄原本讀得到,按預先載入時遠端連不到(使用者故事 1 驗收情境 4)
+                  value:
+                    code: OLLAMA_UNREACHABLE
+                    message: 連不到執行環境上的 Ollama,請確認工作階段仍在運作後再試。
+        '503':
+          description: 沒有就緒的工作階段(含開啟中、套用設定中、重連中);照 001、005
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: 確認目錄時遠端 Ollama 在 10 秒內沒有回應;照 001 原樣。不受理、不改任何模型的狀態(FR-002)
+          x-error-codes: [OLLAMA_TIMEOUT]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /events:
+    get:
+      operationId: subscribeEvents
+      summary: 訂閱狀態推送(SSE)
+      description: >-
+        照 001 原樣:開一條 `text/event-stream`;事件的名稱、內容、快照與重連規則見 001、005 的 `ui-events.asyncapi.yaml`,這一輪沒有新的事件,
+        內容與時機都不變(R4)。
+
+        這一輪只寫明對話頁怎麼用它(FR-006、R4):保存的對話記下當時 `Session.name`;連上時的第一則 `session.updated` 快照,
+        以及之後每一則 `session.updated`,前端拿 `state` 與 `name` 判斷要保留、還原還是清除(判斷規則屬於前端,見 S2 的原型)。
+        五種結束方式(使用者結束、閒置自動結束、被 Colab 收回、重連逾時都會推送結束狀態 `ended`、`open_failed` 或 `lost`,
+        變更執行階段類型會換一個新的 `name`)都已經由現有的 `session.updated` 推送,後端不另推「清除對話」的事件,也不保存或推送任何對話內容(NFR-002)。
+      x-requirements: [FR-006]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '200':
+          description: SSE 串流,不會主動結束;連上時先送 `session.updated` 快照
+          x-recipients: 呼叫者(UI);所有連著的 UI 收到相同的事件
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE 格式,`event:` 為訊息名稱、`data:` 為一行 JSON(照 001、005)
+components:
+  schemas:
+    ReasonCode:
+      type: string
+      pattern: '^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH)_[A-Z0-9_]+|AUTH_REQUIRED)$'
+      description: >-
+        外部依賴失敗的轉接層代碼,照 003 原文沿用;這裡只用在 `PreloadState.reasonCode`(上一次預先載入在背景失敗的原因,照 001)
+    ModelName:
+      type: string
+      pattern: '^([a-z0-9][a-z0-9._-]*|hf\.co/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*)(:[A-Za-z0-9_][A-Za-z0-9._-]*)?$'
+      description: >-
+        照 004 的 `ModelName`:官方模型名稱(可帶 `:版本`,例 qwen2.5:7b),或 Hugging Face 的 `hf.co/<作者>/<模型>[:<量化版本>]`;
+        沒寫版本視為 `latest`
+    PreloadState:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [idle, loading, failed]
+          description: 沒有預先載入、載入中、上一次預先載入失敗;確認目錄讀不到遠端時不會變(FR-002)
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+        message:
+          type: [string, 'null']
+    CatalogModel:
+      type: object
+      required: [name, sizeBytes, modifiedAt, loaded, mayNotFit, preload]
+      properties:
+        name:
+          type: string
+          description: 模型名稱含版本,照遠端 Ollama `/api/tags` 的 `name`
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: 模型在磁碟上的大小,位元組
+        modifiedAt:
+          type: string
+          format: date-time
+          description: 下載完成的時間
+        loaded:
+          type: boolean
+          description: 目前是否已載入記憶體(遠端 Ollama `/api/ps`;每次列出都重讀,不沿用)
+        mayNotFit:
+          type: [boolean, 'null']
+          description: 大小超過顯示記憶體總量(`vramBytes`)時為 true,UI 標示「可能無法載入」;讀不到顯示記憶體時為 null(照 003)
+        preload:
+          $ref: '#/components/schemas/PreloadState'
+    ModelCatalog:
+      type: object
+      required: [items, vramBytes]
+      properties:
+        vramBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: 目前執行環境 GPU 的顯示記憶體總量,位元組;同一個工作階段讀成功一次後沿用,讀不到時為 null(照 003)
+        items:
+          type: array
+          description: 已下載的模型;空陣列只代表執行環境上真的沒有模型,讀不到遠端時不會回空陣列(`info.x-catalog-failure-rule` 的 (4))
+          items:
+            $ref: '#/components/schemas/CatalogModel'
+    PreloadInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          $ref: '#/components/schemas/ModelName'
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST_BODY
+            - INVALID_MODEL_NAME
+            - NO_READY_SESSION
+            - OLLAMA_NOT_FOUND
+            - OLLAMA_UNREACHABLE
+            - OLLAMA_BAD_RESPONSE
+            - OLLAMA_TIMEOUT
+          description: >-
+            只列本檔操作會回的代碼,狀態碼與代碼的對應照 001;`OLLAMA_` 開頭的照 001 S1、003 S1 原文沿用,其他是本介面自己把關的條件。
+            這一輪沒有新的代碼(spec 假設);其他操作的代碼以 001~006 的 `ui.openapi.yaml` 為準
+        message:
+          type: string
+          description: >-
+            給使用者看的繁體中文說明。`OLLAMA_UNREACHABLE`、`OLLAMA_BAD_RESPONSE`、`OLLAMA_TIMEOUT` 是那個代碼固定的一句(`info.x-ollama-error-message`);
+            不帶底層例外的文字、traceback、對方的網址或對方回的內容

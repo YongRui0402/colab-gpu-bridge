@@ -105,14 +105,14 @@ def search_qwen25(page: Page, fakes: Any) -> None:
     fakes.model_library.search_library.when(q="qwen2.5", page=1).returns(search_page("qwen2.5", "qwen2.5-coder", has_more=True))
     fakes.model_library.search_library.when(q="qwen2.5", page=2).returns(search_page("qwen2.5vl", has_more=False))
     page.goto("/library.html")
-    expect(page.locator("#search-form")).to_be_visible()
-    page.fill("#q", "qwen2.5")
-    page.locator("#search-form").get_by_role("button", name="搜尋").click()
+    expect(page.locator("#lib-form")).to_be_visible()
+    page.fill("#lib-q", "qwen2.5")
+    page.locator("#lib-form").get_by_role("button", name="搜尋").click()
 
 
 def expand_versions(page: Page, name: str) -> Any:
     """展開搜尋結果裡 `name` 的版本,回傳那一個結果。"""
-    result = page.locator("#results .result").filter(has=page.locator(".item-name", has_text=re.compile(rf"^{re.escape(name)}$")))
+    result = page.locator("#lib-results .result").filter(has=page.locator(".item-name", has_text=re.compile(rf"^{re.escape(name)}$")))
     button = result.get_by_role("button", name="看版本")
     expect(button).to_be_visible()
     button.click()
@@ -133,11 +133,11 @@ def test_精選清單在搜尋結果之上_展開版本標出已下載_顯示更
 
     # Act
     search_qwen25(page, fakes)
-    results = page.locator("#results .result")
+    results = page.locator("#lib-results .result")
     expect(results).to_have_count(2)
     expect(page.locator("#curated li", has_text="qwen2.5:7b")).to_be_visible()
     curated_box = page.locator("#curated").bounding_box()
-    results_box = page.locator("#results").bounding_box()
+    results_box = page.locator("#lib-results").bounding_box()
     qwen25 = expand_versions(page, "qwen2.5")
     version_05b = qwen25.locator(".version").filter(has=page.locator(".mono", has_text=re.compile(r"^0\.5b$")))
     expect(version_05b).to_be_visible()

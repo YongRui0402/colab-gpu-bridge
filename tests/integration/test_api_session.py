@@ -19,6 +19,31 @@ from cgb.adapters.errors import AdapterError
 from fakes import Gate
 
 T4 = {"gpu": "T4", "highMem": False}
+# 替身預設的 `OllamaStarted`(Q59):15 GiB 的 T4,自動值 2/4096/1(test_api_tuning.py 從這裡匯入)
+T4_STARTED = {
+    "ollamaVersion": "0.40.15",
+    "alreadyRunning": False,
+    "machine": {
+        "gpuName": "Tesla T4",
+        "vramTotalBytes": 15 * 1073741824,
+        "systemMemoryTotalBytes": 13_605_855_232,
+        "probedAt": "2026-11-15T09:00:00Z",
+    },
+    "tuning": {
+        "numParallel": {"value": 2, "source": "auto"},
+        "contextLength": {"value": 4096, "source": "auto"},
+        "maxLoadedModels": {"value": 1, "source": "auto"},
+        "flashAttention": {"value": True, "source": "auto"},
+        "kvCacheType": {"value": "q8_0", "source": "auto"},
+    },
+}
+# 替身預設的 `OllamaRestarted`(Q32):同一台 T4、同樣的自動值;停掉舊行程靠 pid 檔
+T4_RESTARTED = {
+    "ollamaVersion": T4_STARTED["ollamaVersion"],
+    "stoppedBy": "pid_file",
+    "machine": T4_STARTED["machine"],
+    "tuning": T4_STARTED["tuning"],
+}
 NAME_PATTERN = re.compile(r"^cgb-test-[a-z0-9-]+$")
 
 
@@ -44,12 +69,15 @@ class ColabWorld:
         self.unnamed: list[dict[str, str]] = []
         self.hardware: dict[str, str] = {}  # 名稱 → `colab sessions` 列出的硬體,沒寫的是 T4
         self.log: list[tuple[str, Any]] = []
+        self.start_result: dict[str, Any] = T4_STARTED  # `start_ollama` 回的結果;測試要別的機器時換掉
+        self.restart_result: dict[str, Any] = T4_RESTARTED  # `restart_ollama` 回的結果;測試要別的結果時換掉
         colab, tunnel, remote = fakes.colab, fakes.tunnel, fakes.remote_ollama
 
         colab.get_usage.side_effect(self._usage)
         colab.list_sessions.side_effect(self._list)
         colab.create_session.side_effect(self._create)
         colab.start_ollama.side_effect(self._start_ollama)
+        colab.restart_ollama.side_effect(self._restart_ollama)
         colab.stop_session.side_effect(self._stop)
         tunnel.open_tunnel.side_effect(self._open_tunnel)
         tunnel.close_tunnel.side_effect(self._close_tunnel)
@@ -92,7 +120,11 @@ class ColabWorld:
 
     def _start_ollama(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.log.append(("start_ollama", kwargs.get("name")))
-        return {"ollamaVersion": "0.40.15", "alreadyRunning": False}
+        return self.start_result
+
+    def _restart_ollama(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        self.log.append(("restart_ollama", kwargs.get("name")))
+        return self.restart_result
 
     def _stop(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         name = kwargs["name"]
@@ -141,7 +173,8 @@ async def get_session(client: httpx.AsyncClient) -> dict[str, Any]:
     return response.json()
 
 
-async def wait_for_state(client: httpx.AsyncClient, state: str, timeout: float = 3.0) -> dict[str, Any]:
+async def wait_for_state(client: httpx.AsyncClient, state: str, timeout: float = 15.0) -> dict[str, Any]:
+    # 逾時不報錯、只回傳當下狀態;CI 機器負載重時 3 秒不夠,到達即回傳所以放寬不拖慢通過的案例
     deadline = time.monotonic() + timeout
     session = await get_session(client)
     while session.get("state") != state and time.monotonic() < deadline:

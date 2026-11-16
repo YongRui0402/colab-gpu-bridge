@@ -1,0 +1,373 @@
+openapi: 3.1.0
+info:
+  title: 遠端 Ollama API(Colab 執行環境上;對話頁轉送與下載 hf.co 名稱)
+  version: 0.4.0
+  description: >-
+    S1(E7 遠端 Ollama)依 004 的 spec.md、research.md R4、R5 與 plan.md 產出;
+    以 001 的同名檔(001 的 S1)為底,只收這一輪新增或改變用途的兩個操作:對話頁轉送的 `chat`(`POST /api/chat` 串流)
+    與下載佇列帶 hf.co 名稱的 `pullModel`(`POST /api/pull`)。路徑、operationId、請求與回應的欄位照 001 原樣,
+    這一輪只補:對話頁送出的請求形狀、結束那一行的統計欄位、hf.co 名稱在 Ollama 這一側的行為,
+    以及每個代碼出現的條件(照 003 同名檔 `info.x-failure-rules` 的歸類順序)。
+    001 的其他操作(`getVersion`、`showModel`、`generate`、`embed`、`embeddingsLegacy`)仍以 001 的檔為準,
+    `listLocalModels`、`listLoadedModels` 以 003 的檔為準。
+
+    沿用自 001 的 `Q<n>` 指 001 的 plan.md;描述裡標了「001 的」「003 的」的 `FR-0xx` 指那一輪的 spec.md;
+    `x-requirements` 只列 004 spec.md 的編號。
+
+    這是第三方介面:Ollama 定好的 HTTP API 原樣,路徑、參數與回應欄位都是 Ollama 的,本系統不能改。
+    執行環境上的 Ollama 只聽 127.0.0.1:11434,本系統後端經 SSH 本機轉發呼叫它(001 的 research.md R3),
+    沒有任何公開網址;對話頁也走本系統後端轉送,瀏覽器不直連 Colab(004 spec.md 假設)。Ollama 不驗證呼叫者的身分。
+
+    版本:執行環境上安裝時取最新版(001 實測 0.40.15)。本檔新增的行為以臨時 `ollama serve` 0.32.15 實測
+    (004 research.md R4、R5:2026-11-14,桌機 CPU,另起的 port 與暫存資料夾)為準;
+    標「Ollama 說明文件」的是沒有實測、照 Ollama 說明文件寫的行為。遠端版本和本機不同的部分列在 004 research.md 待驗證。
+
+    錯誤本文:Ollama 的錯誤一律回 `{"error": "<英文說明>"}`(schema `OllamaError`),沒有錯誤碼欄位。
+    各回應的 `x-error-codes`、`x-stream-error-codes` 與操作的 `x-adapter-error-codes` 是本系統後端把對方的失敗歸成的原因代碼
+    (schema `Error` 列出這兩個操作會出現的代碼),**不是 Ollama 回應的內容**;Ollama 的英文說明不原樣交給 UI(001 的 NFR-010)。
+  x-failure-rules: >-
+    兩個操作的失敗照 003 同名檔 `info.x-failure-rules` 的順序先判傳輸層、再判狀態碼、最後判本文,第一個符合的就是結果;
+    這兩個操作是串流,所以在 003 的 5 條之外,依 001 同名檔的代碼補上狀態碼的對應與串流開始之後的判定。
+    串流開始之前(還沒收到 200 的回應標頭):
+    (1)連線逾時,或在 `x-timeout` 內沒有收到回應標頭 → `OLLAMA_TIMEOUT`;逾時同時也是傳輸層失敗,所以先看是不是逾時。
+    (2)其他沒有完整 HTTP 回應標頭的傳輸層失敗(本機轉發沒有在聽、連線被拒、SSH 通道斷了) → `OLLAMA_UNREACHABLE`。
+    (3)收到回應但狀態碼不是 200:400 → `OLLAMA_BAD_REQUEST`、404 → `OLLAMA_NOT_FOUND`(只有 `chat`)、500 → `OLLAMA_SERVER_ERROR`,
+    其他狀態碼(含 3xx,不跟著導向) → `OLLAMA_BAD_RESPONSE`;都不讀 `error` 的內容。
+    (4)200,但 `Content-Type` 的 media type 不是 `application/x-ndjson` → `OLLAMA_BAD_RESPONSE`;只比 media type(`;` 之前、去掉前後空白,
+    依 RFC 9110 不分大小寫),忽略 `charset` 等參數,例如 `application/x-ndjson; charset=utf-8` 算 NDJSON(004 plan.md Q45,D59);沒有 `Content-Type` 也歸這一條。
+    串流開始之後(已收到 200 的 NDJSON):
+    (5)兩行之間超過 `x-timeout` 的間隔沒有收到資料 → `OLLAMA_TIMEOUT`。
+    (6)讀到一半傳輸層中斷,或串流正常結束但還沒出現最後一行(`chat` 的 `done: true`、`pullModel` 的 `status: success`)
+    → `OLLAMA_STREAM_INTERRUPTED`。
+    (7)出現帶 `error` 的一行 → 依各操作 200 回應的說明歸類(`chat` → `OLLAMA_SERVER_ERROR`;`pullModel` → `OLLAMA_NOT_FOUND` 或 `OLLAMA_PULL_FAILED`)。
+    (8)某一行不是 JSON 物件,或必要欄位的型別不符(各操作 200 回應的說明列出哪些欄位必要) → `OLLAMA_BAD_RESPONSE`。
+    第 1~4 條的 400、500 與連線逾時,照本檔實作,現有的 `pull_model`、`forward` 要跟著修(004 plan.md Q7,分身決策紀錄 D21)。
+    呼叫的一方只收到上面這些原因代碼;底層 HTTP 程式庫的例外與解析 JSON 的例外都不越過本系統後端往上拋。失敗時不自動重試。
+    串流開始之後已經傳出的內容不撤回(對話頁保留已收到的部分,004 FR-008)。
+    UI API 怎麼把這些代碼回給瀏覽器、串流中途補什麼行,由 004 的 S4 `ui.openapi.yaml` 定。
+servers:
+  - url: http://127.0.0.1:{localPort}
+    description: 本系統後端所在主機上的 SSH 本機轉發,另一端是執行環境的 127.0.0.1:11434
+    variables:
+      localPort:
+        default: '11435'
+        description: 本機轉發的 port(001 的 research.md R3 實測用 11435)
+paths:
+  /api/pull:
+    post:
+      operationId: pullModel
+      summary: 下載模型到執行環境(串流進度);名稱可以是官方模型庫或 hf.co
+      description: >-
+        沿用 001:下載佇列一次一個,依序呼叫;一律 `stream: true`,回應是 `application/x-ndjson`,每行一個 `PullProgress`,
+        最後一行 `{"status":"success"}` 才算下載完成。
+
+        這一輪:`model` 也可以是 Hugging Face 的名稱 `hf.co/<作者>/<模型>[:<量化版本>]`(004 FR-018),
+        執行環境上的 Ollama 直接從 Hugging Face 下載,不經本系統所在的主機(004 spec.md 假設)。
+        送出的名稱照使用者輸入的原樣(沒寫量化版本時本系統已補成 `:latest`,004 research.md R4)。
+        Ollama 這一側的行為(004 research.md R4,臨時 Ollama 0.32.15 實測):
+
+        - 進度格式和官方模型庫相同:依序是 `pulling manifest`、帶 `digest` 與 `total` 的進度行、`verifying sha256 digest`、
+        `writing manifest`、`success`(`hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M`,105 MB,16.5 秒完成)。
+        下載完成後 `GET /api/tags` 的 `name` 就是送出的 hf.co 名稱,`size` 等於 Hugging Face manifest 的 `layers` 加 `config` 的大小總和。
+
+        - 名稱比對不分大小寫:同一個模型改大小寫再拉(`:q4_k_m`、`hf.co/Bartowski/smollm2-135M-Instruct-GGUF:Q4_K_M`)
+        都回 `success`,不重新下載,`/api/tags` 仍只有一筆、名稱維持第一次的寫法。所以本系統的重複判定要不分大小寫(004 FR-018)。
+
+        - `hf.co/<作者>/<模型>:latest` 和 `hf.co/<作者>/<模型>:Q4_K_M` 是兩個名稱(`/api/show` 一個 404、一個 200),
+        即使 Hugging Face 把 `latest` 對到同一個檔案;`huggingface.co/...` 也是另一個名稱,本系統不送。
+
+        - 拉不下來的 hf.co 名稱一樣是 HTTP 200 加一行 `error`,原文都不含 `file does not exist`:
+        量化版本不被接受是 `pull model manifest: 400: ... not a valid quantization scheme`;
+        需要同意條款與不存在的 repo 都是 `realm host "huggingface.co" does not match original host "hf.co"`,分不出原因;
+        不是 GGUF 的 repo 是 `400: Repository is not GGUF`。這些照 200 回應的說明歸成 `OLLAMA_PULL_FAILED`,不是 `OLLAMA_NOT_FOUND`;
+        因為從這些原文看不出原因,需要登入、同意條款、沒有 GGUF 或量化版本無法下載的 hf.co 名稱,
+        要在試算與加入下載時先以 Hugging Face(E12,S2 的 `huggingface.openapi.yaml`)擋下(004 FR-015),不等到拉取失敗。
+
+        這個操作只由本系統後端呼叫;Ollama 相容端點對區網程式阻擋它(001 的 FR-012)。
+      x-requirements: [FR-014, FR-018]
+      x-callers: 只有本系統後端(下載佇列,含手動加入、變更類型時的重新載入與自動下載排入的項目),工作階段「就緒」時,經 SSH 本機轉發
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_BAD_REQUEST, OLLAMA_SERVER_ERROR, OLLAMA_NOT_FOUND, OLLAMA_PULL_FAILED, OLLAMA_STREAM_INTERRUPTED]
+      x-timeout: 連線逾時 10 秒、兩行進度之間逾時 60 秒,不設總時長(001 的 plan.md Q5 已決定;hf.co 名稱相同)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PullRequest'
+      responses:
+        '200':
+          description: >-
+            NDJSON 串流,每行一個 `PullProgress`;必要欄位:每一行是 JSON 物件,有 `status` 時是字串,有 `total`、`completed` 時是非負整數,
+            有 `error` 時是字串。判讀照 001(`info.x-failure-rules` 第 5~8 條):最後一行 `status` 為 `success` → 完成;
+            出現 `error` 行且說明含 `file does not exist`(官方模型庫沒有這個模型或版本) → `OLLAMA_NOT_FOUND`;
+            其他 `error` 行(磁碟不足、registry 失敗,以及上面列的 hf.co 拉取失敗) → `OLLAMA_PULL_FAILED`;
+            兩行之間超過 60 秒 → `OLLAMA_TIMEOUT`;`success` 之前斷線或結束 → `OLLAMA_STREAM_INTERRUPTED`;
+            某一行不是 JSON 物件或欄位型別不符 → `OLLAMA_BAD_RESPONSE`。
+          x-recipients: 呼叫者(本系統後端)
+          x-stream-error-codes: [OLLAMA_NOT_FOUND, OLLAMA_PULL_FAILED, OLLAMA_TIMEOUT, OLLAMA_STREAM_INTERRUPTED, OLLAMA_BAD_RESPONSE]
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/PullProgress'
+        '400':
+          description: 請求本文不是合法 JSON,或缺少 `model`(Ollama 說明文件;同類錯誤在其他路徑已實測為 400)
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: 串流開始前 Ollama 內部失敗(Ollama 說明文件,沒有實測)
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        default:
+          description: 本檔沒列的其他狀態碼(含 3xx),不讀本文(`info.x-failure-rules` 第 3 條)
+          x-error-codes: [OLLAMA_BAD_RESPONSE]
+  /api/chat:
+    post:
+      operationId: chat
+      summary: 對話(對話頁轉送,串流)
+      description: >-
+        這一輪新增的呼叫者:對話頁(004 FR-004)。本系統後端把瀏覽器送來的 `model` 與 `messages` 組成
+        `{"model", "messages", "stream": true, "keep_alive": -1}` 送到目前工作階段的遠端 Ollama,不加其他參數(004 research.md R5;
+        spec.md 假設:不做 system prompt 與 temperature)。`keep_alive: -1` 依 004 plan.md Q9(分身決策紀錄 D23):
+        和 001 預先載入一致,避免對話請求用 Ollama 預設的 5 分鐘蓋掉預先載入的「一直保留」;
+        不帶時會不會真的覆寫(Ollama 說明文件,沒有實測)留待實作確認。不帶 `think`(004 plan.md Q10,D24)。區網程式經 Ollama 相容端點原樣轉送的 `/api/chat` 不在本檔,仍照 001 的檔。
+
+        Ollama 這一側的行為(004 research.md R5,臨時 Ollama 0.32.15 實測,三則訊息的多輪對話):
+        回應 `Content-Type: application/x-ndjson`;每行一個 `ChatResponse`,`done: false` 的行在 `message.content` 帶這一段文字;
+        最後一行 `done: true`,帶 `total_duration`、`load_duration`、`eval_count`、`eval_duration`(實測 `eval_count` 30、
+        `eval_duration` 762,323,000 奈秒,約 39.4 tokens/s)。每秒 token 數 = `eval_count ÷ (eval_duration ÷ 10⁹)`(004 FR-005);
+        耗時由瀏覽器自己計時,不用 `total_duration`(research.md R5)。
+        多輪對話靠 `messages` 帶齊前面的每一則,Ollama 不保留對話狀態(004 FR-004)。
+
+        指名的模型在執行環境上但沒載入時,Ollama 先載入再回應,載入的時間算在第一段之前(001 的 FR-016、004 使用者故事 2 驗收情境 6);
+        不在執行環境上回 404(桌機實測)。呼叫端斷開連線時 Ollama 停止產生(實測:斷開後 Ollama 的 log 記 `cancel task`,
+        經本系統轉送也一樣),所以對話頁的「停止」只要斷開連線(004 FR-006)。
+
+        會思考的模型(Ollama 說明文件,沒有實測):請求不帶 `think` 時,串流行可能先在 `message.thinking` 帶思考過程、
+        `message.content` 是空字串一段時間,之後才在 `content` 帶回覆。本系統後端不過濾、不改寫,原樣轉送給對話頁,
+        由前端把 `thinking` 與 `content` 都逐段顯示(004 plan.md Q10,D24)。
+
+        本文:對話內容只經過本系統後端轉送,本系統不把請求或回應的本文寫進資料庫與日誌(004 NFR-002)。
+        第一段的延遲:轉送不緩衝,實測經轉送的第一段 0.104 秒、直連 0.114 秒(004 research.md R5、NFR-003)。
+      x-requirements: [FR-004, FR-005, FR-006, FR-008, NFR-002, NFR-003, SC-002]
+      x-callers: 本系統後端(對話頁的轉送),工作階段「就緒」時,經 SSH 本機轉發;Ollama 相容端點的原樣轉送照 001 的檔
+      x-adapter-error-codes: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_BAD_REQUEST, OLLAMA_NOT_FOUND, OLLAMA_SERVER_ERROR, OLLAMA_STREAM_INTERRUPTED]
+      x-timeout: 連線 10 秒、收到第一段之前與兩段之間各 300 秒,不設總時長(001 的 plan.md Q22 已決定;004 spec.md 假設沿用)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: >-
+            NDJSON 串流,每行一個 `ChatResponse`;必要欄位:每一行是 JSON 物件、`done` 是布林,`done: false` 的行 `message.content` 是字串
+            (可能是空字串,這時這一行可能只在 `message.thinking` 帶思考過程,不算格式不符)。
+            判讀(`info.x-failure-rules` 第 5~8 條):出現 `done: true` 的那一行 → 這則回覆完成;
+            兩段之間超過 300 秒 → `OLLAMA_TIMEOUT`;`done: true` 之前斷線或結束 → `OLLAMA_STREAM_INTERRUPTED`;
+            出現帶 `error` 的一行(Ollama 在串流開始之後回報推論失敗,Ollama 說明文件,沒有實測) → `OLLAMA_SERVER_ERROR`(004 plan.md Q6,D20);
+            某一行不是 JSON 物件或必要欄位型別不符 → `OLLAMA_BAD_RESPONSE`。
+            `done: true` 那一行缺少 `eval_count` 或 `eval_duration`、或 `eval_duration` 是 0 時,這則回覆仍算完成,只是算不出每秒 token 數,不歸成失敗
+            (004 plan.md Q8,D22)。
+            以上任一種失敗,前面已收到的段落都保留(004 FR-008)。
+          x-recipients: 呼叫者(本系統後端,原樣轉送給送出這則訊息的那個對話頁;不給其他瀏覽器分頁或區網程式)
+          x-stream-error-codes: [OLLAMA_TIMEOUT, OLLAMA_STREAM_INTERRUPTED, OLLAMA_SERVER_ERROR, OLLAMA_BAD_RESPONSE]
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: 本文不是合法 JSON,或 `messages` 的形狀不對(Ollama 說明文件;同類錯誤在其他路徑已實測為 400)
+          x-error-codes: [OLLAMA_BAD_REQUEST]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '404':
+          description: >-
+            模型不在執行環境上(桌機實測:`{"error":"model '<名稱>' not found"}`);
+            例如對話途中工作階段換了、或模型清單過時(004 邊界情況)
+          x-error-codes: [OLLAMA_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        '500':
+          description: 載入或推論失敗,例如顯示記憶體或系統記憶體不足(Ollama 說明文件,沒有實測);已載入的其他模型不受影響
+          x-error-codes: [OLLAMA_SERVER_ERROR]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaError'
+        default:
+          description: 本檔沒列的其他狀態碼(含 3xx),不讀本文(`info.x-failure-rules` 第 3 條)
+          x-error-codes: [OLLAMA_BAD_RESPONSE]
+components:
+  schemas:
+    PullRequest:
+      type: object
+      required: [model]
+      properties:
+        model:
+          type: string
+          description: >-
+            要下載的模型名稱含版本,照使用者輸入的原樣:官方模型庫的名稱(例如 qwen2.5:7b),
+            或 Hugging Face 的 `hf.co/<作者>/<模型>:<量化版本>`(例如 hf.co/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M;
+            沒寫量化版本時本系統送 `:latest`)。Ollama 比對名稱不分大小寫(004 research.md R4 實測)。
+        insecure:
+          type: boolean
+          description: 允許不安全的 registry 連線;本系統不使用
+        stream:
+          type: boolean
+          default: true
+          description: 本系統一律用串流,才拿得到進度
+    PullProgress:
+      type: object
+      description: >-
+        NDJSON 的一行。`status` 依序大致是 `pulling manifest`、`pulling <digest 前 12 碼>`(帶 digest、total、completed)、
+        `verifying sha256 digest`、`writing manifest`、`success`;失敗時這一行只有 `error`(Ollama 說明文件)。
+        hf.co 名稱的進度格式相同(004 research.md R4 實測)。
+      properties:
+        status:
+          type: string
+        digest:
+          type: string
+          description: 正在下載的層,例如 `sha256:...`
+        total:
+          type: integer
+          minimum: 0
+          description: 這一層的總大小,位元組
+        completed:
+          type: integer
+          minimum: 0
+          description: 這一層已下載的位元組;沒開始時可能沒有這個欄位
+        error:
+          type: string
+          description: 失敗原因(英文);出現時表示下載失敗
+    ChatMessage:
+      type: object
+      required: [role, content]
+      additionalProperties: true
+      properties:
+        role:
+          type: string
+          description: >-
+            Ollama 接受 system、user、assistant 與 tool;對話頁送出的只有 user 與 assistant(004 research.md R5),
+            Ollama 回應的一律是 assistant
+        content:
+          type: string
+          description: 這一則(或串流的這一段)的文字
+        thinking:
+          type: string
+          description: >-
+            會思考的模型把思考過程放在這裡,和 `content` 分開(Ollama 說明文件,沒有實測);
+            對話頁的請求不帶 `think`,這個欄位會不會出現依 Ollama 版本與模型而定。出現時本系統原樣轉送,
+            前端和 `content` 一樣逐段顯示(004 plan.md Q10,D24)
+    ChatRequest:
+      type: object
+      required: [model, messages, stream, keep_alive]
+      description: >-
+        對話頁轉送時本系統後端送出的形狀(004 research.md R5,keep_alive 依 004 plan.md Q9):只有這四個欄位,
+        不帶 `options`、`format`、`tools`、`think`。
+        Ollama 本身接受更多欄位;區網程式經 Ollama 相容端點送的原樣轉送,不受這裡限制(001 的檔)。
+      properties:
+        model:
+          type: string
+          description: 對話頁選的模型,照執行環境 `GET /api/tags` 列出的 `name` 原樣(可以是 hf.co 名稱)
+        messages:
+          type: array
+          minItems: 1
+          description: 這段對話依序的每一則,最後一則是使用者這次送出的訊息
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        stream:
+          type: boolean
+          const: true
+          description: 一律串流,回覆才能逐段顯示(004 FR-004、NFR-003)
+        keep_alive:
+          type: integer
+          const: -1
+          description: >-
+            一律 -1:模型留在記憶體直到工作階段結束或被其他模型擠掉,和 001 預先載入的 `keep_alive: -1`(001 的 plan.md Q4)一致
+            (004 plan.md Q9,分身決策紀錄 D23)。Ollama 也接受時間字串或其他秒數,見 001 的 `KeepAlive`
+    ChatResponse:
+      type: object
+      required: [model, created_at, done]
+      additionalProperties: true
+      description: >-
+        NDJSON 的一行。`done: false` 的行在 `message.content` 帶這一段文字;最後一行 `done: true`,`message.content` 通常是空字串,
+        並帶結束時的統計(004 research.md R5 實測的欄位標在各欄位)。
+      properties:
+        model:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+        done:
+          type: boolean
+        done_reason:
+          type: string
+          description: >-
+            結束的原因,例如 stop(自然結束)、length(達到長度上限);只出現在 `done: true` 的那一行(Ollama 說明文件)
+        total_duration:
+          type: integer
+          minimum: 0
+          description: 這次請求在 Ollama 裡的總時間,奈秒(實測有);不含轉送與網路,對話頁不拿它當耗時
+        load_duration:
+          type: integer
+          minimum: 0
+          description: 載入模型花的時間,奈秒(實測有);模型已載入時接近 0
+        prompt_eval_count:
+          type: integer
+          minimum: 0
+          description: 讀入的 token 數(Ollama 說明文件)
+        prompt_eval_duration:
+          type: integer
+          minimum: 0
+          description: 讀入花的時間,奈秒(Ollama 說明文件)
+        eval_count:
+          type: integer
+          minimum: 0
+          description: 這則回覆產生的 token 數(實測有),每秒 token 數的分子(004 FR-005)
+        eval_duration:
+          type: integer
+          minimum: 0
+          description: 產生回覆花的時間,奈秒(實測有),每秒 token 數的分母(004 FR-005)
+        error:
+          type: string
+          description: 串流開始之後 Ollama 回報的失敗原因(英文);出現時這則回覆失敗(Ollama 說明文件,沒有實測)
+    OllamaError:
+      type: object
+      required: [error]
+      description: Ollama 回傳的錯誤本文(桌機實測),只有一個英文說明,沒有錯誤碼
+      properties:
+        error:
+          type: string
+    Error:
+      type: object
+      required: [code]
+      description: >-
+        本系統後端把遠端 Ollama 的失敗歸成的原因代碼,**不是 Ollama 回應的內容**;
+        後端 UI API(004 的 S4)據此決定要回什麼給瀏覽器。這裡只列這兩個操作會出現的代碼,代碼與意思照 001 的檔,
+        出現的條件照本檔 `info.x-failure-rules`。
+      properties:
+        code:
+          type: string
+          enum: [OLLAMA_UNREACHABLE, OLLAMA_TIMEOUT, OLLAMA_BAD_RESPONSE, OLLAMA_NOT_FOUND, OLLAMA_BAD_REQUEST, OLLAMA_SERVER_ERROR, OLLAMA_PULL_FAILED, OLLAMA_STREAM_INTERRUPTED]
+          x-enum-descriptions:
+            OLLAMA_UNREACHABLE: 連不到(本機轉發沒有在聽、連線被拒、SSH 通道斷了),還沒收到 HTTP 回應標頭(`info.x-failure-rules` 第 2 條)
+            OLLAMA_TIMEOUT: 連線逾時、在逾時內沒有收到回應標頭,或串流兩行之間超過逾時(`info.x-failure-rules` 第 1、5 條)
+            OLLAMA_BAD_RESPONSE: 本檔沒列的狀態碼、200 但不是 NDJSON,或某一行不是 JSON 物件、必要欄位型別不符(`info.x-failure-rules` 第 3、4、8 條)
+            OLLAMA_NOT_FOUND: 對話指名的模型不在執行環境上(404),或 pull 的 error 行含 `file does not exist`(官方模型庫沒有這個模型或版本)
+            OLLAMA_BAD_REQUEST: Ollama 回 400:本文不是合法 JSON 或缺少必要欄位
+            OLLAMA_SERVER_ERROR: Ollama 回 500,或對話串流開始之後出現 error 行(004 plan.md Q6):載入或推論失敗,例如記憶體不足
+            OLLAMA_PULL_FAILED: pull 的串流裡出現 `file does not exist` 以外的 error 行(磁碟不足、registry 失敗,以及 hf.co 名稱拉不下來)
+            OLLAMA_STREAM_INTERRUPTED: 串流已經開始,在最後一行(pull 的 success、對話的 done 為 true)之前連線中斷或結束

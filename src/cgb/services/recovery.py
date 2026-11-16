@@ -9,19 +9,29 @@ from typing import Any
 from cgb.adapters.errors import AdapterError
 from cgb.domain.session_state import TERMINAL_STATES, iso, listed_names, reclaimed_fields, release_warning_fields
 from cgb.repos.sessions import SessionsRepo
+from cgb.services.downloads import DownloadsService
 from cgb.services.session_lifecycle import SessionLifecycle
 
 
 class Recovery:
-    def __init__(self, state: Any, repo: SessionsRepo, key_path: str, lifecycle: SessionLifecycle) -> None:
+    def __init__(
+        self, state: Any, repo: SessionsRepo, key_path: str, lifecycle: SessionLifecycle, downloads: DownloadsService
+    ) -> None:
         self._state = state
         self._repo = repo
         self._key_path = key_path
+        self._downloads = downloads
         # Q170:接回時經工作階段用例建立通道,轉發位址才會寫回
         self._lifecycle = lifecycle
         self._task: asyncio.Task[None] | None = None
 
     def start(self) -> None:
+        # 升級前留下、沒有所屬工作階段的項目不論有沒有工作階段可接回都移除(FR-003)
+        self._downloads.clear_unowned()
+        # 先判定有沒有上一個行程留下的工作階段:有才把中斷的下載改回排隊中(FR-021),沒有的話佇列不會有要接續的項目;
+        # 接著的 `_run` 若發現已被收回,清除會連這些項目一起移除(FR-003)。放在同步的這裡,UI 一連上就看到排隊中
+        if self._repo.latest_unfinished() is not None:
+            self._downloads.requeue_interrupted()
         self._task = asyncio.create_task(self._run())
 
     async def stop(self) -> None:
@@ -70,8 +80,14 @@ class Recovery:
         name = unfinished["name"]
         if name not in listed_names(listed):
             # 資料庫說還在、Colab 帳號下已經沒有:被收回(不照資料庫標成就緒)
+            if unfinished["state"] == "applying_tuning":
+                self._lifecycle.tuning.mark_interrupted(name)
             self._repo.update(name, **reclaimed_fields(iso(self._state.clock.now())))
             return None
         await self._state.tunnel.cleanup_residual(key_path=self._key_path)
         await self._lifecycle.open_tunnel(name)
+        if unfinished["state"] == "applying_tuning":
+            # 套用到一半停機:讀回(或以這次要求的設定啟動)遠端 Ollama,這一次套用記為中斷(`info.x-applying-state` (4))
+            if not await self._lifecycle.tuning.recover(name):
+                return None
         return name

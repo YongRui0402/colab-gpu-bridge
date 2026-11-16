@@ -1,0 +1,859 @@
+openapi: 3.1.0
+info:
+  title: 後端 UI API(依機器配置調整遠端 Ollama 的設定:開啟時覆蓋、工作階段狀態的 Ollama 設定、類型覆蓋值、套用並重啟)
+  version: 0.5.0
+  description: >-
+    S3(E2 後端 UI API)依 005 的 spec.md、research.md(R1、R7、R8、R10)、plan.md(含待決問題 Q1–Q6 的決定)
+    與 S1 的 `colab-cli.openapi.yaml` 產出;狀態推送事件另見同目錄的 `ui-events.asyncapi.yaml`。
+    以 004 的同名檔為底(更早的操作在 001~003 的同名檔),只收這一輪新增或改變的操作與它們用到的 components:
+
+    新增:類型覆蓋值的讀取 `getTuningOverrides`(`GET /api/tuning/overrides`)、套用並重啟 `applyTuning`(`POST /api/session/tuning`)。
+
+    改變:開啟工作階段 `openSession` 與變更執行階段類型 `restartSession`(本文多了 `tuning` 覆蓋值,開啟時寫入類型覆蓋值);
+    查目前的工作階段 `getSession`(`Session` 多了 `ollama`、`state` 多了 `applying_tuning`、`step` 多了 `restarting_ollama`、`reloading_models`、
+    `endReason` 多了 `OLLAMA_RESTART_FAILED`);查一筆工作階段紀錄 `getSessionRecord`(多了每一次的 Ollama 設定 `tunings`)。
+
+    請求與回應不變、只有前提或副作用改變的操作不另外收,改變寫在 `info.x-applying-state`:`endSession`(套用中也可以結束)、
+    `listSessionHistory`(`SessionRecord.state` 可能是 `applying_tuning`)、Ollama 相容端點與 `chat`、`enqueueDownloads`、`estimateDownloads`
+    (套用中照「沒有就緒的工作階段」回 503 `NO_READY_SESSION`)。其他操作(`getAuthStatus`、`listCatalog`、`preloadModel`、下載佇列、精選清單、
+    Hugging Face、自動下載、用量與設定)以 001~004 的 `ui.openapi.yaml` 為準;錯誤代碼與狀態碼沿用 001~004 的命名與對應,
+    這一輪只新增 `info.x-new-error-codes` 列的幾個。
+
+    編號的出處:`x-requirements` 與沒有標前綴的 `FR-0xx`、`NFR-0xx`、`SC-0xx`、使用者故事、驗收情境都是 005 spec.md 的編號;
+    標了「001 的」「004 的」的指那一輪的 spec.md;`Q<n>` 指 005 plan.md 的待決問題;`D<n>` 指 005 的 `分身決策紀錄.md`;
+    `S1` 是 005 的 `colab-cli.openapi.yaml`(`startOllama`、`restartOllama`),`001 S8` 是 001 的 `colab-cli.openapi.yaml`,
+    `001 S1` 是 001 的 `remote-ollama.openapi.yaml`。
+
+    呼叫者:本系統前端 UI(瀏覽器),家中區網(含 VPN 連回)的任何裝置都能呼叫,不需要登入(001 的 NFR-009);
+    UI 的靜態檔與本 API 同一個來源,所以 `servers` 只寫相對路徑 `/api`。
+
+    錯誤本文一律是 `Error`(`{code, message}`,`message` 是給使用者看的繁體中文)。外部依賴的失敗原因沿用轉接層代碼
+    (S1 的 `COLAB_`,含這一輪新增的 `COLAB_INVALID_TUNING`;001 S1 的 `OLLAMA_`),非同步發生的失敗(重啟失敗、改回自動值)不以 HTTP 錯誤回報,
+    寫在資源的 `reasonCode`、`remoteStage` 欄位並以 `session.updated` 推送(照 001)。
+
+    機密(NFR-003,沿用 001 的 NFR-010):任何回應都不含 token、執行環境的遠端位址與轉發位址;量到的 GPU 名稱、記憶體與設定值不是機密。
+    設定的讀取、顯示與套用都經 Colab CLI 與通道送到執行環境上的遠端 Ollama,不對桌機 127.0.0.1:11434 送任何請求。
+
+    長時間操作(套用並重啟)照 001:受理後立即回 202,進度與結果看 `Session` 與 SSE 事件。
+  x-new-error-codes: >-
+    這一輪本介面新增的代碼:`INVALID_NUM_PARALLEL`、`INVALID_CONTEXT_LENGTH`、`INVALID_MAX_LOADED_MODELS`(400,FR-017 的三個範圍,每一項一個代碼,
+    照 001 `INVALID_IDLE_TIMEOUT` 的寫法)、`TUNING_IN_PROGRESS`(409,已經在套用)、`REQUESTS_IN_PROGRESS`(409,UI 對話或相容端點有還沒回完的請求)。
+    沿用的代碼與狀態碼:`INVALID_REQUEST_BODY`、`INVALID_RUNTIME_TYPE`(400)、`SESSION_ALREADY_ACTIVE`、`SESSION_ENDING`、`AUTH_REQUIRED`、
+    `NO_ACTIVE_SESSION`(409)、`NO_READY_SESSION`(503)、`DOWNLOAD_IN_PROGRESS`(409,001 `removeDownload`「這一筆正在下載」,這一輪也用在
+    「有模型正在下載,不能套用」,同一個原因)、`SESSION_NOT_FOUND`(404)。
+  x-tuning-rule: >-
+    三個覆蓋值(`TuningOverrides`,名稱、範圍與 null 的意思照 S1 原文):
+    (1)null 代表自動(依顯示記憶體級距,讀不到顯示記憶體時用 Ollama 預設值),整數代表手動;
+    範圍照 FR-017:`numParallel` 1~32、`contextLength` 2048~131072、`maxLoadedModels` 1~4,必須是 JSON 的整數
+    (`4.5`、字串 `"4"`、布林值都不接受;`4.0` 這種沒有小數部分的數字照整數 4 接受)。
+    不符時依 `numParallel`、`contextLength`、`maxLoadedModels` 的順序回第一個不符的那一項的代碼,`message` 寫出那一項的範圍,
+    例如「平行數要是 1~32 的整數」;不開啟、不套用、不寫入類型覆蓋值(FR-017、使用者故事 2 驗收情境 4)。本系統不估算這組值放不放得進顯示記憶體(D2)。
+    (2)實際套用的值、每一項的來源(`auto`、`manual`、`ollama_default`)與 flash attention、KV cache 由遠端腳本決定並回報(S1 共用約定 12),
+    本介面照 S1 的 `AppliedTuning` 原樣交給 UI,不自己重算;和自動值相同的手動值仍是 `manual`(spec 邊界情況)。
+    (3)類型覆蓋值(`RuntimeTypeTuningOverride`)每種 GPU 類型一筆,跨工作階段與後端重新啟動保留(FR-018)。寫入的時機只有兩個:
+    `openSession`、`restartSession` 帶了 `tuning` 而受理時(以這次的三個值整份取代那種類型記住的值,FR-008、FR-009);
+    `applyTuning` 以要求的設定重啟成功時(FR-014;改回自動值、失敗、中斷都不寫入)。
+    三個值都是 null 時就是清除(`updatedAt` 變成 null,FR-009「全部改回自動」);清除不另設操作,UI 的「全部改回自動」只清空欄位,用清空的欄位開啟或套用時才清除。
+  x-applying-state: >-
+    套用並重啟期間的工作階段(FR-012、FR-015,research.md R10):
+    (1)`state` 是 `applying_tuning`(UI 顯示「套用設定中」),`step` 依序是 `restarting_ollama`(停掉並以新設定啟動遠端 Ollama,含改回自動值的那一次)
+    與 `reloading_models`(依重啟前 `/api/ps` 的順序重新載入模型)。這個狀態和開啟中、就緒、重連中一樣占用唯一的工作階段(001 的 FR-006),
+    再開啟回 409 `SESSION_ALREADY_ACTIVE`。
+    (2)不算就緒:Ollama 相容端點與 `chat` 回 503 `NO_READY_SESSION`、不排隊等待(使用者故事 3 驗收情境 8,與 001 開啟中相同);
+    `estimateDownloads`、`enqueueDownloads` 照 004 `info.x-download-check-order` (2) 回 503 `NO_READY_SESSION`;
+    下載佇列暫停但不清空(`applying_tuning` 不是 004 `info.x-queue-clearing` (1) 列的結束類狀態),回到就緒後排隊中的項目照常開始;
+    健康檢查與閒置倒數都只在就緒時進行(001),所以這段時間不判定斷線、不計閒置(`Session.idle` 為 null),回到就緒時重設倒數(`lastRequestAt` 為回到就緒的時間)。
+    (3)`endSession` 在這個狀態也受理(結束的前提多了 `applying_tuning`):停止套用流程、等進行中的 `colab exec` 結束(S1 子行程的硬時限內)後照 001 結束,
+    這一次套用在紀錄裡記為 `interrupted`;`restartSession` 回 409 `TUNING_IN_PROGRESS`,`applyTuning` 也回 409 `TUNING_IN_PROGRESS`。
+    (4)後端在這個狀態停機(spec 邊界情況):恢復時照 001 的恢復流程判斷工作階段(被收回就是 `lost`);接回同一個工作階段時,
+    以這一次要求的覆蓋值(已在改回自動值那一次時是三個 null)呼叫一次 S1 `startOllama`:遠端 Ollama 已在回應時回報執行環境上的設定檔(Q2,D13),
+    沒有在執行時以那組設定啟動,結果寫進 `Session.ollama`(讀不到設定時 `status` 為 `unknown`),不重新載入模型,接著回到就緒;
+    這一次套用記為 `interrupted`,不寫入類型覆蓋值。`startOllama` 失敗時照 `info.x-apply-flow` (5) 結束工作階段,這一次套用仍記為 `interrupted`(不是 `failed`,plan Q33,與 store.dbml 一致)。
+  x-apply-flow: >-
+    `applyTuning` 受理之後的流程(FR-012–FR-016、NFR-002,research.md R1、R8,Q1、Q4):
+    (1)`state` 改為 `applying_tuning`、`step` 為 `restarting_ollama`,在紀錄追加一筆 `trigger` 為 `apply`、`result` 為 `in_progress` 的 `TuningRecord`
+    (`attempt` 為 `requested`),推送 `session.updated`;讀一次遠端 Ollama 的 `/api/ps`(001 S1 `listLoadedModels`),記下已載入的模型與順序;
+    讀不到時當作沒有已載入的模型,照常往下。
+    (2)以這次要求的覆蓋值呼叫 S1 `restartOllama`(`Connection was lost` 由轉接層重跑一次,S1 `x-retry`)。成功 → (4)。
+    (3)失敗的代碼是 `COLAB_REMOTE_ERROR`(`remoteStage` 是 `stop`、`start`、`verify`,或遠端丟出例外而為 null)或 `COLAB_INVALID_TUNING` 時,
+    改用自動值(三個覆蓋值都是 null)再呼叫一次 S1 `restartOllama`(FR-013、Q4、D15),`attempt` 改為 `auto_fallback`、`reasonCode` 與 `remoteStage` 記下第一次的失敗,
+    推送 `session.updated`;成功 → (4),這一筆的 `result` 會是 `fell_back_to_auto`;再失敗 → (5)。
+    其他代碼(`COLAB_UNREACHABLE`、`COLAB_TIMEOUT`、`COLAB_NOT_FOUND`、`AUTH_REQUIRED`、`COLAB_FAILED`、`COLAB_BAD_RESPONSE`、`COLAB_NOT_INSTALLED`)
+    不是設定造成的,不改回自動值,直接 → (5)(spec 邊界情況「重啟時 `colab exec` 斷線:照 001 共用約定 6 重跑一次;仍失敗就照 FR-013 結束工作階段」)。
+    (4)重啟成功:`Session.ollama.tuning`、`machine` 換成這次 S1 回報的值,推送 `models.updated`(已載入的模型清空);`step` 改為 `reloading_models`,推送 `session.updated`;
+    依 (1) 記下的順序,對前 N 個逐一呼叫 001 的預先載入(`keep_alive: -1`,一次一個,等它載入完再下一個,research.md R8),
+    N 是新的 `maxLoadedModels.value`(為 null、用 Ollama 預設值時不設上限,全部重新載入);超出 N 的列進 `notReloaded`(`reason` 為 `OVER_LIMIT`),
+    預先載入失敗的也列進去(`reason` 為 `PRELOAD_FAILED`、`reasonCode` 帶 001 S1 的 `OLLAMA_` 代碼),不讓套用失敗。
+    全部處理完才回到就緒:`state` 為 `ready`、`step` 為 null,`result` 為 `applied`(或 `fell_back_to_auto`)、`finishedAt` 寫入;
+    `applied` 時把這次要求的覆蓋值寫成這種類型記住的值(FR-014;`fell_back_to_auto` 不寫入),推送 `session.updated`。
+    (5)無法回到就緒(改回自動值也失敗,或 (3) 列的其他代碼;FR-013「結束工作階段(結束原因「重啟 Ollama 失敗」)」,Q4、Q11):`result` 為 `failed`、`reasonCode` 與 `remoteStage` 記下最後一次的失敗;
+    `COLAB_NOT_FOUND` 時照 001 標成 `lost`、`endReason` 為 `RECLAIMED_BY_COLAB`;其他情況標成 `lost`、`endReason` 為 `OLLAMA_RESTART_FAILED`、
+    `reasonCode` 帶最後一次的代碼、`message` 說明遠端 Ollama 重啟失敗、可以重新開啟一個工作階段;接著照 001 失聯的後續釋放執行環境(001 S8 `stopSession`),
+    釋放不了就寫 `releaseWarning`(001 的 FR-007);`AUTH_REQUIRED` 時另把登入狀態標成未登入(推送 `auth.updated`,照 001)。
+    下載佇列照 004 `info.x-queue-clearing` (1) 清空。
+    (6)時間(NFR-002、SC-004,Q1、Q6):從受理到 (4) 的 `step` 變成 `reloading_models`(不含重新載入模型)要在 90 秒內;走 (3) 改回自動值時 180 秒內。
+    單次 S1 `restartOllama` 的子行程硬時限 180 秒,這兩個門檻靠 S1 的遠端時限(停止 10 秒、等埠 10 秒、驗證 60 秒)成立,本介面不另設計時器;
+    Colab 上的實際時間照 research.md R1 的待驗證實測。
+servers:
+  - url: /api
+    description: 與 UI 靜態檔同一個來源;port 沿用 001(8780)
+paths:
+  /session:
+    get:
+      operationId: getSession
+      summary: 查目前的工作階段(含這台機器量到的硬體與目前生效的 Ollama 設定)
+      description: >-
+        照 001:回傳目前(或最近一次)的工作階段;這一輪 `Session` 多了 `ollama`(FR-004):量到的顯示記憶體、系統記憶體、GPU 名稱,
+        實際套用的三項設定與各自的來源(`auto`、`manual`、`ollama_default`)、flash attention 與 KV cache(只顯示),
+        以及最近一次套用的進度與結果(重啟步驟、改回自動值、沒有重新載入的模型)。
+        讀不到顯示記憶體時 `machine.vramTotalBytes` 為 null,沒有覆蓋值的項目來源是 `ollama_default`(FR-003,UI 顯示「讀不到顯示記憶體,使用 Ollama 預設值」);
+        遠端 Ollama 已在執行而讀不到它的設定時 `ollama.status` 為 `unknown`、`tuning` 為 null(Q2,D13;例如 005 之前開的工作階段)。
+        後端重新啟動後接回同一個工作階段時,`ollama` 照紀錄裡最新一筆成功的設定,不重新量測、不重啟遠端 Ollama(使用者故事 1 驗收情境 5;
+        套用到一半停機的例外見 `info.x-applying-state` (4))。
+        變化另以 `session.updated` 推送(`ui-events.asyncapi.yaml`)。
+      x-requirements: [FR-003, FR-004, FR-012, FR-013, FR-015, NFR-003]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      responses:
+        '200':
+          description: 工作階段的現況;`state` 為 `none` 時只有 `state`
+          x-recipients: 呼叫者(UI);同一份狀態也以 `session.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+    post:
+      operationId: openSession
+      summary: 開啟工作階段(可以帶 Ollama 設定的覆蓋值)
+      description: >-
+        照 001 開啟(受理後立即回 202、`state` 為 `opening`,之後以 `session.updated` 推送每一步),這一輪本文多了 `tuning`(FR-006、FR-007):
+        三個覆蓋值,null 代表自動;受理後在 `starting_ollama` 那一步原樣交給 S1 `startOllama`,由遠端依量到的顯示記憶體與覆蓋值決定設定
+        (`info.x-tuning-rule` (2))。`startOllama` 成功後 `Session.ollama` 寫入量到的硬體與套用的設定,
+        並在紀錄追加一筆 `trigger` 為 `open` 的 `TuningRecord`(FR-005)。
+        帶了 `tuning` 時,受理的同時以這三個值取代這種 GPU 類型記住的覆蓋值,三個都是 null 就是清除(FR-008、FR-009、FR-018;
+        開啟之後失敗也不還原,下次開同一種類型時預先填入的仍是這次送的值)。
+        沒有帶 `tuning` 時用這種類型記住的覆蓋值(沒有記過就是三個 null),類型覆蓋值不變。
+        檢查依序:(1)本文(400,含 `info.x-tuning-rule` (1) 的範圍,不符時不開啟、不寫入類型覆蓋值);(2)照 001 的 409。
+        讀不到顯示記憶體不會讓開啟失敗(FR-003);讀硬體多花的時間在 NFR-001 的 5 秒內(S1)。
+      x-requirements: [FR-001, FR-002, FR-003, FR-005, FR-006, FR-007, FR-008, FR-009, FR-017, FR-018, NFR-001, SC-003, SC-005]
+      x-callers: UI;目前沒有開啟中、就緒、套用設定中、重連中或結束中的工作階段,且 Colab 帳號不是「未登入」(照 001)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenSessionInput'
+      responses:
+        '202':
+          description: 已受理,開始開啟;回傳 `state` 為 `opening` 的工作階段(`ollama.status` 為 `pending`)
+          x-recipients: 呼叫者(UI);同一份狀態也以 `session.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: >-
+            本文不是合法 JSON、`tuning` 不是物件或缺少三個欄位之一;`runtimeType` 的 GPU 不在可選清單,或 `highMem` 不是布林值(照 001);
+            平行數不是 1~32 的整數;context 長度不是 2048~131072 的整數;同時載入模型數不是 1~4 的整數(FR-017,`info.x-tuning-rule` (1))
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_RUNTIME_TYPE, INVALID_NUM_PARALLEL, INVALID_CONTEXT_LENGTH, INVALID_MAX_LOADED_MODELS]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >-
+            照 001:已有開啟中、就緒、套用設定中或重連中的工作階段;目前的工作階段正在結束;沒有有效的 Colab 帳號授權
+          x-error-codes: [SESSION_ALREADY_ACTIVE, SESSION_ENDING, AUTH_REQUIRED]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /session/restart:
+    post:
+      operationId: restartSession
+      summary: 變更執行階段類型並重開(可以帶新類型的 Ollama 設定覆蓋值)
+      description: >-
+        照 001、004(結束目前的執行環境、以新類型開一個新的工作階段、清空佇列後排入重新載入的模型),這一輪本文多了 `tuning`,
+        意思與 `openSession` 相同(開啟與變更類型共用同一個選擇畫面,research.md R11):新的執行環境重新量測,
+        套用這次送的覆蓋值,沒有帶 `tuning` 時套用新類型記住的覆蓋值或自動值,不沿用舊類型的設定(spec 邊界情況「變更執行階段類型」)。
+        帶了 `tuning` 時受理的同時寫入新類型的覆蓋值(`info.x-tuning-rule` (3))。
+        目前的工作階段正在套用設定時回 409 `TUNING_IN_PROGRESS`(`info.x-applying-state` (3))。
+      x-requirements: [FR-001, FR-002, FR-003, FR-005, FR-007, FR-008, FR-009, FR-017, FR-018]
+      x-callers: UI;目前有開啟中、就緒或重連中的工作階段(照 001;套用設定中不行)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenSessionInput'
+      responses:
+        '202':
+          description: 已受理;回傳新的工作階段,`state` 為 `opening`、`step` 為 `ending_previous`
+          x-recipients: 呼叫者(UI);同一份狀態也以 `session.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: 同 `openSession` 的 400
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_RUNTIME_TYPE, INVALID_NUM_PARALLEL, INVALID_CONTEXT_LENGTH, INVALID_MAX_LOADED_MODELS]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >-
+            照 001:沒有開啟中、就緒或重連中的工作階段;目前的工作階段正在結束;沒有有效的 Colab 帳號授權。
+            這一輪:目前的工作階段正在套用設定,等它回到就緒再變更類型
+          x-error-codes: [NO_ACTIVE_SESSION, SESSION_ENDING, AUTH_REQUIRED, TUNING_IN_PROGRESS]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /session/tuning:
+    post:
+      operationId: applyTuning
+      summary: 套用新的 Ollama 設定並重啟遠端 Ollama
+      description: >-
+        FR-010–FR-016:工作階段頁「套用並重啟 Ollama」,使用者在 UI 的確認視窗按確認之後才呼叫(確認的說明在 UI,FR-010、使用者故事 3 驗收情境 2)。
+        本文是這次要套用的三個覆蓋值(null 代表自動)。受理後立即回 202,`state` 為 `applying_tuning`、`step` 為 `restarting_ollama`;
+        之後的流程(重啟、失敗改回自動值、依序重新載入、寫入類型覆蓋值與紀錄)見 `info.x-apply-flow`,進度以 `session.updated` 推送。
+
+        檢查依序,第一個不符的就回,遠端 Ollama 不重啟、下載與請求都不中斷(FR-011、SC-006):
+        (1)本文(400,`info.x-tuning-rule` (1));
+        (2)目前的工作階段已經在套用設定(`applying_tuning`,例如另一個分頁先按了套用) → 409 `TUNING_IN_PROGRESS`(spec 邊界情況「兩個分頁同時按套用」);
+        (3)目前的工作階段不是就緒(未開啟、開啟中、重連中、結束中、已結束、開啟失敗、失聯) → 503 `NO_READY_SESSION`(spec 邊界情況「工作階段不是就緒時按套用」);
+        (4)Colab 帳號已知是未登入 → 409 `AUTH_REQUIRED`(照 001 `openSession`,避免重啟一半因授權失效而失聯);
+        (5)下載佇列有正在下載的項目 → 409 `DOWNLOAD_IN_PROGRESS`,`Error.model` 是那一個模型(使用者故事 3 驗收情境 3;排隊中的項目不擋,套用期間暫停,回到就緒後照常開始);
+        (6)UI 對話或 Ollama 相容端點有還沒回完的請求(閒置計時的進行中請求數大於 0,research.md R10、D3) → 409 `REQUESTS_IN_PROGRESS`
+        (使用者故事 3 驗收情境 4)。
+        (2)到 (6) 通過後同一步就把狀態改成 `applying_tuning`,所以同時送來的第二個 `applyTuning` 在 (2) 回 409,
+        之後才到的相容端點與對話請求回 503 `NO_READY_SESSION`。和目前生效的設定相同也照常重啟。
+      x-requirements: [FR-010, FR-011, FR-012, FR-013, FR-014, FR-015, FR-016, FR-017, FR-018, NFR-002, NFR-003, SC-004, SC-006]
+      x-callers: UI 的工作階段頁;工作階段就緒,沒有正在下載的模型,也沒有還沒回完的對話或相容端點請求
+      x-timeout: >-
+        受理本身不等遠端;從受理到 `step` 變成 `reloading_models` 90 秒內,改回自動值時 180 秒內(NFR-002、SC-004,`info.x-apply-flow` (6))。
+        重新載入模型的時間不計,每個模型照 001 S1 預先載入的 300 秒
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TuningOverrides'
+      responses:
+        '202':
+          description: 已受理,開始重啟;回傳 `state` 為 `applying_tuning`、`step` 為 `restarting_ollama` 的工作階段,`ollama.lastApply` 是這一次(`result` 為 `in_progress`)
+          x-recipients: 呼叫者(UI);同一份狀態也以 `session.updated` 推給所有連著的 UI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: >-
+            本文不是合法 JSON、不是物件或缺少三個欄位之一;平行數不是 1~32 的整數;context 長度不是 2048~131072 的整數;
+            同時載入模型數不是 1~4 的整數(FR-017)。不套用、不寫入類型覆蓋值
+          x-error-codes: [INVALID_REQUEST_BODY, INVALID_NUM_PARALLEL, INVALID_CONTEXT_LENGTH, INVALID_MAX_LOADED_MODELS]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >-
+            已經在套用設定(`TUNING_IN_PROGRESS`,`message` 說明「正在套用設定,請等它完成」);Colab 帳號未登入(`AUTH_REQUIRED`);
+            有模型正在下載(`DOWNLOAD_IN_PROGRESS`,`message` 為「有模型正在下載,下載完才能套用」);
+            UI 對話或相容端點有請求還沒回完(`REQUESTS_IN_PROGRESS`,`message` 說明有請求還在進行、要等它們結束)。
+            這幾種都不重啟遠端 Ollama、不中斷下載與請求
+          x-error-codes: [TUNING_IN_PROGRESS, AUTH_REQUIRED, DOWNLOAD_IN_PROGRESS, REQUESTS_IN_PROGRESS]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 沒有就緒的工作階段(未開啟、開啟中、重連中、結束中或已結束;照 001 的 `NO_READY_SESSION`),`message` 說明要等工作階段就緒
+          x-error-codes: [NO_READY_SESSION]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /tuning/overrides:
+    get:
+      operationId: getTuningOverrides
+      summary: 讀每一種 GPU 類型記住的 Ollama 設定覆蓋值
+      description: >-
+        FR-008、FR-018:開啟畫面(與變更類型的畫面)選一種 GPU 類型時,UI 把那一種記住的值預先填進三個欄位,null 的欄位留空(「留空 = 自動」)。
+        一次回五種類型(`GpuType` 的順序),沒有記過的類型三個值都是 null、`updatedAt` 為 null;UI 打開選擇畫面時讀一次即可。
+        寫入與清除的時機見 `info.x-tuning-rule` (3),不另設寫入或清除的操作。不需要工作階段。
+      x-requirements: [FR-008, FR-009, FR-014, FR-018]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入);不需要工作階段
+      responses:
+        '200':
+          description: 五種 GPU 類型各一筆記住的覆蓋值
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeTypeTuningOverrideList'
+  /sessions/{name}:
+    get:
+      operationId: getSessionRecord
+      summary: 查一筆工作階段紀錄、它的每次狀態變化與每一次的 Ollama 設定
+      description: >-
+        照 001,這一輪多了 `tunings`(FR-005、FR-016、使用者故事 1 驗收情境 4、使用者故事 3 驗收情境 10):
+        依時間排序,開啟時一筆(`trigger` 為 `open`)與每一次套用一筆(`trigger` 為 `apply`),每筆有時間、量到的硬體、要求的覆蓋值、
+        實際套用的三項設定與來源、flash attention 與 KV cache,以及結果(`applied`、`fell_back_to_auto`、`failed`、`interrupted`,進行中為 `in_progress`)。
+        開啟時那一筆在 `startOllama` 成功之後才有(開啟失敗的工作階段沒有);005 之前開的工作階段是空陣列。
+        `transitions` 多了 `applying_tuning` 與它的兩個步驟。
+      x-requirements: [FR-005, FR-016]
+      x-callers: UI(家中區網的任何瀏覽器,不需登入)
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: 工作階段的識別名稱
+          schema:
+            type: string
+            pattern: '^cgb-[a-z0-9-]{1,60}$'
+      responses:
+        '200':
+          description: 這筆紀錄、依時間排序的狀態變化與每一次的 Ollama 設定
+          x-recipients: 呼叫者(UI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionRecordDetail'
+        '404':
+          description: 沒有這個名稱的紀錄(照 001)
+          x-error-codes: [SESSION_NOT_FOUND]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    GpuType:
+      type: string
+      enum: [T4, L4, G4, A100, H100]
+      description: 照 001;類型覆蓋值依這五種分別記住(FR-018)
+    RuntimeType:
+      type: object
+      required: [gpu, highMem]
+      description: 照 001
+      properties:
+        gpu:
+          $ref: '#/components/schemas/GpuType'
+        highMem:
+          type: boolean
+    TuningOverrides:
+      type: object
+      required: [numParallel, contextLength, maxLoadedModels]
+      description: >-
+        照 S1 的 `TuningOverrides`:三個覆蓋值,null 代表自動;範圍照 FR-017,伺服器以 `info.x-tuning-rule` (1) 檢查
+      properties:
+        numParallel:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 32
+          description: 平行數(`OLLAMA_NUM_PARALLEL`)
+        contextLength:
+          type: [integer, 'null']
+          minimum: 2048
+          maximum: 131072
+          description: context 長度,token 數(`OLLAMA_CONTEXT_LENGTH`)
+        maxLoadedModels:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 4
+          description: 同時載入模型數(`OLLAMA_MAX_LOADED_MODELS`)
+    OpenSessionInput:
+      type: object
+      required: [runtimeType]
+      description: 照 001,這一輪多了 `tuning`
+      properties:
+        runtimeType:
+          $ref: '#/components/schemas/RuntimeType'
+        tuning:
+          $ref: '#/components/schemas/TuningOverrides'
+          description: >-
+            這次的覆蓋值(FR-006、FR-007);帶了就寫成這種類型記住的值,三個都是 null 就是清除(FR-009)。
+            沒有帶時用這種類型記住的值,類型覆蓋值不變
+    TuningSource:
+      type: string
+      enum: [auto, manual, ollama_default]
+      description: 照 S1:依顯示記憶體級距(flash attention 與 KV cache 是固定開啟)、覆蓋值、沒有帶這個變數而用 Ollama 自己的預設值(值為 null)
+    IntTuningItem:
+      type: object
+      required: [value, source]
+      description: 照 S1
+      properties:
+        value:
+          type: [integer, 'null']
+          minimum: 1
+          description: 帶給遠端 Ollama 的值;`source` 為 `ollama_default` 時是 null
+        source:
+          $ref: '#/components/schemas/TuningSource'
+    FlashAttentionItem:
+      type: object
+      required: [value, source]
+      description: 照 S1;UI 只顯示,不開放修改(spec 假設)
+      properties:
+        value:
+          type: [boolean, 'null']
+          description: 開啟時為 true;沒有帶時是 null(`source` 為 `ollama_default`)
+        source:
+          $ref: '#/components/schemas/TuningSource'
+    KvCacheTypeItem:
+      type: object
+      required: [value, source]
+      description: 照 S1;UI 只顯示,不開放修改(spec 假設)
+      properties:
+        value:
+          type: [string, 'null']
+          enum: [q8_0, null]
+          description: 帶的時候是 `q8_0`;沒有帶時是 null(`source` 為 `ollama_default`)
+        source:
+          $ref: '#/components/schemas/TuningSource'
+    AppliedTuning:
+      type: object
+      required: [numParallel, contextLength, maxLoadedModels, flashAttention, kvCacheType]
+      description: 照 S1 的 `AppliedTuning`:遠端 Ollama 實際帶的五項設定與各自的來源,本介面原樣交給 UI(FR-004)
+      properties:
+        numParallel:
+          $ref: '#/components/schemas/IntTuningItem'
+        contextLength:
+          $ref: '#/components/schemas/IntTuningItem'
+        maxLoadedModels:
+          $ref: '#/components/schemas/IntTuningItem'
+        flashAttention:
+          $ref: '#/components/schemas/FlashAttentionItem'
+        kvCacheType:
+          $ref: '#/components/schemas/KvCacheTypeItem'
+    MachineProbe:
+      type: object
+      required: [gpuName, vramTotalBytes, systemMemoryTotalBytes, probedAt]
+      description: 照 S1 的 `MachineProbe`(spec 關鍵實體「機器量測」);UI 以 GiB 顯示(1 GiB = 1073741824 位元組)
+      properties:
+        gpuName:
+          type: [string, 'null']
+          description: 第一張 GPU 的名稱,例如 Tesla T4;讀不到時為 null
+        vramTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: 第一張 GPU 的顯示記憶體總量,位元組;讀不到時為 null(FR-003)
+        systemMemoryTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: 系統記憶體總量,位元組;讀不到時為 null。只顯示與記錄,不影響級距(spec 假設)
+        probedAt:
+          type: string
+          format: date-time
+          description: 量測的時間(S1:轉接層收到結果的時間)
+    ScriptStage:
+      type: string
+      enum: [input, install, stop, start, verify]
+      description: 照 S1 的 `ScriptStage`:遠端腳本失敗在哪一段(覆蓋值不符、安裝、停不掉舊的、啟動失敗、60 秒內沒有回應)
+    ReasonCode:
+      type: string
+      pattern: '^((COLAB|TUNNEL|OLLAMA|LIBRARY|OAUTH|HF)_[A-Z0-9_]+|AUTH_REQUIRED)$'
+      description: 照 004;這一輪會出現 S1 的 `COLAB_` 代碼(含 `COLAB_INVALID_TUNING`、`COLAB_REMOTE_ERROR`)與 001 S1 的 `OLLAMA_` 代碼
+    NotReloadedModel:
+      type: object
+      required: [model, reason]
+      description: 重啟前已載入、重啟後沒有重新載入的模型(FR-012、使用者故事 3 驗收情境 9)
+      properties:
+        model:
+          type: string
+          description: '`/api/ps` 列出的模型名稱,例如 qwen2.5:7b'
+        reason:
+          type: string
+          enum: [OVER_LIMIT, PRELOAD_FAILED]
+          description: 超出新的同時載入模型數;重新載入(預先載入)失敗
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+          description: '`PRELOAD_FAILED` 時是 001 S1 預先載入的 `OLLAMA_` 代碼;`OVER_LIMIT` 時為 null'
+    TuningTrigger:
+      type: string
+      enum: [open, apply]
+      description: 開啟(含變更類型開出的新工作階段)時的那一筆;工作階段開著時套用的那一筆(spec 關鍵實體「Ollama 設定」的觸發)
+    TuningResult:
+      type: string
+      enum: [in_progress, applied, fell_back_to_auto, failed, interrupted]
+      description: >-
+        套用中;成功(開啟時那一筆一律是這個);要求的設定重啟失敗、改回自動值成功(FR-013);改回自動值也失敗或不是設定造成的失敗而失聯(`info.x-apply-flow` (5));
+        套用到一半被結束或後端停機(`info.x-applying-state` (3)(4))
+    TuningAttempt:
+      type: string
+      enum: [requested, auto_fallback]
+      description: 這一筆最後一次重啟用的是要求的設定,還是改回自動值的那一次(三個覆蓋值都是 null)
+    TuningRecord:
+      type: object
+      required: [at, trigger, requested, machine, tuning, result]
+      description: 一次開啟或套用的 Ollama 設定(spec 關鍵實體「Ollama 設定」,FR-005、FR-016)
+      properties:
+        at:
+          type: string
+          format: date-time
+          description: 開啟時是 `startOllama` 成功的時間;套用時是受理的時間
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+          description: 套用回到就緒、失聯或中斷的時間;開啟時那一筆和 `at` 相同;`in_progress` 時為 null
+        trigger:
+          $ref: '#/components/schemas/TuningTrigger'
+        requested:
+          $ref: '#/components/schemas/TuningOverrides'
+          description: 這一次要求的覆蓋值(開啟時沒有帶 `tuning` 的話是當時那種類型記住的值)
+        attempt:
+          $ref: '#/components/schemas/TuningAttempt'
+          description: 只有 `trigger` 為 `apply` 時有;開啟時那一筆沒有這個欄位
+        machine:
+          oneOf:
+            - $ref: '#/components/schemas/MachineProbe'
+            - type: 'null'
+          description: 這一次量到的硬體;`in_progress` 而重啟還沒成功時、`failed` 時為 null(重啟成功、進入 `reloading_models` 後就有值,analysis A2、D48)
+        tuning:
+          oneOf:
+            - $ref: '#/components/schemas/AppliedTuning'
+            - type: 'null'
+          description: >-
+            這一次實際生效的設定(`fell_back_to_auto` 時是改回自動值的那一組);`in_progress` 而重啟還沒成功時、`failed` 時為 null,重啟成功、進入 `reloading_models` 後就是新的設定(analysis A2、D48);
+            遠端 Ollama 已在執行而讀不到設定檔時也是 null(Q2;開啟時重跑遇到,或 `interrupted` 時恢復讀到的)
+        result:
+          $ref: '#/components/schemas/TuningResult'
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+          description: >-
+            `fell_back_to_auto` 時是要求的設定那一次的失敗代碼(通常是 `COLAB_REMOTE_ERROR`);`failed` 時是最後一次的失敗代碼;
+            `in_progress` 而 `attempt` 為 `auto_fallback` 時是第一次的失敗代碼;其他為 null
+        remoteStage:
+          oneOf:
+            - $ref: '#/components/schemas/ScriptStage'
+            - type: 'null'
+          description: '`reasonCode` 為 `COLAB_REMOTE_ERROR` 而遠端有回報 `stage` 時帶那個 `stage`(S1 `Error.remoteStage`,Q3、D14);其他為 null'
+        message:
+          type: [string, 'null']
+          description: >-
+            給使用者看的繁體中文說明:`fell_back_to_auto` 時是「手動設定沒有套用成功,已改回自動值」(FR-013、使用者故事 3 驗收情境 6);
+            `failed` 時說明重啟失敗;其他為 null
+        reloaded:
+          type: array
+          description: 只有 `trigger` 為 `apply` 時有;已重新載入的模型,依重新載入的順序(`/api/ps` 的順序)
+          items:
+            type: string
+        notReloaded:
+          type: array
+          description: 只有 `trigger` 為 `apply` 時有;沒有重新載入的模型(FR-012,工作階段頁列出);`reloading_models` 結束後才確定
+          items:
+            $ref: '#/components/schemas/NotReloadedModel'
+    OllamaStatus:
+      type: object
+      required: [status, machine, tuning, lastApply]
+      description: 這個工作階段的遠端 Ollama 設定(FR-004、FR-012、FR-013、FR-015)
+      properties:
+        status:
+          type: string
+          enum: [pending, applied, unknown]
+          description: >-
+            `pending`:還沒走完開啟的 `starting_ollama`(`machine`、`tuning` 為 null);
+            `applied`:`tuning` 是目前生效的設定;
+            `unknown`:遠端 Ollama 在執行,但不知道它套用的設定(S1 `startOllama` 的 `alreadyRunning` 而讀不到設定檔,Q2、D13;
+            或 005 之前開、升級後接回的工作階段),`tuning` 為 null,UI 說明「讀不到目前的 Ollama 設定」,仍可以套用新的設定
+        machine:
+          oneOf:
+            - $ref: '#/components/schemas/MachineProbe'
+            - type: 'null'
+          description: 最近一次量到的硬體(開啟時,或最近一次重啟成功時);`pending` 與 005 之前的工作階段為 null
+        tuning:
+          oneOf:
+            - $ref: '#/components/schemas/AppliedTuning'
+            - type: 'null'
+          description: >-
+            目前生效的設定(紀錄裡最新一筆有 `tuning` 的 `applied`、`fell_back_to_auto`,或恢復時讀到設定的 `interrupted`,plan Q24;以及重啟成功、重新載入中的 `in_progress`,analysis A2);套用中仍是重啟前的那一組,重啟成功才換成新的
+        lastApply:
+          oneOf:
+            - $ref: '#/components/schemas/TuningRecord'
+            - type: 'null'
+          description: >-
+            這個工作階段最近一次套用(`trigger` 為 `apply`)的紀錄,含進行中的那一次;沒有套用過時為 null。
+            UI 依它顯示改回自動值的說明(`result` 為 `fell_back_to_auto`)與沒有重新載入的模型;下一次套用受理時被取代
+    SessionState:
+      type: string
+      enum: [none, opening, ready, applying_tuning, reconnecting, ending, ended, open_failed, lost]
+      description: >-
+        照 001,這一輪多了 `applying_tuning`(套用設定中,UI 顯示「套用設定中」,`info.x-applying-state`):不算就緒,和開啟中、就緒、重連中一樣占用唯一的工作階段。
+        `ended`、`open_failed`、`lost` 一定有 `endReason`
+    OpeningStep:
+      type: string
+      enum: [ending_previous, allocating, starting_ollama, connecting, verifying]
+      description: 照 001:開啟中進行到哪一步;`starting_ollama` 這一步這一輪多了量硬體與決定設定(S1)
+    TuningStep:
+      type: string
+      enum: [restarting_ollama, reloading_models]
+      description: >-
+        套用設定中進行到哪一步(FR-015,照 001 開啟流程顯示步驟的方式):重啟 Ollama(含改回自動值的那一次,`ollama.lastApply.attempt` 區分)、重新載入模型
+    EndReason:
+      type: string
+      enum: [USER_ENDED, IDLE_TIMEOUT, RUNTIME_TYPE_CHANGED, OPEN_FAILED, RECLAIMED_BY_COLAB, RECONNECT_TIMEOUT, OLLAMA_RESTART_FAILED]
+      description: >-
+        照 001,這一輪多了 `OLLAMA_RESTART_FAILED`:套用設定時遠端 Ollama 重啟失敗(改回自動值也失敗,或 `colab exec` 重跑後仍失敗)而失聯,
+        `reasonCode` 帶最後一次的 `COLAB_` 代碼(`info.x-apply-flow` (5))
+    ReleaseWarning:
+      type: object
+      required: [message, detectedAt]
+      description: 照 001(FR-007 的釋放警告)
+      properties:
+        reasonCode:
+          $ref: '#/components/schemas/ReasonCode'
+        message:
+          type: string
+        detectedAt:
+          type: string
+          format: date-time
+    UnmanagedRuntime:
+      type: object
+      required: [hardware, detectedAt]
+      description: 照 001
+      properties:
+        hardware:
+          type: string
+        detectedAt:
+          type: string
+          format: date-time
+    IdleCountdown:
+      type: object
+      required: [timeoutMinutes, activeRequests, lastRequestAt, deadline]
+      description: >-
+        照 001、004(進行中的請求含 UI 對話與 Ollama 相容端點);只在 `ready` 時有值,`applying_tuning` 時 `Session.idle` 為 null,
+        回到就緒時重設(`lastRequestAt` 為回到就緒的時間,research.md R10)。`activeRequests` 大於 0 時 `applyTuning` 回 409 `REQUESTS_IN_PROGRESS`
+      properties:
+        activeRequests:
+          type: integer
+          minimum: 0
+        timeoutMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+        lastRequestAt:
+          type: string
+          format: date-time
+        deadline:
+          type: [string, 'null']
+          format: date-time
+    Reconnect:
+      type: object
+      required: [startedAt, deadline]
+      description: 照 001
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+    Session:
+      type: object
+      required: [state]
+      description: 照 001,這一輪多了 `ollama`,`state`、`step`、`endReason` 各多了這一輪的值;`state` 為 `none` 時其他欄位都沒有
+      properties:
+        state:
+          $ref: '#/components/schemas/SessionState'
+        name:
+          type: string
+          pattern: '^cgb-[a-z0-9-]{1,60}$'
+        runtimeType:
+          $ref: '#/components/schemas/RuntimeType'
+        step:
+          oneOf:
+            - $ref: '#/components/schemas/OpeningStep'
+            - $ref: '#/components/schemas/TuningStep'
+            - type: 'null'
+          description: '`opening` 時是 `OpeningStep`,`applying_tuning` 時是 `TuningStep`,其他狀態為 null'
+        endReason:
+          oneOf:
+            - $ref: '#/components/schemas/EndReason'
+            - type: 'null'
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+        message:
+          type: [string, 'null']
+          description: 照 001;`OLLAMA_RESTART_FAILED` 失聯時說明遠端 Ollama 重啟失敗、可以重新開啟一個工作階段
+        openedAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: [string, 'null']
+          format: date-time
+          description: 第一次就緒的時間(照 001;套用設定後回到就緒不改)
+        endedAt:
+          type: [string, 'null']
+          format: date-time
+        durationSeconds:
+          type: integer
+          minimum: 0
+        idle:
+          oneOf:
+            - $ref: '#/components/schemas/IdleCountdown'
+            - type: 'null'
+          description: 只在 `ready` 時有值
+        reconnect:
+          oneOf:
+            - $ref: '#/components/schemas/Reconnect'
+            - type: 'null'
+        releaseWarning:
+          oneOf:
+            - $ref: '#/components/schemas/ReleaseWarning'
+            - type: 'null'
+        balanceMayBeDepleted:
+          type: boolean
+        resuming:
+          type: boolean
+        unmanagedRuntimes:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnmanagedRuntime'
+        ollama:
+          $ref: '#/components/schemas/OllamaStatus'
+          description: >-
+            這一輪新增(FR-004):`state` 不是 `none` 時一定有。結束類的狀態仍保留最後的值,工作階段頁與紀錄看得到這次用過的設定
+    SessionRecord:
+      type: object
+      required: [name, runtimeType, state, openedAt, durationSeconds]
+      description: 照 001;`state` 可能是 `applying_tuning`,`endReason` 可能是 `OLLAMA_RESTART_FAILED`
+      properties:
+        name:
+          type: string
+          pattern: '^cgb-[a-z0-9-]{1,60}$'
+        runtimeType:
+          $ref: '#/components/schemas/RuntimeType'
+        state:
+          $ref: '#/components/schemas/SessionState'
+        endReason:
+          oneOf:
+            - $ref: '#/components/schemas/EndReason'
+            - type: 'null'
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+        openedAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: [string, 'null']
+          format: date-time
+        endedAt:
+          type: [string, 'null']
+          format: date-time
+        durationSeconds:
+          type: integer
+          minimum: 0
+    StateTransition:
+      type: object
+      required: [at, state]
+      description: 照 001;`step` 也記 `TuningStep`
+      properties:
+        at:
+          type: string
+          format: date-time
+        state:
+          $ref: '#/components/schemas/SessionState'
+        step:
+          oneOf:
+            - $ref: '#/components/schemas/OpeningStep'
+            - $ref: '#/components/schemas/TuningStep'
+            - type: 'null'
+        endReason:
+          oneOf:
+            - $ref: '#/components/schemas/EndReason'
+            - type: 'null'
+        reasonCode:
+          oneOf:
+            - $ref: '#/components/schemas/ReasonCode'
+            - type: 'null'
+    SessionRecordDetail:
+      allOf:
+        - $ref: '#/components/schemas/SessionRecord'
+        - type: object
+          required: [transitions, tunings]
+          properties:
+            transitions:
+              type: array
+              description: 照 001:依時間排序的每一次狀態變化
+              items:
+                $ref: '#/components/schemas/StateTransition'
+            tunings:
+              type: array
+              description: >-
+                這一輪新增:依 `at` 排序的每一次 Ollama 設定,開啟時一筆加上每一次套用一筆(FR-005、FR-016;開啟時那一筆保留)。
+                例:先後套用平行數 4 與 8 的工作階段有三筆(使用者故事 3 驗收情境 10)
+              items:
+                $ref: '#/components/schemas/TuningRecord'
+    RuntimeTypeTuningOverride:
+      type: object
+      required: [gpu, numParallel, contextLength, maxLoadedModels, updatedAt]
+      description: 一種 GPU 類型記住的覆蓋值(spec 關鍵實體「類型覆蓋值」);null 的項目代表自動,UI 留空
+      properties:
+        gpu:
+          $ref: '#/components/schemas/GpuType'
+        numParallel:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 32
+        contextLength:
+          type: [integer, 'null']
+          minimum: 2048
+          maximum: 131072
+        maxLoadedModels:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 4
+        updatedAt:
+          type: [string, 'null']
+          format: date-time
+          description: 最後一次寫入的時間;沒有記過或已清除時為 null
+    RuntimeTypeTuningOverrideList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: 五種 GPU 類型各一筆,依 `GpuType` 的順序(T4、L4、G4、A100、H100)
+          minItems: 5
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/RuntimeTypeTuningOverride'
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST_BODY
+            - INVALID_RUNTIME_TYPE
+            - INVALID_NUM_PARALLEL
+            - INVALID_CONTEXT_LENGTH
+            - INVALID_MAX_LOADED_MODELS
+            - SESSION_ALREADY_ACTIVE
+            - SESSION_ENDING
+            - AUTH_REQUIRED
+            - NO_ACTIVE_SESSION
+            - NO_READY_SESSION
+            - TUNING_IN_PROGRESS
+            - DOWNLOAD_IN_PROGRESS
+            - REQUESTS_IN_PROGRESS
+            - SESSION_NOT_FOUND
+          description: >-
+            這裡只列本檔操作會回的代碼,其他操作的代碼以 001~004 的 `ui.openapi.yaml` 為準;這一輪新增的見 `info.x-new-error-codes`
+        message:
+          type: string
+          description: >-
+            給使用者看的繁體中文說明。`INVALID_NUM_PARALLEL`、`INVALID_CONTEXT_LENGTH`、`INVALID_MAX_LOADED_MODELS` 寫出那一項的範圍
+            (「平行數要是 1~32 的整數」「context 長度要是 2048~131072 的整數」「同時載入模型數要是 1~4 的整數」,FR-017)
+        model:
+          type: string
+          description: '`DOWNLOAD_IN_PROGRESS` 時是正在下載的那一個模型名稱(照 001 `Error.model`);其他代碼沒有這個欄位'

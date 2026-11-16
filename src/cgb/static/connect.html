@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>連線設定|Colab GPU 橋接</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <script type="module" src="js/connect.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">Colab GPU 橋接</a>
+    <nav>
+      <a href="index.html">工作階段</a>
+      <a href="models.html">模型</a>
+      <a href="library.html">下載模型</a>
+      <a href="chat.html">對話</a>
+      <a href="usage.html">用量與設定</a>
+      <a href="history.html">紀錄</a>
+      <a href="connect.html" aria-current="page">連線設定</a>
+    </nav>
+  </header>
+  <main>
+    <h1>連線設定</h1>
+    <p class="muted">把 Colab 上的模型接到 opencode 或 pi:複製下面的片段,貼進各工具自己的設定檔。本系統不會讀取或改動你的設定檔,片段裡也沒有 token 或 Colab 的轉發位址。</p>
+
+    <!-- opencode 分頁(預設) -->
+    <section data-state="normal" data-render="snippets" data-tab="opencode" hidden></section>
+
+    <!-- 沒有就緒的工作階段 -->
+    <section data-state="no-session" class="panel empty-state" hidden>
+      <h2 class="state-title"><span class="pill">未就緒</span>目前沒有就緒的工作階段</h2>
+      <p>連線設定要接到一台正在跑的 Colab 執行環境;還沒有的話,片段裡的位址連過去只會收到「沒有可用的工作階段」的錯誤,所以先不顯示。</p>
+      <p class="muted">下一步:先開啟工作階段,等狀態變成「就緒」再回來。</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="index.html">到工作階段頁開啟</a>
+      </div>
+    </section>
+
+    <!-- 模型目錄是空的 -->
+    <section data-state="empty-catalog" class="panel empty-state" hidden>
+      <h2 class="state-title"><span class="pill pill-ok">就緒</span>模型目錄是空的</h2>
+      <p>工作階段已經就緒,但還沒有下載任何模型,片段裡沒有東西可以列,所以先不顯示。</p>
+      <p class="muted">下一步:先到模型頁下載模型(建議支援工具呼叫的模型),例如 <span class="mono">qwen2.5-coder:7b</span>,下載完再回來。</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="library.html">到下載模型</a>
+        <a class="btn" href="models.html">看模型目錄</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- 片段區塊(prototype/connect.html § #tpl-snippets);片段文字由後端產生,前端只換 `{{host}}`(plan.md Q10、Q16) -->
+  <template id="tpl-snippets">
+    <div class="notice notice-warn" data-part="low-notice" hidden>
+      <strong>context 太小,coding agent 的提示詞可能被截掉</strong>
+      <p>目前套用的 context 是 <span class="mono" data-field="current"></span>,低於 coding agent 建議的下限 <span class="mono" data-field="min"></span>。
+        opencode 光第一個請求就約 6.5k token,超過 context 的部分會被默默截掉,不會有任何錯誤訊息,只是工具呼叫變得不穩或沒有回應。</p>
+      <p>建議值:<span class="mono" data-field="suggested"></span>(依這台機器的顯示記憶體 <span data-field="vram"></span> 與平行數估算,以 7B 級模型為準;改完後到工作階段頁確認模型全部在 GPU)。</p>
+      <ul class="note-list">
+        <li>還沒開啟工作階段:開啟前在 <a href="index.html#t-card">Ollama 設定</a> 填 context 長度。</li>
+        <li>工作階段已經開著:到 <a href="index.html#t-card">工作階段頁</a> 改 context 長度,按「套用並重啟 Ollama」。</li>
+      </ul>
+    </div>
+    <div class="notice notice-warn" data-part="unknown-notice" hidden>
+      <strong>讀不到目前的 Ollama 設定,片段不帶 context 長度</strong>
+      <p>工作階段就緒,但這一次沒能向遠端 Ollama 讀回目前的 context 長度(可能是設定剛套用、遠端暫時沒有回應)。所以下面的片段不帶 context 長度,opencode 與 pi 會用各自的預設值,pi 也不附 <span class="mono">settings.json</span>。
+        到 <a href="index.html#t-card">工作階段頁</a> 確認設定讀得回來之後,重新整理這一頁就會帶上。</p>
+    </div>
+
+    <div class="panel">
+      <dl class="facts">
+        <div><dt>相容端點位址</dt><dd class="mono" data-field="baseurl"></dd></div>
+        <div><dt>目前 context</dt><dd data-field="context"></dd></div>
+        <div><dt>模型</dt><dd data-field="count"></dd></div>
+      </dl>
+
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab" role="tab" data-tab="opencode">opencode</button>
+        <button type="button" class="tab" role="tab" data-tab="pi">pi</button>
+      </div>
+
+      <div data-panel="opencode" role="tabpanel">
+        <div class="snippet">
+          <div class="snippet-head">
+            <h3>opencode.json 的 provider 片段</h3>
+            <button type="button" class="btn btn-primary btn-small" data-copy="opencode">複製</button>
+          </div>
+          <pre class="code" data-code="opencode"></pre>
+        </div>
+        <h3>使用方式</h3>
+        <ol class="howto">
+          <li>把片段貼進 <span class="mono">~/.config/opencode/opencode.json</span> 的最上層(已經有 <span class="mono">provider</span> 的話,把 <span class="mono">cgb</span> 這一段加進去)。</li>
+          <li>執行 <span class="mono" data-field="opencode-cmd"></span> 選用 Colab 上的模型;在 opencode 裡也可以用 <span class="mono">/models</span> 選。</li>
+          <li>模型要支援工具呼叫才能讀檔、執行指令;是否支援取決於模型本身,本系統只原樣轉送。</li>
+        </ol>
+      </div>
+
+      <div data-panel="pi" role="tabpanel" hidden>
+        <div class="snippet">
+          <div class="snippet-head">
+            <h3>models.json</h3>
+            <button type="button" class="btn btn-primary btn-small" data-copy="pi-models">複製</button>
+          </div>
+          <pre class="code" data-code="pi-models"></pre>
+        </div>
+        <div class="snippet" data-part="pi-settings">
+          <div class="snippet-head">
+            <h3>settings.json</h3>
+            <button type="button" class="btn btn-primary btn-small" data-copy="pi-settings">複製</button>
+          </div>
+          <p class="muted">pi 預設預留 16384 token 給自動壓縮;context 較小時每回合都會壓縮,所以把預留調成 context 的四分之一。</p>
+          <pre class="code" data-code="pi-settings"></pre>
+        </div>
+        <h3>使用方式</h3>
+        <ol class="howto">
+          <li>把 <span class="mono">models.json</span> 的片段放進 <span class="mono">~/.pi/agent/models.json</span>(已經有檔案的話,把 <span class="mono">cgb</span> 這一段合併進 <span class="mono">providers</span>)。</li>
+          <li data-part="pi-settings-step">把 <span class="mono">settings.json</span> 的片段放進 <span class="mono">~/.pi/agent/settings.json</span>(已經有檔案的話,合併進去)。</li>
+          <li>執行 <span class="mono" data-field="pi-cmd"></span> 選用 Colab 上的模型。</li>
+        </ol>
+      </div>
+    </div>
+  </template>
+</body>
+</html>

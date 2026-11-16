@@ -31,6 +31,7 @@ from cgb.server import Servers
 from fakes import (
     FakeColabControl,
     FakeGoogleOAuth,
+    FakeHuggingFaceHub,
     FakeModelLibrary,
     FakeOllamaServer,
     FakeRemoteOllama,
@@ -56,6 +57,46 @@ _CLOCK_POLL_SECONDS = 0.005
 
 
 # ---------------------------------------------------------------- 收集順序
+
+
+# ---------------------------------------------------------------- P6 守門(005 plan Q77)
+# 桌機 127.0.0.1:11434 是使用者自己的 Ollama,測試一律不連過去。任何往那裡的連線都擋下並記下來,
+# 由 `_no_local_ollama` 讓那個測試失敗:只擋不記的話,程式接住連線錯誤後可能往別的路走(例如去安裝),看不出來。
+_P6_PORT = 11434
+_P6_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
+_p6_hits: list[tuple[str, int]] = []
+_original_connect = socket.socket.connect
+_original_connect_ex = socket.socket.connect_ex
+
+
+def _is_local_ollama(address: object) -> bool:
+    return isinstance(address, tuple) and len(address) >= 2 and address[1] == _P6_PORT and address[0] in _P6_HOSTS
+
+
+def _guarded_connect(self: socket.socket, address: object) -> None:
+    if _is_local_ollama(address):
+        _p6_hits.append(address[:2])  # type: ignore[index]
+        raise ConnectionRefusedError("P6 守門:測試不連使用者自己的 Ollama(127.0.0.1:11434)")
+    _original_connect(self, address)  # type: ignore[arg-type]
+
+
+def _guarded_connect_ex(self: socket.socket, address: object) -> int:
+    if _is_local_ollama(address):
+        _p6_hits.append(address[:2])  # type: ignore[index]
+        return 111  # ECONNREFUSED
+    return _original_connect_ex(self, address)  # type: ignore[arg-type]
+
+
+socket.socket.connect = _guarded_connect  # type: ignore[method-assign]
+socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign]
+
+
+@pytest.fixture(autouse=True)
+def _no_local_ollama() -> Iterator[None]:
+    before = len(_p6_hits)
+    yield
+    if len(_p6_hits) > before:
+        pytest.fail(f"P6:這個測試連了使用者自己的 Ollama {_p6_hits[before:]},測試一律不碰 127.0.0.1:11434")
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -140,6 +181,7 @@ class Fakes:
     remote_ollama: FakeRemoteOllama
     model_library: FakeModelLibrary
     google_oauth: FakeGoogleOAuth
+    huggingface: FakeHuggingFaceHub
     server: FakeOllamaServer
 
     def as_kwargs(self) -> dict[str, Any]:
@@ -149,6 +191,7 @@ class Fakes:
             "remote_ollama": self.remote_ollama,
             "model_library": self.model_library,
             "google_oauth": self.google_oauth,
+            "huggingface": self.huggingface,
         }
 
 
@@ -169,6 +212,7 @@ def fakes(ollama_server: FakeOllamaServer) -> Fakes:
         remote_ollama=FakeRemoteOllama(ollama_server),
         model_library=FakeModelLibrary(),
         google_oauth=FakeGoogleOAuth(),
+        huggingface=FakeHuggingFaceHub(),
         server=ollama_server,
     )
 
@@ -186,6 +230,7 @@ def make_app(db_path: Path, fake_clock: FakeClock, test_timeouts: Timeouts, fake
             "clock": fake_clock,
             "name_prefix": TEST_NAME_PREFIX,
             "timeouts": test_timeouts,
+            "public_ollama_port": 11436,
             **fakes.as_kwargs(),
         }
         kwargs.update(overrides)
@@ -228,7 +273,8 @@ def ollama_client(asgi_clients: tuple[httpx.AsyncClient, httpx.AsyncClient]) -> 
 
 
 def _bind(port: int) -> socket.socket:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # proto 要明寫 TCP:asyncio 只對 proto 為 TCP 的連線設 TCP_NODELAY,否則回應的標頭與第一段之間會被 Nagle 多等約 40 毫秒
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("127.0.0.1", port))
     sock.listen(128)

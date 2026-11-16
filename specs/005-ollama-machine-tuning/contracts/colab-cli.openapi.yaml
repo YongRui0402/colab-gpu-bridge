@@ -1,0 +1,517 @@
+openapi: 3.1.0
+info:
+  title: Colab CLI(google-colab-cli 0.7.5;啟動與重啟遠端 Ollama 時依機器配置帶入設定)
+  version: 0.5.0
+  description: >-
+    S1(E5 Colab CLI)依 005 的 spec.md、research.md(R1、R6、R7)與 plan.md 產出;
+    以 001 的同名檔(001 的 S8)為底,只收這一輪新增或改變的兩個操作:
+    改變的 `startOllama`(`/exec/start-ollama`:命令列多帶三個 `--env CGB_TUNE_*`、結果多了量到的硬體與套用的設定、遠端多寫一個 pid 檔)
+    與新增的 `restartOllama`(`/exec/restart-ollama`)。
+    001 的其他操作(`getCliVersion`、`listSessions`、`createSession`、`probeResources`、`stopSession`、`getUsage`)仍以 001 的檔為準。
+
+    沿用自 001 的 `Q<n>` 指 001 的 plan.md;描述裡標了「001 的」的 `FR-0xx`、`NFR-0xx` 指 001 的 spec.md;
+    `x-requirements` 只列 005 spec.md 的編號。
+
+    這不是 HTTP 介面,寫法照 001 的檔:每個操作是本系統後端的 Colab CLI 轉接層執行一次 `colab exec` 子行程;
+    路徑與方法只是操作的代號,`requestBody` 是代入命令列 `<…>` 的值,`200` 是轉接層解析輸出後交給呼叫者的結果,
+    `default` 是失敗,`code` 是轉接層歸成的原因代碼;命令列寫在 `x-argv`,原始輸出寫在 `x-stdout`,
+    失敗的判定依序寫在 `x-failure-rules`(由上往下,第一條符合的就是結果)。
+
+    共用約定:001 的共用約定(1)~(9)原樣適用,包括 exit code 不可信、stdin 接 `/dev/null`、`COLAB_CLI_REQUEST_TIMEOUT=60`、
+    原因代碼的寫法、endpoint 與網址不外流、`CGB-RESULT <一行 JSON>` 的輸出協定、`Connection was lost` 重跑一次、
+    忽略 `[colab] ` 開頭的行與空行、子行程以新的 process group 啟動並在時限到時整組終止。
+    這一輪補充:
+
+    (10)`--env` 的形式(google-colab-cli 0.7.5 原始碼 `commands/execution.py` 的 `_parse_env_vars`、`_build_env_prelude` 查證):
+    每個 `--env` 是 `KEY=VALUE`,以第一個 `=` 切開,`VALUE` 可以是空字串(`--env CGB_TUNE_NUM_PARALLEL=` 合法);
+    CLI 在腳本前面加上 `os.environ[KEY] = VALUE`,設進遠端 kernel 的環境變數,留到之後每一次 `exec`。
+    所以設定一律不直接以 `--env OLLAMA_*` 傳(改回自動時舊值會殘留,research.md R7),
+    而是每次都帶齊三個 `CGB_TUNE_*`,由遠端腳本自己組 `ollama serve` 的環境。
+
+    (11)三個覆蓋值(`CGB_TUNE_NUM_PARALLEL`、`CGB_TUNE_CONTEXT_LENGTH`、`CGB_TUNE_MAX_LOADED_MODELS`):
+    空字串代表「自動」,否則是十進位整數,範圍照 spec FR-017(平行數 1~32、context 長度 2048~131072、同時載入模型數 1~4)。
+    轉接層在啟動子行程之前檢查範圍,不符就回 `COLAB_INVALID_TUNING`、不執行 `colab`;
+    遠端腳本收到不符的值(沒有經過轉接層的呼叫)也回報 `stage: "input"`,轉接層同樣歸成 `COLAB_INVALID_TUNING`。
+
+    (12)遠端腳本怎麼決定設定(兩個操作相同,research.md R6、R7,spec FR-001~FR-003、FR-007):
+    (a)啟動 `ollama serve` 之前量硬體:`nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits`
+    (10 秒逾時,單位 MiB,乘 1048576 轉成位元組;多張 GPU 時取第一張;沒有 `nvidia-smi`、失敗或逾時時 GPU 名稱與顯示記憶體都是 null,不算失敗),
+    以及 `/proc/meminfo` 的 `MemTotal`(單位 kB,乘 1024 轉成位元組;讀不到時是 null,不算失敗)。
+    (b)依顯示記憶體總量(位元組,1 GiB = 1073741824)照 spec FR-002 的級距得到自動值(平行數/context 長度/同時載入模型數):
+    未滿 12 GiB 為 1/4096/1;12 GiB 以上、未滿 20 GiB 為 2/4096/1;20 GiB 以上、未滿 32 GiB 為 4/8192/1;
+    32 GiB 以上、未滿 64 GiB 為 8/8192/2;64 GiB 以上為 16/8192/3。只看顯示記憶體總量,不看 GPU 名稱。
+    (c)三項數值各自依「覆蓋值 > 級距 > 不帶」決定:有覆蓋值就用覆蓋值(來源 `manual`,即使和自動值相同);
+    沒有覆蓋值而量得到顯示記憶體就用級距(來源 `auto`);兩者都沒有就不帶這個變數(來源 `ollama_default`,值為 null)。
+    `OLLAMA_FLASH_ATTENTION=1` 與 `OLLAMA_KV_CACHE_TYPE=q8_0` 在量得到顯示記憶體、或至少有一個覆蓋值時帶(來源 `auto`);
+    量不到顯示記憶體而且三個覆蓋值都是空的時候不帶(來源 `ollama_default`),這時 `ollama serve` 只繼承 `OLLAMA_HOST`、`OLLAMA_ORIGINS`,和 004 相同(FR-003)。
+    (d)`ollama serve` 的環境:複製 kernel 的環境變數,先刪掉 `OLLAMA_NUM_PARALLEL`、`OLLAMA_CONTEXT_LENGTH`、`OLLAMA_MAX_LOADED_MODELS`、
+    `OLLAMA_FLASH_ATTENTION`、`OLLAMA_KV_CACHE_TYPE` 五個,再依(c)填入;只交給這一次啟動的 `ollama serve`,不改 kernel 自己的環境變數。
+    同一個變數不會同時有兩個值(spec 邊界情況)。
+    (e)`CGB-RESULT` 回報量到的硬體與五項設定各自的值與來源(`AppliedTuning`),後端以它為準顯示與記錄,不自己重算。
+
+    (13)pid 檔:兩支腳本啟動 `ollama serve` 之後,都把它的 pid 寫進執行環境上的 `/root/cgb-ollama-serve.pid`(覆寫,一行十進位數字);
+    `restartOllama` 靠它找到要停的行程(research.md R1)。寫入失敗不算失敗,`restartOllama` 改用備援的 `pgrep`(見該操作的步驟 (c))。
+
+    (13-1)設定檔:兩支腳本在啟動 `ollama serve` 之前先刪掉執行環境上的 `/root/cgb-ollama-tuning.json`,
+    驗證成功(`/api/version` 有回應)之後把這次套用的設定寫進去(覆寫,一個 JSON 物件:`gpuName`、`vramTotalBytes`、`systemMemoryTotalBytes`
+    與 `tuning`,格式同 `StartOllamaScriptResult` 的同名欄位);驗證失敗時不寫,所以這個檔只描述正在回應的那一個 `ollama serve`。
+    `startOllama` 遇到 Ollama 已在回應(`alreadyRunning`)時讀這個檔回報 `tuning`(plan.md Q2,D13);寫入失敗不算失敗。
+
+    (14)遠端的級距表與 spec FR-002 相同;級距修正時(research.md R4)本檔(12)(b)與 spec FR-002 一起改。
+servers:
+  - url: /
+    description: 不是 HTTP 伺服器;每個操作是一次 `colab exec` 子行程,`colab` 由映像安裝(google-colab-cli==0.7.5,001 的 research.md R11)
+paths:
+  /exec/start-ollama:
+    post:
+      operationId: startOllama
+      summary: 在執行環境上安裝 Ollama,依量到的顯示記憶體與覆蓋值決定設定並啟動
+      description: >-
+        開啟工作階段的第二步(001 UI API 的 `step` 為 `starting_ollama`,001 的 FR-001),`createSession` 成功之後;
+        變更執行階段類型開出新的執行環境時也照這一步重新量測、重新決定(spec 邊界情況)。
+        以 `colab exec -f` 執行本系統提供的初始化腳本(`<scriptPath>` 是後端本機上那支腳本的路徑)。
+        `--env` 把 `OLLAMA_HOST=127.0.0.1:11434`(只聽執行環境本機,不對外,NFR-003)、`OLLAMA_ORIGINS=*`(001 的 Q18、Q20)
+        與三個 `CGB_TUNE_*`(共用約定 11)設進遠端 kernel;命令列裡 `'OLLAMA_ORIGINS=*'` 的單引號是為了不讓 shell 展開 `*`。
+        `<numParallel>`、`<contextLength>`、`<maxLoadedModels>` 代入覆蓋值的十進位數字,沒有覆蓋值(自動)時代入空字串,
+        例如 `--env CGB_TUNE_NUM_PARALLEL=4 --env CGB_TUNE_CONTEXT_LENGTH= --env CGB_TUNE_MAX_LOADED_MODELS=`;三個每次都帶。
+
+        遠端腳本的行為(冪等,重跑無害):
+        (a)檢查三個 `CGB_TUNE_*`(共用約定 11),不符就回報 `stage: "input"`,不做其他事;
+        (b)量硬體(共用約定 12 (a),多花約 0.03 秒,research.md R6,NFR-001);
+        (c)打 `http://127.0.0.1:11434/api/version`,已有回應就不安裝也不再啟動(`alreadyRunning` 為 true,`Connection was lost` 重跑的情況):
+        讀設定檔(共用約定 13-1)的 `tuning` 原樣回報,不看這次的 `CGB_TUNE_*`、不重算;
+        檔案不存在或不是符合 `AppliedTuning` 的 JSON(例如 005 之前開的工作階段)時 `tuning` 為 null;硬體照 (b) 這次量到的回報;
+        (d)否則以 Ollama 官方安裝程式安裝(和 001 相同);
+        (e)依共用約定 12 (c)(d)組出環境,以 `ollama serve` 背景啟動(`start_new_session=True`、輸出導到執行環境上的紀錄檔),
+        讓它在這次 `exec` 結束後繼續執行,並寫 pid 檔(共用約定 13);
+        (f)每秒打一次 `/api/version`,60 秒內有回應即成功,成功後寫設定檔(共用約定 13-1);
+        (g)印出一行 `CGB-RESULT <JSON>`(`StartOllamaScriptResult`),失敗時 `ok` 為 false 並寫明失敗在哪一段(`stage`)。
+
+        `--timeout 240` 是 CLI 等遠端執行完成的時限(001 的 research.md R1 實測整段 43 秒);子行程另設 300 秒的硬時限。
+        遇到 `Connection was lost` 時重跑一次(001 的共用約定 6)。
+      x-requirements: [FR-001, FR-002, FR-003, FR-007, NFR-001, NFR-003, SC-003, SC-005]
+      x-callers: 本系統後端(開啟工作階段、變更執行階段類型);`createSession` 成功之後
+      x-argv: >-
+        COLAB_CLI_REQUEST_TIMEOUT=60 colab exec -s <name> -f <scriptPath> --timeout 240
+        --env OLLAMA_HOST=127.0.0.1:11434 --env 'OLLAMA_ORIGINS=*'
+        --env CGB_TUNE_NUM_PARALLEL=<numParallel> --env CGB_TUNE_CONTEXT_LENGTH=<contextLength>
+        --env CGB_TUNE_MAX_LOADED_MODELS=<maxLoadedModels> </dev/null
+      x-timeout: CLI `--timeout 240`;子行程 300 秒
+      x-retry: stderr 含 `Connection was lost` 時同一個命令列重跑一次
+      x-stdout: >-
+        安裝程式與 Ollama 的輸出(忽略),最後一個以 `CGB-RESULT ` 開頭的行是結果,例如
+        `CGB-RESULT {"ok": true, "ollamaVersion": "0.40.15", "alreadyRunning": false, "gpuName": "NVIDIA A100-SXM4-40GB",
+        "vramTotalBytes": 42949672960, "systemMemoryTotalBytes": 89632571392, "tuning": {"numParallel": {"value": 4, "source": "manual"},
+        "contextLength": {"value": 8192, "source": "auto"}, "maxLoadedModels": {"value": 2, "source": "auto"},
+        "flashAttention": {"value": true, "source": "auto"}, "kvCacheType": {"value": "q8_0", "source": "auto"}}}`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartOllamaInput'
+      responses:
+        '200':
+          description: Ollama 已在執行環境的 127.0.0.1:11434 回應;附量到的硬體與實際套用的設定
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaStarted'
+        default:
+          description: >-
+            覆蓋值不符範圍、找不到執行檔、授權失效、執行環境已不在、重試後連線仍中斷、逾時、遠端腳本回報失敗或丟出例外、子行程失敗,或輸出無法解析
+          x-error-codes:
+            - COLAB_INVALID_TUNING
+            - COLAB_NOT_INSTALLED
+            - COLAB_TIMEOUT
+            - COLAB_NOT_FOUND
+            - AUTH_REQUIRED
+            - COLAB_UNREACHABLE
+            - COLAB_REMOTE_ERROR
+            - COLAB_FAILED
+            - COLAB_BAD_RESPONSE
+          x-failure-rules: &tuneExecFailureRules
+            - code: COLAB_INVALID_TUNING
+              when: >-
+                啟動子行程之前:覆蓋值有一項不是 null、也不是共用約定 11 範圍內的整數(不執行 `colab`)
+            - code: COLAB_NOT_INSTALLED
+              when: 找不到 `colab` 執行檔
+            - code: COLAB_TIMEOUT
+              when: 超過子行程時限被終止
+            - code: COLAB_NOT_FOUND
+              when: >-
+                stdout 含 `[colab] Session '<名稱>' not found.`,或 stdout、stderr 任一含 `appears to be lost (404/401)`(001 的 Q140);這時不重試
+            - code: AUTH_REQUIRED
+              when: >-
+                stderr 含 `To authorize colab-cli, visit this URL`,或含 `: Unauthorized`
+            - code: COLAB_UNREACHABLE
+              when: >-
+                重跑一次之後 stderr 仍含 `Connection was lost`;或 stderr 含 `ConnectionError`、`Max retries exceeded`、
+                `NameResolutionError`、`Temporary failure in name resolution`
+            - code: COLAB_TIMEOUT
+              when: stderr 含 `TimeoutError`、`ReadTimeout` 或 `timed out`(CLI 的 `--timeout` 到了,或 HTTP 請求逾時)
+            - code: COLAB_FAILED
+              when: 以非 0 結束(附 stderr 最後一行,網址換成 `<網址>`)
+            - code: COLAB_INVALID_TUNING
+              when: 以 0 結束,結果行的 `ok` 為 false、`stage` 為 `input`
+            - code: COLAB_REMOTE_ERROR
+              when: >-
+                以 0 結束,結果行的 `ok` 為 false、`stage` 是其他值(`Error.remoteStage` 帶這個 `stage`,`message` 寫出 `stage` 與 `detail`);
+                或沒有結果行而 stderr 有 `Traceback (most recent call last)`(遠端腳本丟出例外,附 stderr 最後一行,`remoteStage` 為 null)
+            - code: COLAB_BAD_RESPONSE
+              when: 以 0 結束,但沒有 `CGB-RESULT ` 行且 stderr 沒有 traceback,或結果行不是符合 schema 的 JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /exec/restart-ollama:
+    post:
+      operationId: restartOllama
+      summary: 停掉執行環境上的 ollama serve,以新設定重新啟動並驗證
+      description: >-
+        工作階段就緒時套用新設定(spec FR-012),以及新設定重啟失敗後改回自動值再重啟一次(FR-013)時呼叫;
+        能不能套用(忙碌、非就緒、正在套用)由呼叫者在呼叫之前判斷(FR-011),本操作不判斷。
+        以 `colab exec -f` 執行本系統提供的重啟腳本(`<scriptPath>` 是後端本機上那支腳本的路徑,和 `startOllama` 的不同);
+        `--env` 和 `startOllama` 相同:`OLLAMA_HOST`、`OLLAMA_ORIGINS` 再帶一次(不依賴 kernel 留著開啟時的值),
+        三個 `CGB_TUNE_*` 帶這次要套用的覆蓋值,沒有覆蓋值的項目代入空字串。
+        FR-013 的改回自動值:呼叫者以三個都是空字串再呼叫一次本操作。
+        不安裝 Ollama(開啟時已經裝好);不改 `startOllama` 的冪等行為(research.md R1)。
+
+        遠端腳本的行為:
+        (a)檢查三個 `CGB_TUNE_*`(共用約定 11),不符就回報 `stage: "input"`,不停也不啟動;
+        (b)量硬體(共用約定 12 (a));
+        (c)停掉舊的 `ollama serve`:pid 檔存在而且那個行程還在時,對它的行程群組送 `SIGTERM`,每 0.2 秒確認一次,
+        10 秒內沒結束就送 `SIGKILL`(`stoppedBy` 為 `pid_file`);pid 檔不存在或那個行程已不在(001~004 開的工作階段)時,
+        改用 `pgrep -f "^ollama serve"` 找出符合的 pid,對每一個 pid 的行程群組同樣送 `SIGTERM`、10 秒後仍在就送 `SIGKILL`
+        (`stoppedBy` 為 `pgrep`;001~004 的 `ollama serve` 也以 `start_new_session=True` 啟動,有自己的行程群組,載入模型的子行程一起結束,plan.md Q5,D16);
+        兩種都找不到行程時直接往下(`stoppedBy` 為 `not_running`,例如 Ollama 已經自己掛掉);
+        (d)每 0.2 秒打一次 `/api/version`,10 秒內不再回應才往下;仍有回應(127.0.0.1:11434 上還有別的行程)就回報 `stage: "stop"`,不啟動;
+        (e)刪掉設定檔(共用約定 13-1),依共用約定 12 (c)(d)組出環境,以 `ollama serve` 背景啟動(`start_new_session=True`、輸出附加到同一個紀錄檔),
+        寫 pid 檔(共用約定 13);啟動丟出 `OSError`(例如找不到 `ollama`)回報 `stage: "start"`;
+        (f)每秒打一次 `/api/version`,60 秒內有回應即成功,成功後寫設定檔;否則回報 `stage: "verify"`(新設定讓 Ollama 起不來);
+        (g)印出一行 `CGB-RESULT <JSON>`(`RestartOllamaScriptResult`)。
+        重啟之後遠端 Ollama 沒有載入任何模型(research.md R1 實測 `/api/ps` 是空的);重新載入由呼叫者經遠端 Ollama 的預先載入做(research.md R8),不在本操作。
+
+        重跑無害:遇到 `Connection was lost` 時同一個命令列重跑一次(001 的共用約定 6),第二次會再停一次、以同一組設定再啟動一次。
+        失敗後的重試(FR-013,plan.md Q4,D15):`COLAB_REMOTE_ERROR` 的 `remoteStage` 是 `stop`、`start` 或 `verify` 任一種,
+        呼叫者都可以改用自動值(三個覆蓋值都是 null)再呼叫一次本操作;第二次仍失敗由呼叫者照 spec FR-013 結束工作階段(`OLLAMA_RESTART_FAILED`)。實際流程由 S3 定。
+
+        時間預算(spec NFR-002、SC-004):從確認套用到回到就緒(不含重新載入模型)90 秒內;新設定失敗、改回自動值再重啟一次時 180 秒內。
+        research.md R1 在桌機實測停止到回應 3.7 秒;驗證維持 60 秒(plan.md Q1,D12),單次最壞情況遠端約 10 + 10 + 60 秒,
+        兩次合計約 160 秒加上兩次 `colab exec` 來回,落在 180 秒內(Colab 上的實際時間照 research.md 待驗證實測)。
+        `--timeout 120` 是 CLI 等遠端完成的時限,子行程另設 180 秒的硬時限。
+      x-requirements: [FR-001, FR-002, FR-003, FR-007, FR-012, FR-013, NFR-002, NFR-003, SC-004, SC-005]
+      x-callers: 本系統後端(套用並重啟、FR-013 改回自動值);工作階段就緒、呼叫者已判斷沒有下載與進行中的請求之後
+      x-argv: >-
+        COLAB_CLI_REQUEST_TIMEOUT=60 colab exec -s <name> -f <scriptPath> --timeout 120
+        --env OLLAMA_HOST=127.0.0.1:11434 --env 'OLLAMA_ORIGINS=*'
+        --env CGB_TUNE_NUM_PARALLEL=<numParallel> --env CGB_TUNE_CONTEXT_LENGTH=<contextLength>
+        --env CGB_TUNE_MAX_LOADED_MODELS=<maxLoadedModels> </dev/null
+      x-timeout: CLI `--timeout 120`;子行程 180 秒
+      x-retry: stderr 含 `Connection was lost` 時同一個命令列重跑一次
+      x-stdout: >-
+        最後一個以 `CGB-RESULT ` 開頭的行是結果,例如
+        `CGB-RESULT {"ok": true, "ollamaVersion": "0.40.15", "stoppedBy": "pid_file", "gpuName": "Tesla T4",
+        "vramTotalBytes": 16106127360, "systemMemoryTotalBytes": 13605855232, "tuning": {"numParallel": {"value": 4, "source": "manual"},
+        "contextLength": {"value": 4096, "source": "auto"}, "maxLoadedModels": {"value": 1, "source": "auto"},
+        "flashAttention": {"value": true, "source": "auto"}, "kvCacheType": {"value": "q8_0", "source": "auto"}}};
+        失敗例如 `CGB-RESULT {"ok": false, "stage": "verify", "stoppedBy": "pid_file", "detail": "no response from /api/version within 60 seconds"}`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestartOllamaInput'
+      responses:
+        '200':
+          description: 舊的 `ollama serve` 已停,新的已在 127.0.0.1:11434 回應;附量到的硬體與實際套用的設定
+          x-recipients: 呼叫者(本系統後端)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OllamaRestarted'
+        default:
+          description: >-
+            與 `startOllama` 相同的失敗判定;遠端停不掉舊的(`remoteStage` 為 `stop`)、新的起不來(`start`)或 60 秒內沒有回應(`verify`)
+            都是 `COLAB_REMOTE_ERROR`,由 `Error.remoteStage` 區分;三種都可以由呼叫者改用自動值重試(FR-013)
+          x-error-codes:
+            - COLAB_INVALID_TUNING
+            - COLAB_NOT_INSTALLED
+            - COLAB_TIMEOUT
+            - COLAB_NOT_FOUND
+            - AUTH_REQUIRED
+            - COLAB_UNREACHABLE
+            - COLAB_REMOTE_ERROR
+            - COLAB_FAILED
+            - COLAB_BAD_RESPONSE
+          x-failure-rules: *tuneExecFailureRules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    SessionName:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9-]{0,63}$'
+      description: 照 001 的 `SessionName`
+    TuningOverrides:
+      type: object
+      required: [numParallel, contextLength, maxLoadedModels]
+      description: >-
+        這次要帶的三個覆蓋值;null 代表自動,命令列代入空字串(共用約定 11)。範圍照 spec FR-017,轉接層在啟動子行程之前檢查
+      properties:
+        numParallel:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 32
+          description: 平行數,代入 `CGB_TUNE_NUM_PARALLEL`
+        contextLength:
+          type: [integer, 'null']
+          minimum: 2048
+          maximum: 131072
+          description: context 長度(token 數),代入 `CGB_TUNE_CONTEXT_LENGTH`
+        maxLoadedModels:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 4
+          description: 同時載入模型數,代入 `CGB_TUNE_MAX_LOADED_MODELS`
+    StartOllamaInput:
+      type: object
+      required: [name, overrides]
+      properties:
+        name:
+          $ref: '#/components/schemas/SessionName'
+        overrides:
+          $ref: '#/components/schemas/TuningOverrides'
+    RestartOllamaInput:
+      type: object
+      required: [name, overrides]
+      properties:
+        name:
+          $ref: '#/components/schemas/SessionName'
+        overrides:
+          $ref: '#/components/schemas/TuningOverrides'
+          description: 這次要套用的覆蓋值;FR-013 改回自動值時三個都是 null
+    TuningSource:
+      type: string
+      enum: [auto, manual, ollama_default]
+      description: >-
+        一項設定的來源:`auto` 是依顯示記憶體級距(flash attention 與 KV cache 是固定開啟),`manual` 是覆蓋值,
+        `ollama_default` 是沒有帶這個變數、用 Ollama 自己的預設值(值為 null)
+    IntTuningItem:
+      type: object
+      required: [value, source]
+      properties:
+        value:
+          type: [integer, 'null']
+          minimum: 1
+          description: 帶給 `ollama serve` 的值;`source` 為 `ollama_default` 時是 null
+        source:
+          $ref: '#/components/schemas/TuningSource'
+    FlashAttentionItem:
+      type: object
+      required: [value, source]
+      properties:
+        value:
+          type: [boolean, 'null']
+          description: 帶 `OLLAMA_FLASH_ATTENTION=1` 時為 true;沒帶時是 null(`source` 為 `ollama_default`)
+        source:
+          $ref: '#/components/schemas/TuningSource'
+    KvCacheTypeItem:
+      type: object
+      required: [value, source]
+      properties:
+        value:
+          type: [string, 'null']
+          enum: [q8_0, null]
+          description: 帶 `OLLAMA_KV_CACHE_TYPE` 時為 `q8_0`;沒帶時是 null(`source` 為 `ollama_default`)
+        source:
+          $ref: '#/components/schemas/TuningSource'
+    AppliedTuning:
+      type: object
+      required: [numParallel, contextLength, maxLoadedModels, flashAttention, kvCacheType]
+      description: 這一次 `ollama serve` 實際帶的五項設定與各自的來源(共用約定 12 (c))
+      properties:
+        numParallel:
+          $ref: '#/components/schemas/IntTuningItem'
+          description: '`OLLAMA_NUM_PARALLEL`'
+        contextLength:
+          $ref: '#/components/schemas/IntTuningItem'
+          description: '`OLLAMA_CONTEXT_LENGTH`'
+        maxLoadedModels:
+          $ref: '#/components/schemas/IntTuningItem'
+          description: '`OLLAMA_MAX_LOADED_MODELS`'
+        flashAttention:
+          $ref: '#/components/schemas/FlashAttentionItem'
+          description: '`OLLAMA_FLASH_ATTENTION`'
+        kvCacheType:
+          $ref: '#/components/schemas/KvCacheTypeItem'
+          description: '`OLLAMA_KV_CACHE_TYPE`'
+    ScriptStage:
+      type: string
+      enum: [input, install, stop, start, verify]
+      description: >-
+        遠端腳本失敗在哪一段:`input` 覆蓋值不符(共用約定 11);`install` 安裝(只有 `startOllama`);
+        `stop` 舊的 `ollama serve` 停了 10 秒後 127.0.0.1:11434 仍有回應(只有 `restartOllama`);
+        `start` 啟動 `ollama serve` 失敗;`verify` 60 秒內等不到 `/api/version` 回應
+    StoppedBy:
+      type: string
+      enum: [pid_file, pgrep, not_running]
+      description: '`restartOllama` 怎麼找到並停掉舊的 `ollama serve`:pid 檔、備援的 `pgrep`(兩者都對行程群組送訊號),或本來就沒有在執行'
+    StartOllamaScriptResult:
+      type: object
+      required: [ok]
+      description: 初始化腳本在 stdout 印出的 `CGB-RESULT ` 之後的一行 JSON;001 的欄位不變,這一輪加上硬體與 `tuning`
+      properties:
+        ok:
+          type: boolean
+        ollamaVersion:
+          type: string
+          description: '`ok` 為 true 時,`/api/version` 回的版本,例如 0.40.15'
+        alreadyRunning:
+          type: boolean
+          description: '`ok` 為 true 時,Ollama 在執行前就已經在回應(重跑的情況),沒有重新安裝與啟動'
+        gpuName:
+          type: [string, 'null']
+          description: '`ok` 為 true 時必有;`nvidia-smi` 報的第一張 GPU 名稱,讀不到時為 null'
+        vramTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: '`ok` 為 true 時必有;第一張 GPU 的顯示記憶體總量,位元組,讀不到時為 null'
+        systemMemoryTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: '`ok` 為 true 時必有;`/proc/meminfo` 的 `MemTotal`,位元組,讀不到時為 null'
+        tuning:
+          oneOf:
+            - $ref: '#/components/schemas/AppliedTuning'
+            - type: 'null'
+          description: >-
+            `ok` 為 true 時必有;實際帶給 `ollama serve` 的設定。`alreadyRunning` 為 true 時是讀設定檔(共用約定 13-1)得到的,
+            讀不到時為 null(其他情況一定有值)
+        stage:
+          $ref: '#/components/schemas/ScriptStage'
+          description: '`ok` 為 false 時,失敗在哪一段:`input`、`install`、`start` 或 `verify`'
+        detail:
+          type: string
+          description: '`ok` 為 false 時的英文原因(安裝程式或 Ollama 紀錄的最後一行),原樣放進 `Error.message`'
+    RestartOllamaScriptResult:
+      type: object
+      required: [ok]
+      description: 重啟腳本在 stdout 印出的 `CGB-RESULT ` 之後的一行 JSON
+      properties:
+        ok:
+          type: boolean
+        ollamaVersion:
+          type: string
+          description: '`ok` 為 true 時,新的 `ollama serve` 回的 `/api/version` 版本'
+        stoppedBy:
+          $ref: '#/components/schemas/StoppedBy'
+          description: 走到停止那一段之後必有(`stage` 為 `input` 時沒有)
+        gpuName:
+          type: [string, 'null']
+          description: '`ok` 為 true 時必有;同 `StartOllamaScriptResult.gpuName`'
+        vramTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: '`ok` 為 true 時必有;同 `StartOllamaScriptResult.vramTotalBytes`'
+        systemMemoryTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: '`ok` 為 true 時必有;同 `StartOllamaScriptResult.systemMemoryTotalBytes`'
+        tuning:
+          $ref: '#/components/schemas/AppliedTuning'
+          description: '`ok` 為 true 時必有;新的 `ollama serve` 實際帶的設定'
+        stage:
+          $ref: '#/components/schemas/ScriptStage'
+          description: '`ok` 為 false 時,失敗在哪一段:`input`、`stop`、`start` 或 `verify`'
+        detail:
+          type: string
+          description: '`ok` 為 false 時的英文原因(Ollama 紀錄的最後一行,或停不掉的原因),原樣放進 `Error.message`'
+    MachineProbe:
+      type: object
+      required: [gpuName, vramTotalBytes, systemMemoryTotalBytes, probedAt]
+      description: 這次在執行環境上量到的硬體(spec 關鍵實體「機器量測」)
+      properties:
+        gpuName:
+          type: [string, 'null']
+          description: '`nvidia-smi` 報的第一張 GPU 名稱,例如 Tesla T4;讀不到時為 null'
+        vramTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: 第一張 GPU 的顯示記憶體總量,位元組;讀不到時為 null(這時三項數值沒有覆蓋值的就是 `ollama_default`,FR-003)
+        systemMemoryTotalBytes:
+          type: [integer, 'null']
+          minimum: 0
+          description: 系統記憶體總量,位元組;讀不到時為 null。只量測、顯示與記錄,不影響級距(spec 假設)
+        probedAt:
+          type: string
+          format: date-time
+          description: 轉接層收到結果的時間
+    OllamaStarted:
+      type: object
+      required: [ollamaVersion, alreadyRunning, machine, tuning]
+      description: 001 的 `ollamaVersion`、`alreadyRunning` 不變,這一輪加上 `machine` 與 `tuning`
+      properties:
+        ollamaVersion:
+          type: string
+        alreadyRunning:
+          type: boolean
+        machine:
+          $ref: '#/components/schemas/MachineProbe'
+        tuning:
+          oneOf:
+            - $ref: '#/components/schemas/AppliedTuning'
+            - type: 'null'
+          description: 實際套用的設定;只有 `alreadyRunning` 為 true 而讀不到執行環境上的設定檔(例如 005 之前開的工作階段)時為 null
+    OllamaRestarted:
+      type: object
+      required: [ollamaVersion, stoppedBy, machine, tuning]
+      properties:
+        ollamaVersion:
+          type: string
+        stoppedBy:
+          $ref: '#/components/schemas/StoppedBy'
+        machine:
+          $ref: '#/components/schemas/MachineProbe'
+        tuning:
+          $ref: '#/components/schemas/AppliedTuning'
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - AUTH_REQUIRED
+            - COLAB_NOT_INSTALLED
+            - COLAB_FAILED
+            - COLAB_UNREACHABLE
+            - COLAB_TIMEOUT
+            - COLAB_BAD_RESPONSE
+            - COLAB_NOT_FOUND
+            - COLAB_ALLOCATION_REFUSED
+            - COLAB_ACCELERATOR_REJECTED
+            - COLAB_REMOTE_ERROR
+            - COLAB_STOP_UNCONFIRMED
+            - COLAB_UNSUPPORTED_VERSION
+            - COLAB_INVALID_TUNING
+          description: >-
+            照 001 的 `Error.code`,名稱與意義不變;這一輪另立 `COLAB_INVALID_TUNING`(覆蓋值不是範圍內的整數,共用約定 11),
+            照 001 共用約定 3 的寫法是本介面另立的原因。本檔的兩個操作只會出現 `x-error-codes` 列的那幾個
+        message:
+          type: string
+          description: 給使用者看的繁體中文說明;遠端或 CLI 的英文原因附在後面,原樣不翻譯
+        stderrLastLine:
+          type: [string, 'null']
+          description: 照 001:`COLAB_FAILED`、`COLAB_REMOTE_ERROR`、`COLAB_STOP_UNCONFIRMED` 時附 stderr 最後一個非空行,網址換成 `<網址>`;其他代碼為 null
+        remoteStage:
+          oneOf:
+            - $ref: '#/components/schemas/ScriptStage'
+            - type: 'null'
+          description: >-
+            這一輪新增(plan.md Q3,D14):`COLAB_REMOTE_ERROR` 而且遠端腳本有回報 `stage` 時帶那個 `stage`(呼叫者不必解析 `message` 就知道是 `stop`、`start` 還是 `verify`;
+            三種都可以改用自動值重試,見 `restartOllama`);
+            其他代碼與遠端丟出例外時為 null
