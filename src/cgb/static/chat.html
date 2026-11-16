@@ -33,7 +33,7 @@
       </div>
 
       <div data-state="chat-ready" data-group="chat" hidden>
-        <p class="small muted">試試模型的基本能力:回覆會逐段出現,每則下方顯示耗時與每秒 token 數。對話只留在這個頁面,不寫進資料庫與日誌,重新整理或離開就消失。</p>
+        <p class="small muted">試試模型的基本能力:回覆會逐段出現,每則下方顯示耗時與每秒 token 數。</p>
       </div>
       <div data-state="chat-no-session" data-group="chat" hidden>
         <div class="notice notice-warn">
@@ -47,6 +47,20 @@
           新開的執行環境是空的;到<a href="library.html">下載模型</a>挑一個,或等精選清單自動排入的下載完成(進度在<a href="models.html">模型</a>頁)。
         </div>
       </div>
+      <!-- 讀不到目錄(502):不再說成沒有工作階段(research R2) -->
+      <div data-state="chat-unavailable" data-group="chat" hidden>
+        <div class="notice notice-error">
+          <div class="notice-head">
+            <strong>現在不能送出:讀不到執行環境上的模型目錄</strong>
+            <button type="button" class="btn btn-small" id="reload">重新讀取</button>
+          </div>
+          <span class="notice-line" id="un-message"></span>
+          <span class="notice-line small muted">錯誤代碼 <span class="mono" id="un-code"></span>;上面的對話保留著,讀得到目錄之後可以接著送。</span>
+        </div>
+      </div>
+
+      <!-- 對話的保存(FR-004、NFR-002;research R3) -->
+      <p class="small muted keep-line" data-state="keep-on" data-group="keep" hidden>對話保留在這個瀏覽器裡:重新整理、切到別頁再回來、另開分頁都還在,工作階段結束就清除;不寫進本系統的資料庫與日誌。</p>
 
       <div class="chat-log" id="log" aria-live="polite"></div>
 

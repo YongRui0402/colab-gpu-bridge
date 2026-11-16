@@ -3,8 +3,11 @@ import { chat, request } from "./api.js";
 import { startHeader } from "./header.js";
 import { escape, showGroupState } from "./view.js";
 
-// 這段對話只放在這個頁面的變數裡,不寫進任何儲存,重新整理就消失(NFR-002)
+// 這段對話存在這個瀏覽器的 localStorage(`cgb.chat.v1`),重新整理後還原;不寫進本系統的資料庫與日誌(FR-004、NFR-002、research R3)
 let convo = [];
+// 最近一次 session.updated 的工作階段名稱,保存時一起記下(research R3)
+let sessionName = null;
+const KEEP_KEY = "cgb.chat.v1";
 // 正在回覆的那一則與它的連線;沒有時是 null
 let busy = null;
 
@@ -46,6 +49,26 @@ function footer(m) {
 function thinkingBlock(m) {
   if (!m.thinking) return "";
   return `<details class="thinking" ${m.content ? "" : "open"}><summary>思考過程${m.content ? "(點一下展開)" : ""}</summary><div class="thought">${escape(m.thinking)}</div></details>`;
+}
+
+// 整份對話寫進 localStorage:{session, model, messages, updatedAt}(research R3)
+function saveConvo() {
+  const messages = convo.map(({ role, content, thinking, status, message, ms, tps }) => ({ role, content, thinking, status, message, ms, tps }));
+  const model = document.getElementById("model").value;
+  localStorage.setItem(KEEP_KEY, JSON.stringify({ session: sessionName, model, messages, updatedAt: new Date().toISOString() }));
+}
+
+// 啟動時讀回保存的對話
+function restoreConvo() {
+  const kept = JSON.parse(localStorage.getItem(KEEP_KEY) ?? "null");
+  if (kept?.messages) convo = kept.messages;
+  showGroupState("keep", "keep-on");
+}
+
+// 對話改變了:先保存再畫
+function convoChanged() {
+  saveConvo();
+  renderLog();
 }
 
 function renderLog() {
@@ -94,6 +117,12 @@ async function loadModels() {
   if (response.ok) {
     renderModels(response.data);
     view = catalog.items.length ? "chat-ready" : "chat-no-models";
+  } else if (response.status === 502 || response.status === 504) {
+    // 讀不到遠端的目錄:說明用後端的 message 與 code,不說成沒有就緒的工作階段(research R2)
+    renderModels({ items: [] });
+    document.getElementById("un-message").textContent = response.data?.message ?? "";
+    document.getElementById("un-code").textContent = response.data?.code ?? "";
+    view = "chat-unavailable";
   } else {
     renderModels({ items: [] });
     view = "chat-no-session";
@@ -112,7 +141,7 @@ async function send(text) {
   convo.push(reply);
   busy = { reply, controller: new AbortController() };
   renderButtons();
-  renderLog();
+  convoChanged();
   const loaded = catalog.items.find((m) => m.name === model)?.loaded;
   if (loaded === false) {
     // 還沒載入:遠端先載入再回覆,載入的時間落在第一段之前(001 使用者故事 3 驗收情境 3)
@@ -142,7 +171,7 @@ async function send(text) {
         // 缺少 eval_count 或 eval_duration、或 eval_duration 為 0 時仍算完成,只是不顯示速度(plan.md Q8)
         reply.tps = line.eval_count && line.eval_duration ? line.eval_count / (line.eval_duration / 1e9) : null;
       }
-      renderLog();
+      convoChanged();
     }
   } catch (error) {
     // 瀏覽器與後端之間斷線、後端重新啟動或讀串流失敗:不重新拋出,保留已收到的內容並標示中斷,收尾一定執行
@@ -160,7 +189,7 @@ function finishTurn(reply) {
   if (!convo.includes(reply)) return;
   busy = null;
   renderButtons();
-  renderLog();
+  convoChanged();
   if (reply.status === "stopped" || reply.status in CUT) {
     // 說明是固定開頭加後端的 error.message(通用說法,plan.md Q61),不在前端寫死原因
     document.querySelectorAll(`[data-state="turn-${reply.status}"] [data-message]`).forEach((el) => { el.textContent = reply.message ?? ""; });
@@ -206,15 +235,24 @@ function clearChat() {
   busy = null;
   renderButtons();
   convo = [];
-  renderLog();
+  convoChanged();
   showGroupState("turn", "turn-idle");
 }
 
 document.getElementById("stop").addEventListener("click", stop);
 document.getElementById("clear").addEventListener("click", clearChat);
 document.getElementById("model").addEventListener("change", clearChat);
+// 讀不到目錄時的「重新讀取」
+document.getElementById("reload").addEventListener("click", () => loadModels());
 
 // 工作階段一變就重讀模型清單:結束、失聯之後選單跟著清空(FR-008)
-startHeader({ "session.updated": () => loadModels() });
+startHeader({
+  "session.updated": (payload) => {
+    sessionName = payload.session.name;
+    loadModels();
+  },
+});
 showGroupState("turn", "turn-idle");
+restoreConvo();
+renderLog();
 loadModels();

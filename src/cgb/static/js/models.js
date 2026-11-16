@@ -59,10 +59,27 @@ async function loadCatalog() {
     document.getElementById("catalog").innerHTML = "";
     showGroupState("catalog", "no-session");
   }
+  // 讀不到遠端的目錄(502、504):清空目錄,顯示後端的說明與代碼,不顯示成空的目錄(FR-003、research R2)
+  else if (response.status === 502 || response.status === 504) {
+    document.getElementById("catalog").innerHTML = "";
+    document.getElementById("un-message").textContent = response.data?.message ?? "";
+    document.getElementById("un-code").textContent = response.data?.code ?? "";
+    showGroupState("catalog", "unavailable");
+  }
 }
 
 async function preload(name) {
+  // 送出前先收起上一次的說明,舊的失敗說明不蓋在載入中的目錄上
+  showGroupState("preload-note", "");
   const response = await request("POST", "/models/preload", { name });
+  // 確認目錄時讀不到遠端(502、504):不受理,蓋上說明;不重讀目錄、其他模型照原狀顯示(FR-002、FR-003、research R2)
+  if (response.status === 502 || response.status === 504) {
+    document.getElementById("pu-name").textContent = name;
+    document.getElementById("pu-message").textContent = response.data?.message ?? "";
+    document.getElementById("pu-code").textContent = response.data?.code ?? "";
+    showGroupState("preload-note", "preload-unavailable");
+    return;
+  }
   if (!response.ok) return;
   // 受理後先把那一列標成載入中;完成或失敗由 `models.updated` 推送整份目錄
   show({ ...current, items: current.items.map((m) => (m.name === name ? response.data : m)) });
@@ -96,6 +113,10 @@ document.getElementById("pw-go").addEventListener("click", () => {
   preload(warnTarget);
 });
 document.getElementById("pw-cancel").addEventListener("click", closeWarn);
+// 沒有預先載入的說明的「關閉」
+document.getElementById("pu-close").addEventListener("click", () => showGroupState("preload-note", ""));
+// 讀不到目錄時的「重新讀取」:遠端恢復後不必重開工作階段(FR-003、驗收情境 5)
+document.getElementById("reload").addEventListener("click", loadCatalog);
 
 // ---------------------------------------------------------------- 下載佇列
 
