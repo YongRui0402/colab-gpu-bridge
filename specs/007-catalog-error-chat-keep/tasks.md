@@ -698,15 +698,26 @@
 - [X] T070 [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T041b~T069b、T071b 記下的重構清單(範圍限 `src/cgb/static/js/chat.js`、`src/cgb/static/chat.html`、`src/cgb/static/style.css`;例如把 `finishTurn` 與還原時填 `[data-state="turn-…"] [data-message]` 的兩處收成原型那樣的 `turn(name, message)`、把保存的讀寫移除收成一處),每改一小步執行這一節的測試檔 `tests/e2e/test_007_us2_chat_keep.py` 與 `tests/e2e/test_004_us2_chat.py`,變紅就撤回那一步;重構前後執行全部測試;不改 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 的斷言(依賴 T071b)
   - 🧪 `testplan.md` § US2-AJ-01~US2-AJ-30
   - 📎 `testplan.md` § 3.2;`research.md` § R3、R4、R5
+- [ ] T073a [US2] 🔴 /tdd 紅燈:在 `tests/e2e/test_007_us2_chat_keep.py` 寫 US2-AJ-31 的測試(照 US2-AJ-26 以 `qwen_gone_after_reload` 顯示 `chat-model-gone`,`#model` 改選 `llama3.2:3b`,`reply_with(fakes, "一二三")` 後送出「你好」等回覆完成,再等 2 秒;斷言 `[data-state="chat-model-gone"]` 隱藏、`[data-state="chat-ready"]` 可見、`#send` 可按),執行確認它因為「`clearChat()` 沒清 `keptModel`,對話不是空的之後重讀目錄又判成模型已不在」這類實作而失敗(plan Q40)
+  - 🧪 `testplan.md` § US2-AJ-31
+  - ⚙ `prototype/chat.html` § `[data-state="chat-model-gone"]`、`[data-state="chat-ready"]`、`#model`、`#send`
+  - 📎 `spec.md` § FR-007、§ 邊界情況;`research.md` § R5;`plan.md` § 待決問題 Q40
+- [ ] T073b [US2] 🟢 /tdd 綠燈:在 `src/cgb/static/js/chat.js` 只寫讓 US2-AJ-31 通過的程式碼:`dropConvo()`(清除、換模型與工作階段結束共用)清空對話時一起把 `keptModel` 設成 null,之後的模型以 `#model` 選著的為準;執行 `tests/e2e/test_007_us2_chat_keep.py`、`tests/e2e/test_004_us2_chat.py` 確認通過(依賴 T073a)
+  - 🧪 `testplan.md` § US2-AJ-31
+  - ⚙ `prototype/chat.html` § `[data-state="chat-ready"]`、`[data-state="chat-model-gone"]`、`#send`
+  - 📎 `spec.md` § FR-007、§ 邊界情況;`research.md` § R5;`plan.md` § 待決問題 Q40
+- [ ] T073c [US2] 🔵 /tdd 重構:在全部測試綠燈下整理 T073b 的改動(範圍限 `src/cgb/static/js/chat.js`;例如 `dropConvo()` 把對話相關的狀態一起歸零的寫法是否和 `restoreConvo()` 對稱),每改一小步執行 `tests/e2e/test_007_us2_chat_keep.py` 與 `tests/e2e/test_004_us2_chat.py`,變紅就撤回那一步;沒有要整理的就記下理由;重構前後執行這兩個測試檔;不改測試的斷言(依賴 T073b)
+  - 🧪 `testplan.md` § US2-AJ-31
+  - 📎 `testplan.md` § 3.2;`plan.md` § 待決問題 Q40
 
 ### 介面覆蓋(US2)
 
 | 介面元素 | 綠燈 | 紅燈 |
 |---|---|---|
 | `ui.openapi.yaml` § `paths./events.get` | T031b、T032b、T033b、T034b、T035b、T036b、T037b、T038b、T039b、T049b、T050b、T051b、T052b、T053b、T054b、T055b、T056b、T057b、T064b、T065b | T031a、T032a、T033a、T034a、T035a、T036a、T037a、T038a、T039a、T049a、T050a、T051a、T052a、T053a、T054a、T055a、T056a、T057a、T064a、T065a |
-| `chat.html` § `[data-state="chat-ready"]` | T041b、T055b、T056b、T067b | T041a、T055a、T056a、T067a |
-| `chat.html` § `#model` | T041b、T059b、T066b、T067b | T041a、T059a、T066a、T067a |
-| `chat.html` § `#send` | T044b、T047b、T066b、T067b、T068b | T041a、T044a、T047a、T061a、T062a、T066a、T067a、T068a、T071a |
+| `chat.html` § `[data-state="chat-ready"]` | T041b、T055b、T056b、T067b、T073b | T041a、T055a、T056a、T067a、T073a |
+| `chat.html` § `#model` | T041b、T059b、T066b、T067b | T041a、T059a、T066a、T067a、T073a |
+| `chat.html` § `#send` | T044b、T047b、T066b、T067b、T068b、T073b | T041a、T044a、T047a、T061a、T062a、T066a、T067a、T068a、T071a、T073a |
 | `chat.html` § `#log` | T041b、T042b、T043b、T056b、T060b、T061b、T064b、T065b | T041a、T042a、T043a、T044a、T045a、T047a、T049a、T050a、T051a、T052a、T053a、T054a、T055a、T056a、T057a、T058a、T059a、T060a、T061a、T062a、T063a、T064a、T065a、T066a、T067a |
 | `chat.html` § `[data-state="turn-streaming"]` | T045b、T046b | T045a、T046a |
 | `chat.html` § `[data-state="turn-interrupted"]` | T045b、T046b、T069b | T045a、T046a、T069a |
@@ -721,7 +732,7 @@
 | `chat.html` § `[data-state="chat-no-session"]` | T057b | T057a |
 | `chat.html` § `#clear` | T058b | T058a |
 | `chat.html` § `[data-state="keep-no-store"]` | T062b、T063b、T069b | T062a、T063a、T069a |
-| `chat.html` § `[data-state="chat-model-gone"]` | T066b、T067b、T069b | T066a、T067a、T069a |
+| `chat.html` § `[data-state="chat-model-gone"]` | T066b、T067b、T069b、T073b | T066a、T067a、T069a、T073a |
 | `chat.html` § `#gone-name` | T066b | T066a |
 | `chat.html` § `[data-state="turn-idle"]` | T071b | T071a |
 | `chat.html` § `[data-state="turn-loading"]` | T071b | T071a |
@@ -771,6 +782,7 @@
 | US2-AJ-28 | T068a | T068b | T070 |
 | US2-AJ-29 | T069a | T069b | T070 |
 | US2-AJ-30 | T071a | T071b | T070 |
+| US2-AJ-31 | T073a | T073b | T073c |
 
 **Checkpoint**: `uv run pytest -q -p no:cacheprovider`,再加 `uv run pytest -m realrun_local -q -p no:cacheprovider` 全綠;重構任務前後的測試結果相同
 
