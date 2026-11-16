@@ -4,9 +4,9 @@
 
 ## 判定
 
-**最新一輪:第 1 輪(2026-11-16)— ✅ 可以進 `/implement`**
+**最新一輪:第 2 輪(2026-11-16)— ✅ 可以進 `/implement`**
 
-沒有 CRITICAL 或 HIGH;剩 2 個 LOW(A1、A2),照哪一份做出來的行為都一樣,不擋實作,建議實作前順手修掉。
+第 1 輪的 A1、A2(都是 LOW)已修正;這一輪沒有新問題,沒有未解決的 CRITICAL 或 HIGH。
 
 ## 檢查範圍
 
@@ -47,3 +47,28 @@
 2. `/system-analysis` 把 NFR-002、SC-004 補進 plan.md 端點盤點 E2 的需求出處(A2)
 3. `/tasks` 把 T054b 的涵蓋說明改成和第 1 步一致(A1),重跑 `check_tasks.py`
 4. 重跑 `/analyze`
+
+---
+
+## 第 2 輪(2026-11-16)
+
+### 前置檢查
+
+| 腳本 | 結果 |
+|---|---|
+| `specify/scripts/check_spec.py` | ✅ 通過 |
+| `system-analysis/scripts/check_plan.py` | ✅ 通過(帶 `--previous-plan ../006-agent-client-connect/plan.md`) |
+| `testplan/scripts/check_testplan.py` | ✅ 通過 |
+| `tasks/scripts/check_tasks.py` | ✅ 通過(任務數仍是 139,0 個不符) |
+
+### 上一輪的問題
+
+| ID | 狀態 | 依據 |
+|---|---|---|
+| A1 | ✅ 已修正 | `spec.md` § 假設(修訂 004 FR-008 那一條)與 `tasks.md` § T054b 改寫:變更類型的清除由 US2-AJ-13 驗(沒有回覆在途中),回覆途中使用者結束由 US2-AJ-14 驗,回覆途中變更類型沒有專門案例、走同一段清除;和 `testplan.md` § US2-AJ-13、US2-AJ-14 的假如一致 |
+| A2 | ✅ 已修正 | `plan.md` § 端點盤點 E2 的需求出處補上 NFR-002、SC-004,和 `testplan.md` § US2-API-09、`contracts/ui.openapi.yaml` § `info.description` 一致 |
+
+### 修正順序
+
+1. 沒有要回修的產出物;下一步進 `/implement`
+2. 重跑 `/analyze`(只在實作前又改了 spec package 時)
