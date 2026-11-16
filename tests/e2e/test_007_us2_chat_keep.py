@@ -127,6 +127,21 @@ def test_切到模型頁再回來_對話依原順序還原(page: Page, e2e_serve
     expect_two_rounds(page)
 
 
+def test_從上一頁的快取恢復後_再完成一輪_重新整理兩輪都還在(page: Page, e2e_servers: Any, world: ColabWorld, fakes: Any) -> None:
+    # Arrange:完成一輪,頁面被放進快取(pagehide persisted)又恢復(pageshow persisted);JS 狀態原封不動
+    open_chat(page, world, QWEN, LLAMA)
+    finish_round(page, fakes, "你好", "一二三")
+    page.evaluate("() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }))")
+    page.evaluate("() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))")
+
+    # Act
+    finish_round(page, fakes, "再說一次", "四五六")
+    page.reload()
+
+    # Assert
+    expect_two_rounds(page)
+
+
 # ---------------------------------------------------------------- US2-AJ-03
 
 
@@ -649,6 +664,43 @@ def test_瀏覽器空間不足無法保存時_提示離開會消失且對話照�
     expect(replies(page).last.locator(".content")).to_have_text("一二三")
     expect(replies(page).last.locator(".msg-foot")).to_contain_text("tokens/s")
     assert errors == []
+
+
+SAVED_THEN_QUOTA = """
+const realSetItem = Storage.prototype.setItem;
+Storage.prototype.setItem = function (...args) {
+  if (window.__quota) throw new DOMException("quota exceeded", "QuotaExceededError");
+  return realSetItem.apply(this, args);
+};
+"""
+
+
+@pytest.mark.parametrize("way", ["clear", "switch_model"])
+def test_已有保存後才空間不足_清除或換模型仍刪掉保存_恢復寫入後重新載入不復活(
+    page: Page, context: BrowserContext, e2e_servers: Any, world: ColabWorld, fakes: Any, way: str
+) -> None:
+    # Arrange:先成功保存一輪,之後 setItem 丟 QuotaExceededError、removeItem 照常;再對話一輪觸發寫入失敗
+    context.add_init_script(SAVED_THEN_QUOTA)
+    open_chat(page, world, QWEN, LLAMA)
+    page.select_option("#model", QWEN)
+    finish_round(page, fakes, "你好", "一二三")
+    assert saved(page) is not None
+    page.evaluate("() => { window.__quota = true; }")
+    finish_round(page, fakes, "再說一次", "四五六")
+    expect(page.locator("main")).to_contain_text(NO_STORE)
+
+    # Act
+    if way == "clear":
+        page.click("#clear")
+    else:
+        page.select_option("#model", LLAMA)
+    kept_after = saved(page)
+    page.reload()  # 重新載入後 window.__quota 不在了,等於恢復寫入能力
+    expect(page.locator('[data-state="chat-ready"]')).to_be_visible()
+
+    # Assert
+    assert kept_after is None
+    expect(page.locator("#log .msg")).to_have_count(0)
 
 
 # ---------------------------------------------------------------- US2-AJ-23

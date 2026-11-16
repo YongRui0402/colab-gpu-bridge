@@ -87,7 +87,14 @@ function withStorage(op) {
 }
 
 const readKept = () => JSON.parse(withStorage((storage) => storage.getItem(KEEP_KEY)) ?? "null");
-const dropKept = () => withStorage((storage) => storage.removeItem(KEEP_KEY));
+// 刪除不受 canStore 限制:寫入空間不足不代表刪不掉既有的保存,不然清除後舊對話會在下次開頁復活(FR-007);丟例外就算了
+function dropKept() {
+  try {
+    window.localStorage.removeItem(KEEP_KEY);
+  } catch {
+    // 連刪除都不行就維持不能保存的說明,不往外拋
+  }
+}
 
 // 啟動時先試寫一次,寫不進去就一開始說明不能保存(research R3)
 function probeStore() {
@@ -345,6 +352,8 @@ function clearChat() {
 
 document.getElementById("stop").addEventListener("click", stop);
 window.addEventListener("pagehide", () => { unloading = true; });
+// 從上一頁的快取(bfcache)恢復時 JS 狀態原封不動,要解除卸載狀態才會繼續保存(FR-004);工作階段若在快取期間變了,後續的快照會走 sessionUpdated 清掉
+window.addEventListener("pageshow", (event) => { if (event.persisted) unloading = false; });
 document.getElementById("clear").addEventListener("click", clearChat);
 document.getElementById("model").addEventListener("change", clearChat);
 // 讀不到目錄時的「重新讀取」
